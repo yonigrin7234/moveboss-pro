@@ -1,0 +1,690 @@
+import { z } from 'zod';
+import { createClient } from '@/lib/supabase-server';
+
+// Enums
+export const loadStatusSchema = z.enum(['pending', 'assigned', 'in_transit', 'delivered', 'canceled']);
+export const serviceTypeSchema = z.enum([
+  'hhg_local',
+  'hhg_long_distance',
+  'commercial',
+  'storage_in',
+  'storage_out',
+  'freight',
+  'other',
+]);
+
+export const loadTypeSchema = z.enum(['company_load', 'live_load']);
+
+// Helper schemas
+const optionalDateSchema = z
+  .string()
+  .optional()
+  .refine((val) => !val || !Number.isNaN(Date.parse(val)), { message: 'Invalid date' });
+
+const optionalTrimmedString = (max = 200) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : undefined));
+
+// Schemas
+export const newLoadInputSchema = z
+  .object({
+    load_type: loadTypeSchema,
+    load_number: optionalTrimmedString(100),
+    reference_number: optionalTrimmedString(100),
+    service_type: serviceTypeSchema,
+    company_id: z.string().uuid('Company is required'),
+    assigned_driver_id: z.string().uuid().optional(),
+    assigned_truck_id: z.string().uuid().optional(),
+    assigned_trailer_id: z.string().uuid().optional(),
+
+    pickup_date: optionalDateSchema,
+    pickup_window_start: z.string().optional().refine((val) => !val || !Number.isNaN(Date.parse(val)), {
+      message: 'Invalid datetime',
+    }),
+    pickup_window_end: z.string().optional().refine((val) => !val || !Number.isNaN(Date.parse(val)), {
+      message: 'Invalid datetime',
+    }),
+    pickup_address_line1: optionalTrimmedString(200),
+    pickup_address_line2: optionalTrimmedString(200),
+    pickup_city: optionalTrimmedString(100),
+    pickup_state: optionalTrimmedString(50),
+    pickup_postal_code: optionalTrimmedString(20),
+    pickup_country: z.string().trim().max(50).optional().default('US'),
+    pickup_contact_name: optionalTrimmedString(200),
+    pickup_contact_phone: optionalTrimmedString(50),
+
+    dropoff_postal_code: z.string().trim().min(3, 'Dropoff ZIP is required').max(20),
+    dropoff_city: z.string().trim().min(1, 'Dropoff city is required').max(100),
+    dropoff_state: z.string().trim().min(2, 'Dropoff state is required').max(50),
+    dropoff_address_line1: optionalTrimmedString(200),
+    dropoff_address_line2: optionalTrimmedString(200),
+
+    loading_contact_name: optionalTrimmedString(200),
+    loading_contact_phone: optionalTrimmedString(50),
+    loading_contact_email: optionalTrimmedString(200),
+    loading_address_line1: optionalTrimmedString(200),
+    loading_address_line2: optionalTrimmedString(200),
+    loading_city: optionalTrimmedString(100),
+    loading_state: optionalTrimmedString(50),
+    loading_postal_code: optionalTrimmedString(20),
+
+    delivery_date: optionalDateSchema,
+    delivery_window_start: z.string().optional().refine((val) => !val || !Number.isNaN(Date.parse(val)), {
+      message: 'Invalid datetime',
+    }),
+    delivery_window_end: z.string().optional().refine((val) => !val || !Number.isNaN(Date.parse(val)), {
+      message: 'Invalid datetime',
+    }),
+    delivery_address_line1: optionalTrimmedString(200),
+    delivery_address_line2: optionalTrimmedString(200),
+    delivery_city: optionalTrimmedString(100),
+    delivery_state: optionalTrimmedString(50),
+    delivery_postal_code: optionalTrimmedString(20),
+    delivery_country: z.string().trim().max(50).optional().default('US'),
+
+    cubic_feet: z.coerce.number().positive('Cubic feet is required'),
+    rate_per_cuft: z.coerce.number().positive('Rate per cubic foot is required'),
+    cubic_feet_estimate: z.coerce.number().int().min(0).optional(),
+    weight_lbs_estimate: z.coerce.number().int().min(0).optional(),
+    pieces_count: z.coerce.number().int().min(0).optional(),
+    description: optionalTrimmedString(5000),
+
+    packing_rate: z.coerce.number().nonnegative().optional(),
+    materials_rate: z.coerce.number().nonnegative().optional(),
+    accessorials_rate: z.coerce.number().nonnegative().optional(),
+    status: loadStatusSchema.optional().default('pending'),
+    notes: optionalTrimmedString(5000),
+  })
+  .superRefine((data, ctx) => {
+    if (data.load_type === 'live_load') {
+      const liveRequired: Array<[keyof typeof data, string]> = [
+        ['pickup_postal_code', 'Pickup ZIP is required'],
+        ['pickup_city', 'Pickup city is required'],
+        ['pickup_state', 'Pickup state is required'],
+        ['pickup_address_line1', 'Pickup address is required'],
+        ['pickup_contact_name', 'Pickup contact name is required'],
+        ['pickup_contact_phone', 'Pickup contact phone is required'],
+      ];
+      liveRequired.forEach(([field, message]) => {
+        if (!data[field]) {
+          ctx.addIssue({ code: 'custom', message, path: [field] });
+        }
+      });
+    } else {
+      const loadingRequired: Array<[keyof typeof data, string]> = [
+        ['loading_contact_name', 'Loading contact name is required'],
+        ['loading_contact_phone', 'Loading contact phone is required'],
+        ['loading_address_line1', 'Loading address is required'],
+        ['loading_city', 'Loading city is required'],
+        ['loading_state', 'Loading state is required'],
+        ['loading_postal_code', 'Loading postal code is required'],
+      ];
+      loadingRequired.forEach(([field, message]) => {
+        if (!data[field]) {
+          ctx.addIssue({ code: 'custom', message, path: [field] });
+        }
+      });
+    }
+  });
+
+export const updateLoadInputSchema = newLoadInputSchema.partial();
+
+// TypeScript types
+export type LoadStatus = z.infer<typeof loadStatusSchema>;
+export type ServiceType = z.infer<typeof serviceTypeSchema>;
+export type LoadType = z.infer<typeof loadTypeSchema>;
+export type NewLoadInput = z.infer<typeof newLoadInputSchema>;
+export type UpdateLoadInput = z.infer<typeof updateLoadInputSchema>;
+
+export interface Load {
+  id: string;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+
+  // Core load identity
+  load_type: z.infer<typeof loadTypeSchema>;
+  job_number: string;
+  load_number: string | null;
+  reference_number: string | null;
+  service_type: ServiceType;
+
+  // Partner company
+  company_id: string;
+
+  // Assignment (optional)
+  assigned_driver_id: string | null;
+  assigned_truck_id: string | null;
+  assigned_trailer_id: string | null;
+
+  // Pickup details
+  pickup_date: string | null;
+  pickup_window_start: string | null;
+  pickup_window_end: string | null;
+  pickup_address_line1: string | null;
+  pickup_address_line2: string | null;
+  pickup_city: string | null;
+  pickup_state: string | null;
+  pickup_postal_code: string | null;
+  pickup_country: string;
+  pickup_contact_name: string | null;
+  pickup_contact_phone: string | null;
+
+  // Delivery details
+  delivery_date: string | null;
+  delivery_window_start: string | null;
+  delivery_window_end: string | null;
+  delivery_address_line1: string | null;
+  delivery_address_line2: string | null;
+  delivery_city: string | null;
+  delivery_state: string | null;
+  delivery_postal_code: string | null;
+  delivery_country: string;
+  dropoff_postal_code: string | null;
+  dropoff_city: string | null;
+  dropoff_state: string | null;
+  dropoff_address_line1: string | null;
+  dropoff_address_line2: string | null;
+
+  // Loading snapshot
+  loading_contact_name: string | null;
+  loading_contact_phone: string | null;
+  loading_contact_email: string | null;
+  loading_address_line1: string | null;
+  loading_address_line2: string | null;
+  loading_city: string | null;
+  loading_state: string | null;
+  loading_postal_code: string | null;
+
+  // Load specifics
+  cubic_feet: number | null;
+  rate_per_cuft: number | null;
+  linehaul_amount: number | null;
+  cubic_feet_estimate: number | null;
+  weight_lbs_estimate: number | null;
+  pieces_count: number | null;
+  description: string | null;
+
+  // Revenue
+  linehaul_rate: number | null;
+  packing_rate: number | null;
+  materials_rate: number | null;
+  accessorials_rate: number | null;
+  total_rate: number | null;
+
+  // Status
+  status: LoadStatus;
+
+  // Notes
+  notes: string | null;
+
+  // Joined data (optional, populated when fetched with joins)
+  company?: { id: string; name: string } | null;
+  assigned_driver?: { id: string; first_name: string; last_name: string } | null;
+  assigned_truck?: { id: string; unit_number: string } | null;
+  assigned_trailer?: { id: string; unit_number: string } | null;
+}
+
+// Filter interface
+export interface LoadFilters {
+  search?: string;
+  status?: LoadStatus | 'all';
+  companyId?: string;
+}
+
+// Helper function to normalize date values
+function nullable<T>(value: T | undefined): T | null {
+  return value === undefined ? null : (value as T);
+}
+
+function normalizeDate(value?: string): string | null {
+  if (!value) return null;
+  return new Date(value).toISOString().split('T')[0];
+}
+
+function normalizeDateTime(value?: string): string | null {
+  if (!value) return null;
+  return new Date(value).toISOString();
+}
+
+// Data access functions
+export async function getLoadsForUser(
+  userId: string,
+  filters?: LoadFilters
+): Promise<Load[]> {
+  const supabase = await createClient();
+  let query = supabase
+    .from('loads')
+    .select(
+      `
+      *,
+      company:companies!loads_company_id_fkey(id, name),
+      assigned_driver:drivers!loads_assigned_driver_id_fkey(id, first_name, last_name),
+      assigned_truck:trucks!loads_assigned_truck_id_fkey(id, unit_number),
+      assigned_trailer:trailers!loads_assigned_trailer_id_fkey(id, unit_number)
+    `
+    )
+    .eq('owner_id', userId);
+
+  // Apply filters
+  if (filters?.search) {
+    const searchTerm = `%${filters.search}%`;
+    // Note: Can't search joined relations directly, so we search on load_number and reference_number only
+    query = query.or(
+      `load_number.ilike.${searchTerm},reference_number.ilike.${searchTerm}`
+    );
+  }
+
+  if (filters?.status && filters.status !== 'all') {
+    query = query.eq('status', filters.status);
+  }
+
+  if (filters?.companyId) {
+    query = query.eq('company_id', filters.companyId);
+  }
+
+  query = query.order('created_at', { ascending: false });
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(`Failed to fetch loads: ${error.message}`);
+  }
+
+  return (data || []) as Load[];
+}
+
+export async function getLoadStatsForUser(userId: string): Promise<{
+  totalLoads: number;
+  pending: number;
+  inTransit: number;
+  delivered: number;
+}> {
+  const supabase = await createClient();
+
+  const [totalResult, pendingResult, inTransitResult, deliveredResult] = await Promise.all([
+    supabase.from('loads').select('id', { count: 'exact', head: true }).eq('owner_id', userId),
+    supabase
+      .from('loads')
+      .select('id', { count: 'exact', head: true })
+      .eq('owner_id', userId)
+      .eq('status', 'pending'),
+    supabase
+      .from('loads')
+      .select('id', { count: 'exact', head: true })
+      .eq('owner_id', userId)
+      .eq('status', 'in_transit'),
+    supabase
+      .from('loads')
+      .select('id', { count: 'exact', head: true })
+      .eq('owner_id', userId)
+      .eq('status', 'delivered'),
+  ]);
+
+  if (totalResult.error) {
+    throw new Error(`Failed to count loads: ${totalResult.error.message}`);
+  }
+  if (pendingResult.error) {
+    throw new Error(`Failed to count pending loads: ${pendingResult.error.message}`);
+  }
+  if (inTransitResult.error) {
+    throw new Error(`Failed to count in-transit loads: ${inTransitResult.error.message}`);
+  }
+  if (deliveredResult.error) {
+    throw new Error(`Failed to count delivered loads: ${deliveredResult.error.message}`);
+  }
+
+  return {
+    totalLoads: totalResult.count || 0,
+    pending: pendingResult.count || 0,
+    inTransit: inTransitResult.count || 0,
+    delivered: deliveredResult.count || 0,
+  };
+}
+
+export async function getLoadById(id: string, userId: string): Promise<Load | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('loads')
+    .select(
+      `
+      *,
+      company:companies!loads_company_id_fkey(id, name),
+      assigned_driver:drivers!loads_assigned_driver_id_fkey(id, first_name, last_name),
+      assigned_truck:trucks!loads_assigned_truck_id_fkey(id, unit_number),
+      assigned_trailer:trailers!loads_assigned_trailer_id_fkey(id, unit_number)
+    `
+    )
+    .eq('id', id)
+    .eq('owner_id', userId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null;
+    }
+    throw new Error(`Failed to fetch load: ${error.message}`);
+  }
+
+  return data as Load;
+}
+
+export async function createLoad(input: NewLoadInput, userId: string): Promise<Load> {
+  const supabase = await createClient();
+
+  // Verify company ownership
+  const { error: companyError } = await supabase
+    .from('companies')
+    .select('id')
+    .eq('id', input.company_id)
+    .eq('owner_id', userId)
+    .eq('is_workspace_company', false)
+    .single();
+
+  if (companyError) {
+    if (companyError.code === 'PGRST116') {
+      throw new Error('Company not found or you do not have access to it');
+    }
+    throw new Error(`Failed to verify company: ${companyError.message}`);
+  }
+
+  // Verify optional assignments
+  if (input.assigned_driver_id) {
+    const { error: driverError } = await supabase
+      .from('drivers')
+      .select('id')
+      .eq('id', input.assigned_driver_id)
+      .eq('owner_id', userId)
+      .single();
+    if (driverError) {
+      throw new Error('Driver not found or you do not have access to it');
+    }
+  }
+
+  if (input.assigned_truck_id) {
+    const { error: truckError } = await supabase
+      .from('trucks')
+      .select('id')
+      .eq('id', input.assigned_truck_id)
+      .eq('owner_id', userId)
+      .single();
+    if (truckError) {
+      throw new Error('Truck not found or you do not have access to it');
+    }
+  }
+
+  if (input.assigned_trailer_id) {
+    const { error: trailerError } = await supabase
+      .from('trailers')
+      .select('id')
+      .eq('id', input.assigned_trailer_id)
+      .eq('owner_id', userId)
+      .single();
+    if (trailerError) {
+      throw new Error('Trailer not found or you do not have access to it');
+    }
+  }
+
+  const isCompanyLoad = input.load_type === 'company_load';
+  const cubicFeet = Number(input.cubic_feet);
+  const ratePerCuft = Number(input.rate_per_cuft);
+  const linehaulAmount = Number((cubicFeet * ratePerCuft).toFixed(2));
+  const accessorials = Number(input.accessorials_rate ?? 0);
+  const packing = Number(input.packing_rate ?? 0);
+  const materials = Number(input.materials_rate ?? 0);
+
+  const payload = {
+    owner_id: userId,
+    load_type: input.load_type,
+    load_number: nullable(input.load_number),
+    reference_number: nullable(input.reference_number),
+    service_type: input.service_type,
+    company_id: input.company_id,
+    assigned_driver_id: nullable(input.assigned_driver_id),
+    assigned_truck_id: nullable(input.assigned_truck_id),
+    assigned_trailer_id: nullable(input.assigned_trailer_id),
+    pickup_date: normalizeDate(input.pickup_date),
+    pickup_window_start: normalizeDateTime(input.pickup_window_start),
+    pickup_window_end: normalizeDateTime(input.pickup_window_end),
+    pickup_address_line1: isCompanyLoad ? null : nullable(input.pickup_address_line1),
+    pickup_address_line2: isCompanyLoad ? null : nullable(input.pickup_address_line2),
+    pickup_city: isCompanyLoad ? null : nullable(input.pickup_city),
+    pickup_state: isCompanyLoad ? null : nullable(input.pickup_state),
+    pickup_postal_code: isCompanyLoad ? null : nullable(input.pickup_postal_code),
+    pickup_country: input.pickup_country || 'US',
+    pickup_contact_name: isCompanyLoad ? null : nullable(input.pickup_contact_name),
+    pickup_contact_phone: isCompanyLoad ? null : nullable(input.pickup_contact_phone),
+    delivery_date: normalizeDate(input.delivery_date),
+    delivery_window_start: normalizeDateTime(input.delivery_window_start),
+    delivery_window_end: normalizeDateTime(input.delivery_window_end),
+    delivery_address_line1: nullable(input.dropoff_address_line1),
+    delivery_address_line2: nullable(input.dropoff_address_line2),
+    delivery_city: input.dropoff_city,
+    delivery_state: input.dropoff_state,
+    delivery_postal_code: input.dropoff_postal_code,
+    delivery_country: input.delivery_country || 'US',
+    dropoff_postal_code: input.dropoff_postal_code,
+    dropoff_city: input.dropoff_city,
+    dropoff_state: input.dropoff_state,
+    dropoff_address_line1: nullable(input.dropoff_address_line1),
+    dropoff_address_line2: nullable(input.dropoff_address_line2),
+    loading_contact_name: isCompanyLoad ? nullable(input.loading_contact_name) : null,
+    loading_contact_phone: isCompanyLoad ? nullable(input.loading_contact_phone) : null,
+    loading_contact_email: isCompanyLoad ? nullable(input.loading_contact_email) : null,
+    loading_address_line1: isCompanyLoad ? nullable(input.loading_address_line1) : null,
+    loading_address_line2: isCompanyLoad ? nullable(input.loading_address_line2) : null,
+    loading_city: isCompanyLoad ? nullable(input.loading_city) : null,
+    loading_state: isCompanyLoad ? nullable(input.loading_state) : null,
+    loading_postal_code: isCompanyLoad ? nullable(input.loading_postal_code) : null,
+    cubic_feet_estimate: nullable(input.cubic_feet_estimate),
+    weight_lbs_estimate: nullable(input.weight_lbs_estimate),
+    pieces_count: nullable(input.pieces_count),
+    description: nullable(input.description),
+    cubic_feet: cubicFeet,
+    rate_per_cuft: ratePerCuft,
+    linehaul_amount: linehaulAmount,
+    linehaul_rate: linehaulAmount,
+    packing_rate: packing || null,
+    materials_rate: materials || null,
+    accessorials_rate: accessorials || null,
+    total_rate: linehaulAmount + packing + materials + accessorials,
+    status: input.status ?? 'pending',
+    notes: nullable(input.notes),
+  };
+
+  const { data, error } = await supabase
+    .from('loads')
+    .insert(payload)
+    .select(
+      `
+      *,
+      company:companies!loads_company_id_fkey(id, name),
+      assigned_driver:drivers!loads_assigned_driver_id_fkey(id, first_name, last_name),
+      assigned_truck:trucks!loads_assigned_truck_id_fkey(id, unit_number),
+      assigned_trailer:trailers!loads_assigned_trailer_id_fkey(id, unit_number)
+    `
+    )
+    .single();
+
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('Load number must be unique for your account');
+    }
+    throw new Error(`Failed to create load: ${error.message}`);
+  }
+
+  return data as Load;
+}
+
+export async function updateLoad(
+  id: string,
+  input: UpdateLoadInput,
+  userId: string
+): Promise<Load> {
+  const supabase = await createClient();
+
+  // Verify load ownership
+  const { error: loadError } = await supabase
+    .from('loads')
+    .select('id')
+    .eq('id', id)
+    .eq('owner_id', userId)
+    .single();
+
+  if (loadError) {
+    if (loadError.code === 'PGRST116') {
+      throw new Error('Load not found or you do not have permission to update it');
+    }
+    throw new Error(`Failed to verify load: ${loadError.message}`);
+  }
+
+  // Verify company ownership if updating
+  if (input.company_id) {
+    const { error: companyError } = await supabase
+      .from('companies')
+      .select('id')
+      .eq('id', input.company_id)
+      .eq('owner_id', userId)
+      .single();
+    if (companyError) {
+      throw new Error('Company not found or you do not have access to it');
+    }
+  }
+
+  // Verify optional assignments if updating
+  if (input.assigned_driver_id !== undefined) {
+    if (input.assigned_driver_id) {
+      const { error: driverError } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('id', input.assigned_driver_id)
+        .eq('owner_id', userId)
+        .single();
+      if (driverError) {
+        throw new Error('Driver not found or you do not have access to it');
+      }
+    }
+  }
+
+  if (input.assigned_truck_id !== undefined) {
+    if (input.assigned_truck_id) {
+      const { error: truckError } = await supabase
+        .from('trucks')
+        .select('id')
+        .eq('id', input.assigned_truck_id)
+        .eq('owner_id', userId)
+        .single();
+      if (truckError) {
+        throw new Error('Truck not found or you do not have access to it');
+      }
+    }
+  }
+
+  if (input.assigned_trailer_id !== undefined) {
+    if (input.assigned_trailer_id) {
+      const { error: trailerError } = await supabase
+        .from('trailers')
+        .select('id')
+        .eq('id', input.assigned_trailer_id)
+        .eq('owner_id', userId)
+        .single();
+      if (trailerError) {
+        throw new Error('Trailer not found or you do not have access to it');
+      }
+    }
+  }
+
+  const payload: Record<string, string | number | boolean | null> = {};
+
+  if (input.load_number !== undefined) payload.load_number = input.load_number;
+  if (input.reference_number !== undefined) payload.reference_number = nullable(input.reference_number);
+  if (input.service_type !== undefined) payload.service_type = input.service_type;
+  if (input.company_id !== undefined) payload.company_id = input.company_id;
+  if (input.assigned_driver_id !== undefined) payload.assigned_driver_id = nullable(input.assigned_driver_id);
+  if (input.assigned_truck_id !== undefined) payload.assigned_truck_id = nullable(input.assigned_truck_id);
+  if (input.assigned_trailer_id !== undefined)
+    payload.assigned_trailer_id = nullable(input.assigned_trailer_id);
+  if (input.pickup_date !== undefined) payload.pickup_date = normalizeDate(input.pickup_date);
+  if (input.pickup_window_start !== undefined)
+    payload.pickup_window_start = normalizeDateTime(input.pickup_window_start);
+  if (input.pickup_window_end !== undefined)
+    payload.pickup_window_end = normalizeDateTime(input.pickup_window_end);
+  if (input.pickup_address_line1 !== undefined)
+    payload.pickup_address_line1 = nullable(input.pickup_address_line1);
+  if (input.pickup_address_line2 !== undefined)
+    payload.pickup_address_line2 = nullable(input.pickup_address_line2);
+  if (input.pickup_city !== undefined) payload.pickup_city = nullable(input.pickup_city);
+  if (input.pickup_state !== undefined) payload.pickup_state = nullable(input.pickup_state);
+  if (input.pickup_postal_code !== undefined)
+    payload.pickup_postal_code = nullable(input.pickup_postal_code);
+  if (input.pickup_country !== undefined) payload.pickup_country = input.pickup_country || 'US';
+  if (input.delivery_date !== undefined) payload.delivery_date = normalizeDate(input.delivery_date);
+  if (input.delivery_window_start !== undefined)
+    payload.delivery_window_start = normalizeDateTime(input.delivery_window_start);
+  if (input.delivery_window_end !== undefined)
+    payload.delivery_window_end = normalizeDateTime(input.delivery_window_end);
+  if (input.delivery_address_line1 !== undefined)
+    payload.delivery_address_line1 = nullable(input.delivery_address_line1);
+  if (input.delivery_address_line2 !== undefined)
+    payload.delivery_address_line2 = nullable(input.delivery_address_line2);
+  if (input.delivery_city !== undefined) payload.delivery_city = nullable(input.delivery_city);
+  if (input.delivery_state !== undefined) payload.delivery_state = nullable(input.delivery_state);
+  if (input.delivery_postal_code !== undefined)
+    payload.delivery_postal_code = nullable(input.delivery_postal_code);
+  if (input.delivery_country !== undefined) payload.delivery_country = input.delivery_country || 'US';
+  if (input.cubic_feet_estimate !== undefined)
+    payload.cubic_feet_estimate = nullable(input.cubic_feet_estimate);
+  if (input.weight_lbs_estimate !== undefined)
+    payload.weight_lbs_estimate = nullable(input.weight_lbs_estimate);
+  if (input.pieces_count !== undefined) payload.pieces_count = nullable(input.pieces_count);
+  if (input.description !== undefined) payload.description = nullable(input.description);
+  if (input.linehaul_rate !== undefined) payload.linehaul_rate = nullable(input.linehaul_rate);
+  if (input.packing_rate !== undefined) payload.packing_rate = nullable(input.packing_rate);
+  if (input.materials_rate !== undefined) payload.materials_rate = nullable(input.materials_rate);
+  if (input.accessorials_rate !== undefined)
+    payload.accessorials_rate = nullable(input.accessorials_rate);
+  if (input.total_rate !== undefined) payload.total_rate = nullable(input.total_rate);
+  if (input.status !== undefined) payload.status = input.status;
+  if (input.notes !== undefined) payload.notes = nullable(input.notes);
+
+  const { data, error } = await supabase
+    .from('loads')
+    .update(payload)
+    .eq('id', id)
+    .eq('owner_id', userId)
+    .select(
+      `
+      *,
+      company:companies!loads_company_id_fkey(id, name),
+      assigned_driver:drivers!loads_assigned_driver_id_fkey(id, first_name, last_name),
+      assigned_truck:trucks!loads_assigned_truck_id_fkey(id, unit_number),
+      assigned_trailer:trailers!loads_assigned_trailer_id_fkey(id, unit_number)
+    `
+    )
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      throw new Error('Load not found or you do not have permission to update it');
+    }
+    if (error.code === '23505') {
+      throw new Error('Load number must be unique for your account');
+    }
+    throw new Error(`Failed to update load: ${error.message}`);
+  }
+
+  return data as Load;
+}
+
+export async function deleteLoad(id: string, userId: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from('loads').delete().eq('id', id).eq('owner_id', userId);
+
+  if (error) {
+    throw new Error(`Failed to delete load: ${error.message}`);
+  }
+}

@@ -1,0 +1,747 @@
+import { z } from 'zod';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase-server';
+import type { Load } from '@/data/loads';
+
+export const tripStatusSchema = z.enum(['planned', 'en_route', 'completed', 'cancelled']);
+export const tripExpenseCategorySchema = z.enum([
+  'fuel',
+  'tolls',
+  'driver_pay',
+  'lumper',
+  'parking',
+  'maintenance',
+  'other',
+]);
+export const tripLoadRoleSchema = z.enum(['primary', 'backhaul', 'partial']);
+
+const optionalDateSchema = z
+  .string()
+  .optional()
+  .refine((val) => !val || !Number.isNaN(Date.parse(val)), { message: 'Invalid date' });
+
+const optionalTrimmedString = (max = 200) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : undefined));
+
+export const newTripInputSchema = z.object({
+  trip_number: z.string().trim().min(1, 'Trip number is required').max(100),
+  status: tripStatusSchema.optional().default('planned'),
+  driver_id: z.string().uuid().optional(),
+  truck_id: z.string().uuid().optional(),
+  trailer_id: z.string().uuid().optional(),
+  origin_city: optionalTrimmedString(100),
+  origin_state: optionalTrimmedString(50),
+  origin_postal_code: optionalTrimmedString(20),
+  destination_city: optionalTrimmedString(100),
+  destination_state: optionalTrimmedString(50),
+  destination_postal_code: optionalTrimmedString(20),
+  start_date: optionalDateSchema,
+  end_date: optionalDateSchema,
+  total_miles: z.coerce.number().nonnegative().optional(),
+  notes: optionalTrimmedString(5000),
+});
+
+export const updateTripInputSchema = newTripInputSchema.partial();
+
+export const addTripLoadInputSchema = z.object({
+  load_id: z.string().uuid(),
+  sequence_index: z.coerce.number().int().min(0).optional().default(0),
+  role: tripLoadRoleSchema.optional().default('primary'),
+});
+
+export const newTripExpenseInputSchema = z.object({
+  trip_id: z.string().uuid(),
+  category: tripExpenseCategorySchema,
+  description: optionalTrimmedString(1000),
+  amount: z.coerce.number().positive('Amount must be greater than zero'),
+  incurred_at: optionalDateSchema,
+});
+
+export const updateTripExpenseInputSchema = newTripExpenseInputSchema.omit({ trip_id: true }).partial();
+
+export type TripStatus = z.infer<typeof tripStatusSchema>;
+export type TripExpenseCategory = z.infer<typeof tripExpenseCategorySchema>;
+export type TripLoadRole = z.infer<typeof tripLoadRoleSchema>;
+export type NewTripInput = z.infer<typeof newTripInputSchema>;
+export type UpdateTripInput = z.infer<typeof updateTripInputSchema>;
+export type AddTripLoadInput = z.infer<typeof addTripLoadInputSchema>;
+export type NewTripExpenseInput = z.infer<typeof newTripExpenseInputSchema>;
+export type UpdateTripExpenseInput = z.infer<typeof updateTripExpenseInputSchema>;
+
+export interface Trip {
+  id: string;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+  trip_number: string;
+  status: TripStatus;
+  driver_id: string | null;
+  truck_id: string | null;
+  trailer_id: string | null;
+  origin_city: string | null;
+  origin_state: string | null;
+  origin_postal_code: string | null;
+  destination_city: string | null;
+  destination_state: string | null;
+  destination_postal_code: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  total_miles: number | null;
+  revenue_total: number;
+  driver_pay_total: number;
+  fuel_total: number;
+  tolls_total: number;
+  other_expenses_total: number;
+  profit_total: number;
+  notes: string | null;
+  driver?: { id: string; first_name: string; last_name: string } | null;
+  truck?: { id: string; unit_number: string } | null;
+  trailer?: { id: string; unit_number: string } | null;
+}
+
+export interface TripLoad {
+  id: string;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+  trip_id: string;
+  load_id: string;
+  sequence_index: number;
+  role: TripLoadRole;
+  load?: (Load & {
+    company?: { id: string; name: string } | null;
+  }) | null;
+}
+
+export interface TripExpense {
+  id: string;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+  trip_id: string;
+  category: TripExpenseCategory;
+  description: string | null;
+  amount: number;
+  incurred_at: string;
+}
+
+export interface TripFilters {
+  status?: TripStatus | 'all';
+  driverId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+}
+
+export interface TripStats {
+  totalTrips: number;
+  activeTrips: number;
+  completedTrips: number;
+  profitLast30Days: number;
+}
+
+export interface TripWithDetails extends Trip {
+  loads: TripLoad[];
+  expenses: TripExpense[];
+}
+
+interface TripFinancialSummary {
+  revenue_total: number;
+  driver_pay_total: number;
+  fuel_total: number;
+  tolls_total: number;
+  other_expenses_total: number;
+  profit_total: number;
+}
+
+type TablesWithOwner = 'drivers' | 'trucks' | 'trailers' | 'loads' | 'trips';
+
+async function assertOwnership(
+  supabase: SupabaseClient,
+  table: TablesWithOwner,
+  id: string | null | undefined,
+  userId: string,
+  friendlyName: string
+) {
+  if (!id) return;
+  const { error } = await supabase.from(table).select('id').eq('id', id).eq('owner_id', userId).single();
+  if (error) {
+    if (error.code === 'PGRST116') {
+      throw new Error(`${friendlyName} not found or you do not have access to it`);
+    }
+    throw new Error(`Failed to verify ${friendlyName}: ${error.message}`);
+  }
+}
+
+function nullable<T>(value: T | undefined): T | null {
+  return value === undefined ? null : (value as T);
+}
+
+function normalizeDate(value?: string): string | null {
+  if (!value) return null;
+  return new Date(value).toISOString().split('T')[0];
+}
+
+async function computeTripFinancialSummary(
+  supabase: SupabaseClient,
+  tripId: string,
+  userId: string,
+  options?: { tripLoads?: TripLoad[]; expenses?: TripExpense[] }
+): Promise<TripFinancialSummary> {
+  let tripLoads = options?.tripLoads;
+  if (!tripLoads) {
+    const { data, error } = await supabase
+      .from('trip_loads')
+      .select('*, load:loads!trip_loads_load_id_fkey(id, total_rate)')
+      .eq('trip_id', tripId)
+      .eq('owner_id', userId);
+    if (error) {
+      throw new Error(`Failed to load trip loads for financials: ${error.message}`);
+    }
+    tripLoads = (data || []) as TripLoad[];
+  }
+
+  let expenses = options?.expenses;
+  if (!expenses) {
+    const { data, error } = await supabase
+      .from('trip_expenses')
+      .select('id, owner_id, created_at, updated_at, trip_id, category, description, amount, incurred_at')
+      .eq('trip_id', tripId)
+      .eq('owner_id', userId);
+    if (error) {
+      throw new Error(`Failed to load trip expenses for financials: ${error.message}`);
+    }
+    expenses = (data || []) as TripExpense[];
+  }
+
+  const revenue_total = tripLoads.reduce((sum, tl) => {
+    const loadRevenue = tl.load?.total_rate ?? 0;
+    return sum + (typeof loadRevenue === 'number' ? loadRevenue : 0);
+  }, 0);
+
+  let driver_pay_total = 0;
+  let fuel_total = 0;
+  let tolls_total = 0;
+  let other_expenses_total = 0;
+
+  for (const expense of expenses) {
+    switch (expense.category) {
+      case 'driver_pay':
+        driver_pay_total += expense.amount;
+        break;
+      case 'fuel':
+        fuel_total += expense.amount;
+        break;
+      case 'tolls':
+        tolls_total += expense.amount;
+        break;
+      default:
+        other_expenses_total += expense.amount;
+        break;
+    }
+  }
+
+  const profit_total = revenue_total - (driver_pay_total + fuel_total + tolls_total + other_expenses_total);
+
+  const summary: TripFinancialSummary = {
+    revenue_total,
+    driver_pay_total,
+    fuel_total,
+    tolls_total,
+    other_expenses_total,
+    profit_total,
+  };
+
+  const { error: updateError } = await supabase
+    .from('trips')
+    .update(summary)
+    .eq('id', tripId)
+    .eq('owner_id', userId);
+  if (updateError) {
+    throw new Error(`Failed to update trip financial summary: ${updateError.message}`);
+  }
+
+  return summary;
+}
+
+export async function getTripStatsForUser(userId: string): Promise<TripStats> {
+  const supabase = await createClient();
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const thirtyDaysAgoIso = thirtyDaysAgo.toISOString().split('T')[0];
+
+  const [totalResult, activeResult, completedResult, profitResult] = await Promise.all([
+    supabase.from('trips').select('id', { count: 'exact', head: true }).eq('owner_id', userId),
+    supabase
+      .from('trips')
+      .select('id', { count: 'exact', head: true })
+      .eq('owner_id', userId)
+      .in('status', ['planned', 'en_route']),
+    supabase
+      .from('trips')
+      .select('id', { count: 'exact', head: true })
+      .eq('owner_id', userId)
+      .eq('status', 'completed'),
+    supabase
+      .from('trips')
+      .select('profit_total')
+      .eq('owner_id', userId)
+      .gte('start_date', thirtyDaysAgoIso),
+  ]);
+
+  if (totalResult.error) {
+    throw new Error(`Failed to count trips: ${totalResult.error.message}`);
+  }
+  if (activeResult.error) {
+    throw new Error(`Failed to count active trips: ${activeResult.error.message}`);
+  }
+  if (completedResult.error) {
+    throw new Error(`Failed to count completed trips: ${completedResult.error.message}`);
+  }
+  if (profitResult.error) {
+    throw new Error(`Failed to calculate profit: ${profitResult.error.message}`);
+  }
+
+  type ProfitRow = { profit_total: number | null };
+  const profitRows = (profitResult.data || []) as ProfitRow[];
+  const profitLast30Days = profitRows.reduce((sum, trip) => {
+    const value = typeof trip.profit_total === 'number' ? trip.profit_total : 0;
+    return sum + value;
+  }, 0);
+
+  return {
+    totalTrips: totalResult.count || 0,
+    activeTrips: activeResult.count || 0,
+    completedTrips: completedResult.count || 0,
+    profitLast30Days,
+  };
+}
+
+export async function listTripsForUser(userId: string, filters?: TripFilters): Promise<Trip[]> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from('trips')
+    .select(
+      `
+      *,
+      driver:drivers!trips_driver_id_fkey(id, first_name, last_name),
+      truck:trucks!trips_truck_id_fkey(id, unit_number),
+      trailer:trailers!trips_trailer_id_fkey(id, unit_number)
+    `
+    )
+    .eq('owner_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (filters?.status && filters.status !== 'all') {
+    query = query.eq('status', filters.status);
+  }
+
+  if (filters?.driverId) {
+    query = query.eq('driver_id', filters.driverId);
+  }
+
+  if (filters?.dateFrom) {
+    query = query.gte('start_date', filters.dateFrom);
+  }
+
+  if (filters?.dateTo) {
+    query = query.lte('start_date', filters.dateTo);
+  }
+
+  if (filters?.search) {
+    const term = `%${filters.search}%`;
+    query = query.or(
+      [
+        `trip_number.ilike.${term}`,
+        `origin_city.ilike.${term}`,
+        `origin_state.ilike.${term}`,
+        `destination_city.ilike.${term}`,
+        `destination_state.ilike.${term}`,
+      ].join(',')
+    );
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(`Failed to fetch trips: ${error.message}`);
+  }
+
+  return (data || []) as Trip[];
+}
+
+export async function getTripById(id: string, userId: string): Promise<TripWithDetails | null> {
+  const supabase = await createClient();
+
+  const { data: trip, error: tripError } = await supabase
+    .from('trips')
+    .select(
+      `
+      *,
+      driver:drivers!trips_driver_id_fkey(id, first_name, last_name),
+      truck:trucks!trips_truck_id_fkey(id, unit_number),
+      trailer:trailers!trips_trailer_id_fkey(id, unit_number)
+    `
+    )
+    .eq('id', id)
+    .eq('owner_id', userId)
+    .single();
+
+  if (tripError) {
+    if (tripError.code === 'PGRST116') {
+      return null;
+    }
+    throw new Error(`Failed to fetch trip: ${tripError.message}`);
+  }
+
+  const [{ data: loadRows, error: loadError }, { data: expenseRows, error: expenseError }] = await Promise.all([
+    supabase
+      .from('trip_loads')
+      .select(
+        `
+        *,
+        load:loads!trip_loads_load_id_fkey(
+          *,
+          company:companies!loads_company_id_fkey(id, name)
+        )
+      `
+      )
+      .eq('trip_id', id)
+      .eq('owner_id', userId)
+      .order('sequence_index', { ascending: true }),
+    supabase
+      .from('trip_expenses')
+      .select('*')
+      .eq('trip_id', id)
+      .eq('owner_id', userId)
+      .order('incurred_at', { ascending: false })
+      .order('created_at', { ascending: false }),
+  ]);
+
+  if (loadError) {
+    throw new Error(`Failed to load trip loads: ${loadError.message}`);
+  }
+  if (expenseError) {
+    throw new Error(`Failed to load trip expenses: ${expenseError.message}`);
+  }
+
+  const loads = (loadRows || []) as TripLoad[];
+  const expenses = (expenseRows || []) as TripExpense[];
+
+  const summary = await computeTripFinancialSummary(supabase, id, userId, { tripLoads: loads, expenses });
+
+  return {
+    ...(trip as Trip),
+    ...summary,
+    loads,
+    expenses,
+  };
+}
+
+export async function createTrip(input: NewTripInput, userId: string): Promise<Trip> {
+  const supabase = await createClient();
+  await Promise.all([
+    assertOwnership(supabase, 'drivers', input.driver_id, userId, 'Driver'),
+    assertOwnership(supabase, 'trucks', input.truck_id, userId, 'Truck'),
+    assertOwnership(supabase, 'trailers', input.trailer_id, userId, 'Trailer'),
+  ]);
+
+  const payload = {
+    owner_id: userId,
+    trip_number: input.trip_number,
+    status: input.status ?? 'planned',
+    driver_id: nullable(input.driver_id),
+    truck_id: nullable(input.truck_id),
+    trailer_id: nullable(input.trailer_id),
+    origin_city: nullable(input.origin_city),
+    origin_state: nullable(input.origin_state),
+    origin_postal_code: nullable(input.origin_postal_code),
+    destination_city: nullable(input.destination_city),
+    destination_state: nullable(input.destination_state),
+    destination_postal_code: nullable(input.destination_postal_code),
+    start_date: normalizeDate(input.start_date),
+    end_date: normalizeDate(input.end_date),
+    total_miles: input.total_miles ?? null,
+    notes: nullable(input.notes),
+  };
+
+  const { data, error } = await supabase
+    .from('trips')
+    .insert(payload)
+    .select(
+      `
+      *,
+      driver:drivers!trips_driver_id_fkey(id, first_name, last_name),
+      truck:trucks!trips_truck_id_fkey(id, unit_number),
+      trailer:trailers!trips_trailer_id_fkey(id, unit_number)
+    `
+    )
+    .single();
+
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('Trip number must be unique for your account');
+    }
+    throw new Error(`Failed to create trip: ${error.message}`);
+  }
+
+  return data as Trip;
+}
+
+export async function updateTrip(id: string, input: UpdateTripInput, userId: string): Promise<Trip> {
+  const supabase = await createClient();
+
+  await Promise.all([
+    assertOwnership(supabase, 'trips', id, userId, 'Trip'),
+    assertOwnership(supabase, 'drivers', input.driver_id, userId, 'Driver'),
+    assertOwnership(supabase, 'trucks', input.truck_id, userId, 'Truck'),
+    assertOwnership(supabase, 'trailers', input.trailer_id, userId, 'Trailer'),
+  ]);
+
+  const payload: Record<string, string | number | boolean | null> = {};
+
+  if (input.trip_number !== undefined) payload.trip_number = input.trip_number;
+  if (input.status !== undefined) payload.status = input.status;
+  if (input.driver_id !== undefined) payload.driver_id = nullable(input.driver_id);
+  if (input.truck_id !== undefined) payload.truck_id = nullable(input.truck_id);
+  if (input.trailer_id !== undefined) payload.trailer_id = nullable(input.trailer_id);
+  if (input.origin_city !== undefined) payload.origin_city = nullable(input.origin_city);
+  if (input.origin_state !== undefined) payload.origin_state = nullable(input.origin_state);
+  if (input.origin_postal_code !== undefined) payload.origin_postal_code = nullable(input.origin_postal_code);
+  if (input.destination_city !== undefined) payload.destination_city = nullable(input.destination_city);
+  if (input.destination_state !== undefined) payload.destination_state = nullable(input.destination_state);
+  if (input.destination_postal_code !== undefined)
+    payload.destination_postal_code = nullable(input.destination_postal_code);
+  if (input.start_date !== undefined) payload.start_date = normalizeDate(input.start_date);
+  if (input.end_date !== undefined) payload.end_date = normalizeDate(input.end_date);
+  if (input.total_miles !== undefined) payload.total_miles = input.total_miles ?? null;
+  if (input.notes !== undefined) payload.notes = nullable(input.notes);
+
+  const { data, error } = await supabase
+    .from('trips')
+    .update(payload)
+    .eq('id', id)
+    .eq('owner_id', userId)
+    .select(
+      `
+      *,
+      driver:drivers!trips_driver_id_fkey(id, first_name, last_name),
+      truck:trucks!trips_truck_id_fkey(id, unit_number),
+      trailer:trailers!trips_trailer_id_fkey(id, unit_number)
+    `
+    )
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      throw new Error('Trip not found or you do not have permission to update it');
+    }
+    if (error.code === '23505') {
+      throw new Error('Trip number must be unique for your account');
+    }
+    throw new Error(`Failed to update trip: ${error.message}`);
+  }
+
+  return data as Trip;
+}
+
+export async function deleteTrip(id: string, userId: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from('trips').delete().eq('id', id).eq('owner_id', userId);
+  if (error) {
+    throw new Error(`Failed to delete trip: ${error.message}`);
+  }
+}
+
+export async function addLoadToTrip(
+  tripId: string,
+  input: AddTripLoadInput,
+  userId: string
+): Promise<TripLoad | null> {
+  const supabase = await createClient();
+
+  await Promise.all([
+    assertOwnership(supabase, 'trips', tripId, userId, 'Trip'),
+    assertOwnership(supabase, 'loads', input.load_id, userId, 'Load'),
+  ]);
+
+  const payload = {
+    owner_id: userId,
+    trip_id: tripId,
+    load_id: input.load_id,
+    sequence_index: input.sequence_index ?? 0,
+    role: input.role ?? 'primary',
+  };
+
+  const { data, error } = await supabase
+    .from('trip_loads')
+    .insert(payload)
+    .select(
+      `
+      *,
+      load:loads!trip_loads_load_id_fkey(
+        *,
+        company:companies!loads_company_id_fkey(id, name)
+      )
+    `
+    )
+    .single();
+
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('This load is already attached to the trip');
+    }
+    throw new Error(`Failed to add load to trip: ${error.message}`);
+  }
+
+  await computeTripFinancialSummary(supabase, tripId, userId);
+  return data as TripLoad;
+}
+
+export async function removeLoadFromTrip(tripId: string, loadId: string, userId: string): Promise<void> {
+  const supabase = await createClient();
+  await assertOwnership(supabase, 'trips', tripId, userId, 'Trip');
+
+  const { error } = await supabase
+    .from('trip_loads')
+    .delete()
+    .eq('trip_id', tripId)
+    .eq('load_id', loadId)
+    .eq('owner_id', userId);
+
+  if (error) {
+    throw new Error(`Failed to remove load from trip: ${error.message}`);
+  }
+
+  await computeTripFinancialSummary(supabase, tripId, userId);
+}
+
+export async function reorderTripLoads(
+  tripId: string,
+  items: { load_id: string; sequence_index: number }[],
+  userId: string
+): Promise<void> {
+  if (!items.length) return;
+
+  const supabase = await createClient();
+  await assertOwnership(supabase, 'trips', tripId, userId, 'Trip');
+
+  const updates = items.map((item) =>
+    supabase
+      .from('trip_loads')
+      .update({ sequence_index: item.sequence_index })
+      .eq('trip_id', tripId)
+      .eq('load_id', item.load_id)
+      .eq('owner_id', userId)
+  );
+
+  const results = await Promise.all(updates);
+  for (const result of results) {
+    if (result.error) {
+      throw new Error(`Failed to reorder trip loads: ${result.error.message}`);
+    }
+  }
+}
+
+export async function listTripExpenses(tripId: string, userId: string): Promise<TripExpense[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('trip_expenses')
+    .select('*')
+    .eq('trip_id', tripId)
+    .eq('owner_id', userId)
+    .order('incurred_at', { ascending: false })
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw new Error(`Failed to fetch trip expenses: ${error.message}`);
+  }
+
+  return (data || []) as TripExpense[];
+}
+
+export async function createTripExpense(
+  input: NewTripExpenseInput,
+  userId: string
+): Promise<TripExpense> {
+  const supabase = await createClient();
+  await assertOwnership(supabase, 'trips', input.trip_id, userId, 'Trip');
+
+  const payload = {
+    owner_id: userId,
+    trip_id: input.trip_id,
+    category: input.category,
+    description: nullable(input.description),
+    amount: input.amount,
+    incurred_at: normalizeDate(input.incurred_at) ?? new Date().toISOString().split('T')[0],
+  };
+
+  const { data, error } = await supabase.from('trip_expenses').insert(payload).select('*').single();
+  if (error) {
+    throw new Error(`Failed to create trip expense: ${error.message}`);
+  }
+
+  await computeTripFinancialSummary(supabase, input.trip_id, userId);
+  return data as TripExpense;
+}
+
+export async function updateTripExpense(
+  id: string,
+  input: UpdateTripExpenseInput,
+  userId: string
+): Promise<TripExpense> {
+  const supabase = await createClient();
+
+  const updatePayload: Record<string, string | number | boolean | null> = {};
+  if (input.category !== undefined) updatePayload.category = input.category;
+  if (input.description !== undefined) updatePayload.description = nullable(input.description);
+  if (input.amount !== undefined) updatePayload.amount = input.amount;
+  if (input.incurred_at !== undefined) {
+    updatePayload.incurred_at = normalizeDate(input.incurred_at) ?? new Date().toISOString().split('T')[0];
+  }
+
+  const { data, error } = await supabase
+    .from('trip_expenses')
+    .update(updatePayload)
+    .eq('id', id)
+    .eq('owner_id', userId)
+    .select('*')
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      throw new Error('Expense not found or you do not have permission to update it');
+    }
+    throw new Error(`Failed to update trip expense: ${error.message}`);
+  }
+
+  await computeTripFinancialSummary(supabase, data.trip_id, userId);
+  return data as TripExpense;
+}
+
+export async function deleteTripExpense(id: string, userId: string): Promise<void> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('trip_expenses')
+    .delete()
+    .eq('id', id)
+    .eq('owner_id', userId)
+    .select('trip_id')
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      throw new Error('Expense not found or you do not have permission to delete it');
+    }
+    throw new Error(`Failed to delete trip expense: ${error.message}`);
+  }
+
+  await computeTripFinancialSummary(supabase, data.trip_id, userId);
+}
+

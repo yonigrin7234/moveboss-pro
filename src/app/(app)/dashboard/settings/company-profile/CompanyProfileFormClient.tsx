@@ -1,0 +1,307 @@
+"use client";
+
+import { useActionState } from 'react';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
+
+import { type CompanyProfileFormValues } from '@/lib/validation/companyProfileSchema';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+
+export type CompanyProfileActionState = {
+  errors?: Record<string, string>;
+  message?: string;
+};
+
+type Props = {
+  defaults: CompanyProfileFormValues;
+  action: (prev: CompanyProfileActionState, formData: FormData) => Promise<CompanyProfileActionState>;
+  readOnly?: boolean;
+  submitLabel?: string;
+  redirectTo?: string;
+};
+
+export function CompanyProfileFormClient({ defaults, action, readOnly, submitLabel, redirectTo }: Props) {
+  const [state, formAction, pending] = useActionState<CompanyProfileActionState, FormData>(action, {});
+
+  return (
+    <form action={formAction} className="space-y-6">
+      {redirectTo && <input type="hidden" name="redirect_to" value={redirectTo} />}
+      {state?.errors?._form && (
+        <Alert variant="destructive" className="py-2">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="text-sm">{state.errors._form}</AlertDescription>
+        </Alert>
+      )}
+      {state?.message && (
+        <Alert className="py-2">
+          <CheckCircle2 className="h-4 w-4" />
+          <AlertDescription className="text-sm">{state.message}</AlertDescription>
+        </Alert>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="name">Company Name</Label>
+          <Input id="name" name="name" defaultValue={defaults.name} required disabled={readOnly} readOnly={readOnly} />
+          {state?.errors?.name && <p className="text-xs text-destructive">{state.errors.name}</p>}
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="space-y-2">
+          <Label htmlFor="dot_number">DOT Number</Label>
+          <Input
+            id="dot_number"
+            name="dot_number"
+            defaultValue={defaults.dot_number}
+            disabled={readOnly}
+            readOnly={readOnly}
+          />
+          {state?.errors?.dot_number && (
+            <p className="text-xs text-destructive">{state.errors.dot_number}</p>
+          )}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="mc_number">MC Number</Label>
+          <Input
+            id="mc_number"
+            name="mc_number"
+            defaultValue={defaults.mc_number}
+            disabled={readOnly}
+            readOnly={readOnly}
+          />
+          {state?.errors?.mc_number && (
+            <p className="text-xs text-destructive">{state.errors.mc_number}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="space-y-2">
+          <Label htmlFor="phone">Phone</Label>
+          <Input
+            id="phone"
+            name="phone"
+            defaultValue={defaults.phone || ''}
+            disabled={readOnly}
+            readOnly={readOnly}
+          />
+          {state?.errors?.phone && <p className="text-xs text-destructive">{state.errors.phone}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            name="email"
+            defaultValue={defaults.email || ''}
+            disabled={readOnly}
+            readOnly={readOnly}
+          />
+          {state?.errors?.email && <p className="text-xs text-destructive">{state.errors.email}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="website">Website</Label>
+          <Input
+            id="website"
+            name="website"
+            defaultValue={defaults.website || ''}
+            disabled={readOnly}
+            readOnly={readOnly}
+          />
+          {state?.errors?.website && (
+            <p className="text-xs text-destructive">{state.errors.website}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="address_line1">Address Line 1</Label>
+          <Input
+            id="address_line1"
+            name="address_line1"
+            defaultValue={defaults.address_line1}
+            disabled={readOnly}
+            readOnly={readOnly}
+          />
+          {state?.errors?.address_line1 && (
+            <p className="text-xs text-destructive">{state.errors.address_line1}</p>
+          )}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="address_line2">Address Line 2</Label>
+          <Input
+            id="address_line2"
+            name="address_line2"
+            defaultValue={defaults.address_line2 || ''}
+            disabled={readOnly}
+            readOnly={readOnly}
+          />
+          {state?.errors?.address_line2 && (
+            <p className="text-xs text-destructive">{state.errors.address_line2}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="space-y-2">
+          <Label htmlFor="city">City</Label>
+          <Input id="city" name="city" defaultValue={defaults.city} disabled={readOnly} readOnly={readOnly} />
+          {state?.errors?.city && <p className="text-xs text-destructive">{state.errors.city}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="state">State</Label>
+          <Input
+            id="state"
+            name="state"
+            defaultValue={defaults.state}
+            disabled={readOnly}
+            readOnly={readOnly}
+          />
+          {state?.errors?.state && <p className="text-xs text-destructive">{state.errors.state}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="zip">ZIP / Postal Code</Label>
+          <Input
+            id="zip"
+            name="zip"
+            defaultValue={defaults.zip || ''}
+            disabled={readOnly}
+            readOnly={readOnly}
+          />
+          {state?.errors?.zip && <p className="text-xs text-destructive">{state.errors.zip}</p>}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="notes">Notes</Label>
+        <Input
+          id="notes"
+          name="notes"
+          defaultValue={defaults.notes || ''}
+          disabled={readOnly}
+          readOnly={readOnly}
+        />
+        {state?.errors?.notes && <p className="text-xs text-destructive">{state.errors.notes}</p>}
+      </div>
+
+      <div className="space-y-3 rounded-lg border border-border/60 p-4">
+        <div className="space-y-1">
+          <p className="text-sm font-semibold">Owner / Primary Contact</p>
+          <p className="text-xs text-muted-foreground">Main contact for the workspace company.</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="owner_name">Owner full name</Label>
+            <Input
+              id="owner_name"
+              name="owner_name"
+              defaultValue={defaults.owner_name}
+              required
+              disabled={readOnly}
+              readOnly={readOnly}
+            />
+            {state?.errors?.owner_name && <p className="text-xs text-destructive">{state.errors.owner_name}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="owner_role">Role / title</Label>
+            <Input
+              id="owner_role"
+              name="owner_role"
+              defaultValue={defaults.owner_role || ''}
+              disabled={readOnly}
+              readOnly={readOnly}
+            />
+            {state?.errors?.owner_role && <p className="text-xs text-destructive">{state.errors.owner_role}</p>}
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor="owner_phone">Phone</Label>
+            <Input
+              id="owner_phone"
+              name="owner_phone"
+              defaultValue={defaults.owner_phone}
+              required
+              disabled={readOnly}
+              readOnly={readOnly}
+            />
+            {state?.errors?.owner_phone && <p className="text-xs text-destructive">{state.errors.owner_phone}</p>}
+          </div>
+          <div className="space-y-2 lg:col-span-2">
+            <Label htmlFor="owner_email">Email</Label>
+            <Input
+              id="owner_email"
+              name="owner_email"
+              type="email"
+              defaultValue={defaults.owner_email}
+              required
+              disabled={readOnly}
+              readOnly={readOnly}
+            />
+            {state?.errors?.owner_email && <p className="text-xs text-destructive">{state.errors.owner_email}</p>}
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3 rounded-lg border border-dashed border-border/60 p-4">
+        <div className="space-y-1">
+          <p className="text-sm font-semibold">Secondary Contact (optional)</p>
+          <p className="text-xs text-muted-foreground">Backup contact for the workspace company.</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="secondary_contact_name">Name</Label>
+            <Input
+              id="secondary_contact_name"
+              name="secondary_contact_name"
+              defaultValue={defaults.secondary_contact_name || ''}
+              disabled={readOnly}
+              readOnly={readOnly}
+            />
+            {state?.errors?.secondary_contact_name && (
+              <p className="text-xs text-destructive">{state.errors.secondary_contact_name}</p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="secondary_contact_phone">Phone</Label>
+            <Input
+              id="secondary_contact_phone"
+              name="secondary_contact_phone"
+              defaultValue={defaults.secondary_contact_phone || ''}
+              disabled={readOnly}
+              readOnly={readOnly}
+            />
+            {state?.errors?.secondary_contact_phone && (
+              <p className="text-xs text-destructive">{state.errors.secondary_contact_phone}</p>
+            )}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="secondary_contact_email">Email</Label>
+          <Input
+            id="secondary_contact_email"
+            name="secondary_contact_email"
+            type="email"
+            defaultValue={defaults.secondary_contact_email || ''}
+            disabled={readOnly}
+            readOnly={readOnly}
+          />
+          {state?.errors?.secondary_contact_email && (
+            <p className="text-xs text-destructive">{state.errors.secondary_contact_email}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        {!readOnly && (
+          <Button type="submit" disabled={pending}>
+            {pending ? 'Saving...' : submitLabel || 'Save changes'}
+          </Button>
+        )}
+      </div>
+    </form>
+  );
+}
