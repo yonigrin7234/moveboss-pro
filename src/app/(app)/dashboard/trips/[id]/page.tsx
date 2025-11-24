@@ -27,6 +27,38 @@ import { createTripSettlement } from '@/data/settlements';
 import { updateLoad, updateLoadInputSchema } from '@/data/loads';
 import { getSettlementSnapshot } from '@/data/settlements';
 import { PhotoField } from '@/components/ui/photo-field';
+// Simple wrapper for use as a <form action={...}> handler.
+// Must match (formData: FormData) => void | Promise<void>
+async function updateTripStatusSimple(formData: FormData): Promise<void> {
+  'use server';
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    throw new Error('Not authenticated');
+  }
+
+  const tripId = formData.get('trip_id');
+  if (typeof tripId !== 'string' || !tripId) {
+    throw new Error('Missing trip id');
+  }
+
+  const payload = cleanFormValues(formData, [
+    'status',
+    'odometer_start',
+    'odometer_start_photo_url',
+    'odometer_end',
+    'odometer_end_photo_url',
+  ]);
+
+  try {
+    const validated = updateTripInputSchema.parse(payload);
+    await updateTrip(tripId, validated, currentUser.id);
+    revalidatePath(`/dashboard/trips/${tripId}`);
+    revalidatePath('/dashboard/trips');
+  } catch (error) {
+    // Errors are handled by throwing - Next.js will show them
+    throw error instanceof Error ? error : new Error('Failed to update trip status');
+  }
+}
 
 interface TripDetailPageProps {
   params: Promise<{ id: string }>;
@@ -291,53 +323,17 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     revalidatePath('/dashboard/trips');
   }
 
-  async function updateTripStatusAction(
-    prevState: { errors?: Record<string, string>; success?: boolean } | null,
-    formData: FormData
-  ): Promise<{ errors?: Record<string, string>; success?: boolean } | null> {
+
+  async function updateLoadAction(formData: FormData): Promise<void> {
     'use server';
     const currentUser = await getCurrentUser();
-    if (!currentUser) return { errors: { _form: 'Not authenticated' } };
-
-    const payload = cleanFormValues(formData, [
-      'status',
-      'odometer_start',
-      'odometer_start_photo_url',
-      'odometer_end',
-      'odometer_end_photo_url',
-    ]);
-
-    try {
-      const validated = updateTripInputSchema.parse(payload);
-      await updateTrip(id, validated, currentUser.id);
-      revalidatePath(`/dashboard/trips/${id}`);
-      revalidatePath('/dashboard/trips');
-      return { success: true };
-    } catch (error) {
-      if (error && typeof error === 'object' && 'issues' in error) {
-        const zodError = error as { issues: Array<{ path: (string | number)[]; message: string }> };
-        const errors: Record<string, string> = {};
-        zodError.issues.forEach((issue) => {
-          const field = issue.path[0] as string;
-          errors[field] = issue.message;
-        });
-        return { errors };
-      }
-      return { errors: { _form: error instanceof Error ? error.message : 'Failed to update status' } };
+    if (!currentUser) {
+      throw new Error('Not authenticated');
     }
-  }
-
-  async function updateLoadAction(
-    prevState: { errors?: Record<string, string>; success?: boolean } | null,
-    formData: FormData
-  ): Promise<{ errors?: Record<string, string>; success?: boolean } | null> {
-    'use server';
-    const currentUser = await getCurrentUser();
-    if (!currentUser) return { errors: { _form: 'Not authenticated' } };
 
     const loadId = formData.get('load_id');
     if (typeof loadId !== 'string' || !loadId) {
-      return { errors: { _form: 'Missing load id' } };
+      throw new Error('Missing load id');
     }
 
     const entries: Record<string, any> = {};
@@ -351,18 +347,9 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
       await updateLoad(loadId, validated, currentUser.id);
       revalidatePath(`/dashboard/trips/${id}`);
       revalidatePath('/dashboard/trips');
-      return { success: true };
     } catch (error) {
-      if (error && typeof error === 'object' && 'issues' in error) {
-        const zodError = error as { issues: Array<{ path: (string | number)[]; message: string }> };
-        const errors: Record<string, string> = {};
-        zodError.issues.forEach((issue) => {
-          const field = issue.path[0] as string;
-          errors[field] = issue.message;
-        });
-        return { errors };
-      }
-      return { errors: { _form: error instanceof Error ? error.message : 'Failed to update load' } };
+      // Errors are handled by throwing - Next.js will show them
+      throw error instanceof Error ? error : new Error('Failed to update load');
     }
   }
 
@@ -389,9 +376,13 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     }
   }
 
-  const driverName = trip.driver ? `${trip.driver.first_name} ${trip.driver.last_name}` : undefined;
-  const truckNumber = trip.truck?.unit_number || undefined;
-  const trailerNumber = trip.trailer?.unit_number || undefined;
+  const tripDriver = Array.isArray(trip.driver) ? trip.driver[0] : trip.driver;
+  const tripTruck = Array.isArray(trip.truck) ? trip.truck[0] : trip.truck;
+  const tripTrailer = Array.isArray(trip.trailer) ? trip.trailer[0] : trip.trailer;
+
+  const driverName = tripDriver ? `${tripDriver.first_name} ${tripDriver.last_name}` : undefined;
+  const truckNumber = tripTruck?.unit_number || undefined;
+  const trailerNumber = tripTrailer?.unit_number || undefined;
   const availableLoads = loads.filter((load) => load.status !== 'canceled');
 
   return (
@@ -427,7 +418,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
       <div className="grid gap-4 md:grid-cols-2">
         <div className="bg-card border border-border rounded-lg p-4 space-y-3">
           <h3 className="text-lg font-semibold">Trip Status & Odometer</h3>
-          <form action={updateTripStatusAction} className="space-y-3">
+          <form action={updateTripStatusSimple} className="space-y-3">
             <input type="hidden" name="trip_id" value={trip.id} />
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -501,13 +492,14 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
       <div className="space-y-4">
         {trip.loads.map((tl) => {
           const load = tl.load as any;
+          const company = Array.isArray(load?.company) ? load.company[0] : load?.company;
           return (
             <div key={tl.id} className="border border-border rounded-lg p-4 space-y-3 bg-card">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs uppercase text-muted-foreground tracking-wide">Load</p>
                   <h4 className="text-lg font-semibold">{load?.load_number || tl.load_id}</h4>
-                  <p className="text-sm text-muted-foreground">{load?.company?.name || 'Company n/a'}</p>
+                  <p className="text-sm text-muted-foreground">{company?.name || 'Company n/a'}</p>
                 </div>
               </div>
               <form action={updateLoadAction} className="space-y-3">
@@ -706,13 +698,16 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                       <td className="px-3 py-2 text-muted-foreground" colSpan={3}>No receivables yet.</td>
                     </tr>
                   )}
-                  {settlementSnapshot.receivables.map((r: any) => (
+                  {settlementSnapshot.receivables.map((r: any) => {
+                    const company = Array.isArray(r.company) ? r.company[0] : r.company;
+                    return (
                     <tr key={r.id} className="border-t border-border/60">
-                      <td className="px-3 py-2">{r.company?.name || r.company_id}</td>
+                      <td className="px-3 py-2">{company?.name || r.company_id}</td>
                       <td className="px-3 py-2">${r.amount?.toFixed(2)}</td>
                       <td className="px-3 py-2 capitalize">{r.status}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -735,16 +730,19 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                       <td className="px-3 py-2 text-muted-foreground" colSpan={4}>No payables yet.</td>
                     </tr>
                   )}
-                  {settlementSnapshot.payables.map((p: any) => (
+                  {settlementSnapshot.payables.map((p: any) => {
+                    const driver = Array.isArray(p.driver) ? p.driver[0] : p.driver;
+                    return (
                     <tr key={p.id} className="border-t border-border/60">
                       <td className="px-3 py-2">
-                        {p.driver ? `${p.driver.first_name} ${p.driver.last_name}` : p.driver_id || '—'}
+                        {driver ? `${driver.first_name} ${driver.last_name}` : p.driver_id || '—'}
                       </td>
                       <td className="px-3 py-2">{p.payee_type}</td>
                       <td className="px-3 py-2">${p.amount?.toFixed(2)}</td>
                       <td className="px-3 py-2 capitalize">{p.status}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

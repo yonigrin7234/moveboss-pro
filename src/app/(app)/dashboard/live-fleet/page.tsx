@@ -118,17 +118,22 @@ export default async function LiveFleetPage({ searchParams }: LiveFleetPageProps
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredLocations.map((location) => (
+          {filteredLocations.map((location) => {
+            const driver = Array.isArray(location.driver) ? location.driver[0] : location.driver;
+            const truck = Array.isArray(location.truck) ? location.truck[0] : location.truck;
+            const trailer = Array.isArray(location.trailer) ? location.trailer[0] : location.trailer;
+
+            return (
             <div key={location.id} className="bg-card border border-border rounded-lg p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="text-lg font-semibold text-foreground">
-                    {location.driver
-                      ? `${location.driver.first_name} ${location.driver.last_name}`
+                    {driver
+                      ? `${driver.first_name} ${driver.last_name}`
                       : 'Unknown driver'}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    {location.driver ? location.driver.status : '—'}
+                    {driver ? driver.status : '—'}
                   </p>
                 </div>
                 <span
@@ -154,10 +159,10 @@ export default async function LiveFleetPage({ searchParams }: LiveFleetPageProps
                 <div>
                   <div className="text-muted-foreground">Equipment</div>
                   <div className="text-foreground font-medium">
-                    {location.truck ? `Truck ${location.truck.unit_number}` : 'Truck —'}
+                    {truck ? `Truck ${truck.unit_number}` : 'Truck —'}
                   </div>
                   <div className="text-muted-foreground">
-                    {location.trailer ? `Trailer ${location.trailer.unit_number}` : 'Trailer —'}
+                    {trailer ? `Trailer ${trailer.unit_number}` : 'Trailer —'}
                   </div>
                 </div>
                 <div>
@@ -198,11 +203,10 @@ export default async function LiveFleetPage({ searchParams }: LiveFleetPageProps
                 </span>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
-
-

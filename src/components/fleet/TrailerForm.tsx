@@ -171,8 +171,8 @@ export function TrailerForm({
       const formData = new FormData(form);
       setSnapshot({
         unitNumber: (formData.get('unit_number') as string) || '',
-        type: (formData.get('type') as string) || 'other',
-        status: (formData.get('status') as string) || 'active',
+        type: ((formData.get('type') as string) || 'other') as NewTrailerInput['type'],
+        status: ((formData.get('status') as string) || 'active') as NewTrailerInput['status'],
         assignedDriverId: (formData.get('assigned_driver_id') as string) || '',
       });
     };

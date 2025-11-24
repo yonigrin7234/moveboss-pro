@@ -81,7 +81,11 @@ export function TripLoadsCard({ tripId, loads, availableLoads, onAdd, onRemove }
               </tr>
             </thead>
             <tbody className="bg-card divide-y divide-border">
-              {loads.map((tripLoad) => (
+              {loads.map((tripLoad) => {
+                const company = Array.isArray(tripLoad.load?.company)
+                  ? tripLoad.load.company[0]
+                  : tripLoad.load?.company;
+                return (
                 <tr key={tripLoad.id}>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{tripLoad.sequence_index}</td>
                   <td className="px-4 py-3">
@@ -102,7 +106,7 @@ export function TripLoadsCard({ tripId, loads, availableLoads, onAdd, onRemove }
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm text-foreground">
-                    {tripLoad.load?.company?.name || '—'}
+                    {company?.name || '—'}
                   </td>
                   <td className="px-4 py-3 text-sm text-foreground">
                     <div>{tripLoad.load?.pickup_city || '—'}</div>
@@ -137,7 +141,8 @@ export function TripLoadsCard({ tripId, loads, availableLoads, onAdd, onRemove }
                     </form>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -169,11 +174,14 @@ export function TripLoadsCard({ tripId, loads, availableLoads, onAdd, onRemove }
               className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-black text-sm disabled:bg-muted"
             >
               <option value="">Select load</option>
-              {selectableLoads.map((load) => (
+              {selectableLoads.map((load) => {
+                const company = Array.isArray(load.company) ? load.company[0] : load.company;
+                return (
                 <option key={load.id} value={load.id}>
-                  {(load.load_number || load.job_number)} • {load.company?.name || 'No customer'}
+                  {(load.load_number || load.job_number)} • {company?.name || 'No customer'}
                 </option>
-              ))}
+                );
+              })}
             </select>
             {state?.errors?.load_id && (
               <p className="text-xs text-red-600 mt-1">{state.errors.load_id}</p>
@@ -237,4 +245,3 @@ export function TripLoadsCard({ tripId, loads, availableLoads, onAdd, onRemove }
     </div>
   );
 }
-

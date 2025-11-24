@@ -156,6 +156,7 @@ export interface DriverFilters {
 }
 
 export { formatPayMode, driverPayModeSchema, driverStatusSchema, newDriverInputSchema, updateDriverInputSchema };
+export type { DriverStatus, DriverPayMode, DriverLoginMethod, NewDriverInput, UpdateDriverInput };
 
 export async function getDriversForUser(
   userId: string,

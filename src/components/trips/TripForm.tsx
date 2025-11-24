@@ -167,7 +167,7 @@ export function TripForm({
       const data = new FormData(form);
       setSnapshot({
         tripNumber: (data.get('trip_number') as string) || '',
-        status: (data.get('status') as string) || 'planned',
+        status: ((data.get('status') as string) || 'planned') as TripStatus,
         driverId: (data.get('driver_id') as string) || '',
         truckId: (data.get('truck_id') as string) || '',
         trailerId: (data.get('trailer_id') as string) || '',

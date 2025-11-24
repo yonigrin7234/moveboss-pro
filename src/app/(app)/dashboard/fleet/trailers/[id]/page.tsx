@@ -104,19 +104,19 @@ export default async function TrailerDetailPage({ params }: TrailerDetailPagePro
   const initialData = {
     unit_number: trailer.unit_number,
     type: trailer.type,
-    plate_number: trailer.plate_number || undefined,
-    plate_state: trailer.plate_state || undefined,
-    vin: trailer.vin || undefined,
-    make: trailer.make || undefined,
-    model: trailer.model || undefined,
-    year: trailer.year || undefined,
-    capacity_cuft: trailer.capacity_cuft || undefined,
-    side_doors_count: trailer.side_doors_count || undefined,
-    registration_expiry: trailer.registration_expiry || undefined,
-    inspection_expiry: trailer.inspection_expiry || undefined,
-    assigned_driver_id: trailer.assigned_driver_id || undefined,
+    plate_number: trailer.plate_number ?? undefined,
+    plate_state: trailer.plate_state ?? undefined,
+    vin: trailer.vin ?? undefined,
+    make: trailer.make ?? undefined,
+    model: trailer.model ?? undefined,
+    year: trailer.year ?? undefined,
+    capacity_cuft: trailer.capacity_cuft ?? undefined,
+    side_doors_count: trailer.side_doors_count ?? undefined,
+    registration_expiry: trailer.registration_expiry ?? undefined,
+    inspection_expiry: trailer.inspection_expiry ?? undefined,
+    assigned_driver_id: trailer.assigned_driver_id ?? undefined,
     status: trailer.status,
-    notes: trailer.notes || undefined,
+    notes: trailer.notes ?? undefined,
   };
 
   return (
@@ -144,4 +144,3 @@ export default async function TrailerDetailPage({ params }: TrailerDetailPagePro
     </div>
   );
 }
-

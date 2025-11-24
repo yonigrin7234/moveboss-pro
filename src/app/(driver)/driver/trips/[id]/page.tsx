@@ -191,6 +191,7 @@ export default async function DriverTripDetailPage({ params }: DriverTripDetailP
           ) : (
             loads.map((tl) => {
               const load = tl.load as any;
+              const company = Array.isArray(load?.company) ? load.company[0] : load?.company;
               return (
                 <Link
                   key={tl.id}
@@ -201,7 +202,7 @@ export default async function DriverTripDetailPage({ params }: DriverTripDetailP
                     <div>
                       <p className="text-xs uppercase text-muted-foreground">Load</p>
                       <h4 className="text-base font-semibold text-foreground">{load?.load_number || tl.load_id}</h4>
-                      <p className="text-sm text-muted-foreground">{load?.company?.name || "Company n/a"}</p>
+                      <p className="text-sm text-muted-foreground">{company?.name || "Company n/a"}</p>
                     </div>
                     <div className="text-right">
                       <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">

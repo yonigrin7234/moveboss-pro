@@ -53,12 +53,22 @@ export default async function ProfitReportPage() {
                 (row.driver_pay_total || 0) + (row.fuel_total || 0) + (row.tolls_total || 0) + (row.other_expenses_total || 0);
               return (
                 <tr key={row.id} className="border-b border-border/40">
-                  <td className="px-4 py-3 font-medium">{row.trip_number}</td>
-                  <td className="px-4 py-3">
-                    {row.driver ? `${row.driver.first_name} ${row.driver.last_name}` : '—'}
-                  </td>
-                  <td className="px-4 py-3">{row.truck ? row.truck.unit_number : '—'}</td>
-                  <td className="px-4 py-3">{row.revenue_total?.toFixed(2) ?? '0.00'}</td>
+                <td className="px-4 py-3 font-medium">{row.trip_number}</td>
+                <td className="px-4 py-3">
+                  {(() => {
+                    const driver = row.driver?.[0];
+                    return driver
+                      ? `${driver.first_name} ${driver.last_name}`
+                      : '—';
+                  })()}
+                </td>
+                <td className="px-4 py-3">
+                  {(() => {
+                    const truck = row.truck?.[0];
+                    return truck ? truck.unit_number : '—';
+                  })()}
+                </td>
+                <td className="px-4 py-3">{row.revenue_total?.toFixed(2) ?? '0.00'}</td>
                   <td className="px-4 py-3">{row.driver_pay_total?.toFixed(2) ?? '0.00'}</td>
                   <td className="px-4 py-3">{expenses.toFixed(2)}</td>
                   <td className="px-4 py-3 font-semibold">{row.profit_total?.toFixed(2) ?? '0.00'}</td>

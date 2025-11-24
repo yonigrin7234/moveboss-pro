@@ -78,7 +78,9 @@ function nullable<T>(value: T | undefined): T | null {
 
 function pickCompanyFromLoads(loads: TripLoad[]): string | null {
   for (const tl of loads) {
-    const companyId = (tl.load as any)?.company_id || (tl.load as any)?.company?.id;
+    const loadRel = (tl.load as any) || {};
+    const companyRel = Array.isArray(loadRel.company) ? loadRel.company[0] : loadRel.company;
+    const companyId = loadRel?.company_id || companyRel?.id;
     if (companyId) return companyId as string;
   }
   return null;
@@ -128,7 +130,8 @@ export async function createTripSettlement(tripId: string, userId: string): Prom
       contractTotalBillable - paidDirectToCompany - (isStorageDrop ? 0 : collectedByDriver)
     );
 
-    const companyId = load.company_id || load?.company?.id || null;
+    const companyRel = Array.isArray(load.company) ? load.company[0] : load.company;
+    const companyId = load.company_id || companyRel?.id || null;
 
     if (contractLinehaul) {
       lineItems.push({
@@ -441,20 +444,21 @@ export async function listTripSettlements(params: {
   }
 
   return (data || []).map((row: any) => {
+    const trip = Array.isArray(row.trip) ? row.trip[0] : row.trip;
+    const tripDriver = Array.isArray(trip?.driver) ? trip?.driver?.[0] : trip?.driver;
     const companies: string[] = [];
-    row.trip?.trip_loads?.forEach((tl: any) => {
-      const name = tl?.load?.company?.name;
+    trip?.trip_loads?.forEach((tl: any) => {
+      const company = Array.isArray(tl?.load?.company) ? tl.load.company[0] : tl?.load?.company;
+      const name = company?.name;
       if (name && !companies.includes(name)) companies.push(name);
     });
 
-    const driverName = row.trip?.driver
-      ? `${row.trip.driver.first_name} ${row.trip.driver.last_name}`
-      : null;
+    const driverName = tripDriver ? `${tripDriver.first_name} ${tripDriver.last_name}` : null;
 
     return {
       id: row.id,
       trip_id: row.trip_id,
-      trip_number: row.trip?.trip_number || null,
+      trip_number: trip?.trip_number || null,
       driver_name: driverName,
       companies,
       status: row.status,
@@ -507,9 +511,9 @@ export async function listReceivables(params: {
   return (data || []).map((row: any) => ({
     id: row.id,
     trip_id: row.trip_id,
-    trip_number: row.trip?.trip_number || null,
+    trip_number: (Array.isArray(row.trip) ? row.trip[0] : row.trip)?.trip_number || null,
     company_id: row.company_id,
-    company_name: row.company?.name || null,
+    company_name: (Array.isArray(row.company) ? row.company[0] : row.company)?.name || null,
     amount: Number(row.amount) || 0,
     status: row.status,
     due_date: row.due_date || null,
@@ -564,10 +568,14 @@ export async function getFinanceSummary(params: { ownerId: string; periodDays?: 
     .map((s: any) => ({
       settlement_id: s.id,
       trip_id: s.trip_id,
-      trip_number: s.trip?.trip_number || null,
+      trip_number: (Array.isArray(s.trip) ? s.trip[0] : s.trip)?.trip_number || null,
       revenue: Number(s.total_revenue) || 0,
       profit: Number(s.total_profit) || 0,
-      driver_name: s.trip?.driver ? `${s.trip.driver.first_name} ${s.trip.driver.last_name}` : null,
+      driver_name: (() => {
+        const trip = Array.isArray(s.trip) ? s.trip[0] : s.trip;
+        const driver = Array.isArray(trip?.driver) ? trip?.driver?.[0] : trip?.driver;
+        return driver ? `${driver.first_name} ${driver.last_name}` : null;
+      })(),
       settled_at: s.closed_at || s.created_at,
     }));
 
@@ -583,8 +591,9 @@ export async function getFinanceSummary(params: { ownerId: string; periodDays?: 
   (openReceivables || []).forEach((r: any) => {
     const amt = Number(r.amount) || 0;
     open_receivables_amount += amt;
-    const key = r.company?.id || 'unknown';
-    const name = r.company?.name || 'Unknown';
+    const company = Array.isArray(r.company) ? r.company[0] : r.company;
+    const key = company?.id || 'unknown';
+    const name = company?.name || 'Unknown';
     if (!companyTotals[key]) companyTotals[key] = { name, total: 0 };
     companyTotals[key].total += amt;
   });

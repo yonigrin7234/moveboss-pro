@@ -38,23 +38,49 @@ export async function POST(request: Request) {
 
     let { error } = await uploadOnce();
 
-    if (error && hasServiceKey && (error.statusCode === '404' || /bucket.*not.*found/i.test(error.message))) {
-      // Attempt to create the bucket on the fly (public) then retry
-      const { error: bucketError } = await supabase.storage.createBucket(BUCKET, { public: true });
-      if (bucketError && !/exists/i.test(bucketError.message)) {
-        return NextResponse.json({ error: `Storage bucket error: ${bucketError.message}` }, { status: 500 });
+    if (error && hasServiceKey) {
+      const statusCode = (error as any)?.statusCode;
+      const isNotFound =
+        statusCode === 404 ||
+        statusCode === '404' ||
+        /bucket.*not.*found/i.test(error.message);
+      if (isNotFound) {
+        // Attempt to create the bucket on the fly (public) then retry
+        const { error: bucketError } = await supabase.storage.createBucket(BUCKET, { public: true });
+        if (bucketError && !/exists/i.test(bucketError.message)) {
+          console.error('Error creating bucket:', bucketError);
+          return NextResponse.json({ error: 'Failed to create bucket' }, { status: 500 });
+        }
+        // Retry the upload once after creating bucket
+        const retryResult = await uploadOnce();
+        if (retryResult.error) {
+          console.error('Error during retry upload:', retryResult.error);
+          return NextResponse.json({ error: 'Failed to upload file after creating bucket' }, { status: 500 });
+        }
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from(BUCKET).getPublicUrl(fileName);
+        return NextResponse.json(
+          { publicUrl: publicUrl, path: fileName },
+          { status: 200 }
+        );
       }
-      const retry = await uploadOnce();
-      error = retry.error;
-    } else if (error && !hasServiceKey && (error.statusCode === '404' || /bucket.*not.*found/i.test(error.message))) {
-      return NextResponse.json(
-        {
-          error:
-            'Storage bucket not found. Provide SUPABASE_SERVICE_ROLE_KEY or create the bucket ' +
-            `"${BUCKET}" in Supabase Storage.`,
-        },
-        { status: 500 }
-      );
+    } else if (error && !hasServiceKey) {
+      const statusCode = (error as any)?.statusCode;
+      const isNotFound =
+        statusCode === 404 ||
+        statusCode === '404' ||
+        /bucket.*not.*found/i.test(error.message);
+      if (isNotFound) {
+        return NextResponse.json(
+          {
+            error:
+              'Storage bucket not found. Provide SUPABASE_SERVICE_ROLE_KEY or create the bucket ' +
+              `"${BUCKET}" in Supabase Storage.`,
+          },
+          { status: 500 }
+        );
+      }
     }
 
     if (error) {

@@ -135,6 +135,7 @@ export default async function DriverLoadPage({ params }: DriverLoadPageProps) {
   };
 
   const loadStatus = load.load_status || "pending";
+  const company = Array.isArray((load as any)?.company) ? (load as any).company[0] : (load as any).company;
 
   return (
     <div className="space-y-6">
@@ -142,7 +143,7 @@ export default async function DriverLoadPage({ params }: DriverLoadPageProps) {
         <div>
           <p className="text-xs uppercase text-muted-foreground">Load</p>
           <h1 className="text-2xl font-semibold text-foreground">{load.load_number || params.loadId}</h1>
-          <p className="text-sm text-muted-foreground">{load.company?.name || "Company n/a"}</p>
+          <p className="text-sm text-muted-foreground">{company?.name || "Company n/a"}</p>
         </div>
         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone[loadStatus] || ""}`}>
           {loadStatus.replace("_", " ")}

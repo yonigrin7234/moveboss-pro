@@ -48,9 +48,17 @@ export default async function DriverStatementsPage() {
             {rows.map((row) => (
               <tr key={row.id} className="border-b border-border/40">
                 <td className="px-4 py-3">
-                  {row.driver ? `${row.driver.first_name} ${row.driver.last_name}` : '—'}
+                  {(() => {
+                    const driver = row.driver?.[0];
+                    return driver ? `${driver.first_name} ${driver.last_name}` : '—';
+                  })()}
                 </td>
-                <td className="px-4 py-3">{row.trip ? row.trip.trip_number : '—'}</td>
+                <td className="px-4 py-3">
+                  {(() => {
+                    const trip = row.trip?.[0];
+                    return trip ? trip.trip_number : '—';
+                  })()}
+                </td>
                 <td className="px-4 py-3 font-semibold">
                   {typeof row.amount === 'number' ? `$${row.amount.toFixed(2)}` : '—'}
                 </td>

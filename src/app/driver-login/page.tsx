@@ -30,15 +30,38 @@ export default function DriverLoginPage() {
         return;
       }
 
-      // Normalize phone number to E.164 format for Supabase
-      const phoneForAuth = mode === "phone" ? normalizePhoneToE164(identifier) : undefined;
-      const emailForAuth = mode === "email" ? identifier : undefined;
+      // Determine login method
+      const isEmailLogin = mode === "email";
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: emailForAuth,
-        phone: phoneForAuth,
-        password,
-      });
+      // Normalize phone number to E.164 format for Supabase
+      const phoneForAuth = isEmailLogin ? undefined : normalizePhoneToE164(identifier);
+      const emailForAuth = isEmailLogin ? identifier : undefined;
+
+      // Validate before calling Supabase
+      if (isEmailLogin && !emailForAuth) {
+        setError("Email is required.");
+        setLoading(false);
+        return;
+      }
+      if (!isEmailLogin && !phoneForAuth) {
+        setError("Phone number is required.");
+        setLoading(false);
+        return;
+      }
+
+      // Build correct credentials object
+      const credentials = isEmailLogin
+        ? {
+            email: emailForAuth as string,
+            password,
+          }
+        : {
+            phone: phoneForAuth as string,
+            password,
+          };
+
+      // Call Supabase
+      const { error: signInError } = await supabase.auth.signInWithPassword(credentials);
       if (signInError) {
         setError(signInError.message);
         setLoading(false);

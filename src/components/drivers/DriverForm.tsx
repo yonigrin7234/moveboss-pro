@@ -202,7 +202,8 @@ export function DriverForm({
     return trailer?.unit_number || 'Trailer';
   };
   const selectedTruck = trucks.find((truckItem) => truckItem.id === snapshot.assignedTruckId);
-  const canAssignTrailer = !selectedTruck || selectedTruck.vehicle_type === 'tractor';
+  const selectedTruckType = (selectedTruck as any)?.vehicle_type;
+  const canAssignTrailer = !selectedTruck || selectedTruckType === 'tractor';
   const parseDateSafe = (value?: string | null) => {
     if (!value) return null;
     const d = new Date(value);
@@ -259,7 +260,7 @@ export function DriverForm({
       const phoneValue = (formData.get('phone') as string) || '';
       const truckId = (formData.get('assigned_truck_id') as string) || '';
       const trailerId = (formData.get('assigned_trailer_id') as string) || '';
-      const statusValue = (formData.get('status') as string) || 'active';
+      const statusValue = ((formData.get('status') as string) || 'active') as 'active' | 'inactive' | 'suspended';
       const modeValue = ((formData.get('pay_mode') as DriverPayMode) || payMode) as DriverPayMode;
       const hasLoginValue = (formData.get('has_login') as string) === 'true';
       const emailValue = (formData.get('email') as string) || '';
@@ -279,6 +280,7 @@ export function DriverForm({
         licenseNumber,
         licenseExpiry,
         medicalCardExpiry,
+        authUserId: snapshot.authUserId,
       });
     };
 
@@ -754,7 +756,7 @@ export function DriverForm({
                             id="medical_card_issue_date"
                             name="medical_card_issue_date"
                             type="date"
-                            defaultValue={initialData?.medical_card_issue_date || ''}
+                            defaultValue={(initialData as any)?.medical_card_issue_date ?? ''}
                             onClick={handleDateClick}
                             className="h-9"
                           />

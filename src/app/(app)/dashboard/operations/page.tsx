@@ -42,8 +42,10 @@ const loadStatusStyles: Record<LoadStatus, string> = {
 
 const tripStatusStyles: Record<TripStatus, string> = {
   planned: 'bg-slate-500/10 text-slate-600 dark:text-slate-300',
+  active: 'bg-blue-500/10 text-blue-700 dark:text-blue-300',
   en_route: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
   completed: 'bg-emerald-500/10 text-emerald-500',
+  settled: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
   cancelled: 'bg-rose-500/10 text-rose-500',
 };
 
@@ -281,15 +283,17 @@ export default async function OperationsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {activeLoads.map((load) => (
-                      <TableRow key={load.id}>
-                        <TableCell className="font-medium">
-                          <Link href={`/dashboard/loads/${load.id}`} className="hover:text-primary">
-                            {load.load_number || load.job_number}
-                          </Link>
-                        </TableCell>
+                    {activeLoads.map((load) => {
+                      const company = Array.isArray(load.company) ? load.company[0] : load.company;
+                      return (
+	                    <TableRow key={load.id}>
+                          <TableCell className="font-medium">
+                            <Link href={`/dashboard/loads/${load.id}`} className="hover:text-primary">
+                              {load.load_number || load.job_number}
+                            </Link>
+                          </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {load.company?.name ?? '-'}
+                          {company?.name ?? '-'}
                         </TableCell>
                         <TableCell>
                           <Badge variant="secondary" className={loadStatusStyles[load.status]}>
@@ -317,7 +321,8 @@ export default async function OperationsPage() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -375,7 +380,11 @@ export default async function OperationsPage() {
                 No trips yet. Bundle loads and assign equipment to start tracking.
               </div>
             ) : (
-              activeTrips.map((trip) => (
+              activeTrips.map((trip) => {
+                const driver = Array.isArray(trip.driver) ? trip.driver[0] : trip.driver;
+                const truck = Array.isArray(trip.truck) ? trip.truck[0] : trip.truck;
+
+                return (
                 <div
                   key={trip.id}
                   className="flex flex-col gap-2 rounded-xl border border-border/70 p-3 shadow-sm md:flex-row md:items-center md:justify-between"
@@ -404,15 +413,16 @@ export default async function OperationsPage() {
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Truck className="h-4 w-4" />
-                      <span>{trip.truck?.unit_number ? `Truck ${trip.truck.unit_number}` : 'No truck'}</span>
+                      <span>{truck?.unit_number ? `Truck ${truck.unit_number}` : 'No truck'}</span>
                     </div>
                     <Separator orientation="vertical" className="h-6" />
                     <div>
-                      <span className="text-foreground">{trip.driver ? `${trip.driver.first_name} ${trip.driver.last_name}` : 'Unassigned driver'}</span>
+                      <span className="text-foreground">{driver ? `${driver.first_name} ${driver.last_name}` : 'Unassigned driver'}</span>
                     </div>
                   </div>
                 </div>
-              ))
+                );
+              })
             )}
           </CardContent>
         </Card>

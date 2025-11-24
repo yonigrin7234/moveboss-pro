@@ -198,7 +198,9 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {loads.map((load) => (
+                {loads.map((load) => {
+                  const company = Array.isArray(load.company) ? load.company[0] : load.company;
+                  return (
                   <TableRow key={load.id}>
                     <TableCell className="font-medium">
                       <Link
@@ -209,7 +211,7 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
                       </Link>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {load.company?.name || '—'}
+                      {company?.name || '—'}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatServiceType(load.service_type)}
@@ -260,7 +262,8 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}

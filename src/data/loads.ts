@@ -92,9 +92,11 @@ export const newLoadInputSchema = z
     pieces_count: z.coerce.number().int().min(0).optional(),
     description: optionalTrimmedString(5000),
 
+    linehaul_rate: z.coerce.number().nonnegative().optional(),
     packing_rate: z.coerce.number().nonnegative().optional(),
     materials_rate: z.coerce.number().nonnegative().optional(),
     accessorials_rate: z.coerce.number().nonnegative().optional(),
+    total_rate: z.coerce.number().nonnegative().optional(),
     status: loadStatusSchema.optional().default('pending'),
     notes: optionalTrimmedString(5000),
     // Contract/settlement fields
@@ -271,19 +273,12 @@ export interface Load {
   assigned_driver?: { id: string; first_name: string; last_name: string } | null;
   assigned_truck?: { id: string; unit_number: string } | null;
   assigned_trailer?: { id: string; unit_number: string } | null;
-  // Contract/settlement fields
-  actual_cuft_loaded?: number | null;
-  contract_rate_per_cuft?: number | null;
-  contract_accessorials_total?: number | null;
+  // Contract/settlement fields (extended)
   contract_accessorials_shuttle?: number | null;
   contract_accessorials_stairs?: number | null;
   contract_accessorials_long_carry?: number | null;
   contract_accessorials_bulky?: number | null;
   contract_accessorials_other?: number | null;
-  balance_due_on_delivery?: number | null;
-  amount_collected_on_delivery?: number | null;
-  amount_paid_directly_to_company?: number | null;
-  extra_accessorials_total?: number | null;
   contract_notes?: string | null;
   origin_arrival_at?: string | null;
   destination_arrival_at?: string | null;
@@ -679,7 +674,7 @@ export async function updateLoad(
     }
   }
 
-  const payload: Record<string, string | number | boolean | null> = {};
+  const payload: Record<string, string | number | boolean | string[] | null> = {};
 
   if (input.load_number !== undefined) payload.load_number = input.load_number;
   if (input.service_type !== undefined) payload.service_type = input.service_type;

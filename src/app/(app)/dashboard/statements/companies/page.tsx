@@ -47,8 +47,18 @@ export default async function CompanyStatementsPage() {
             )}
             {rows.map((row) => (
               <tr key={row.id} className="border-b border-border/40">
-                <td className="px-4 py-3">{row.company ? row.company.name : '—'}</td>
-                <td className="px-4 py-3">{row.trip ? row.trip.trip_number : '—'}</td>
+                <td className="px-4 py-3">
+                  {(() => {
+                    const company = row.company?.[0];
+                    return company ? company.name : '—';
+                  })()}
+                </td>
+                <td className="px-4 py-3">
+                  {(() => {
+                    const trip = row.trip?.[0];
+                    return trip ? trip.trip_number : '—';
+                  })()}
+                </td>
                 <td className="px-4 py-3 font-semibold">
                   {typeof row.amount === 'number' ? `$${row.amount.toFixed(2)}` : '—'}
                 </td>

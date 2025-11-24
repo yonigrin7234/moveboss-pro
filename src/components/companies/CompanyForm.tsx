@@ -192,7 +192,7 @@ export function CompanyForm({
       setSnapshot({
         name: (formData.get('name') as string) || '',
         type: (formData.get('company_type') as string) || '',
-        status: (formData.get('status') as string) || 'active',
+        status: ((formData.get('status') as string) || 'active') as NewCompanyInput['status'],
         primaryContact: (formData.get('primary_contact_name') as string) || '',
         dispatchContact: (formData.get('dispatch_contact_name') as string) || '',
         street: (formData.get('street') as string) || '',
@@ -224,7 +224,6 @@ export function CompanyForm({
   }, [state?.success, router, toast]);
 
   const copyCompanyAddressToDispatch = () => {
-    setDispatchSameAsCompany(true);
     const street = (document.getElementById('street') as HTMLInputElement)?.value || '';
     const city = (document.getElementById('city') as HTMLInputElement)?.value || '';
     const state = (document.getElementById('state') as HTMLInputElement)?.value || '';

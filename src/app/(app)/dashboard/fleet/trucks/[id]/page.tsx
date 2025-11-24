@@ -137,25 +137,25 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
   }
 
   const initialData = {
-    unit_number: truck.unit_number || undefined,
-    plate_number: truck.plate_number || undefined,
-    plate_state: truck.plate_state || undefined,
-    vin: truck.vin || undefined,
-    make: truck.make || undefined,
-    model: truck.model || undefined,
-    year: truck.year || undefined,
-    current_odometer: truck.current_odometer || undefined,
-    registration_expiry: truck.registration_expiry || undefined,
-    inspection_expiry: truck.inspection_expiry || undefined,
-    assigned_driver_id: truck.assigned_driver_id || undefined,
+    unit_number: truck.unit_number ?? undefined,
+    plate_number: truck.plate_number ?? undefined,
+    plate_state: truck.plate_state ?? undefined,
+    vin: truck.vin ?? undefined,
+    make: truck.make ?? undefined,
+    model: truck.model ?? undefined,
+    year: truck.year ?? undefined,
+    current_odometer: truck.current_odometer ?? undefined,
+    registration_expiry: truck.registration_expiry ?? undefined,
+    inspection_expiry: truck.inspection_expiry ?? undefined,
+    assigned_driver_id: truck.assigned_driver_id ?? undefined,
     status: truck.status,
-    vehicle_type: truck.vehicle_type || undefined,
-    cubic_capacity: truck.cubic_capacity || undefined,
-    is_rental_unit: truck.is_rental_unit || false,
-    rental_company: truck.rental_company || undefined,
-    rental_company_other: truck.rental_company_other || undefined,
-    rental_truck_number: truck.rental_truck_number || undefined,
-    notes: truck.notes || undefined,
+    vehicle_type: truck.vehicle_type ?? undefined,
+    cubic_capacity: truck.cubic_capacity ?? undefined,
+    is_rental_unit: truck.is_rental_unit ?? false,
+    rental_company: truck.rental_company ?? undefined,
+    rental_company_other: truck.rental_company_other ?? undefined,
+    rental_truck_number: truck.rental_truck_number ?? undefined,
+    notes: truck.notes ?? undefined,
   };
 
   return (
@@ -185,4 +185,3 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
     </div>
   );
 }
-

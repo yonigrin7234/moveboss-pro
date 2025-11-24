@@ -252,7 +252,10 @@ export function LoadCreateForm({ companies, drivers, trucks, trailers, onSubmit 
               <Label>Truck</Label>
               <SelectWithHiddenInput
                 name="assigned_truck_id"
-                options={trucks.map((truck) => ({ value: truck.id, label: truck.unit_number }))}
+                options={trucks.map((truck) => ({
+                  value: truck.id,
+                  label: truck.unit_number ?? truck.plate_number ?? 'Unassigned',
+                }))}
                 placeholder="Unassigned"
               />
             </div>
@@ -260,7 +263,10 @@ export function LoadCreateForm({ companies, drivers, trucks, trailers, onSubmit 
               <Label>Trailer</Label>
               <SelectWithHiddenInput
                 name="assigned_trailer_id"
-                options={trailers.map((trailer) => ({ value: trailer.id, label: trailer.unit_number }))}
+                options={trailers.map((trailer) => ({
+                  value: trailer.id,
+                  label: trailer.unit_number ?? 'Unassigned',
+                }))}
                 placeholder="Unassigned"
               />
             </div>

@@ -157,10 +157,22 @@ export interface TripStats {
   profitLast30Days: number;
 }
 
-export interface TripWithDetails extends Trip {
+export type TripWithDetails = Trip & {
+  driver?: any;
+  company?: any;
+  truck?: any;
+  trailer?: any;
+  // keep any other existing fields that were already here
   loads: TripLoad[];
   expenses: TripExpense[];
-}
+
+  // Fields required by /dashboard/trips/[id]/page.tsx
+  odometer_start?: number | null;
+  odometer_end?: number | null;
+  odometer_start_photo_url?: string | null;
+  odometer_end_photo_url?: string | null;
+  actual_miles?: number | null;
+};
 
 interface TripFinancialSummary {
   revenue_total: number;

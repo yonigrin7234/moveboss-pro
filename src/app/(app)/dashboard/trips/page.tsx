@@ -186,6 +186,9 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
                 </TableHeader>
                 <TableBody>
                   {trips.map((trip) => {
+                    const driver = Array.isArray(trip.driver) ? trip.driver[0] : trip.driver;
+                    const truck = Array.isArray(trip.truck) ? trip.truck[0] : trip.truck;
+                    const trailer = Array.isArray(trip.trailer) ? trip.trailer[0] : trip.trailer;
                     const expensesTotal =
                       (trip.driver_pay_total || 0) +
                       (trip.fuel_total || 0) +
@@ -209,11 +212,11 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <div className="text-sm">{trip.driver ? `${trip.driver.first_name} ${trip.driver.last_name}` : '—'}</div>
+                          <div className="text-sm">{driver ? `${driver.first_name} ${driver.last_name}` : '—'}</div>
                           <div className="text-xs text-muted-foreground">
-                            {trip.truck ? `Truck ${trip.truck.unit_number}` : 'No truck'}
+                            {truck ? `Truck ${truck.unit_number}` : 'No truck'}
                             {' • '}
-                            {trip.trailer ? `Trailer ${trip.trailer.unit_number}` : 'No trailer'}
+                            {trailer ? `Trailer ${trailer.unit_number}` : 'No trailer'}
                           </div>
                         </TableCell>
                         <TableCell>

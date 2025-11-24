@@ -58,8 +58,12 @@ export async function listTripExpenses(params: {
   return (data || []).map((row: any) => ({
     id: row.id,
     trip_id: row.trip_id,
-    trip_number: row.trip?.trip_number || null,
-    driver_name: row.trip?.driver ? `${row.trip.driver.first_name} ${row.trip.driver.last_name}` : null,
+    trip_number: (Array.isArray(row.trip) ? row.trip[0] : row.trip)?.trip_number || null,
+    driver_name: (() => {
+      const trip = Array.isArray(row.trip) ? row.trip[0] : row.trip;
+      const driver = Array.isArray(trip?.driver) ? trip?.driver?.[0] : trip?.driver;
+      return driver ? `${driver.first_name} ${driver.last_name}` : null;
+    })(),
     expense_type: row.expense_type || null,
     paid_by: row.paid_by || null,
     amount: Number(row.amount) || 0,

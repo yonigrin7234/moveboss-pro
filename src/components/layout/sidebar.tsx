@@ -114,7 +114,7 @@ function isItemActive(pathname: string, item: NavItem): boolean {
   return false
 }
 
-export default function Sidebar() {
+export default function Sidebar(_props: { companyName?: string | null; userName?: string | null } = {}) {
   const pathname = usePathname() ?? ""
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
   

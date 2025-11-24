@@ -221,7 +221,7 @@ export function TruckForm({
       setSnapshot({
         unitNumber: (formData.get('unit_number') as string) || '',
         vehicleType: (formData.get('vehicle_type') as string) || '',
-        status: (formData.get('status') as string) || 'active',
+        status: ((formData.get('status') as string) || 'active') as NewTruckInput['status'],
         assignedDriverId: (formData.get('assigned_driver_id') as string) || '',
         isRental: (formData.get('is_rental_unit') as string) === 'true',
         rentalCompany: (formData.get('rental_company') as string) || '',
@@ -731,7 +731,7 @@ export function TruckForm({
       setSnapshot({
         unitNumber: (formData.get('unit_number') as string) || '',
         vehicleType: (formData.get('vehicle_type') as string) || '',
-        status: (formData.get('status') as string) || 'active',
+        status: ((formData.get('status') as string) || 'active') as NewTruckInput['status'],
         assignedDriverId: (formData.get('assigned_driver_id') as string) || '',
         isRental: (formData.get('is_rental_unit') as string) === 'true',
         rentalCompany: (formData.get('rental_company') as string) || '',

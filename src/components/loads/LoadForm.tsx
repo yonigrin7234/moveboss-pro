@@ -137,8 +137,8 @@ export function LoadForm({
     trailerId: initialData?.assigned_trailer_id || '',
     pickupCity: initialData?.pickup_city || '',
     deliveryCity: initialData?.delivery_city || '',
-    linehaulRate: initialData?.linehaul_rate?.toString() || '',
-    totalRate: initialData?.total_rate?.toString() || '',
+    linehaulRate: (initialData as any)?.linehaul_rate?.toString() || '',
+    totalRate: (initialData as any)?.total_rate?.toString() || '',
   });
   const sectionIndex: Record<string, number> = {
     basics: 0,
@@ -208,8 +208,8 @@ export function LoadForm({
       setSnapshot({
         loadNumber: (formData.get('load_number') as string) || '',
         companyId: (formData.get('company_id') as string) || '',
-        serviceType: (formData.get('service_type') as string) || 'other',
-        status: (formData.get('status') as string) || 'pending',
+        serviceType: ((formData.get('service_type') as string) || 'other') as ServiceType,
+        status: ((formData.get('status') as string) || 'pending') as LoadStatus,
         driverId: (formData.get('assigned_driver_id') as string) || '',
         truckId: (formData.get('assigned_truck_id') as string) || '',
         trailerId: (formData.get('assigned_trailer_id') as string) || '',
@@ -658,7 +658,7 @@ export function LoadForm({
                       type="number"
                       step="0.01"
                       min="0"
-                      defaultValue={initialData?.linehaul_rate || ''}
+                      defaultValue={(initialData as any)?.linehaul_rate ?? ''}
                       className="h-9"
                     />
                   </div>
@@ -670,7 +670,7 @@ export function LoadForm({
                       type="number"
                       step="0.01"
                       min="0"
-                      defaultValue={initialData?.packing_rate || ''}
+                      defaultValue={(initialData as any)?.packing_rate ?? ''}
                       className="h-9"
                     />
                   </div>
@@ -682,7 +682,7 @@ export function LoadForm({
                       type="number"
                       step="0.01"
                       min="0"
-                      defaultValue={initialData?.materials_rate || ''}
+                      defaultValue={(initialData as any)?.materials_rate ?? ''}
                       className="h-9"
                     />
                   </div>
@@ -694,7 +694,7 @@ export function LoadForm({
                       type="number"
                       step="0.01"
                       min="0"
-                      defaultValue={initialData?.accessorials_rate || ''}
+                      defaultValue={(initialData as any)?.accessorials_rate ?? ''}
                       className="h-9"
                     />
                   </div>
@@ -706,7 +706,7 @@ export function LoadForm({
                       type="number"
                       step="0.01"
                       min="0"
-                      defaultValue={initialData?.total_rate || ''}
+                      defaultValue={(initialData as any)?.total_rate ?? ''}
                       className="h-9"
                     />
                   </div>
