@@ -22,6 +22,11 @@ import { TripOverviewCard, type TripOverviewFormState } from '@/components/trips
 import { TripLoadsCard, type TripLoadFormState } from '@/components/trips/TripLoadsCard';
 import { TripExpensesCard, type TripExpenseFormState } from '@/components/trips/TripExpensesCard';
 import { DeleteTripButton } from './delete-trip-button';
+import { CloseTripButton } from './CloseTripButton';
+import { createTripSettlement } from '@/data/settlements';
+import { updateLoad, updateLoadInputSchema } from '@/data/loads';
+import { getSettlementSnapshot } from '@/data/settlements';
+import { PhotoField } from '@/components/ui/photo-field';
 
 interface TripDetailPageProps {
   params: Promise<{ id: string }>;
@@ -29,8 +34,10 @@ interface TripDetailPageProps {
 
 const statusBadgeClasses: Record<TripStatus, string> = {
   planned: 'bg-muted text-foreground',
+  active: 'bg-blue-100 text-blue-800',
   en_route: 'bg-blue-100 text-blue-800',
   completed: 'bg-green-100 text-green-800',
+  settled: 'bg-emerald-100 text-emerald-700',
   cancelled: 'bg-red-100 text-destructive',
 };
 
@@ -38,10 +45,14 @@ function formatStatus(status: TripStatus) {
   switch (status) {
     case 'planned':
       return 'Planned';
+    case 'active':
+      return 'Active';
     case 'en_route':
       return 'En Route';
     case 'completed':
       return 'Completed';
+    case 'settled':
+      return 'Settled';
     case 'cancelled':
       return 'Cancelled';
     default:
@@ -49,8 +60,9 @@ function formatStatus(status: TripStatus) {
   }
 }
 
-function cleanFormValues(formData: FormData, fields: string[]) {
+function cleanFormValues(formData: FormData | null | undefined, fields: string[]) {
   const cleaned: Record<string, string> = {};
+  if (!formData) return cleaned;
   fields.forEach((field) => {
     const value = formData.get(field);
     if (typeof value === 'string') {
@@ -90,6 +102,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
   }
 
   const loads = await getLoadsForUser(user.id);
+  const settlementSnapshot = await getSettlementSnapshot(id, user.id);
 
   async function updateOverviewAction(
     prevState: TripOverviewFormState | null,
@@ -184,6 +197,10 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
       amount: formData.get('amount'),
       description: formData.get('description'),
       incurred_at: formData.get('incurred_at'),
+      expense_type: formData.get('expense_type'),
+      paid_by: formData.get('paid_by'),
+      receipt_photo_url: formData.get('receipt_photo_url'),
+      notes: formData.get('notes'),
     };
 
     try {
@@ -224,6 +241,10 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
       amount: formData.get('amount'),
       description: formData.get('description'),
       incurred_at: formData.get('incurred_at'),
+      expense_type: formData.get('expense_type'),
+      paid_by: formData.get('paid_by'),
+      receipt_photo_url: formData.get('receipt_photo_url'),
+      notes: formData.get('notes'),
     };
 
     try {
@@ -270,6 +291,104 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     revalidatePath('/dashboard/trips');
   }
 
+  async function updateTripStatusAction(
+    prevState: { errors?: Record<string, string>; success?: boolean } | null,
+    formData: FormData
+  ): Promise<{ errors?: Record<string, string>; success?: boolean } | null> {
+    'use server';
+    const currentUser = await getCurrentUser();
+    if (!currentUser) return { errors: { _form: 'Not authenticated' } };
+
+    const payload = cleanFormValues(formData, [
+      'status',
+      'odometer_start',
+      'odometer_start_photo_url',
+      'odometer_end',
+      'odometer_end_photo_url',
+    ]);
+
+    try {
+      const validated = updateTripInputSchema.parse(payload);
+      await updateTrip(id, validated, currentUser.id);
+      revalidatePath(`/dashboard/trips/${id}`);
+      revalidatePath('/dashboard/trips');
+      return { success: true };
+    } catch (error) {
+      if (error && typeof error === 'object' && 'issues' in error) {
+        const zodError = error as { issues: Array<{ path: (string | number)[]; message: string }> };
+        const errors: Record<string, string> = {};
+        zodError.issues.forEach((issue) => {
+          const field = issue.path[0] as string;
+          errors[field] = issue.message;
+        });
+        return { errors };
+      }
+      return { errors: { _form: error instanceof Error ? error.message : 'Failed to update status' } };
+    }
+  }
+
+  async function updateLoadAction(
+    prevState: { errors?: Record<string, string>; success?: boolean } | null,
+    formData: FormData
+  ): Promise<{ errors?: Record<string, string>; success?: boolean } | null> {
+    'use server';
+    const currentUser = await getCurrentUser();
+    if (!currentUser) return { errors: { _form: 'Not authenticated' } };
+
+    const loadId = formData.get('load_id');
+    if (typeof loadId !== 'string' || !loadId) {
+      return { errors: { _form: 'Missing load id' } };
+    }
+
+    const entries: Record<string, any> = {};
+    formData.forEach((val, key) => {
+      if (key === 'load_id') return;
+      entries[key] = val;
+    });
+
+    try {
+      const validated = updateLoadInputSchema.parse(entries);
+      await updateLoad(loadId, validated, currentUser.id);
+      revalidatePath(`/dashboard/trips/${id}`);
+      revalidatePath('/dashboard/trips');
+      return { success: true };
+    } catch (error) {
+      if (error && typeof error === 'object' && 'issues' in error) {
+        const zodError = error as { issues: Array<{ path: (string | number)[]; message: string }> };
+        const errors: Record<string, string> = {};
+        zodError.issues.forEach((issue) => {
+          const field = issue.path[0] as string;
+          errors[field] = issue.message;
+        });
+        return { errors };
+      }
+      return { errors: { _form: error instanceof Error ? error.message : 'Failed to update load' } };
+    }
+  }
+
+  async function settleTripAction(
+    prevState: { errors?: Record<string, string>; success?: boolean; settlementId?: string } | null,
+    formData: FormData
+  ): Promise<{ errors?: Record<string, string>; success?: boolean; settlementId?: string } | null> {
+    'use server';
+    const currentUser = await getCurrentUser();
+    if (!currentUser) return { errors: { _form: 'Not authenticated' } };
+
+    const tripId = formData.get('trip_id');
+    if (typeof tripId !== 'string' || !tripId) {
+      return { errors: { _form: 'Missing trip id' } };
+    }
+
+    try {
+      const settlement = await createTripSettlement(tripId, currentUser.id);
+      revalidatePath(`/dashboard/trips/${tripId}`);
+      revalidatePath('/dashboard/trips');
+      return { success: true, settlementId: settlement.id };
+    } catch (error) {
+      return { errors: { _form: error instanceof Error ? error.message : 'Failed to settle trip' } };
+    }
+  }
+
   const driverName = trip.driver ? `${trip.driver.first_name} ${trip.driver.last_name}` : undefined;
   const truckNumber = trip.truck?.unit_number || undefined;
   const trailerNumber = trip.trailer?.unit_number || undefined;
@@ -299,7 +418,66 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
           >
             Back to Trips
           </Link>
+          <CloseTripButton tripId={trip.id} action={settleTripAction} />
           <DeleteTripButton deleteAction={deleteTripAction} />
+        </div>
+      </div>
+
+      {/* Trip Status & Odometer */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="bg-card border border-border rounded-lg p-4 space-y-3">
+          <h3 className="text-lg font-semibold">Trip Status & Odometer</h3>
+          <form action={updateTripStatusAction} className="space-y-3">
+            <input type="hidden" name="trip_id" value={trip.id} />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm text-muted-foreground block mb-1">Status</label>
+                <select name="status" defaultValue={trip.status} className="w-full border border-border rounded-md px-3 py-2 text-sm">
+                  {(['planned','active','en_route','completed','settled','cancelled'] as const).map((s) => (
+                    <option key={s} value={s}>{formatStatus(s)}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm text-muted-foreground block mb-1">Odometer Start</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  name="odometer_start"
+                  defaultValue={trip.odometer_start || ''}
+                  className="w-full border border-border rounded-md px-3 py-2 text-sm"
+                />
+                <PhotoField
+                  name="odometer_start_photo_url"
+                  label="Start photo"
+                  defaultValue={trip.odometer_start_photo_url || ''}
+                  description="Upload or snap the starting odometer."
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm text-muted-foreground block mb-1">Odometer End</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  name="odometer_end"
+                  defaultValue={trip.odometer_end || ''}
+                  className="w-full border border-border rounded-md px-3 py-2 text-sm"
+                />
+                <PhotoField
+                  name="odometer_end_photo_url"
+                  label="End photo"
+                  defaultValue={trip.odometer_end_photo_url || ''}
+                  description="Upload or snap the ending odometer."
+                />
+              </div>
+            </div>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors text-sm"
+            >
+              Update Status / Odometer
+            </button>
+          </form>
         </div>
       </div>
 
@@ -319,6 +497,149 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
         onRemove={removeTripLoadAction}
       />
 
+      {/* Load Editors */}
+      <div className="space-y-4">
+        {trip.loads.map((tl) => {
+          const load = tl.load as any;
+          return (
+            <div key={tl.id} className="border border-border rounded-lg p-4 space-y-3 bg-card">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs uppercase text-muted-foreground tracking-wide">Load</p>
+                  <h4 className="text-lg font-semibold">{load?.load_number || tl.load_id}</h4>
+                  <p className="text-sm text-muted-foreground">{load?.company?.name || 'Company n/a'}</p>
+                </div>
+              </div>
+              <form action={updateLoadAction} className="space-y-3">
+                <input type="hidden" name="load_id" value={tl.load_id} />
+                <div className="grid md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-1">Actual CUFT Loaded</label>
+                    <input name="actual_cuft_loaded" type="number" step="0.01" defaultValue={load?.actual_cuft_loaded || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-1">Contract Rate / CUFT</label>
+                    <input name="contract_rate_per_cuft" type="number" step="0.01" defaultValue={load?.contract_rate_per_cuft || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-1">Balance Due on Delivery</label>
+                    <input name="balance_due_on_delivery" type="number" step="0.01" defaultValue={load?.balance_due_on_delivery || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm" />
+                  </div>
+                </div>
+                <div className="grid md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-1">Collected on Delivery</label>
+                    <input name="amount_collected_on_delivery" type="number" step="0.01" defaultValue={load?.amount_collected_on_delivery || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-1">Paid Direct to Company</label>
+                    <input name="amount_paid_directly_to_company" type="number" step="0.01" defaultValue={load?.amount_paid_directly_to_company || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-1">Load Status</label>
+                    <select name="load_status" defaultValue={load?.load_status || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm">
+                      <option value="">Select</option>
+                      <option value="pending">Pending</option>
+                      <option value="loaded">Loaded</option>
+                      <option value="delivered">Delivered</option>
+                      <option value="storage_completed">Storage Completed</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid md:grid-cols-3 gap-3">
+                  {[
+                    ['contract_accessorials_shuttle', 'Contract Shuttle'],
+                    ['contract_accessorials_stairs', 'Contract Stairs'],
+                    ['contract_accessorials_long_carry', 'Contract Long Carry'],
+                    ['contract_accessorials_bulky', 'Contract Bulky'],
+                    ['contract_accessorials_other', 'Contract Other'],
+                  ].map(([key, label]) => (
+                    <div key={key}>
+                      <label className="text-sm text-muted-foreground block mb-1">{label}</label>
+                      <input name={key} type="number" step="0.01" defaultValue={load?.[key] || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm" />
+                    </div>
+                  ))}
+                </div>
+                <div className="grid md:grid-cols-3 gap-3">
+                  {[
+                    ['extra_shuttle', 'Extra Shuttle'],
+                    ['extra_stairs', 'Extra Stairs'],
+                    ['extra_long_carry', 'Extra Long Carry'],
+                    ['extra_packing', 'Extra Packing'],
+                    ['extra_bulky', 'Extra Bulky'],
+                    ['extra_other', 'Extra Other'],
+                  ].map(([key, label]) => (
+                    <div key={key}>
+                      <label className="text-sm text-muted-foreground block mb-1">{label} (collected by driver)</label>
+                      <input name={key} type="number" step="0.01" defaultValue={load?.[key] || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm" />
+                    </div>
+                  ))}
+                </div>
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-sm text-foreground">
+                      <input type="checkbox" name="storage_drop" defaultChecked={load?.storage_drop} className="h-4 w-4" />
+                      Storage drop
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-foreground">
+                      <input type="checkbox" name="company_approved_exception_delivery" defaultChecked={load?.company_approved_exception_delivery} className="h-4 w-4" />
+                      Company approved exception
+                    </label>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-muted-foreground block mb-1">Storage Move-In Fee</label>
+                    <input name="storage_move_in_fee" type="number" step="0.01" defaultValue={load?.storage_move_in_fee || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm" />
+                    <label className="text-sm text-muted-foreground block mb-1 mt-2">Storage Daily Fee</label>
+                    <input name="storage_daily_fee" type="number" step="0.01" defaultValue={load?.storage_daily_fee || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm" />
+                    <label className="text-sm text-muted-foreground block mb-1 mt-2">Storage Days Billed</label>
+                    <input name="storage_days_billed" type="number" step="1" defaultValue={load?.storage_days_billed || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm" />
+                  </div>
+                </div>
+                <div className="grid md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-1">Storage Location</label>
+                    <input name="storage_location_name" defaultValue={load?.storage_location_name || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm" />
+                    <input name="storage_location_address" defaultValue={load?.storage_location_address || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm mt-2" />
+                    <input name="storage_unit_number" defaultValue={load?.storage_unit_number || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm mt-2" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-sm text-muted-foreground block mb-1">Storage Notes</label>
+                    <textarea name="storage_notes" defaultValue={load?.storage_notes || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm" rows={3} />
+                  </div>
+                </div>
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div>
+                    <PhotoField
+                      name="load_report_photo_url"
+                      label="Load report photo"
+                      defaultValue={load?.load_report_photo_url || ''}
+                      description="Upload contract/load report"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground block mb-1">Payment Method</label>
+                    <select name="payment_method" defaultValue={load?.payment_method || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm">
+                      <option value="">Select</option>
+                      <option value="cash">Cash</option>
+                      <option value="card">Card</option>
+                      <option value="certified_check">Certified check</option>
+                      <option value="customer_paid_directly_to_company">Customer paid company</option>
+                    </select>
+                    <input name="payment_method_notes" defaultValue={load?.payment_method_notes || ''} placeholder="Payment notes" className="w-full border border-border rounded-md px-3 py-2 text-sm mt-2" />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors text-sm"
+                >
+                  Save Load
+                </button>
+              </form>
+            </div>
+          );
+        })}
+      </div>
+
       <TripExpensesCard
         tripId={trip.id}
         expenses={trip.expenses}
@@ -332,8 +653,104 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
         onUpdate={updateTripExpenseAction}
         onDelete={deleteTripExpenseAction}
       />
+
+      {/* Settlement Summary */}
+      <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Settlement</p>
+            <h3 className="text-xl font-semibold">Trip Settlement Summary</h3>
+          </div>
+          <CloseTripButton tripId={trip.id} action={settleTripAction} />
+        </div>
+        <div className="grid md:grid-cols-4 gap-3">
+          <div className="bg-muted rounded-lg p-3">
+            <p className="text-xs uppercase text-muted-foreground">Status</p>
+            <p className="text-lg font-semibold">{settlementSnapshot.settlements[0]?.status || '—'}</p>
+          </div>
+          <div className="bg-muted rounded-lg p-3">
+            <p className="text-xs uppercase text-muted-foreground">Revenue</p>
+            <p className="text-lg font-semibold">
+              ${settlementSnapshot.settlements[0]?.total_revenue?.toFixed(2) || '0.00'}
+            </p>
+          </div>
+          <div className="bg-muted rounded-lg p-3">
+            <p className="text-xs uppercase text-muted-foreground">Driver Pay</p>
+            <p className="text-lg font-semibold">
+              ${settlementSnapshot.settlements[0]?.total_driver_pay?.toFixed(2) || '0.00'}
+            </p>
+          </div>
+          <div className="bg-muted rounded-lg p-3">
+            <p className="text-xs uppercase text-muted-foreground">Profit</p>
+            <p className="text-lg font-semibold">
+              ${settlementSnapshot.settlements[0]?.total_profit?.toFixed(2) || '0.00'}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <h4 className="text-sm font-semibold mb-2">Receivables</h4>
+            <div className="border border-border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Company</th>
+                    <th className="px-3 py-2 text-left">Amount</th>
+                    <th className="px-3 py-2 text-left">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {settlementSnapshot.receivables.length === 0 && (
+                    <tr>
+                      <td className="px-3 py-2 text-muted-foreground" colSpan={3}>No receivables yet.</td>
+                    </tr>
+                  )}
+                  {settlementSnapshot.receivables.map((r: any) => (
+                    <tr key={r.id} className="border-t border-border/60">
+                      <td className="px-3 py-2">{r.company?.name || r.company_id}</td>
+                      <td className="px-3 py-2">${r.amount?.toFixed(2)}</td>
+                      <td className="px-3 py-2 capitalize">{r.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold mb-2">Payables</h4>
+            <div className="border border-border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Payee</th>
+                    <th className="px-3 py-2 text-left">Type</th>
+                    <th className="px-3 py-2 text-left">Amount</th>
+                    <th className="px-3 py-2 text-left">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {settlementSnapshot.payables.length === 0 && (
+                    <tr>
+                      <td className="px-3 py-2 text-muted-foreground" colSpan={4}>No payables yet.</td>
+                    </tr>
+                  )}
+                  {settlementSnapshot.payables.map((p: any) => (
+                    <tr key={p.id} className="border-t border-border/60">
+                      <td className="px-3 py-2">
+                        {p.driver ? `${p.driver.first_name} ${p.driver.last_name}` : p.driver_id || '—'}
+                      </td>
+                      <td className="px-3 py-2">{p.payee_type}</td>
+                      <td className="px-3 py-2">${p.amount?.toFixed(2)}</td>
+                      <td className="px-3 py-2 capitalize">{p.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
-
-

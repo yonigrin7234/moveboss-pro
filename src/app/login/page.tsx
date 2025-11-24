@@ -1,134 +1,67 @@
 "use client";
- 
-import { useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+
+import Link from "next/link";
+import { ArrowRight, ShieldCheck, Truck } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { createClient } from "@/lib/supabase-client";
+import { cn } from "@/lib/utils";
 
-export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+const cards = [
+  {
+    title: "Owner / Dispatch",
+    description: "Full dashboard access for managing fleet, trips, settlements, and finance.",
+    href: "/login/owner",
+    icon: ShieldCheck,
+  },
+  {
+    title: "Driver",
+    description: "Mobile-friendly portal for trips, loads, odometer, and expenses.",
+    href: "/driver-login",
+    icon: Truck,
+  },
+];
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const supabase = createClient();
-
-    try {
-      if (isSignUp) {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-
-        if (signUpError) {
-          setError(signUpError.message);
-          setLoading(false);
-          return;
-        }
-
-        // After sign up, sign in automatically
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (signInError) {
-          setError(signInError.message);
-          setLoading(false);
-          return;
-        }
-      } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (signInError) {
-          setError(signInError.message);
-          setLoading(false);
-          return;
-        }
-      }
-
-      // Success - redirect will happen via middleware
-      router.push("/dashboard");
-      router.refresh();
-    } catch (error) {
-      console.error(error);
-      setError("An unexpected error occurred");
-      setLoading(false);
-    }
-  };
-
+export default function LoginSelectorPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted">
-      <div className="w-full max-w-md rounded-lg bg-background p-8 shadow-lg">
-        <h1 className="text-center text-2xl font-bold">MoveBoss Pro</h1>
-        <p className="mb-6 text-center text-muted-foreground">
-          {isSignUp ? "Create an account" : "Sign in to your account"}
-        </p>
+    <div className="flex min-h-screen items-center justify-center bg-muted px-4">
+      <div className="w-full max-w-3xl space-y-6 rounded-2xl border border-border bg-background p-8 shadow-lg">
+        <div className="space-y-2 text-center">
+          <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">MoveBoss Pro</p>
+          <h1 className="text-2xl font-semibold text-foreground">Choose your portal</h1>
+          <p className="text-sm text-muted-foreground">
+            Select the experience that matches your role. Credentials stay the same.
+          </p>
+        </div>
 
-        {error && (
-          <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
-          </div>
-        )}
-
-        <form className="space-y-5" onSubmit={handleSubmit}>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              disabled={loading}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={loading}
-            />
-          </div>
-
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? "Please wait..." : isSignUp ? "Sign up" : "Sign in"}
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setIsSignUp(!isSignUp);
-              setError(null);
-            }}
-            disabled={loading}
-            className="w-full text-sm"
-          >
-            {isSignUp
-              ? "Already have an account? Sign in"
-              : "Don't have an account? Sign up"}
-          </Button>
-        </form>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {cards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <Link
+                key={card.href}
+                href={card.href}
+                className={cn(
+                  "group relative flex h-full flex-col justify-between rounded-xl border border-border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md"
+                )}
+              >
+                <div className="space-y-3">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+                    <Icon className="h-4 w-4 text-primary" />
+                    {card.title}
+                  </div>
+                  <p className="text-sm text-muted-foreground">{card.description}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  className="mt-4 flex w-full items-center justify-between px-0 text-sm text-primary"
+                >
+                  Continue <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+                </Button>
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
 }
-

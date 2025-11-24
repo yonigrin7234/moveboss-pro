@@ -488,6 +488,11 @@ export async function getMembershipsForUser(userId: string): Promise<CompanyMemb
     if (error.message?.toLowerCase().includes('company_memberships')) {
       return [];
     }
+    // Network issues (e.g., fetch failed): fall back to empty to avoid crashing layout
+    if (error.message?.toLowerCase().includes('fetch failed')) {
+      console.error('[getMembershipsForUser] fetch failed, returning empty list');
+      return [];
+    }
     throw new Error(`Failed to fetch memberships: ${error.message}`);
   }
 

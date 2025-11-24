@@ -260,31 +260,20 @@ export function LoadForm({
                 <CardTitle className="text-sm font-medium">Load Identity</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2.5">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="load_number" className="text-sm">
-                      Load Number <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      id="load_number"
-                      name="load_number"
-                      required
-                      defaultValue={initialData?.load_number || ''}
-                      className="h-9"
-                    />
-                    {state?.errors?.load_number && (
-                      <p className="text-xs text-destructive">{state.errors.load_number}</p>
-                    )}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="reference_number" className="text-sm">Reference Number</Label>
-                    <Input
-                      id="reference_number"
-                      name="reference_number"
-                      defaultValue={initialData?.reference_number || ''}
-                      className="h-9"
-                    />
-                  </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="load_number" className="text-sm">
+                    Load Number
+                  </Label>
+                  <Input
+                    id="load_number"
+                    name="load_number"
+                    defaultValue={initialData?.load_number || ''}
+                    className="h-9"
+                    placeholder="Auto if left blank"
+                  />
+                  {state?.errors?.load_number && (
+                    <p className="text-xs text-destructive">{state.errors.load_number}</p>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1.5">

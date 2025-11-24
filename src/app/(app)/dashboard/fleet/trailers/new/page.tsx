@@ -14,9 +14,9 @@ export default async function NewTrailerPage() {
   const drivers = await getDriversForUser(user.id);
 
   async function createTrailerAction(
-    prevState: { errors?: Record<string, string> } | null,
+    prevState: { errors?: Record<string, string>; success?: boolean; trailerId?: string } | null,
     formData: FormData
-  ): Promise<{ errors?: Record<string, string> } | null> {
+  ): Promise<{ errors?: Record<string, string>; success?: boolean; trailerId?: string } | null> {
     'use server';
     const user = await getCurrentUser();
     if (!user) return { errors: { _form: 'Not authenticated' } };
@@ -44,8 +44,8 @@ export default async function NewTrailerPage() {
 
     try {
       const validated = newTrailerInputSchema.parse(cleanedData);
-      await createTrailer(validated, user.id);
-      redirect('/dashboard/fleet');
+      const created = await createTrailer(validated, user.id);
+      return { success: true, trailerId: created.id };
     } catch (error) {
       if (error && typeof error === 'object' && 'issues' in error) {
         const zodError = error as { issues: Array<{ path: (string | number)[]; message: string }> };

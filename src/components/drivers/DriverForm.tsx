@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { type NewDriverInput, type DriverPayMode, formatPayMode } from '@/data/driver-shared';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 // Helper component for Select with hidden input
 function SelectWithHiddenInput({
@@ -86,11 +88,12 @@ interface DriverFormProps {
   trucks?: Array<{ id: string; unit_number: string | null; plate_number: string | null }>;
   trailers?: Array<{ id: string; unit_number: string }>;
   onSubmit: (
-    prevState: { errors?: Record<string, string> } | null,
+    prevState: { errors?: Record<string, string>; success?: boolean; driverId?: string } | null,
     formData: FormData
-  ) => Promise<{ errors?: Record<string, string> } | null>;
+  ) => Promise<{ errors?: Record<string, string>; success?: boolean; driverId?: string } | null>;
   submitLabel?: string;
   cancelHref?: string;
+  hasServiceRoleKey?: boolean;
 }
 
 export function DriverForm({
@@ -100,14 +103,29 @@ export function DriverForm({
   onSubmit,
   submitLabel = 'Save driver',
   cancelHref = '/dashboard/drivers',
+  hasServiceRoleKey = false,
 }: DriverFormProps) {
+  const router = useRouter();
+  const { toast } = useToast();
   const [state, formAction, pending] = useActionState(onSubmit, null);
   const [currentStep, setCurrentStep] = useState(0);
   const [payMode, setPayMode] = useState<DriverPayMode>(
     (initialData?.pay_mode as DriverPayMode) || 'per_mile'
   );
-  const [hasLogin, setHasLogin] = useState(initialData?.has_login || false);
-  const [loginMethod, setLoginMethod] = useState<'email' | 'sms'>('email');
+  const [hasLogin, setHasLogin] = useState(
+    hasServiceRoleKey ? (initialData?.has_login || false) : false
+  );
+  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>(
+    (initialData?.login_method as 'email' | 'phone') || 'email'
+  );
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  
+  // Disable portal access if service role key is missing
+  useEffect(() => {
+    if (!hasServiceRoleKey && hasLogin) {
+      setHasLogin(false);
+    }
+  }, [hasServiceRoleKey, hasLogin]);
   const [licenseFile, setLicenseFile] = useState<{ name: string; url: string } | null>(null);
   const [medicalCardFile, setMedicalCardFile] = useState<{ name: string; url: string } | null>(null);
   const [drugTestFile, setDrugTestFile] = useState<{ name: string; url: string } | null>(null);
@@ -125,6 +143,7 @@ export function DriverForm({
     licenseNumber: initialData?.license_number || '',
     licenseExpiry: initialData?.license_expiry || '',
     medicalCardExpiry: initialData?.medical_card_expiry || '',
+    authUserId: (initialData as any)?.auth_user_id || null,
   });
   const sectionIndex: Record<string, number> = {
     profile: 0,
@@ -150,6 +169,18 @@ export function DriverForm({
       });
     };
   }, [licenseFile, medicalCardFile, drugTestFile, taxFormFile]);
+
+  // On successful server action, show toast then navigate.
+  useEffect(() => {
+    if (state?.success) {
+      toast({
+        title: 'Driver saved',
+        description: 'The driver was created successfully.',
+      });
+      router.push('/dashboard/drivers');
+      router.refresh();
+    }
+  }, [state?.success, router, toast]);
   const complianceItems = [
     { id: 'license_file', label: "Driver's license copy", ok: Boolean(licenseFile), url: licenseFile?.url },
     { id: 'medical_card_file', label: 'Medical card image', ok: Boolean(medicalCardFile), url: medicalCardFile?.url },
@@ -407,6 +438,14 @@ export function DriverForm({
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
+                {!hasServiceRoleKey && (
+                  <Alert variant="destructive" className="py-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-sm">
+                      Driver login creation is disabled because SUPABASE_SERVICE_ROLE_KEY is not configured.
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <div className="flex items-center justify-between rounded-lg border border-blue-200/70 bg-white/40 px-3 py-2 dark:bg-transparent">
                   <div>
                     <p className="text-sm font-medium text-foreground">Enable login</p>
@@ -416,15 +455,18 @@ export function DriverForm({
                     <Checkbox
                       id="has_login"
                       checked={hasLogin}
+                      disabled={!hasServiceRoleKey}
                       onCheckedChange={(checked) => setHasLogin(checked === true)}
                     />
                     <input type="hidden" name="has_login" value={hasLogin ? 'true' : 'false'} />
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Credentials are handled through your auth provider; no passwords are stored here.
-                </p>
-                {hasLogin && (
+                {hasServiceRoleKey && (
+                  <p className="text-xs text-muted-foreground">
+                    Credentials are handled through your auth provider; no passwords are stored here.
+                  </p>
+                )}
+                {hasLogin && hasServiceRoleKey && (
                   <div className="space-y-2">
                     <div className="space-y-1.5">
                       <Label className="text-sm">Delivery method</Label>
@@ -446,10 +488,10 @@ export function DriverForm({
                         </button>
                         <button
                           type="button"
-                          onClick={() => setLoginMethod('sms')}
+                          onClick={() => setLoginMethod('phone')}
                           className={cn(
                             "flex flex-col items-start rounded-xl border px-3 py-2 text-left text-sm shadow-sm transition",
-                            loginMethod === 'sms'
+                            loginMethod === 'phone'
                               ? "border-primary/40 bg-primary/5 ring-1 ring-primary/30"
                               : "border-border/70 hover:border-border"
                           )}
@@ -483,6 +525,89 @@ export function DriverForm({
                         <p className="text-xs text-muted-foreground">Additional roles can be added later.</p>
                       </div>
                     </div>
+                    {!snapshot.authUserId && (
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label className="text-sm" htmlFor="driver_password">
+                            Set portal password <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            id="driver_password"
+                            type="password"
+                            name="driver_password"
+                            required={hasLogin}
+                            minLength={10}
+                            placeholder="Strong password"
+                            className="h-9"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Must include upper, lower, digit, symbol, min 10 chars.
+                          </p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-sm" htmlFor="driver_password_confirm">
+                            Confirm password <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            id="driver_password_confirm"
+                            type="password"
+                            name="driver_password_confirm"
+                            required={hasLogin}
+                            minLength={10}
+                            placeholder="Repeat password"
+                            className="h-9"
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {snapshot.authUserId && (
+                      <div className="space-y-2 rounded-lg border border-border/70 bg-muted/30 p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">Reset portal password</p>
+                            <p className="text-xs text-muted-foreground">Requires a new strong password.</p>
+                          </div>
+                          <Checkbox
+                            id="reset_portal_password"
+                            checked={showPasswordReset}
+                            onCheckedChange={(checked) => setShowPasswordReset(checked === true)}
+                          />
+                        </div>
+                        <input type="hidden" name="reset_portal_password" value={showPasswordReset ? 'true' : 'false'} />
+                        {showPasswordReset && (
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <div className="space-y-1.5">
+                              <Label className="text-sm" htmlFor="driver_password_reset">
+                                New password <span className="text-destructive">*</span>
+                              </Label>
+                              <Input
+                                id="driver_password_reset"
+                                type="password"
+                                name="driver_password"
+                                required
+                                minLength={10}
+                                placeholder="Strong password"
+                                className="h-9"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-sm" htmlFor="driver_password_confirm_reset">
+                                Confirm new password <span className="text-destructive">*</span>
+                              </Label>
+                              <Input
+                                id="driver_password_confirm_reset"
+                                type="password"
+                                name="driver_password_confirm"
+                                required
+                                minLength={10}
+                                placeholder="Repeat password"
+                                className="h-9"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -1146,16 +1271,15 @@ export function DriverForm({
           </div>
 
           <div className="flex gap-3">
-            {currentStep < STEPS.length - 1 ? (
+            {currentStep < STEPS.length - 1 && (
               <Button type="button" onClick={nextStep} className="h-10 min-w-[120px]">
                 Next
                 <ChevronRight className="h-4 w-4 ml-2" />
               </Button>
-            ) : (
-              <Button type="submit" disabled={pending} className="h-10 min-w-[140px]">
-                {pending ? 'Saving...' : submitLabel}
-              </Button>
             )}
+            <Button type="submit" disabled={pending} className="h-10 min-w-[140px]">
+              {pending ? 'Saving...' : submitLabel}
+            </Button>
           </div>
         </div>
       </form>

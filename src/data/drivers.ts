@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase-server';
+import { createServiceRoleClient } from '@/lib/supabase-admin';
+import { normalizePhoneToE164 } from '@/lib/utils';
 import {
   driverStatusSchema,
   driverPayModeSchema,
@@ -9,8 +11,108 @@ import {
   type NewDriverInput,
   type UpdateDriverInput,
   formatPayMode,
+  driverLoginMethodSchema,
+  type DriverLoginMethod,
 } from '@/data/driver-shared';
 import { type DriverType } from '@/data/domain-types';
+
+const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+async function getSessionAndDbClients() {
+  const sessionClient = await createClient();
+  const dbClient = hasServiceRoleKey ? createServiceRoleClient() : sessionClient;
+  return { sessionClient, dbClient };
+}
+
+async function getDbClient() {
+  return hasServiceRoleKey ? createServiceRoleClient() : await createClient();
+}
+
+function validatePasswordStrength(password: string) {
+  const errors: string[] = [];
+  if (password.length < 10) errors.push('Password must be at least 10 characters.');
+  if (!/[A-Z]/.test(password)) errors.push('Password must include an uppercase letter.');
+  if (!/[a-z]/.test(password)) errors.push('Password must include a lowercase letter.');
+  if (!/[0-9]/.test(password)) errors.push('Password must include a digit.');
+  if (!/[^A-Za-z0-9]/.test(password)) errors.push('Password must include a symbol.');
+  if (errors.length) {
+    throw new Error(errors[0]);
+  }
+}
+
+async function createAuthUserForDriver(params: {
+  login_method: DriverLoginMethod;
+  email?: string | null;
+  phone?: string | null;
+  password: string;
+}): Promise<{ success: true; userId: string } | { success: false; error: string }> {
+  console.log('CREATE_AUTH_USER_FOR_DRIVER_DEBUG', {
+    email: params.email,
+    phone: params.phone,
+    login_method: params.login_method,
+    usingServiceRole: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+  });
+
+  if (!hasServiceRoleKey) {
+    return { success: false, error: 'Service role key is required to create driver login users.' };
+  }
+
+  try {
+    const admin = createServiceRoleClient();
+    validatePasswordStrength(params.password);
+
+    if (params.login_method === 'email') {
+      if (!params.email) {
+        return { success: false, error: 'Email is required for email login.' };
+      }
+      const { data, error } = await admin.auth.admin.createUser({
+        email: params.email,
+        password: params.password,
+        email_confirm: true,
+        user_metadata: { role: 'driver' },
+      });
+      if (error || !data?.user) {
+        return { success: false, error: `Failed to create auth user (email): ${error?.message || 'unknown error'}` };
+      }
+      return { success: true, userId: data.user.id };
+    }
+
+    if (!params.phone) {
+      return { success: false, error: 'Phone is required for phone login.' };
+    }
+    // Normalize phone to E.164 format for Supabase
+    const normalizedPhone = normalizePhoneToE164(params.phone);
+    const { data, error } = await admin.auth.admin.createUser({
+      phone: normalizedPhone,
+      password: params.password,
+      phone_confirm: true,
+      user_metadata: { role: 'driver' },
+    });
+    if (error || !data?.user) {
+      return { success: false, error: `Failed to create auth user (phone): ${error?.message || 'unknown error'}` };
+    }
+    return { success: true, userId: data.user.id };
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error creating auth user';
+    return { success: false, error: errorMessage };
+  }
+}
+
+async function updateAuthUserContact(authUserId: string, fields: { email?: string | null; phone?: string | null }) {
+  if (!hasServiceRoleKey) return;
+  const admin = createServiceRoleClient();
+  const update: Record<string, any> = {};
+  if (fields.email !== undefined) update.email = fields.email || undefined;
+  if (fields.phone !== undefined) {
+    // Normalize phone to E.164 format for Supabase
+    update.phone = fields.phone ? normalizePhoneToE164(fields.phone) : undefined;
+  }
+  if (Object.keys(update).length === 0) return;
+  const { error } = await admin.auth.admin.updateUserById(authUserId, update);
+  if (error) {
+    throw new Error(`Failed to update auth user contact: ${error.message}`);
+  }
+}
 
 export interface Driver {
   id: string;
@@ -25,6 +127,7 @@ export interface Driver {
   start_date: string | null;
   has_login: boolean;
   auth_user_id: string | null;
+  login_method?: 'email' | 'phone' | null;
   license_number: string;
   license_state: string | null;
   license_expiry: string;
@@ -58,17 +161,17 @@ export async function getDriversForUser(
   userId: string,
   filters?: DriverFilters
 ): Promise<Driver[]> {
-  const supabase = await createClient();
+  const { sessionClient, dbClient } = await getSessionAndDbClients();
   
   // Debug: Verify auth session
-  const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+  const { data: { user: authUser }, error: authError } = await sessionClient.auth.getUser();
   if (authError || !authUser) {
     console.warn(`[getDriversForUser] Auth check failed: ${authError?.message || 'No authenticated user'}. UserId provided: ${userId}`);
   } else if (authUser.id !== userId) {
     console.warn(`[getDriversForUser] User ID mismatch: auth.uid()=${authUser.id}, provided userId=${userId}`);
   }
 
-  let query = supabase.from('drivers').select('*').eq('owner_id', userId);
+  let query = dbClient.from('drivers').select('*').eq('owner_id', userId);
 
   if (filters?.companyId) {
     // Include legacy rows missing company_id but owned by the user
@@ -111,7 +214,7 @@ export async function getDriversForUser(
 }
 
 export async function getDriverById(id: string, userId: string, companyId?: string): Promise<Driver | null> {
-  const supabase = await createClient();
+  const supabase = await getDbClient();
   const { data, error } = await supabase
     .from('drivers')
     .select('*')
@@ -130,7 +233,7 @@ export async function getDriverById(id: string, userId: string, companyId?: stri
 }
 
 export async function getDriversCountForUser(userId: string): Promise<number> {
-  const supabase = await createClient();
+  const supabase = await getDbClient();
   const { count, error } = await supabase
     .from('drivers')
     .select('*', { count: 'exact', head: true })
@@ -144,7 +247,7 @@ export async function getDriversCountForUser(userId: string): Promise<number> {
 }
 
 export async function getActiveDriversCountForUser(userId: string): Promise<number> {
-  const supabase = await createClient();
+  const supabase = await getDbClient();
   const { count, error } = await supabase
     .from('drivers')
     .select('*', { count: 'exact', head: true })
@@ -159,7 +262,7 @@ export async function getActiveDriversCountForUser(userId: string): Promise<numb
 }
 
 export async function getSuspendedDriversCountForUser(userId: string): Promise<number> {
-  const supabase = await createClient();
+  const supabase = await getDbClient();
   const { count, error } = await supabase
     .from('drivers')
     .select('*', { count: 'exact', head: true })
@@ -195,7 +298,7 @@ export async function getDriverStatsForUser(
     };
   }
 
-  const supabase = await createClient();
+  const supabase = await getDbClient();
   const base = supabase
     .from('drivers')
     .select('*', { count: 'exact', head: true })
@@ -225,11 +328,26 @@ export async function getDriverStatsForUser(
   };
 }
 
-export async function createDriver(input: NewDriverInput, userId: string): Promise<Driver> {
-  const supabase = await createClient();
+export async function createDriver(
+  input: NewDriverInput,
+  userId: string,
+  options?: {
+    effectiveHasLogin?: boolean;
+    login_method?: 'email' | 'phone';
+    email?: string | null;
+    phone?: string | null;
+    password?: string | null;
+  }
+): Promise<Driver> {
+  const { sessionClient, dbClient } = await getSessionAndDbClients();
+
+  console.log('CREATE_OR_UPDATE_DRIVER_DEBUG', {
+    effectiveHasLogin: options?.effectiveHasLogin,
+    payload_has_login: input.has_login,
+  });
 
   // Debug: Verify auth session
-  const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+  const { data: { user: authUser }, error: authError } = await sessionClient.auth.getUser();
   if (authError || !authUser) {
     const errorMsg = `Auth check failed: ${authError?.message || 'No authenticated user'}. UserId provided: ${userId}`;
     console.error('[createDriver]', errorMsg);
@@ -241,70 +359,43 @@ export async function createDriver(input: NewDriverInput, userId: string): Promi
     throw new Error(errorMsg);
   }
 
-  // Test RLS by attempting a simple query first
-  const { data: testData, error: testError } = await supabase
-    .from('drivers')
-    .select('id')
-    .eq('owner_id', userId)
-    .limit(1);
-  
-  if (testError) {
-    console.error('[createDriver] RLS test query failed:', {
-      message: testError.message,
-      code: testError.code,
-      details: testError.details,
-    });
-    // Don't throw here - the insert might still work, but log it
-  } else {
-    console.log('[createDriver] RLS test query succeeded, found', testData?.length || 0, 'existing drivers');
-  }
+  // Portal access provisioning
+  const effectiveHasLogin = options?.effectiveHasLogin ?? false;
+  const loginMethod = options?.login_method ?? input.login_method ?? 'email';
+  let authUserId: string | null = null;
 
-  // Insert driver
+  // Insert driver first with has_login from input (which should already be validated)
   const insertPayload = {
     ...input,
     owner_id: userId,
     company_id: input.company_id ?? null,
     leased_to_company_id: input.leased_to_company_id ?? null,
     driver_type: input.driver_type ?? 'company_driver',
+    login_method: loginMethod,
+    has_login: input.has_login, // Use input.has_login directly (already validated)
+    auth_user_id: null, // Will be set after auth user creation
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await dbClient
     .from('drivers')
     .insert(insertPayload)
     .select()
     .single();
 
   if (error) {
-    // Enhanced error details for debugging - include full error object
-    const errorDetails = {
+    console.error('[createDriver] Driver insert failed:', {
       message: error.message,
       code: error.code,
       details: error.details,
       hint: error.hint,
       userId,
-      authUserId: authUser.id,
       insertPayload: { 
         ...insertPayload, 
         first_name: insertPayload.first_name?.substring(0, 10) + '...',
         owner_id: insertPayload.owner_id,
       },
-    };
-    console.error('[createDriver] Driver insert failed:', JSON.stringify(errorDetails, null, 2));
-    
-    // Build a detailed error message for the UI
-    let errorMessage = `Failed to create driver: ${error.message}`;
-    if (error.code) {
-      errorMessage += `\nError Code: ${error.code}`;
-    }
-    if (error.hint) {
-      errorMessage += `\nHint: ${error.hint}`;
-    }
-    if (error.details) {
-      errorMessage += `\nDetails: ${error.details}`;
-    }
-    errorMessage += `\n\nDebug Info:\n- User ID: ${userId}\n- Auth UID: ${authUser.id}\n- Owner ID in payload: ${insertPayload.owner_id}`;
-    
-    throw new Error(errorMessage);
+    });
+    throw new Error(`Failed to create driver: ${error.message}`);
   }
 
   if (!data) {
@@ -313,33 +404,58 @@ export async function createDriver(input: NewDriverInput, userId: string): Promi
 
   const driver = data as Driver;
 
-  // Verify the driver can be read back (RLS check)
-  const { data: verifyData, error: verifyError } = await supabase
-    .from('drivers')
-    .select('id, owner_id, first_name, last_name')
-    .eq('id', driver.id)
-    .eq('owner_id', userId)
-    .single();
-
-  if (verifyError || !verifyData) {
-    console.error('[createDriver] Driver created but cannot be read back:', {
-      driverId: driver.id,
-      verifyError: verifyError?.message,
-      verifyCode: verifyError?.code,
+  // Create auth user after driver is created (if needed)
+  if (effectiveHasLogin) {
+    if (!options?.password) {
+      throw new Error('Driver portal password is required when enabling portal access.');
+    }
+    const email = options.email ?? input.email;
+    const phone = options.phone ?? input.phone;
+    if (loginMethod === 'email' && !email) {
+      throw new Error('Email is required when enabling portal access with email login.');
+    }
+    if (loginMethod === 'phone' && !phone) {
+      throw new Error('Phone is required when enabling portal access with phone login.');
+    }
+    
+    const authResult = await createAuthUserForDriver({
+      login_method: loginMethod as DriverLoginMethod,
+      email,
+      phone,
+      password: options.password,
     });
-    throw new Error(`Driver was created but cannot be retrieved. This may indicate an RLS policy issue. Error: ${verifyError?.message || 'No data returned'}`);
+
+    if (!authResult.success) {
+      // Delete the driver row if auth user creation failed
+      await dbClient.from('drivers').delete().eq('id', driver.id);
+      throw new Error(authResult.error || 'Failed to create driver login user.');
+    }
+
+    // Update driver with auth_user_id
+    const { error: updateError } = await dbClient
+      .from('drivers')
+      .update({ auth_user_id: authResult.userId })
+      .eq('id', driver.id);
+
+    if (updateError) {
+      console.error('[createDriver] Failed to update driver with auth_user_id:', updateError);
+      // Don't throw here - the driver exists, just without auth_user_id
+    } else {
+      driver.auth_user_id = authResult.userId;
+    }
   }
+
 
   // Update equipment assignments if provided
   if (driver.assigned_truck_id) {
-    await supabase
+    await dbClient
       .from('trucks')
       .update({ assigned_driver_id: driver.id })
       .eq('id', driver.assigned_truck_id)
       .eq('owner_id', userId);
   }
   if (driver.assigned_trailer_id) {
-    await supabase
+    await dbClient
       .from('trailers')
       .update({ assigned_driver_id: driver.id })
       .eq('id', driver.assigned_trailer_id)
@@ -353,9 +469,22 @@ export async function updateDriver(
   id: string,
   input: UpdateDriverInput,
   userId: string,
-  companyId?: string
+  companyId?: string,
+  options?: {
+    effectiveHasLogin?: boolean;
+    login_method?: 'email' | 'phone';
+    email?: string | null;
+    phone?: string | null;
+    password?: string | null;
+    resetPassword?: boolean;
+  }
 ): Promise<Driver> {
-  const supabase = await createClient();
+  const supabase = await getDbClient();
+
+  console.log('CREATE_OR_UPDATE_DRIVER_DEBUG', {
+    effectiveHasLogin: options?.effectiveHasLogin,
+    payload_has_login: input.has_login,
+  });
 
   // Fetch current driver to reconcile assignments
   const { data: existing, error: fetchError } = await supabase
@@ -368,9 +497,87 @@ export async function updateDriver(
     throw new Error(`Failed to fetch driver: ${fetchError.message}`);
   }
 
+  const loginMethod = options?.login_method ?? (input.login_method as DriverLoginMethod | undefined) ?? (existing as any).login_method ?? 'email';
+  const effectiveHasLogin = options?.effectiveHasLogin ?? false;
+  const existingHasLogin = (existing as any).has_login;
+  const existingAuthUserId = (existing as any).auth_user_id as string | null;
+
+  // Build update payload
+  const updatePayload: Record<string, any> = {
+    ...input,
+    login_method: loginMethod,
+    has_login: input.has_login, // Use input.has_login directly (already validated)
+  };
+
+  // Handle auth user creation/updates
+  if (effectiveHasLogin && !existingAuthUserId) {
+    // Creating new auth user
+    if (!options?.password) {
+      throw new Error('Driver portal password is required when enabling portal access.');
+    }
+    const email = options.email ?? input.email ?? (existing as any).email;
+    const phone = options.phone ?? input.phone ?? (existing as any).phone;
+    if (loginMethod === 'email' && !email) {
+      throw new Error('Email is required to enable portal access.');
+    }
+    if (loginMethod === 'phone' && !phone) {
+      throw new Error('Phone is required to enable portal access.');
+    }
+    
+    const authResult = await createAuthUserForDriver({
+      login_method: loginMethod as DriverLoginMethod,
+      email,
+      phone,
+      password: options.password,
+    });
+
+    if (!authResult.success) {
+      throw new Error(authResult.error || 'Failed to create driver login user.');
+    }
+
+    updatePayload.auth_user_id = authResult.userId;
+    updatePayload.has_login = true;
+  } else if (existingHasLogin && existingAuthUserId) {
+    // Updating existing auth user
+    updatePayload.has_login = effectiveHasLogin;
+    // Sync contact info to auth user if provided
+    if (input.email !== undefined || input.phone !== undefined) {
+      await updateAuthUserContact(existingAuthUserId, { email: input.email, phone: input.phone });
+    }
+    if (options?.resetPassword) {
+      if (!options.password) {
+        throw new Error('New portal password is required to reset.');
+      }
+      validatePasswordStrength(options.password);
+      const admin = createServiceRoleClient();
+      const { error: pwError } = await admin.auth.admin.updateUserById(existingAuthUserId, {
+        password: options.password,
+      });
+      if (pwError) {
+        throw new Error(`Failed to reset driver portal password: ${pwError.message}`);
+      }
+    }
+  } else if (effectiveHasLogin && existingAuthUserId && !existingHasLogin) {
+    // Re-enabling access for an existing auth user
+    updatePayload.has_login = true;
+    if (options?.password) {
+      validatePasswordStrength(options.password);
+      const admin = createServiceRoleClient();
+      const { error: pwError } = await admin.auth.admin.updateUserById(existingAuthUserId, {
+        password: options.password,
+      });
+      if (pwError) {
+        throw new Error(`Failed to reset driver portal password: ${pwError.message}`);
+      }
+    }
+  } else {
+    // Disabling portal access or no change
+    updatePayload.has_login = effectiveHasLogin;
+  }
+
   const { data, error } = await supabase
     .from('drivers')
-    .update(input)
+    .update(updatePayload)
     .eq('id', id)
     .eq(companyId ? 'company_id' : 'owner_id', companyId ?? userId)
     .select()
@@ -421,7 +628,7 @@ export async function updateDriver(
 }
 
 export async function deleteDriver(id: string, userId: string): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await getDbClient();
   const { error } = await supabase.from('drivers').delete().eq('id', id).eq('owner_id', userId);
 
   if (error) {

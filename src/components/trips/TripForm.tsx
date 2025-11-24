@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Driver } from '@/data/drivers';
 import type { Truck, Trailer } from '@/data/fleet';
@@ -23,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 // Helper component for Select with hidden input
 function SelectWithHiddenInput({
@@ -59,17 +61,19 @@ interface TripFormProps {
   trucks: Truck[];
   trailers: Trailer[];
   onSubmit: (
-    prevState: { errors?: Record<string, string> } | null,
+    prevState: { errors?: Record<string, string>; success?: boolean; tripId?: string } | null,
     formData: FormData
-  ) => Promise<{ errors?: Record<string, string> } | null>;
+  ) => Promise<{ errors?: Record<string, string>; success?: boolean; tripId?: string } | null>;
   submitLabel?: string;
   cancelHref?: string;
 }
 
 const statusOptions: { value: TripStatus; label: string }[] = [
   { value: 'planned', label: 'Planned' },
+  { value: 'active', label: 'Active' },
   { value: 'en_route', label: 'En Route' },
   { value: 'completed', label: 'Completed' },
+  { value: 'settled', label: 'Settled' },
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
@@ -100,6 +104,8 @@ export function TripForm({
   submitLabel = 'Save trip',
   cancelHref = '/dashboard/trips',
 }: TripFormProps) {
+  const router = useRouter();
+  const { toast } = useToast();
   const [state, formAction, pending] = useActionState(onSubmit, null);
   const formRef = useRef<HTMLFormElement>(null);
   const [snapshot, setSnapshot] = useState({
@@ -143,6 +149,16 @@ export function TripForm({
     }
   };
 
+  const handleDateClick = (event: React.MouseEvent<HTMLInputElement>) => {
+    if (event.currentTarget?.showPicker) {
+      try {
+        event.currentTarget.showPicker();
+      } catch {
+        // ignore if browser blocks programmatic open
+      }
+    }
+  };
+
   useEffect(() => {
     const form = formRef.current;
     if (!form) return;
@@ -170,6 +186,18 @@ export function TripForm({
       form.removeEventListener('change', syncSnapshot);
     };
   }, []);
+
+  // On successful server action, toast and navigate
+  useEffect(() => {
+    if (state?.success) {
+      toast({
+        title: 'Trip saved',
+        description: 'The trip was created successfully.',
+      });
+      router.push('/dashboard/trips');
+      router.refresh();
+    }
+  }, [state?.success, router, toast]);
 
   const scrollToSection = (key: keyof typeof sectionRefs) => {
     const el = sectionRefs[key].current;
@@ -432,6 +460,7 @@ export function TripForm({
                     type="date"
                     defaultValue={initialData?.start_date || ''}
                     className="h-9"
+                    onClick={handleDateClick}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -442,6 +471,7 @@ export function TripForm({
                     type="date"
                     defaultValue={initialData?.end_date || ''}
                     className="h-9"
+                    onClick={handleDateClick}
                   />
                 </div>
               </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { type NewTruckInput } from '@/data/fleet';
 import {
@@ -22,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 import {
   Card,
   CardContent,
@@ -70,9 +72,9 @@ interface TruckFormProps {
   initialData?: Partial<NewTruckInput>;
   drivers?: Array<{ id: string; first_name: string; last_name: string }>;
   onSubmit: (
-    prevState: { errors?: Record<string, string> } | null,
+    prevState: { errors?: Record<string, string>; success?: boolean; truckId?: string } | null,
     formData: FormData
-  ) => Promise<{ errors?: Record<string, string> } | null>;
+  ) => Promise<{ errors?: Record<string, string>; success?: boolean; truckId?: string } | null>;
   submitLabel?: string;
   cancelHref?: string;
 }
@@ -84,6 +86,8 @@ export function TruckForm({
   submitLabel = 'Save truck',
   cancelHref = '/dashboard/fleet',
 }: TruckFormProps) {
+  const router = useRouter();
+  const { toast } = useToast();
   const [state, formAction, pending] = useActionState(onSubmit, null);
   const [currentStep, setCurrentStep] = useState(0);
   const [vehicleType, setVehicleType] = useState<TruckVehicleType | ''>(initialData?.vehicle_type || '');
@@ -129,6 +133,16 @@ export function TruckForm({
     return driver ? `${driver.first_name} ${driver.last_name}` : 'Unknown';
   };
 
+  const handleDateClick = (event: React.MouseEvent<HTMLInputElement>) => {
+    if (event.currentTarget?.showPicker) {
+      try {
+        event.currentTarget.showPicker();
+      } catch {
+        // ignore if browser blocks programmatic open
+      }
+    }
+  };
+
   // Auto-fill capacity when vehicle type changes (if not manually edited)
   useEffect(() => {
     if (vehicleType && !capacityManuallyEdited) {
@@ -141,6 +155,18 @@ export function TruckForm({
       }
     }
   }, [vehicleType, capacityManuallyEdited]);
+
+  // On successful server action, toast and navigate
+  useEffect(() => {
+    if (state?.success) {
+      toast({
+        title: 'Truck saved',
+        description: 'The truck was created successfully.',
+      });
+      router.push('/dashboard/fleet');
+      router.refresh();
+    }
+  }, [state?.success, router, toast]);
 
   // Update hidden inputs when values change
   useEffect(() => {
@@ -412,6 +438,7 @@ export function TruckForm({
                     name="registration_expiry"
                     defaultValue={initialData?.registration_expiry || ''}
                     className="h-9"
+                    onClick={handleDateClick}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -422,6 +449,7 @@ export function TruckForm({
                     name="inspection_expiry"
                     defaultValue={initialData?.inspection_expiry || ''}
                     className="h-9"
+                    onClick={handleDateClick}
                   />
                 </div>
               </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 import type { Company } from '@/data/companies'
@@ -19,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { useToast } from '@/hooks/use-toast'
 
 const serviceTypeOptions = [
   { value: 'hhg_local', label: 'HHG Local' },
@@ -77,10 +79,15 @@ interface LoadCreateFormProps {
   drivers: Driver[]
   trucks: Truck[]
   trailers: Trailer[]
-  onSubmit: (prevState: { errors?: Record<string, string> } | null, formData: FormData) => Promise<{ errors?: Record<string, string> } | null>
+  onSubmit: (
+    prevState: { errors?: Record<string, string>; success?: boolean; loadId?: string } | null,
+    formData: FormData
+  ) => Promise<{ errors?: Record<string, string>; success?: boolean; loadId?: string } | null>
 }
 
 export function LoadCreateForm({ companies, drivers, trucks, trailers, onSubmit }: LoadCreateFormProps) {
+  const router = useRouter()
+  const { toast } = useToast()
   const [state, formAction, pending] = useActionState(onSubmit, null)
   const [loadType, setLoadType] = useState<'company_load' | 'live_load'>('company_load')
   const [companyId, setCompanyId] = useState('')
@@ -134,6 +141,17 @@ export function LoadCreateForm({ companies, drivers, trucks, trailers, onSubmit 
     const { city, state } = await lookupZip(dropoff.postalCode)
     setDropoff((prev) => ({ ...prev, city: city || prev.city, state: state || prev.state }))
   }
+
+  useEffect(() => {
+    if (state?.success) {
+      toast({
+        title: 'Load saved',
+        description: 'The load was created successfully.',
+      })
+      router.push('/dashboard/loads')
+      router.refresh()
+    }
+  }, [state?.success, router, toast])
 
   return (
     <form action={formAction} className="space-y-6">

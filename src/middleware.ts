@@ -74,6 +74,14 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Redirect legacy MoveOps driver routes to new MoveBoss Pro driver portal
+  const legacyDriverRoutes = ['/driver/app', '/driver/home', '/driver/dashboard'];
+  if (legacyDriverRoutes.includes(request.nextUrl.pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/driver';
+    return NextResponse.redirect(url);
+  }
+
   // Redirect root to /dashboard if logged in, /login if not
   if (request.nextUrl.pathname === '/' && user) {
     const url = request.nextUrl.clone();

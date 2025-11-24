@@ -19,9 +19,9 @@ export default async function NewTripPage() {
   ]);
 
   async function createTripAction(
-    prevState: { errors?: Record<string, string> } | null,
+    prevState: { errors?: Record<string, string>; success?: boolean; tripId?: string } | null,
     formData: FormData
-  ): Promise<{ errors?: Record<string, string> } | null> {
+  ): Promise<{ errors?: Record<string, string>; success?: boolean; tripId?: string } | null> {
     'use server';
 
     const currentUser = await getCurrentUser();
@@ -66,7 +66,7 @@ export default async function NewTripPage() {
     try {
       const validated = newTripInputSchema.parse(cleanedData);
       const trip = await createTrip(validated, currentUser.id);
-      redirect(`/dashboard/trips/${trip.id}`);
+      return { success: true, tripId: trip.id };
     } catch (error) {
       if (error && typeof error === 'object' && 'issues' in error) {
         const zodError = error as { issues: Array<{ path: (string | number)[]; message: string }> };

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useActionState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { type NewCompanyInput } from '@/data/companies';
 import { Button } from '@/components/ui/button';
@@ -23,13 +24,14 @@ import {
 } from '@/components/ui/select';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 interface CompanyFormProps {
   initialData?: Partial<NewCompanyInput>;
   onSubmit: (
-    prevState: { errors?: Record<string, string> } | null,
+    prevState: { errors?: Record<string, string>; success?: boolean; companyId?: string } | null,
     formData: FormData
-  ) => Promise<{ errors?: Record<string, string> } | null>;
+  ) => Promise<{ errors?: Record<string, string>; success?: boolean; companyId?: string } | null>;
   submitLabel?: string;
   cancelHref?: string;
 }
@@ -105,6 +107,8 @@ export function CompanyForm({
   submitLabel = 'Save Company',
   cancelHref = '/dashboard/companies',
 }: CompanyFormProps) {
+  const router = useRouter();
+  const { toast } = useToast();
   const [state, formAction, pending] = useActionState(onSubmit, null);
   const [currentStep, setCurrentStep] = useState(0);
   const [zipLookupError, setZipLookupError] = useState<string | null>(null);
@@ -206,6 +210,18 @@ export function CompanyForm({
       form.removeEventListener('change', syncSnapshot);
     };
   }, []);
+
+  // On successful server action, toast and navigate
+  useEffect(() => {
+    if (state?.success) {
+      toast({
+        title: 'Company saved',
+        description: 'The company was created successfully.',
+      });
+      router.push('/dashboard/companies');
+      router.refresh();
+    }
+  }, [state?.success, router, toast]);
 
   const copyCompanyAddressToDispatch = () => {
     setDispatchSameAsCompany(true);

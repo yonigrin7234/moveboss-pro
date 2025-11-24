@@ -60,9 +60,9 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
   }
 
   async function updateDriverAction(
-    prevState: { errors?: Record<string, string> } | null,
+    prevState: { errors?: Record<string, string>; success?: boolean } | null,
     formData: FormData
-  ): Promise<{ errors?: Record<string, string> } | null> {
+  ): Promise<{ errors?: Record<string, string>; success?: boolean } | null> {
     'use server';
 
     const user = await getCurrentUser();
@@ -80,6 +80,7 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
       'date_of_birth',
       'start_date',
       'has_login',
+      'login_method',
       'license_number',
       'license_state',
       'license_expiry',
@@ -94,12 +95,15 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
       'flat_daily_rate',
       'pay_notes',
       'notes',
+      'login_method',
+      'reset_portal_password',
     ];
 
     const rawData = extractFormValues(formData, fields, {
       booleanFields: ['has_login'],
     });
     const cleanedData = cleanFormValues(rawData);
+    if (cleanedData.login_method === 'sms') cleanedData.login_method = 'phone';
 
     // Handle empty assigned_truck_id and assigned_trailer_id
     if (cleanedData.assigned_truck_id === '') {
@@ -126,11 +130,80 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
       }
     }
 
+    // Validate portal access requirements
+    const requestedHasLogin = (formData.get('has_login') as string) === 'true';
+    const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const loginMethodRaw = cleanedData.login_method as string | undefined;
+    const loginMethod = loginMethodRaw === 'sms' ? 'phone' : (loginMethodRaw || 'email');
+    const email = cleanedData.email as string | undefined;
+    const phone = cleanedData.phone as string | undefined;
+    const password = (formData.get('driver_password') as string) || '';
+    const passwordConfirm = (formData.get('driver_password_confirm') as string) || '';
+    const reset = formData.get('reset_portal_password') === 'true';
+
+    // Early validation: if portal access requested but service role key missing
+    if (requestedHasLogin && !hasServiceRoleKey) {
+      return {
+        errors: {
+          _form: 'Portal access cannot be enabled: SUPABASE_SERVICE_ROLE_KEY is not configured.',
+        },
+      };
+    }
+
+    // Force has_login to false if service role key is missing (prevent client tampering)
+    if (!hasServiceRoleKey) {
+      cleanedData.has_login = false;
+    } else if (requestedHasLogin) {
+      // Validate email or phone based on login method
+      if (loginMethod === 'email' && !email) {
+        return { errors: { _form: 'Email is required when enabling portal access with email login.' } };
+      }
+      if (loginMethod === 'phone' && !phone) {
+        return { errors: { _form: 'Phone is required when enabling portal access with phone login.' } };
+      }
+
+      // Validate password requirements
+      const existingAuthUserId = (driver as any).auth_user_id;
+      if (reset || (requestedHasLogin && !existingAuthUserId)) {
+        if (!password || !passwordConfirm) {
+          return { errors: { _form: 'Password and confirmation are required for portal access.' } };
+        }
+        if (password !== passwordConfirm) {
+          return { errors: { _form: 'Passwords do not match.' } };
+        }
+      } else if (password || passwordConfirm) {
+        if (password !== passwordConfirm) {
+          return { errors: { _form: 'Passwords do not match.' } };
+        }
+      }
+    }
+
     try {
       const { updateDriverInputSchema } = await import('@/data/drivers');
       const validated = updateDriverInputSchema.parse(cleanedData);
-      await updateDriver(id, validated, user.id, companyId);
-      redirect('/dashboard/drivers');
+
+      // Derive effectiveHasLogin ONLY from validated value
+      const effectiveHasLogin = validated.has_login === true;
+
+      console.log('DRIVER_ACTION_DEBUG', {
+        hasServiceRoleKey,
+        form_has_login: formData.get('has_login'),
+        validated_has_login: validated.has_login,
+        effectiveHasLogin,
+        login_method: loginMethod,
+        email,
+        phone,
+      });
+
+      await updateDriver(id, validated, user.id, companyId, {
+        effectiveHasLogin,
+        login_method: loginMethod as 'email' | 'phone',
+        email: email?.trim() || null,
+        phone: phone?.trim() || null,
+        password: password || null,
+        resetPassword: reset,
+      });
+      return { success: true };
     } catch (error) {
       if (error && typeof error === 'object' && 'issues' in error) {
         const zodError = error as { issues: Array<{ path: (string | number)[]; message: string }> };
@@ -163,6 +236,7 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
     date_of_birth: driver.date_of_birth || undefined,
     start_date: driver.start_date || undefined,
     has_login: driver.has_login,
+    login_method: (driver as any).login_method || 'email',
     license_number: driver.license_number || undefined,
     license_state: driver.license_state || undefined,
     license_expiry: driver.license_expiry || undefined,
@@ -177,6 +251,8 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
     flat_daily_rate: driver.flat_daily_rate || undefined,
     pay_notes: driver.pay_notes || undefined,
     notes: driver.notes || undefined,
+    auth_user_id: driver.auth_user_id || undefined,
+    login_method: (driver as any).login_method || 'email',
   };
 
   return (
@@ -220,6 +296,7 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
         onSubmit={updateDriverAction}
         submitLabel="Save changes"
         cancelHref={`/dashboard/drivers/${id}`}
+        hasServiceRoleKey={Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY)}
       />
     </div>
   );

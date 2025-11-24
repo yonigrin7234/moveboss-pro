@@ -13,9 +13,9 @@ export default async function NewCompanyPage() {
   }
 
   async function createCompanyAction(
-    prevState: { errors?: Record<string, string> } | null,
+    prevState: { errors?: Record<string, string>; success?: boolean; companyId?: string } | null,
     formData: FormData
-  ): Promise<{ errors?: Record<string, string> } | null> {
+  ): Promise<{ errors?: Record<string, string>; success?: boolean; companyId?: string } | null> {
     'use server';
 
     const user = await getCurrentUser();
@@ -67,8 +67,8 @@ export default async function NewCompanyPage() {
 
     try {
       const validated = newCompanyInputSchema.parse(cleanedData);
-      await createCompany(validated, user.id);
-      redirect('/dashboard/companies');
+      const created = await createCompany(validated, user.id);
+      return { success: true, companyId: created.id };
     } catch (error) {
       if (error && typeof error === 'object' && 'issues' in error) {
         // Zod validation error

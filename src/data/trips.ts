@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase-server';
 import type { Load } from '@/data/loads';
 
-export const tripStatusSchema = z.enum(['planned', 'en_route', 'completed', 'cancelled']);
+export const tripStatusSchema = z.enum(['planned', 'active', 'en_route', 'completed', 'settled', 'cancelled']);
 export const tripExpenseCategorySchema = z.enum([
   'fuel',
   'tolls',
@@ -43,6 +43,10 @@ export const newTripInputSchema = z.object({
   start_date: optionalDateSchema,
   end_date: optionalDateSchema,
   total_miles: z.coerce.number().nonnegative().optional(),
+  odometer_start: z.coerce.number().nonnegative().optional(),
+  odometer_start_photo_url: optionalTrimmedString(1000),
+  odometer_end: z.coerce.number().nonnegative().optional(),
+  odometer_end_photo_url: optionalTrimmedString(1000),
   notes: optionalTrimmedString(5000),
 });
 
@@ -60,6 +64,10 @@ export const newTripExpenseInputSchema = z.object({
   description: optionalTrimmedString(1000),
   amount: z.coerce.number().positive('Amount must be greater than zero'),
   incurred_at: optionalDateSchema,
+  expense_type: z.string().trim().optional(),
+  paid_by: z.enum(['driver_personal', 'driver_cash', 'company_card', 'fuel_card']).optional(),
+  receipt_photo_url: z.string().trim().min(1, 'Receipt photo is required'),
+  notes: optionalTrimmedString(2000),
 });
 
 export const updateTripExpenseInputSchema = newTripExpenseInputSchema.omit({ trip_id: true }).partial();
@@ -128,6 +136,10 @@ export interface TripExpense {
   description: string | null;
   amount: number;
   incurred_at: string;
+  expense_type?: string | null;
+  paid_by?: 'driver_personal' | 'driver_cash' | 'company_card' | 'fuel_card' | null;
+  receipt_photo_url: string;
+  notes?: string | null;
 }
 
 export interface TripFilters {
@@ -157,6 +169,11 @@ interface TripFinancialSummary {
   tolls_total: number;
   other_expenses_total: number;
   profit_total: number;
+  odometer_start?: number | null;
+  odometer_end?: number | null;
+  odometer_start_photo_url?: string | null;
+  odometer_end_photo_url?: string | null;
+  actual_miles?: number | null;
 }
 
 type TablesWithOwner = 'drivers' | 'trucks' | 'trailers' | 'loads' | 'trips';
@@ -493,8 +510,24 @@ export async function createTrip(input: NewTripInput, userId: string): Promise<T
   return data as Trip;
 }
 
-export async function updateTrip(id: string, input: UpdateTripInput, userId: string): Promise<Trip> {
-  const supabase = await createClient();
+export async function updateTrip(
+  id: string,
+  input: UpdateTripInput,
+  userId: string,
+  clientOverride?: SupabaseClient | null
+): Promise<Trip> {
+  const supabase = clientOverride ?? (await createClient());
+
+  const { data: currentTrip, error: fetchError } = await supabase
+    .from('trips')
+    .select('status, odometer_start, odometer_end, odometer_start_photo_url, odometer_end_photo_url')
+    .eq('id', id)
+    .eq('owner_id', userId)
+    .single();
+
+  if (fetchError) {
+    throw new Error(`Failed to fetch trip for update: ${fetchError.message}`);
+  }
 
   await Promise.all([
     assertOwnership(supabase, 'trips', id, userId, 'Trip'),
@@ -504,6 +537,39 @@ export async function updateTrip(id: string, input: UpdateTripInput, userId: str
   ]);
 
   const payload: Record<string, string | number | boolean | null> = {};
+
+  const nextStatus = input.status ?? (currentTrip as any).status;
+  const nextOdometerStart = input.odometer_start ?? (currentTrip as any).odometer_start;
+  const nextOdometerEnd = input.odometer_end ?? (currentTrip as any).odometer_end;
+  const nextOdoStartPhoto = input.odometer_start_photo_url ?? (currentTrip as any).odometer_start_photo_url;
+  const nextOdoEndPhoto = input.odometer_end_photo_url ?? (currentTrip as any).odometer_end_photo_url;
+
+  // Enforce status transitions and odometer requirements
+  if ((currentTrip as any).status === 'planned' && nextStatus === 'active') {
+    if (nextOdometerStart == null || nextOdoStartPhoto == null || nextOdoStartPhoto === '') {
+      throw new Error('You must enter the starting odometer and upload a start photo to activate this trip.');
+    }
+  }
+
+  const isClosing = nextStatus === 'completed' || nextStatus === 'settled';
+  if (isClosing) {
+    if (
+      nextOdometerStart == null ||
+      nextOdoStartPhoto == null ||
+      nextOdometerEnd == null ||
+      nextOdoEndPhoto == null ||
+      nextOdoStartPhoto === '' ||
+      nextOdoEndPhoto === ''
+    ) {
+      throw new Error('Odometer start/end and photos are required to complete/settle this trip.');
+    }
+    const actualMiles = Number(nextOdometerEnd) - Number(nextOdometerStart);
+    if (!Number.isFinite(actualMiles) || actualMiles <= 0) {
+      throw new Error('Actual miles must be greater than zero to settle this trip.');
+    }
+    payload.actual_miles = actualMiles;
+    payload.total_miles = actualMiles;
+  }
 
   if (input.trip_number !== undefined) payload.trip_number = input.trip_number;
   if (input.status !== undefined) payload.status = input.status;
@@ -520,6 +586,10 @@ export async function updateTrip(id: string, input: UpdateTripInput, userId: str
   if (input.start_date !== undefined) payload.start_date = normalizeDate(input.start_date);
   if (input.end_date !== undefined) payload.end_date = normalizeDate(input.end_date);
   if (input.total_miles !== undefined) payload.total_miles = input.total_miles ?? null;
+  if (input.odometer_start !== undefined) payload.odometer_start = input.odometer_start ?? null;
+  if (input.odometer_end !== undefined) payload.odometer_end = input.odometer_end ?? null;
+  if (input.odometer_start_photo_url !== undefined) payload.odometer_start_photo_url = nullable(input.odometer_start_photo_url);
+  if (input.odometer_end_photo_url !== undefined) payload.odometer_end_photo_url = nullable(input.odometer_end_photo_url);
   if (input.notes !== undefined) payload.notes = nullable(input.notes);
 
   const { data, error } = await supabase
@@ -667,10 +737,15 @@ export async function listTripExpenses(tripId: string, userId: string): Promise<
 
 export async function createTripExpense(
   input: NewTripExpenseInput,
-  userId: string
+  userId: string,
+  clientOverride?: SupabaseClient | null
 ): Promise<TripExpense> {
-  const supabase = await createClient();
+  const supabase = clientOverride ?? (await createClient());
   await assertOwnership(supabase, 'trips', input.trip_id, userId, 'Trip');
+
+  if (!input.receipt_photo_url || input.receipt_photo_url.trim().length === 0) {
+    throw new Error('Receipt photo is required for expenses.');
+  }
 
   const payload = {
     owner_id: userId,
@@ -679,6 +754,10 @@ export async function createTripExpense(
     description: nullable(input.description),
     amount: input.amount,
     incurred_at: normalizeDate(input.incurred_at) ?? new Date().toISOString().split('T')[0],
+    expense_type: nullable(input.expense_type),
+    paid_by: nullable(input.paid_by as any),
+    receipt_photo_url: input.receipt_photo_url.trim(),
+    notes: nullable(input.notes),
   };
 
   const { data, error } = await supabase.from('trip_expenses').insert(payload).select('*').single();
@@ -693,9 +772,10 @@ export async function createTripExpense(
 export async function updateTripExpense(
   id: string,
   input: UpdateTripExpenseInput,
-  userId: string
+  userId: string,
+  clientOverride?: SupabaseClient | null
 ): Promise<TripExpense> {
-  const supabase = await createClient();
+  const supabase = clientOverride ?? (await createClient());
 
   const updatePayload: Record<string, string | number | boolean | null> = {};
   if (input.category !== undefined) updatePayload.category = input.category;
@@ -704,6 +784,15 @@ export async function updateTripExpense(
   if (input.incurred_at !== undefined) {
     updatePayload.incurred_at = normalizeDate(input.incurred_at) ?? new Date().toISOString().split('T')[0];
   }
+  if (input.expense_type !== undefined) updatePayload.expense_type = nullable(input.expense_type);
+  if (input.paid_by !== undefined) updatePayload.paid_by = nullable(input.paid_by as any);
+  if (input.receipt_photo_url !== undefined) {
+    if (!input.receipt_photo_url || input.receipt_photo_url.trim().length === 0) {
+      throw new Error('Receipt photo is required for expenses.');
+    }
+    updatePayload.receipt_photo_url = input.receipt_photo_url.trim();
+  }
+  if (input.notes !== undefined) updatePayload.notes = nullable(input.notes);
 
   const { data, error } = await supabase
     .from('trip_expenses')
@@ -724,8 +813,12 @@ export async function updateTripExpense(
   return data as TripExpense;
 }
 
-export async function deleteTripExpense(id: string, userId: string): Promise<void> {
-  const supabase = await createClient();
+export async function deleteTripExpense(
+  id: string,
+  userId: string,
+  clientOverride?: SupabaseClient | null
+): Promise<void> {
+  const supabase = clientOverride ?? (await createClient());
 
   const { data, error } = await supabase
     .from('trip_expenses')
@@ -744,4 +837,3 @@ export async function deleteTripExpense(id: string, userId: string): Promise<voi
 
   await computeTripFinancialSummary(supabase, data.trip_id, userId);
 }
-

@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { type NewTrailerInput } from '@/data/fleet';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
 
 // Helper component for Select with hidden input
 function SelectWithHiddenInput({
@@ -64,9 +66,9 @@ interface TrailerFormProps {
   initialData?: Partial<NewTrailerInput>;
   drivers?: Array<{ id: string; first_name: string; last_name: string }>;
   onSubmit: (
-    prevState: { errors?: Record<string, string> } | null,
+    prevState: { errors?: Record<string, string>; success?: boolean; trailerId?: string } | null,
     formData: FormData
-  ) => Promise<{ errors?: Record<string, string> } | null>;
+  ) => Promise<{ errors?: Record<string, string>; success?: boolean; trailerId?: string } | null>;
   submitLabel?: string;
   cancelHref?: string;
 }
@@ -78,6 +80,8 @@ export function TrailerForm({
   submitLabel = 'Save trailer',
   cancelHref = '/dashboard/fleet',
 }: TrailerFormProps) {
+  const router = useRouter();
+  const { toast } = useToast();
   const [state, formAction, pending] = useActionState(onSubmit, null);
   const [currentStep, setCurrentStep] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
@@ -113,6 +117,18 @@ export function TrailerForm({
     };
   }, [docPreviews]);
 
+  // On successful server action, toast and navigate
+  useEffect(() => {
+    if (state?.success) {
+      toast({
+        title: 'Trailer saved',
+        description: 'The trailer was created successfully.',
+      });
+      router.push('/dashboard/fleet/trailers');
+      router.refresh();
+    }
+  }, [state?.success, router, toast]);
+
   const openDocOrJump = (inputId: string) => {
     const preview = docPreviews[inputId];
     if (preview?.url) {
@@ -133,6 +149,16 @@ export function TrailerForm({
     }
     const driver = drivers.find((d) => d.id === id);
     return driver ? `${driver.first_name} ${driver.last_name}` : 'Unknown';
+  };
+
+  const handleDateClick = (event: React.MouseEvent<HTMLInputElement>) => {
+    if (event.currentTarget?.showPicker) {
+      try {
+        event.currentTarget.showPicker();
+      } catch {
+        // ignore if browser blocks programmatic open
+      }
+    }
   };
 
   useEffect(() => {
@@ -385,6 +411,7 @@ export function TrailerForm({
                       name="registration_expiry"
                       defaultValue={initialData?.registration_expiry || ''}
                       className="h-9"
+                      onClick={handleDateClick}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -395,6 +422,7 @@ export function TrailerForm({
                       name="inspection_expiry"
                       defaultValue={initialData?.inspection_expiry || ''}
                       className="h-9"
+                      onClick={handleDateClick}
                     />
                   </div>
                 </div>

@@ -74,7 +74,6 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
 
     const fields = [
       'load_number',
-      'reference_number',
       'service_type',
       'company_id',
       'assigned_driver_id',
@@ -143,7 +142,6 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
 
   const initialData = {
     load_number: load.load_number,
-    reference_number: load.reference_number || undefined,
     service_type: load.service_type,
     company_id: load.company_id,
     assigned_driver_id: load.assigned_driver_id || undefined,
@@ -190,9 +188,6 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
           <h1 className="text-3xl font-bold text-foreground">
             {load.load_number || 'Internal ref pending'}
           </h1>
-          {load.reference_number && (
-            <p className="text-sm text-muted-foreground">Customer ref: {load.reference_number}</p>
-          )}
         </div>
         <div className="flex gap-4">
           <Link

@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from 'react';
 import type { TripExpense, TripExpenseCategory } from '@/data/trips';
+import { PhotoField } from '@/components/ui/photo-field';
 
 export type TripExpenseFormState = {
   errors?: Record<string, string>;
@@ -36,6 +37,13 @@ const categoryOptions: { value: TripExpenseCategory; label: string }[] = [
   { value: 'parking', label: 'Parking' },
   { value: 'maintenance', label: 'Maintenance' },
   { value: 'other', label: 'Other' },
+];
+
+const paidByOptions = [
+  { value: 'driver_personal', label: 'Driver personal' },
+  { value: 'driver_cash', label: 'Driver cash' },
+  { value: 'company_card', label: 'Company card' },
+  { value: 'fuel_card', label: 'Fuel card' },
 ];
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
@@ -125,6 +133,62 @@ function TripExpenseRow({ expense, onUpdate, onDelete }: TripExpenseRowProps) {
                   className="w-full px-2 py-1 border border-border rounded-md text-sm"
                 />
               </div>
+              </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="sr-only" htmlFor={`edit-expense-type-${expense.id}`}>
+                  Expense type
+                </label>
+                <input
+                  id={`edit-expense-type-${expense.id}`}
+                  type="text"
+                  name="expense_type"
+                  defaultValue={(expense as any).expense_type || ''}
+                  placeholder="Expense type"
+                  className="w-full px-2 py-1 border border-border rounded-md text-sm"
+                />
+              </div>
+              <div>
+                <label className="sr-only" htmlFor={`edit-paid-by-${expense.id}`}>
+                  Paid by
+                </label>
+                <select
+                  id={`edit-paid-by-${expense.id}`}
+                  name="paid_by"
+                  defaultValue={(expense as any).paid_by || ''}
+                  className="w-full px-2 py-1 border border-border rounded-md text-sm"
+                >
+                  <option value="">Paid by</option>
+                  {paidByOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+              <div className="space-y-2">
+              <PhotoField
+                name="receipt_photo_url"
+                label="Receipt photo"
+                required
+                defaultValue={(expense as any).receipt_photo_url || ''}
+                className="p-0"
+                description="Upload or capture the receipt"
+              />
+              </div>
+            <div className="space-y-2">
+              <label className="sr-only" htmlFor={`edit-notes-${expense.id}`}>
+                Notes
+              </label>
+              <textarea
+                id={`edit-notes-${expense.id}`}
+                name="notes"
+                defaultValue={(expense as any).notes || ''}
+                placeholder="Notes"
+                className="w-full px-2 py-1 border border-border rounded-md text-sm"
+                rows={2}
+              />
             </div>
             {state?.errors && (
               <p className="text-xs text-red-600">
@@ -152,6 +216,12 @@ function TripExpenseRow({ expense, onUpdate, onDelete }: TripExpenseRowProps) {
           <div className="space-y-1">
             <div className="text-sm text-foreground">{expense.description || '—'}</div>
             <div className="text-xs text-muted-foreground">{currencyFormatter.format(expense.amount)}</div>
+            <div className="text-xs text-muted-foreground">
+              {((expense as any).paid_by || 'payer not set')} · {((expense as any).expense_type || 'type not set')}
+            </div>
+            <div className="text-xs text-muted-foreground break-all">
+              Receipt: {(expense as any).receipt_photo_url || '—'}
+            </div>
           </div>
         )}
       </td>
@@ -362,6 +432,62 @@ export function TripExpensesCard({
               <p className="text-xs text-red-600 mt-1">{state.errors.description}</p>
             )}
           </div>
+          <div>
+            <label htmlFor="expense_type" className="block text-sm font-medium text-foreground mb-1">
+              Expense type
+            </label>
+            <input
+              id="expense_type"
+              type="text"
+              name="expense_type"
+              placeholder="fuel, repair, etc."
+              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-black text-sm"
+            />
+          </div>
+          <div>
+            <label htmlFor="expense_paid_by" className="block text-sm font-medium text-foreground mb-1">
+              Paid by
+            </label>
+            <select
+              id="expense_paid_by"
+              name="paid_by"
+              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-black text-sm"
+            >
+              <option value="">Select</option>
+              {paidByOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            {state?.errors?.paid_by && (
+              <p className="text-xs text-red-600 mt-1">{state.errors.paid_by}</p>
+            )}
+          </div>
+          <div className="md:col-span-2">
+            <PhotoField
+              name="receipt_photo_url"
+              label="Receipt photo (required)"
+              required
+              description="Capture or upload the receipt image"
+            />
+            {state?.errors?.receipt_photo_url && (
+              <p className="text-xs text-red-600 mt-1">{state.errors.receipt_photo_url}</p>
+            )}
+          </div>
+          <div className="md:col-span-5">
+            <label htmlFor="expense_notes" className="block text-sm font-medium text-foreground mb-1">
+              Notes
+            </label>
+            <textarea
+              id="expense_notes"
+              name="notes"
+              rows={2}
+              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-black text-sm"
+              placeholder="Optional notes"
+            />
+            {state?.errors?.notes && (
+              <p className="text-xs text-red-600 mt-1">{state.errors.notes}</p>
+            )}
+          </div>
           <div className="md:col-span-5 flex justify-end">
             <button
               type="submit"
@@ -376,5 +502,3 @@ export function TripExpensesCard({
     </div>
   );
 }
-
-

@@ -34,7 +34,6 @@ export const newLoadInputSchema = z
   .object({
     load_type: loadTypeSchema,
     load_number: optionalTrimmedString(100),
-    reference_number: optionalTrimmedString(100),
     service_type: serviceTypeSchema,
     company_id: z.string().uuid('Company is required'),
     assigned_driver_id: z.string().uuid().optional(),
@@ -98,6 +97,44 @@ export const newLoadInputSchema = z
     accessorials_rate: z.coerce.number().nonnegative().optional(),
     status: loadStatusSchema.optional().default('pending'),
     notes: optionalTrimmedString(5000),
+    // Contract/settlement fields
+    actual_cuft_loaded: z.coerce.number().positive().optional(),
+    contract_rate_per_cuft: z.coerce.number().positive().optional(),
+    contract_accessorials_total: z.coerce.number().nonnegative().optional(),
+    contract_accessorials_shuttle: z.coerce.number().nonnegative().optional(),
+    contract_accessorials_stairs: z.coerce.number().nonnegative().optional(),
+    contract_accessorials_long_carry: z.coerce.number().nonnegative().optional(),
+    contract_accessorials_bulky: z.coerce.number().nonnegative().optional(),
+    contract_accessorials_other: z.coerce.number().nonnegative().optional(),
+    balance_due_on_delivery: z.coerce.number().nonnegative().optional(),
+    amount_collected_on_delivery: z.coerce.number().nonnegative().optional(),
+    amount_paid_directly_to_company: z.coerce.number().nonnegative().optional(),
+    extra_accessorials_total: z.coerce.number().nonnegative().optional(),
+    contract_notes: optionalTrimmedString(5000),
+    origin_arrival_at: z.string().optional(),
+    destination_arrival_at: z.string().optional(),
+    contract_photo_url: optionalTrimmedString(2000),
+    load_report_photo_url: optionalTrimmedString(2000),
+    delivery_report_photo_url: optionalTrimmedString(2000),
+    delivery_photos: z.array(z.string()).optional(),
+    load_status: z.enum(['pending','loaded','delivered','storage_completed']).optional(),
+    payment_method: z.enum(['cash','card','certified_check','customer_paid_directly_to_company']).optional(),
+    payment_method_notes: optionalTrimmedString(1000),
+    extra_shuttle: z.coerce.number().nonnegative().optional(),
+    extra_stairs: z.coerce.number().nonnegative().optional(),
+    extra_long_carry: z.coerce.number().nonnegative().optional(),
+    extra_packing: z.coerce.number().nonnegative().optional(),
+    extra_bulky: z.coerce.number().nonnegative().optional(),
+    extra_other: z.coerce.number().nonnegative().optional(),
+    storage_drop: z.boolean().optional(),
+    storage_location_name: optionalTrimmedString(500),
+    storage_location_address: optionalTrimmedString(500),
+    storage_unit_number: optionalTrimmedString(200),
+    storage_move_in_fee: z.coerce.number().nonnegative().optional(),
+    storage_daily_fee: z.coerce.number().nonnegative().optional(),
+    storage_days_billed: z.coerce.number().int().nonnegative().optional(),
+    storage_notes: optionalTrimmedString(1000),
+    company_approved_exception_delivery: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.load_type === 'live_load') {
@@ -150,7 +187,6 @@ export interface Load {
   load_type: z.infer<typeof loadTypeSchema>;
   job_number: string;
   load_number: string | null;
-  reference_number: string | null;
   service_type: ServiceType;
 
   // Partner company
@@ -215,6 +251,14 @@ export interface Load {
   materials_rate: number | null;
   accessorials_rate: number | null;
   total_rate: number | null;
+  // Contract/settlement fields
+  actual_cuft_loaded?: number | null;
+  contract_rate_per_cuft?: number | null;
+  contract_accessorials_total?: number | null;
+  balance_due_on_delivery?: number | null;
+  amount_collected_on_delivery?: number | null;
+  amount_paid_directly_to_company?: number | null;
+  extra_accessorials_total?: number | null;
 
   // Status
   status: LoadStatus;
@@ -227,6 +271,44 @@ export interface Load {
   assigned_driver?: { id: string; first_name: string; last_name: string } | null;
   assigned_truck?: { id: string; unit_number: string } | null;
   assigned_trailer?: { id: string; unit_number: string } | null;
+  // Contract/settlement fields
+  actual_cuft_loaded?: number | null;
+  contract_rate_per_cuft?: number | null;
+  contract_accessorials_total?: number | null;
+  contract_accessorials_shuttle?: number | null;
+  contract_accessorials_stairs?: number | null;
+  contract_accessorials_long_carry?: number | null;
+  contract_accessorials_bulky?: number | null;
+  contract_accessorials_other?: number | null;
+  balance_due_on_delivery?: number | null;
+  amount_collected_on_delivery?: number | null;
+  amount_paid_directly_to_company?: number | null;
+  extra_accessorials_total?: number | null;
+  contract_notes?: string | null;
+  origin_arrival_at?: string | null;
+  destination_arrival_at?: string | null;
+  contract_photo_url?: string | null;
+  load_report_photo_url?: string | null;
+  delivery_report_photo_url?: string | null;
+  delivery_photos?: string[] | null;
+  load_status?: 'pending' | 'loaded' | 'delivered' | 'storage_completed' | null;
+  payment_method?: 'cash' | 'card' | 'certified_check' | 'customer_paid_directly_to_company' | null;
+  payment_method_notes?: string | null;
+  extra_shuttle?: number | null;
+  extra_stairs?: number | null;
+  extra_long_carry?: number | null;
+  extra_packing?: number | null;
+  extra_bulky?: number | null;
+  extra_other?: number | null;
+  storage_drop?: boolean | null;
+  storage_location_name?: string | null;
+  storage_location_address?: string | null;
+  storage_unit_number?: string | null;
+  storage_move_in_fee?: number | null;
+  storage_daily_fee?: number | null;
+  storage_days_billed?: number | null;
+  storage_notes?: string | null;
+  company_approved_exception_delivery?: boolean | null;
 }
 
 // Filter interface
@@ -273,10 +355,7 @@ export async function getLoadsForUser(
   // Apply filters
   if (filters?.search) {
     const searchTerm = `%${filters.search}%`;
-    // Note: Can't search joined relations directly, so we search on load_number and reference_number only
-    query = query.or(
-      `load_number.ilike.${searchTerm},reference_number.ilike.${searchTerm}`
-    );
+    query = query.ilike('load_number', searchTerm);
   }
 
   if (filters?.status && filters.status !== 'all') {
@@ -375,6 +454,9 @@ export async function getLoadById(id: string, userId: string): Promise<Load | nu
 
 export async function createLoad(input: NewLoadInput, userId: string): Promise<Load> {
   const supabase = await createClient();
+  const loadNumber =
+    input.load_number ||
+    `LOAD-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
   // Verify company ownership
   const { error: companyError } = await supabase
@@ -440,8 +522,7 @@ export async function createLoad(input: NewLoadInput, userId: string): Promise<L
   const payload = {
     owner_id: userId,
     load_type: input.load_type,
-    load_number: nullable(input.load_number),
-    reference_number: nullable(input.reference_number),
+    load_number: loadNumber,
     service_type: input.service_type,
     company_id: input.company_id,
     assigned_driver_id: nullable(input.assigned_driver_id),
@@ -601,7 +682,6 @@ export async function updateLoad(
   const payload: Record<string, string | number | boolean | null> = {};
 
   if (input.load_number !== undefined) payload.load_number = input.load_number;
-  if (input.reference_number !== undefined) payload.reference_number = nullable(input.reference_number);
   if (input.service_type !== undefined) payload.service_type = input.service_type;
   if (input.company_id !== undefined) payload.company_id = input.company_id;
   if (input.assigned_driver_id !== undefined) payload.assigned_driver_id = nullable(input.assigned_driver_id);
@@ -650,6 +730,58 @@ export async function updateLoad(
   if (input.total_rate !== undefined) payload.total_rate = nullable(input.total_rate);
   if (input.status !== undefined) payload.status = input.status;
   if (input.notes !== undefined) payload.notes = nullable(input.notes);
+  // Contract/settlement payload mapping
+  if (input.actual_cuft_loaded !== undefined) payload.actual_cuft_loaded = nullable(input.actual_cuft_loaded);
+  if (input.contract_rate_per_cuft !== undefined) payload.contract_rate_per_cuft = nullable(input.contract_rate_per_cuft);
+  if (input.contract_accessorials_total !== undefined)
+    payload.contract_accessorials_total = nullable(input.contract_accessorials_total);
+  if (input.contract_accessorials_shuttle !== undefined)
+    payload.contract_accessorials_shuttle = nullable(input.contract_accessorials_shuttle);
+  if (input.contract_accessorials_stairs !== undefined)
+    payload.contract_accessorials_stairs = nullable(input.contract_accessorials_stairs);
+  if (input.contract_accessorials_long_carry !== undefined)
+    payload.contract_accessorials_long_carry = nullable(input.contract_accessorials_long_carry);
+  if (input.contract_accessorials_bulky !== undefined)
+    payload.contract_accessorials_bulky = nullable(input.contract_accessorials_bulky);
+  if (input.contract_accessorials_other !== undefined)
+    payload.contract_accessorials_other = nullable(input.contract_accessorials_other);
+  if (input.balance_due_on_delivery !== undefined)
+    payload.balance_due_on_delivery = nullable(input.balance_due_on_delivery);
+  if (input.amount_collected_on_delivery !== undefined)
+    payload.amount_collected_on_delivery = nullable(input.amount_collected_on_delivery);
+  if (input.amount_paid_directly_to_company !== undefined)
+    payload.amount_paid_directly_to_company = nullable(input.amount_paid_directly_to_company);
+  if (input.extra_accessorials_total !== undefined)
+    payload.extra_accessorials_total = nullable(input.extra_accessorials_total);
+  if (input.contract_notes !== undefined) payload.contract_notes = nullable(input.contract_notes);
+  if (input.origin_arrival_at !== undefined) payload.origin_arrival_at = normalizeDateTime(input.origin_arrival_at);
+  if (input.destination_arrival_at !== undefined)
+    payload.destination_arrival_at = normalizeDateTime(input.destination_arrival_at);
+  if (input.contract_photo_url !== undefined) payload.contract_photo_url = nullable(input.contract_photo_url);
+  if (input.load_report_photo_url !== undefined) payload.load_report_photo_url = nullable(input.load_report_photo_url);
+  if (input.delivery_report_photo_url !== undefined)
+    payload.delivery_report_photo_url = nullable(input.delivery_report_photo_url);
+  if (input.delivery_photos !== undefined) payload.delivery_photos = input.delivery_photos ?? null;
+  if (input.load_status !== undefined) payload.load_status = input.load_status ?? null;
+  if (input.payment_method !== undefined) payload.payment_method = input.payment_method ?? null;
+  if (input.payment_method_notes !== undefined) payload.payment_method_notes = nullable(input.payment_method_notes);
+  if (input.extra_shuttle !== undefined) payload.extra_shuttle = nullable(input.extra_shuttle);
+  if (input.extra_stairs !== undefined) payload.extra_stairs = nullable(input.extra_stairs);
+  if (input.extra_long_carry !== undefined) payload.extra_long_carry = nullable(input.extra_long_carry);
+  if (input.extra_packing !== undefined) payload.extra_packing = nullable(input.extra_packing);
+  if (input.extra_bulky !== undefined) payload.extra_bulky = nullable(input.extra_bulky);
+  if (input.extra_other !== undefined) payload.extra_other = nullable(input.extra_other);
+  if (input.storage_drop !== undefined) payload.storage_drop = input.storage_drop;
+  if (input.storage_location_name !== undefined) payload.storage_location_name = nullable(input.storage_location_name);
+  if (input.storage_location_address !== undefined)
+    payload.storage_location_address = nullable(input.storage_location_address);
+  if (input.storage_unit_number !== undefined) payload.storage_unit_number = nullable(input.storage_unit_number);
+  if (input.storage_move_in_fee !== undefined) payload.storage_move_in_fee = nullable(input.storage_move_in_fee);
+  if (input.storage_daily_fee !== undefined) payload.storage_daily_fee = nullable(input.storage_daily_fee);
+  if (input.storage_days_billed !== undefined) payload.storage_days_billed = nullable(input.storage_days_billed);
+  if (input.storage_notes !== undefined) payload.storage_notes = nullable(input.storage_notes);
+  if (input.company_approved_exception_delivery !== undefined)
+    payload.company_approved_exception_delivery = input.company_approved_exception_delivery;
 
   const { data, error } = await supabase
     .from('loads')

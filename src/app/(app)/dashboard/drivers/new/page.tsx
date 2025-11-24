@@ -7,6 +7,183 @@ import { CreationPageShell } from '@/components/layout/CreationPageShell';
 import { cleanFormValues, extractFormValues } from '@/lib/form-data';
 import { getPrimaryCompanyForUser } from '@/data/companies';
 
+export async function createDriverAction(
+  prevState: { errors?: Record<string, string>; success?: boolean; driverId?: string } | null,
+  formData: FormData
+): Promise<{ errors?: Record<string, string>; success?: boolean; driverId?: string } | null> {
+  'use server';
+
+  console.log('[createDriverAction] Form submitted');
+
+  const user = await getCurrentUser();
+  if (!user) {
+    console.error('[createDriverAction] No user found');
+    return { errors: { _form: 'Not authenticated' } };
+  }
+
+  console.log('[createDriverAction] User authenticated:', user.id);
+
+  // Extract form fields - match exactly what the debug endpoint does
+  const first_name = formData.get('first_name') as string;
+  const last_name = formData.get('last_name') as string;
+  const phone = formData.get('phone') as string | null;
+  const email = formData.get('email') as string | null;
+  const status = (formData.get('status') as string) || 'active';
+  const pay_mode = (formData.get('pay_mode') as string) || 'per_mile';
+  const license_number = (formData.get('license_number') as string) || 'Pending';
+  const license_state = (formData.get('license_state') as string) || 'NA';
+  const license_expiry = (formData.get('license_expiry') as string) || new Date().toISOString().split('T')[0];
+  const medical_card_expiry = (formData.get('medical_card_expiry') as string) || new Date().toISOString().split('T')[0];
+  const assigned_truck_id = formData.get('assigned_truck_id') as string | null;
+  const assigned_trailer_id = formData.get('assigned_trailer_id') as string | null;
+  const rate_per_mile_raw = formData.get('rate_per_mile') as string | null;
+  const rate_per_cuft_raw = formData.get('rate_per_cuft') as string | null;
+  const percent_of_revenue_raw = formData.get('percent_of_revenue') as string | null;
+  const flat_daily_rate_raw = formData.get('flat_daily_rate') as string | null;
+  const requestedHasLogin = (formData.get('has_login') as string) === 'true';
+  const login_method_raw = (formData.get('login_method') as string) || 'email';
+  const login_method = login_method_raw === 'sms' ? 'phone' : login_method_raw;
+  const password = (formData.get('driver_password') as string) || '';
+  const passwordConfirm = (formData.get('driver_password_confirm') as string) || '';
+  const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+  // Early validation: if portal access requested but service role key missing
+  if (requestedHasLogin && !hasServiceRoleKey) {
+    return {
+      errors: {
+        _form: 'Portal access cannot be enabled: SUPABASE_SERVICE_ROLE_KEY is not configured.',
+      },
+    };
+  }
+
+  const toNumber = (val: string | null) => {
+    if (val === null || val === undefined || val === '') return undefined;
+    const num = parseFloat(val);
+    return Number.isFinite(num) ? num : undefined;
+  };
+
+  // Validate required fields
+  if (!first_name || !last_name) {
+    return { errors: { _form: 'First name and last name are required' } };
+  }
+
+  // Build insert payload
+  const insertPayload: any = {
+    first_name: first_name.trim(),
+    last_name: last_name.trim(),
+    phone: phone?.trim() || undefined,
+    email: email?.trim() || undefined,
+    status: status as 'active' | 'inactive' | 'suspended',
+    pay_mode: pay_mode as 'per_mile' | 'per_cuft' | 'per_mile_and_cuft' | 'percent_of_revenue' | 'flat_daily_rate',
+    driver_type: 'company_driver' as const,
+    license_number: license_number || 'Pending',
+    license_state: license_state || 'NA',
+    license_expiry: license_expiry || new Date().toISOString().split('T')[0],
+    medical_card_expiry: medical_card_expiry || new Date().toISOString().split('T')[0],
+    has_login: requestedHasLogin && hasServiceRoleKey,
+    login_method,
+  };
+
+  // Handle optional fields
+  if (assigned_truck_id && assigned_truck_id !== '' && assigned_truck_id !== 'unassigned') {
+    insertPayload.assigned_truck_id = assigned_truck_id;
+  }
+  if (assigned_trailer_id && assigned_trailer_id !== '' && assigned_trailer_id !== 'unassigned') {
+    insertPayload.assigned_trailer_id = assigned_trailer_id;
+  }
+
+  // Compensation numbers based on pay mode
+  if (pay_mode === 'per_mile' || pay_mode === 'per_mile_and_cuft') {
+    insertPayload.rate_per_mile = toNumber(rate_per_mile_raw);
+  }
+  if (pay_mode === 'per_cuft' || pay_mode === 'per_mile_and_cuft') {
+    insertPayload.rate_per_cuft = toNumber(rate_per_cuft_raw);
+  }
+  if (pay_mode === 'percent_of_revenue') {
+    insertPayload.percent_of_revenue = toNumber(percent_of_revenue_raw);
+  }
+  if (pay_mode === 'flat_daily_rate') {
+    insertPayload.flat_daily_rate = toNumber(flat_daily_rate_raw);
+  }
+
+  // Add company_id if available
+  const currentCompany = await getPrimaryCompanyForUser(user.id);
+  if (currentCompany?.id) {
+    insertPayload.company_id = currentCompany.id;
+  }
+
+  // Validate portal access requirements if enabled
+  if (requestedHasLogin && hasServiceRoleKey) {
+    // Validate email or phone based on login method
+    if (login_method === 'email' && !email) {
+      return { errors: { _form: 'Email is required when enabling portal access with email login.' } };
+    }
+    if (login_method === 'phone' && !phone) {
+      return { errors: { _form: 'Phone is required when enabling portal access with phone login.' } };
+    }
+    
+    if (!password || !passwordConfirm) {
+      return { errors: { _form: 'Password and confirmation are required for portal access.' } };
+    }
+    if (password !== passwordConfirm) {
+      return { errors: { _form: 'Passwords do not match.' } };
+    }
+  }
+
+  try {
+    // Validate with schema
+    const validated = newDriverInputSchema.parse(insertPayload);
+    
+    // Derive effectiveHasLogin ONLY from validated value
+    const effectiveHasLogin = validated.has_login === true;
+
+    console.log('DRIVER_ACTION_DEBUG', {
+      hasServiceRoleKey,
+      form_has_login: formData.get('has_login'),
+      validated_has_login: validated.has_login,
+      effectiveHasLogin,
+      login_method,
+      email,
+      phone,
+    });
+
+    const createdDriver = await createDriver(validated, user.id, {
+      effectiveHasLogin,
+      login_method: login_method as 'email' | 'phone',
+      email: email?.trim() || null,
+      phone: phone?.trim() || null,
+      password: effectiveHasLogin ? password : null,
+    });
+    
+    console.log('[createDriverAction] Driver created:', createdDriver.id);
+    
+    // Return success so client can toast then navigate
+    return { success: true, driverId: createdDriver.id };
+  } catch (error) {
+    // Handle redirect separately
+    if (error && typeof error === 'object' && 'digest' in error) {
+      throw error;
+    }
+    
+    console.error('[createDriverAction] Error:', error);
+    
+    // Handle validation errors
+    if (error && typeof error === 'object' && 'issues' in error) {
+      const zodError = error as { issues: Array<{ path: (string | number)[]; message: string }> };
+      const errors: Record<string, string> = {};
+      zodError.issues.forEach((issue) => {
+        const field = issue.path[0] as string;
+        errors[field] = issue.message;
+      });
+      return { errors };
+    }
+    
+    // Return error message
+    const errorMessage = error instanceof Error ? error.message : 'Failed to create driver';
+    return { errors: { _form: errorMessage } };
+  }
+}
+
 export default async function NewDriverPage() {
   const user = await getCurrentUser();
 
@@ -14,237 +191,13 @@ export default async function NewDriverPage() {
     redirect('/login');
   }
 
-  const primaryCompany = await getPrimaryCompanyForUser(user.id);
-
   const [trucks, trailers] = await Promise.all([
     getTrucksForUser(user.id),
     getTrailersForUser(user.id),
   ]);
 
-  async function createDriverAction(
-    prevState: { errors?: Record<string, string> } | null,
-    formData: FormData
-  ): Promise<{ errors?: Record<string, string> } | null> {
-    'use server';
-
-    const user = await getCurrentUser();
-    if (!user) {
-      return { errors: { _form: 'Not authenticated' } };
-    }
-
-    // re-fetch primary company in case it changed during the flow
-    const currentCompany = await getPrimaryCompanyForUser(user.id);
-    const companyId = currentCompany?.id ?? primaryCompany?.id;
-
-    const fields = [
-      'first_name',
-      'last_name',
-      'phone',
-      'email',
-      'date_of_birth',
-      'start_date',
-      'has_login',
-      'license_number',
-      'license_state',
-      'license_expiry',
-      'medical_card_expiry',
-      'status',
-      'assigned_truck_id',
-      'assigned_trailer_id',
-      'pay_mode',
-      'rate_per_mile',
-      'rate_per_cuft',
-      'percent_of_revenue',
-      'flat_daily_rate',
-      'pay_notes',
-      'notes',
-    ];
-
-    const rawData = extractFormValues(formData, fields, {
-      booleanFields: ['has_login'],
-    });
-    const cleanedData = cleanFormValues(rawData);
-
-    // tenancy defaults
-    if (companyId) {
-      cleanedData.company_id = companyId;
-    }
-    cleanedData.driver_type = 'company_driver';
-
-    // Ensure required defaults so inserts don't fail when fields are skipped
-    if (!cleanedData.pay_mode) {
-      cleanedData.pay_mode = 'per_mile';
-    }
-    if (!cleanedData.license_number) {
-      cleanedData.license_number = 'Pending';
-    }
-    if (!cleanedData.license_state) {
-      cleanedData.license_state = 'NA';
-    }
-    const today = new Date().toISOString().split('T')[0];
-    if (!cleanedData.license_expiry) {
-      cleanedData.license_expiry = today;
-    }
-    if (!cleanedData.medical_card_expiry) {
-      cleanedData.medical_card_expiry = today;
-    }
-    if (!cleanedData.pay_notes) {
-      cleanedData.pay_notes = '';
-    }
-    if (!cleanedData.notes) {
-      cleanedData.notes = '';
-    }
-
-    // Handle empty assigned_truck_id and assigned_trailer_id
-    if (cleanedData.assigned_truck_id === '' || cleanedData.assigned_truck_id === 'unassigned') {
-      cleanedData.assigned_truck_id = null;
-    }
-    if (cleanedData.assigned_trailer_id === '' || cleanedData.assigned_trailer_id === 'unassigned') {
-      cleanedData.assigned_trailer_id = null;
-    }
-
-    // Clear unused compensation fields based on pay_mode
-    const payMode = cleanedData.pay_mode as string | undefined;
-    if (payMode) {
-      if (payMode !== 'per_mile' && payMode !== 'per_mile_and_cuft') {
-        cleanedData.rate_per_mile = null;
-      }
-      if (payMode !== 'per_cuft' && payMode !== 'per_mile_and_cuft') {
-        cleanedData.rate_per_cuft = null;
-      }
-      if (payMode !== 'percent_of_revenue') {
-        cleanedData.percent_of_revenue = null;
-      }
-      if (payMode !== 'flat_daily_rate') {
-        cleanedData.flat_daily_rate = null;
-      }
-      // Provide safe defaults so validation passes when left blank
-      if (payMode === 'per_mile' && (cleanedData.rate_per_mile === undefined || cleanedData.rate_per_mile === null)) {
-        cleanedData.rate_per_mile = 0;
-      }
-      if (payMode === 'per_cuft' && (cleanedData.rate_per_cuft === undefined || cleanedData.rate_per_cuft === null)) {
-        cleanedData.rate_per_cuft = 0;
-      }
-      if (payMode === 'per_mile_and_cuft') {
-        if (cleanedData.rate_per_mile === undefined || cleanedData.rate_per_mile === null) {
-          cleanedData.rate_per_mile = 0;
-        }
-        if (cleanedData.rate_per_cuft === undefined || cleanedData.rate_per_cuft === null) {
-          cleanedData.rate_per_cuft = 0;
-        }
-      }
-      if (payMode === 'percent_of_revenue' && (cleanedData.percent_of_revenue === undefined || cleanedData.percent_of_revenue === null)) {
-        cleanedData.percent_of_revenue = 0;
-      }
-      if (payMode === 'flat_daily_rate' && (cleanedData.flat_daily_rate === undefined || cleanedData.flat_daily_rate === null)) {
-        cleanedData.flat_daily_rate = 0;
-      }
-    }
-
-    try {
-      // Pre-flight auth check
-      const { createClient } = await import('@/lib/supabase-server');
-      const supabase = await createClient();
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !authUser) {
-        const authErrMsg = `Authentication check failed: ${authError?.message || 'No authenticated user'}. This suggests the session isn't being picked up in the server action.`;
-        console.error('[createDriverAction]', authErrMsg, { userId: user.id, authError });
-        return { errors: { _form: authErrMsg } };
-      }
-      
-      if (authUser.id !== user.id) {
-        const mismatchMsg = `User ID mismatch detected:\n- Server user.id: ${user.id}\n- Auth.uid(): ${authUser.id}\n\nThis suggests a session mismatch.`;
-        console.error('[createDriverAction]', mismatchMsg);
-        return { errors: { _form: mismatchMsg } };
-      }
-      
-      const validated = newDriverInputSchema.parse(cleanedData);
-      
-      // Debug logging
-      console.log('[createDriverAction] Creating driver with:', {
-        userId: user.id,
-        authUid: authUser.id,
-        email: user.email,
-        companyId,
-        driverData: { 
-          first_name: validated.first_name,
-          last_name: validated.last_name,
-          pay_mode: validated.pay_mode,
-          company_id: validated.company_id,
-          owner_id: user.id, // This is what will be inserted
-        },
-      });
-      
-      const createdDriver = await createDriver(validated, user.id);
-      
-      // Verify driver was actually created and is accessible
-      console.log('[createDriverAction] Driver created successfully:', {
-        driverId: createdDriver.id,
-        ownerId: createdDriver.owner_id,
-        name: `${createdDriver.first_name} ${createdDriver.last_name}`,
-      });
-      
-      // Double-check: Verify we can fetch the driver back
-      const { getDriverById } = await import('@/data/drivers');
-      const verifyDriver = await getDriverById(createdDriver.id, user.id, companyId || undefined);
-      
-      if (!verifyDriver) {
-        console.error('[createDriverAction] Driver was created but cannot be retrieved!', {
-          driverId: createdDriver.id,
-          userId: user.id,
-          companyId,
-        });
-        return { 
-          errors: { 
-            _form: 'Driver was created but cannot be retrieved. This may indicate a Row Level Security (RLS) policy issue. Please check the database directly or contact support.' 
-          } 
-        };
-      }
-      
-      console.log('[createDriverAction] Driver verified and accessible:', {
-        driverId: verifyDriver.id,
-        name: `${verifyDriver.first_name} ${verifyDriver.last_name}`,
-      });
-      
-      // Only redirect if we successfully created and verified the driver
-      redirect('/dashboard/drivers');
-    } catch (error) {
-      // Enhanced error handling - make sure we catch redirect errors separately
-      if (error && typeof error === 'object' && 'digest' in error) {
-        // This is a Next.js redirect - let it through
-        throw error;
-      }
-      
-      // Log the actual error with full details
-      const errorDetails = {
-        error,
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        userId: user.id,
-        email: user.email,
-      };
-      console.error('[createDriverAction] Error creating driver:', JSON.stringify(errorDetails, null, 2));
-      
-      if (error && typeof error === 'object' && 'issues' in error) {
-        const zodError = error as { issues: Array<{ path: (string | number)[]; message: string }> };
-        const errors: Record<string, string> = {};
-        zodError.issues.forEach((issue) => {
-          const field = issue.path[0] as string;
-          errors[field] = issue.message;
-        });
-        return { errors };
-      }
-      
-      // Return detailed error message to user - preserve newlines for better readability
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create driver';
-      
-      // Also log to console for server-side debugging
-      console.error('[createDriverAction] Returning error to form:', errorMessage);
-      
-      return { errors: { _form: errorMessage } };
-    }
-  }
+  // Check if service role key is configured
+  const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
   return (
     <CreationPageShell
@@ -256,6 +209,7 @@ export default async function NewDriverPage() {
         trucks={trucks}
         trailers={trailers}
         onSubmit={createDriverAction}
+        hasServiceRoleKey={hasServiceRoleKey}
       />
     </CreationPageShell>
   );

@@ -21,9 +21,9 @@ export default async function NewLoadPage() {
   ]);
 
   async function createLoadAction(
-    prevState: { errors?: Record<string, string> } | null,
+    prevState: { errors?: Record<string, string>; success?: boolean; loadId?: string } | null,
     formData: FormData
-  ): Promise<{ errors?: Record<string, string> } | null> {
+  ): Promise<{ errors?: Record<string, string>; success?: boolean; loadId?: string } | null> {
     'use server';
     const user = await getCurrentUser();
     if (!user) return { errors: { _form: 'Not authenticated' } };
@@ -31,7 +31,6 @@ export default async function NewLoadPage() {
     const fields = [
       'load_type',
       'load_number',
-      'reference_number',
       'service_type',
       'company_id',
       'assigned_driver_id',
@@ -74,7 +73,7 @@ export default async function NewLoadPage() {
     try {
       const validated = newLoadInputSchema.parse(cleanedData);
       const created = await createLoad(validated, user.id);
-      redirect(`/dashboard/loads/${created.id}`);
+      return { success: true, loadId: created.id };
     } catch (error) {
       if (error && typeof error === 'object' && 'issues' in error) {
         const zodError = error as { issues: Array<{ path: (string | number)[]; message: string }> };

@@ -9,6 +9,7 @@ export const driverPayModeSchema = z.enum([
   'percent_of_revenue',
   'flat_daily_rate',
 ]);
+export const driverLoginMethodSchema = z.enum(['email', 'phone']);
 
 const optionalEmailSchema = z
   .string()
@@ -36,6 +37,7 @@ export const newDriverInputSchema = z
       return isNaN(date.getTime()) ? undefined : val;
     }),
     has_login: z.boolean().optional().default(false),
+    login_method: driverLoginMethodSchema.optional().default('email'),
     license_number: z
       .string()
       .trim()
@@ -191,6 +193,7 @@ export const updateDriverInputSchema = newDriverInputSchema.partial();
 
 export type DriverStatus = z.infer<typeof driverStatusSchema>;
 export type DriverPayMode = z.infer<typeof driverPayModeSchema>;
+export type DriverLoginMethod = z.infer<typeof driverLoginMethodSchema>;
 export type NewDriverInput = z.infer<typeof newDriverInputSchema>;
 export type UpdateDriverInput = z.infer<typeof updateDriverInputSchema>;
 

@@ -39,8 +39,10 @@ interface TripOverviewCardProps {
 
 const statusOptions: { value: TripStatus; label: string }[] = [
   { value: 'planned', label: 'Planned' },
+  { value: 'active', label: 'Active' },
   { value: 'en_route', label: 'En Route' },
   { value: 'completed', label: 'Completed' },
+  { value: 'settled', label: 'Settled' },
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
@@ -261,5 +263,4 @@ export function TripOverviewCard({
     </div>
   );
 }
-
 

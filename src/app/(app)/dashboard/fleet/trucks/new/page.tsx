@@ -14,9 +14,9 @@ export default async function NewTruckPage() {
   const drivers = await getDriversForUser(user.id);
 
   async function createTruckAction(
-    prevState: { errors?: Record<string, string> } | null,
+    prevState: { errors?: Record<string, string>; success?: boolean; truckId?: string } | null,
     formData: FormData
-  ): Promise<{ errors?: Record<string, string> } | null> {
+  ): Promise<{ errors?: Record<string, string>; success?: boolean; truckId?: string } | null> {
     'use server';
     const user = await getCurrentUser();
     if (!user) return { errors: { _form: 'Not authenticated' } };
@@ -84,8 +84,8 @@ export default async function NewTruckPage() {
 
     try {
       const validated = newTruckInputSchema.parse(cleanedData);
-      await createTruck(validated, user.id);
-      redirect('/dashboard/fleet');
+      const created = await createTruck(validated, user.id);
+      return { success: true, truckId: created.id };
     } catch (error) {
       if (error && typeof error === 'object' && 'issues' in error) {
         const zodError = error as { issues: Array<{ path: (string | number)[]; message: string }> };
