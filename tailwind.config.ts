@@ -7,6 +7,7 @@ const config: Config = {
     "./src/app/**/*.{ts,tsx}",
     "./src/components/**/*.{ts,tsx}",
     "./src/lib/**/*.{ts,tsx}",
+    "./node_modules/react-day-picker/**/*.js",
   ],
   theme: {
     extend: {
