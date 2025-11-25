@@ -1,0 +1,240 @@
+---
+alwaysApply: true
+---
+
+PROJECT: MoveBoss Pro
+
+You are building **MoveBoss Pro**, a web platform for the moving industry.
+
+Primary users:
+- Carrier / Owner (manages trucks, trailers, drivers, trips, loads, balances)
+- Owner-Operator (single-truck carrier; same UI as owner but simpler)
+- Broker / Moving Company (posts loads, assigns carriers, tracks status)
+- Office staff / Dispatch (works on behalf of a carrier or broker)
+
+This repo is **ONLY** for the web app (admin / owner / broker dashboard).
+The **driver/helper mobile app will be a separate repo**, not part of this one.
+
+Core goals:
+- Replace spreadsheets / WhatsApp chaos with a clean, opinionated system.
+- Track trips, loads, capacity, money, and docs end-to-end.
+- Make it trivial for owners to see: trucks, drivers, space available, money owed, money collected.
+- Be robust and maintainable, not a one-off hack.
+
+==================================
+TECH STACK – HARD RULES
+==================================
+
+Use this stack consistently across the project:
+
+- Framework: **Next.js (App Router)** with **TypeScript**.
+- Styling: **Tailwind CSS**.
+- UI Library: **shadcn/ui** (with Radix primitives) as the primary component set.
+- State / Data:
+  - Prefer **server components + server actions** for data fetching/mutations.
+  - Use React client components only where interactivity is needed.
+- Backend: **Supabase** (Postgres + Auth + Storage + Edge Functions if needed).
+- DB Client: **@supabase/supabase-js** – no Prisma or ORMs unless explicitly requested.
+- Package manager: **npm** by default. Don’t switch to pnpm/yarn unless explicitly asked.
+- Language: **TypeScript everywhere** (no plain JS for app code).
+
+If you think another library is necessary, **prefer built-ins and this stack first**.
+Do **not** introduce big additional frameworks (Redux, Apollo, MUI, Chakra, etc.) without an explicit request.
+
+==================================
+FOLDER & PROJECT STRUCTURE
+==================================
+
+Project root:
+- This repo is a **single Next.js app**, not a monorepo and not multiple apps.
+- Do **not** nest another Next.js project inside this one.
+- Do **not** create “backup” copies of the app in subfolders.
+
+Recommended structure:
+
+- `src/app/`
+  - Route segments, layouts, server components & server actions.
+  - Example:
+    - `src/app/(auth)/login/page.tsx`
+    - `src/app/(dashboard)/dashboard/page.tsx`
+    - `src/app/(dashboard)/trips/page.tsx`
+- `src/components/ui/`
+  - Generated **shadcn/ui** components only.
+- `src/components/`
+  - Shared presentational components (layout, navbars, tables, etc.).
+- `src/features/<domain>/`
+  - Feature-oriented modules (business logic and domain-specific UI).
+  - Example domains:
+    - `companies`, `drivers`, `trucks`, `trailers`, `trips`, `loads`,
+      `expenses`, `balances`, `partners`, `auth`, `notifications`.
+  - Inside each domain you can group:
+    - `/components` (feature-specific React components)
+    - `/api` or `/actions` (server actions calling Supabase)
+    - `/types` (domain types if they aren’t global yet)
+- `src/lib/`
+  - Cross-cutting utilities:
+    - `supabaseClient`
+    - type helpers
+    - formatting (money, distance, dates)
+    - generic table helpers, etc.
+- `public/`
+  - Static assets only.
+
+Environment:
+- Use `.env.local` for secrets: Supabase URL, anon key, service role (server-only).
+- Never hardcode keys or secrets in source files.
+- Any file that needs env vars reads from `process.env.*` and fails fast if missing.
+
+==================================
+DATA MODEL & AUTH PRINCIPLES
+==================================
+
+Use Supabase as the **single source of truth** for data and auth.
+
+Core entities to plan around:
+- `users` (Supabase auth users; extended with profile table)
+- `companies` (carrier / broker / moving company)
+- `company_users` or `roles` (mapping users to companies with roles)
+- `drivers`
+- `trucks` + `trailers`
+- `trips` (one continuous trip for a driver/truck)
+- `trip_stops` (pickups/deliveries during a trip)
+- `trip_loads` (loads on a trip)
+- `trip_expenses` (fuel, tolls, hotels, etc.)
+- `balances` / `settlements` (money owed to or from companies/drivers)
+- `partner_companies` (companies a carrier works with – brokers, agents, etc.)
+
+General rules:
+- Use **UUIDs** as primary keys unless there is a strong reason not to.
+- Make the schema **multi-tenant**:
+  - Every resource that belongs to a carrier/company should reference `company_id`.
+- Enforce permissions using **Row Level Security (RLS)** in Supabase, not just frontend checks.
+- Keep business rules in one place:
+  - If a rule is mostly about data access/permissions ⇒ RLS / DB.
+  - If it’s about app behavior ⇒ put it in a domain module (`src/features/...`).
+
+Auth:
+- Use Supabase Auth for login/password + future OAuth.
+- Model roles explicitly:
+  - e.g. `owner`, `dispatcher`, `driver`, `broker`, `helper`, `admin`.
+- Don’t hack roles with random booleans spread across tables.
+- Any queries/mutations must respect the current user’s company + role.
+
+==================================
+UI & UX PRINCIPLES
+==================================
+
+- Use **shadcn/ui** for:
+  - navigation shell (sidebar, top bar)
+  - forms (inputs, selects, dialogs, sheets)
+  - feedback (toasts, alerts)
+- Layout:
+  - Main experience is a **dashboard**: persistent sidebar + top bar, content area.
+  - Keep screens task-oriented:
+    - Trips view: What loads, where, when, which driver, how much space, money.
+    - Drivers view: status (idle / on trip), next stop, outstanding documentation.
+- Tables and lists:
+  - Use reusable table components for standard behaviors (sorting, pagination, filters).
+  - Don’t reinvent table patterns per feature.
+- Forms:
+  - Use controlled components with proper validation.
+  - Show clear error messages from Supabase failures.
+- Mobile responsiveness is important but this app is **desktop-first**.
+
+==================================
+PATTERNS & CODING CONVENTIONS
+==================================
+
+TypeScript:
+- No `any` unless temporary with a clear TODO.
+- Share core types where possible (`src/lib/types.ts` or feature-specific `/types`).
+- Prefer discriminated unions for statuses (e.g. `status: "draft" | "active" | "completed"`).
+
+Data access:
+- Encapsulate Supabase calls in small, focused functions or server actions.
+  - Ex: `src/features/trips/actions.ts` with `createTrip`, `getTripList`, `completeTrip`, etc.
+- Don’t scatter raw Supabase calls all over React components.
+
+Error handling:
+- For server actions:
+  - Return structured results `{ data, error }` or throw `Error` and handle at boundary.
+- Surface important errors to the UI with clear messages.
+
+Testing / robustness (lightweight):
+- At minimum, keep code organized and typed so it is easy to add tests later.
+- Avoid magic constants; create config objects where it clarifies behavior.
+
+==================================
+WHAT TO AVOID (LESSONS FROM MOVEOPS)
+==================================
+
+To prevent the mess that happened in previous attempts:
+
+- Do **NOT**:
+  - Add a second backend (Express/Node APIs, Prisma services, random micro-servers)
+    unless explicitly requested.
+  - Create nested Next.js apps or scaffolding inside subfolders.
+  - Duplicate the project into “backup” folders inside the repo.
+  - Mix multiple DBs (no local SQLite, no extra Postgres instances).
+  - Add heavy UI frameworks like MUI, Chakra, Ant, or design systems on top of shadcn/ui.
+  - Create ad-hoc “copies” of tables in Supabase instead of evolving the real schema.
+- Prefer evolving a single, well-designed set of tables and modules over spinning up new ones.
+
+If a feature feels like it needs a new service or big dependency, propose the design in comments first and keep the implementation incremental.
+
+==================================
+CURRENT PHASE (HIGH PRIORITY)
+==================================
+
+Focus on **Phase 1** until explicitly told otherwise:
+
+1. **Foundation**
+   - Ensure `moveboss-pro` Next.js app is fully scaffolded and runs locally.
+   - Install and configure Tailwind + shadcn/ui.
+   - Configure Supabase client with env vars.
+   - Set up basic layout (sidebar + top bar) and route groups for:
+     - `/dashboard`
+     - `/companies`
+     - `/drivers`
+     - `/trips`
+     - `/loads`
+
+2. **Auth & Multi-Tenant Setup**
+   - Integrate Supabase Auth (email/password) with basic login/logout.
+   - Create initial schema for:
+     - `profiles` / `companies` / `company_users` (roles)
+   - Lock everything else behind authenticated routes.
+
+3. **First Real Feature**
+   - Implement a minimal but real flow:
+     - Owner creates company
+     - Adds drivers and trucks
+     - Creates a trip and assigns a driver
+     - Sees that trip in a simple dashboard view
+
+Defer:
+- Mobile driver/helper app.
+- Complex AI features.
+- Fancy notification systems.
+- Advanced reporting/analytics.
+
+Those come after a solid, working core.
+
+==================================
+HOW TO RESPOND TO PROMPTS
+==================================
+
+When the user asks for changes or features:
+
+- **Respect this ruleset and the existing structure.**
+- Prefer **small, incremental steps** over huge refactors.
+- When adding a new feature:
+  1. Identify the **domain** (`trips`, `drivers`, etc.).
+  2. Put new code in the appropriate `src/features/<domain>/` and/or `src/app` route.
+  3. Use shadcn/ui components for UI.
+  4. Use Supabase client helpers from `src/lib/supabaseClient` (or equivalent).
+- If something is ambiguous but you can safely infer, make a reasonable assumption and comment it in the code.
+- Avoid doing “smart” but risky architecture changes unless explicitly requested.
+
+The priority is:
+**working, readable, evolvable code** that matches the MoveBoss Pro vision and avoids the structural chaos of previous attempts.

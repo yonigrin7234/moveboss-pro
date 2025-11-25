@@ -30,11 +30,41 @@ function formatCityState(city?: string | null, state?: string | null) {
 }
 
 export default async function DriverTripDetailPage({ params }: DriverTripDetailPageProps) {
-  const driver = await requireCurrentDriver();
-  if (!driver?.owner_id) notFound();
+  let driver: Awaited<ReturnType<typeof requireCurrentDriver>> | null = null;
+  try {
+    driver = await requireCurrentDriver();
+  } catch (error) {
+    console.error("[DriverTripDetailPage] Failed to load current driver", error);
+    notFound();
+  }
+  if (!driver?.owner_id) {
+    notFound();
+  }
 
-  const detail = await getDriverTripDetail(params.id, { id: driver.id, owner_id: driver.owner_id });
-  if (!detail?.trip) notFound();
+  let detail: Awaited<ReturnType<typeof getDriverTripDetail>> | null = null;
+  try {
+    detail = await getDriverTripDetail(params.id, { id: driver.id, owner_id: driver.owner_id });
+  } catch (error) {
+    console.error("[DriverTripDetailPage] Failed to load trip detail", error);
+    detail = null;
+  }
+  if (!detail?.trip) {
+    return (
+      <div className="rounded-lg border border-border bg-card p-6 shadow-sm space-y-3">
+        <h1 className="text-xl font-semibold text-foreground">Trip unavailable</h1>
+        <p className="text-sm text-muted-foreground">
+          We couldn&apos;t load this trip. It may be missing, you may not have access, or there was a temporary
+          error. Please try again or return to your trips list.
+        </p>
+        <Link
+          href="/driver/trips"
+          className="inline-flex items-center rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+        >
+          Back to trips
+        </Link>
+      </div>
+    );
+  }
 
   const { trip, loads, expenses } = detail;
   const loadsCompleted =
