@@ -716,6 +716,123 @@ export function LoadForm({
 
             <Card>
               <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Contract Accessorials</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2.5">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="contract_accessorials_stairs" className="text-sm">Stairs</Label>
+                    <Input
+                      id="contract_accessorials_stairs"
+                      name="contract_accessorials_stairs"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      defaultValue={(initialData as any)?.contract_accessorials_stairs ?? ''}
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="contract_accessorials_shuttle" className="text-sm">Shuttle</Label>
+                    <Input
+                      id="contract_accessorials_shuttle"
+                      name="contract_accessorials_shuttle"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      defaultValue={(initialData as any)?.contract_accessorials_shuttle ?? ''}
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="contract_accessorials_long_carry" className="text-sm">Long Carry</Label>
+                    <Input
+                      id="contract_accessorials_long_carry"
+                      name="contract_accessorials_long_carry"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      defaultValue={(initialData as any)?.contract_accessorials_long_carry ?? ''}
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="contract_accessorials_packing" className="text-sm">Packing</Label>
+                    <Input
+                      id="contract_accessorials_packing"
+                      name="contract_accessorials_packing"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      defaultValue={(initialData as any)?.contract_accessorials_packing ?? ''}
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="contract_accessorials_bulky" className="text-sm">Bulky Items</Label>
+                    <Input
+                      id="contract_accessorials_bulky"
+                      name="contract_accessorials_bulky"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      defaultValue={(initialData as any)?.contract_accessorials_bulky ?? ''}
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="contract_accessorials_other" className="text-sm">Other</Label>
+                    <Input
+                      id="contract_accessorials_other"
+                      name="contract_accessorials_other"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      defaultValue={(initialData as any)?.contract_accessorials_other ?? ''}
+                      className="h-9"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Dispatch Contact</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2.5">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="dispatch_contact_name" className="text-sm">Contact Name</Label>
+                    <Input
+                      id="dispatch_contact_name"
+                      name="dispatch_contact_name"
+                      defaultValue={(initialData as any)?.dispatch_contact_name ?? ''}
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="dispatch_contact_phone" className="text-sm">Contact Phone</Label>
+                    <Input
+                      id="dispatch_contact_phone"
+                      name="dispatch_contact_phone"
+                      type="tel"
+                      defaultValue={(initialData as any)?.dispatch_contact_phone ?? ''}
+                      className="h-9"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Status & Notes</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2.5">

@@ -108,36 +108,32 @@ export async function createTripSettlement(tripId: string, userId: string): Prom
   }
 
   // Aggregate load data and revenue per company
+  // Uses pre-calculated load.total_revenue and load.company_owes from load-financials module
   const lineItems: AutoLineItem[] = [];
   const receivableByCompany = new Map<string, number>();
-  const revenueLinehaulTotal = trip.loads.reduce((sum, tl) => {
+
+  trip.loads.forEach((tl) => {
     const load = (tl.load || {}) as any;
-    const contractLinehaul = (Number(load.actual_cuft_loaded) || 0) * (Number(load.contract_rate_per_cuft) || 0);
+    const companyRel = Array.isArray(load.company) ? load.company[0] : load.company;
+    const companyId = load.company_id || companyRel?.id || null;
+
+    // Use pre-calculated values from load-financials module
+    const loadTotalRevenue = Number(load.total_revenue) || 0;
+    const loadCompanyOwes = Number(load.company_owes) || 0;
+    const baseRevenue = Number(load.base_revenue) || 0;
     const contractAccessorials = Number(load.contract_accessorials_total) || 0;
-    const extrasCollected = Number(load.extra_accessorials_total) || 0;
+    const extraAccessorials = Number(load.extra_accessorials_total) || 0;
     const storageMoveIn = Number(load.storage_move_in_fee) || 0;
     const storageDailyFee = Number(load.storage_daily_fee) || 0;
     const storageDays = Number(load.storage_days_billed) || 0;
     const storageRevenue = storageMoveIn + storageDailyFee * storageDays;
 
-    const contractTotalBillable = contractLinehaul + contractAccessorials + storageRevenue;
-    const collectedByDriver = Number(load.amount_collected_on_delivery) || 0;
-    const paidDirectToCompany = Number(load.amount_paid_directly_to_company) || 0;
-    const isStorageDrop = Boolean(load.storage_drop);
-    const companyApprovedException = Boolean(load.company_approved_exception_delivery);
-    const receivablePortion = Math.max(
-      0,
-      contractTotalBillable - paidDirectToCompany - (isStorageDrop ? 0 : collectedByDriver)
-    );
-
-    const companyRel = Array.isArray(load.company) ? load.company[0] : load.company;
-    const companyId = load.company_id || companyRel?.id || null;
-
-    if (contractLinehaul) {
+    // Create detailed line items for reporting
+    if (baseRevenue) {
       lineItems.push({
         category: 'revenue',
-        description: 'Linehaul (contract)',
-        amount: contractLinehaul,
+        description: 'Linehaul (base revenue)',
+        amount: baseRevenue,
         load_id: tl.load_id,
         company_id: companyId,
       });
@@ -169,24 +165,21 @@ export async function createTripSettlement(tripId: string, userId: string): Prom
         company_id: companyId,
       });
     }
-    if (extrasCollected) {
+    if (extraAccessorials) {
       lineItems.push({
         category: 'revenue',
-        description: 'On-site accessorials (collected by driver)',
-        amount: extrasCollected,
+        description: 'Extra accessorials (driver-added)',
+        amount: extraAccessorials,
         load_id: tl.load_id,
         company_id: companyId,
       });
     }
 
-    if (companyId && receivablePortion > 0) {
-      receivableByCompany.set(companyId, (receivableByCompany.get(companyId) || 0) + receivablePortion);
+    // Use pre-calculated company_owes for receivables
+    if (companyId && loadCompanyOwes > 0) {
+      receivableByCompany.set(companyId, (receivableByCompany.get(companyId) || 0) + loadCompanyOwes);
     }
-
-    // Alert logic handled upstream (not here)
-
-    return sum + contractLinehaul;
-  }, 0);
+  });
 
   // Revenue totals
   const revenueTotal = lineItems

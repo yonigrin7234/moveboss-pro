@@ -7,6 +7,115 @@ import type { DriverFormState } from "./driver-trip-forms";
 
 type ServerAction = (state: DriverFormState | null, formData: FormData) => Promise<DriverFormState | null>;
 
+function formatCurrency(amount: number | null | undefined): string {
+  if (amount == null) return "$0.00";
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
+}
+
+interface LoadFinancialSummaryProps {
+  load: Record<string, any>;
+}
+
+export function LoadFinancialSummary({ load }: LoadFinancialSummaryProps) {
+  // Calculate totals from load data
+  const actualCuft = Number(load.actual_cuft_loaded) || 0;
+  const ratePerCuft = Number(load.contract_rate_per_cuft || load.rate_per_cuft) || 0;
+  const baseRevenue = actualCuft * ratePerCuft;
+
+  const contractTotal =
+    (Number(load.contract_accessorials_stairs) || 0) +
+    (Number(load.contract_accessorials_shuttle) || 0) +
+    (Number(load.contract_accessorials_long_carry) || 0) +
+    (Number(load.contract_accessorials_packing) || 0) +
+    (Number(load.contract_accessorials_bulky) || 0) +
+    (Number(load.contract_accessorials_other) || 0);
+
+  const extraTotal =
+    (Number(load.extra_stairs) || 0) +
+    (Number(load.extra_shuttle) || 0) +
+    (Number(load.extra_long_carry) || 0) +
+    (Number(load.extra_packing) || 0) +
+    (Number(load.extra_bulky) || 0) +
+    (Number(load.extra_other) || 0);
+
+  const storageTotal =
+    (Number(load.storage_move_in_fee) || 0) +
+    (Number(load.storage_daily_fee) || 0) * (Number(load.storage_days_billed) || 0);
+
+  const totalRevenue = baseRevenue + contractTotal + extraTotal + storageTotal;
+  const collectedOnDelivery = Number(load.amount_collected_on_delivery) || 0;
+  const paidToCompany = Number(load.amount_paid_directly_to_company) || 0;
+  const companyOwes = totalRevenue - collectedOnDelivery - paidToCompany;
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
+      <h4 className="mb-3 text-base font-semibold text-foreground">Load Financial Summary</h4>
+
+      <div className="space-y-2 text-sm">
+        {/* Base Revenue */}
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">
+            Base ({actualCuft.toLocaleString()} cf × ${ratePerCuft.toFixed(2)})
+          </span>
+          <span>{formatCurrency(baseRevenue)}</span>
+        </div>
+
+        {/* Contract Accessorials */}
+        {contractTotal > 0 && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Contract Accessorials</span>
+            <span>{formatCurrency(contractTotal)}</span>
+          </div>
+        )}
+
+        {/* Extra Accessorials */}
+        {extraTotal > 0 && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Extra Accessorials</span>
+            <span>{formatCurrency(extraTotal)}</span>
+          </div>
+        )}
+
+        {/* Storage */}
+        {storageTotal > 0 && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Storage Fees</span>
+            <span>{formatCurrency(storageTotal)}</span>
+          </div>
+        )}
+
+        {/* Total Revenue */}
+        <div className="flex justify-between border-t border-border pt-2 font-medium">
+          <span>Total Revenue</span>
+          <span>{formatCurrency(totalRevenue)}</span>
+        </div>
+
+        {/* Collections */}
+        {collectedOnDelivery > 0 && (
+          <div className="flex justify-between text-muted-foreground">
+            <span>Collected on Delivery</span>
+            <span className="text-red-500">-{formatCurrency(collectedOnDelivery)}</span>
+          </div>
+        )}
+        {paidToCompany > 0 && (
+          <div className="flex justify-between text-muted-foreground">
+            <span>Paid to Company</span>
+            <span className="text-red-500">-{formatCurrency(paidToCompany)}</span>
+          </div>
+        )}
+
+        {/* Company Owes */}
+        <div className="flex justify-between border-t border-border pt-2">
+          <span className="font-semibold">Company Owes</span>
+          <span className={`text-lg font-bold ${companyOwes >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+            {formatCurrency(companyOwes)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface PickupFormProps {
   loadId: string;
   action: ServerAction;

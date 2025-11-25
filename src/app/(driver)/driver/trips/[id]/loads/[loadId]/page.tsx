@@ -8,7 +8,7 @@ import {
   getDriverLoadDetail,
   requireCurrentDriver,
 } from "@/data/driver-workflow";
-import { LoadDeliveryForm, LoadPickupForm, LoadStorageForm } from "@/components/driver/driver-load-forms";
+import { LoadDeliveryForm, LoadPickupForm, LoadStorageForm, LoadFinancialSummary } from "@/components/driver/driver-load-forms";
 import type { DriverFormState } from "@/components/driver/driver-trip-forms";
 
 interface DriverLoadPageProps {
@@ -150,6 +150,9 @@ export default async function DriverLoadPage({ params }: DriverLoadPageProps) {
           {loadStatus.replace("_", " ")}
         </span>
       </div>
+
+      {/* Financial Summary - always visible */}
+      <LoadFinancialSummary load={load} />
 
       {loadStatus === "pending" || loadStatus === "loaded" ? (
         <LoadPickupForm loadId={loadId} action={pickupAction} defaults={load} />

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase-server';
+import { computeAndSaveLoadFinancials } from './load-financials';
 
 // Enums
 export const loadStatusSchema = z.enum(['pending', 'assigned', 'in_transit', 'delivered', 'canceled']);
@@ -107,8 +108,16 @@ export const newLoadInputSchema = z
     contract_accessorials_stairs: z.coerce.number().nonnegative().optional(),
     contract_accessorials_long_carry: z.coerce.number().nonnegative().optional(),
     contract_accessorials_bulky: z.coerce.number().nonnegative().optional(),
+    contract_accessorials_packing: z.coerce.number().nonnegative().optional(),
     contract_accessorials_other: z.coerce.number().nonnegative().optional(),
     balance_due_on_delivery: z.coerce.number().nonnegative().optional(),
+    // Calculated financial fields
+    base_revenue: z.coerce.number().nonnegative().optional(),
+    total_revenue: z.coerce.number().nonnegative().optional(),
+    company_owes: z.coerce.number().optional(), // Can be negative
+    // Dispatch contact
+    dispatch_contact_name: optionalTrimmedString(200),
+    dispatch_contact_phone: optionalTrimmedString(50),
     amount_collected_on_delivery: z.coerce.number().nonnegative().optional(),
     amount_paid_directly_to_company: z.coerce.number().nonnegative().optional(),
     extra_accessorials_total: z.coerce.number().nonnegative().optional(),
@@ -278,7 +287,15 @@ export interface Load {
   contract_accessorials_stairs?: number | null;
   contract_accessorials_long_carry?: number | null;
   contract_accessorials_bulky?: number | null;
+  contract_accessorials_packing?: number | null;
   contract_accessorials_other?: number | null;
+  // Calculated financial totals
+  base_revenue?: number | null;
+  total_revenue?: number | null;
+  company_owes?: number | null;
+  // Dispatch contact
+  dispatch_contact_name?: string | null;
+  dispatch_contact_phone?: string | null;
   contract_notes?: string | null;
   origin_arrival_at?: string | null;
   destination_arrival_at?: string | null;
@@ -738,8 +755,14 @@ export async function updateLoad(
     payload.contract_accessorials_long_carry = nullable(input.contract_accessorials_long_carry);
   if (input.contract_accessorials_bulky !== undefined)
     payload.contract_accessorials_bulky = nullable(input.contract_accessorials_bulky);
+  if (input.contract_accessorials_packing !== undefined)
+    payload.contract_accessorials_packing = nullable(input.contract_accessorials_packing);
   if (input.contract_accessorials_other !== undefined)
     payload.contract_accessorials_other = nullable(input.contract_accessorials_other);
+  if (input.dispatch_contact_name !== undefined)
+    payload.dispatch_contact_name = nullable(input.dispatch_contact_name);
+  if (input.dispatch_contact_phone !== undefined)
+    payload.dispatch_contact_phone = nullable(input.dispatch_contact_phone);
   if (input.balance_due_on_delivery !== undefined)
     payload.balance_due_on_delivery = nullable(input.balance_due_on_delivery);
   if (input.amount_collected_on_delivery !== undefined)
@@ -803,6 +826,9 @@ export async function updateLoad(
     }
     throw new Error(`Failed to update load: ${error.message}`);
   }
+
+  // Recalculate financials after update
+  await computeAndSaveLoadFinancials(id, userId);
 
   return data as Load;
 }

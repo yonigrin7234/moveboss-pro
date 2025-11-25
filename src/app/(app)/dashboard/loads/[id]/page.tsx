@@ -108,6 +108,16 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
       'total_rate',
       'status',
       'notes',
+      // Contract accessorials
+      'contract_accessorials_stairs',
+      'contract_accessorials_shuttle',
+      'contract_accessorials_long_carry',
+      'contract_accessorials_packing',
+      'contract_accessorials_bulky',
+      'contract_accessorials_other',
+      // Dispatch contact
+      'dispatch_contact_name',
+      'dispatch_contact_phone',
     ];
 
     const rawData = extractFormValues(formData, fields);
@@ -176,6 +186,16 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
     total_rate: load.total_rate ?? undefined,
     status: load.status,
     notes: load.notes ?? undefined,
+    // Contract accessorials
+    contract_accessorials_stairs: load.contract_accessorials_stairs ?? undefined,
+    contract_accessorials_shuttle: load.contract_accessorials_shuttle ?? undefined,
+    contract_accessorials_long_carry: load.contract_accessorials_long_carry ?? undefined,
+    contract_accessorials_packing: load.contract_accessorials_packing ?? undefined,
+    contract_accessorials_bulky: load.contract_accessorials_bulky ?? undefined,
+    contract_accessorials_other: load.contract_accessorials_other ?? undefined,
+    // Dispatch contact
+    dispatch_contact_name: load.dispatch_contact_name ?? undefined,
+    dispatch_contact_phone: load.dispatch_contact_phone ?? undefined,
   };
 
   return (
