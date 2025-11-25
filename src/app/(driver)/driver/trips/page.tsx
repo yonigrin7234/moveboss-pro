@@ -18,7 +18,13 @@ function formatCityState(city?: string | null, state?: string | null) {
 }
 
 export default async function DriverTripsPage() {
-  const driver = await requireCurrentDriver();
+  let driver: Awaited<ReturnType<typeof requireCurrentDriver>> | null = null;
+  try {
+    driver = await requireCurrentDriver();
+  } catch (error) {
+    console.error("[DriverTripsPage] Failed to load current driver", error);
+    notFound();
+  }
   if (!driver?.owner_id) notFound();
 
   const trips = await getDriverTripsForDriver(driver.id, driver.owner_id);

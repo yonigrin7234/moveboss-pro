@@ -16,7 +16,14 @@ interface DriverTripExpensesPageProps {
 
 export default async function DriverTripExpensesPage({ params }: DriverTripExpensesPageProps) {
   const { id } = await params;
-  const driver = await requireCurrentDriver();
+
+  let driver: Awaited<ReturnType<typeof requireCurrentDriver>> | null = null;
+  try {
+    driver = await requireCurrentDriver();
+  } catch (error) {
+    console.error("[DriverTripExpensesPage] Failed to load current driver", error);
+    notFound();
+  }
   if (!driver?.owner_id) notFound();
 
   const detail = await getDriverTripDetail(id, { id: driver.id, owner_id: driver.owner_id });

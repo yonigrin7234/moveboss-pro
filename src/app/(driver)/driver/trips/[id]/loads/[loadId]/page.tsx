@@ -24,7 +24,14 @@ const statusTone: Record<string, string> = {
 
 export default async function DriverLoadPage({ params }: DriverLoadPageProps) {
   const { id, loadId } = await params;
-  const driver = await requireCurrentDriver();
+
+  let driver: Awaited<ReturnType<typeof requireCurrentDriver>> | null = null;
+  try {
+    driver = await requireCurrentDriver();
+  } catch (error) {
+    console.error("[DriverLoadPage] Failed to load current driver", error);
+    notFound();
+  }
   if (!driver?.owner_id) notFound();
 
   const loadDetail = await getDriverLoadDetail(loadId, { id: driver.id, owner_id: driver.owner_id });

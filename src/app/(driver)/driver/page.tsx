@@ -19,7 +19,13 @@ function formatCityState(city?: string | null, state?: string | null) {
 }
 
 export default async function DriverHomePage() {
-  const driver = await requireCurrentDriver();
+  let driver: Awaited<ReturnType<typeof requireCurrentDriver>> | null = null;
+  try {
+    driver = await requireCurrentDriver();
+  } catch (error) {
+    console.error("[DriverHomePage] Failed to load current driver", error);
+    notFound();
+  }
   if (!driver?.owner_id) {
     notFound();
   }
