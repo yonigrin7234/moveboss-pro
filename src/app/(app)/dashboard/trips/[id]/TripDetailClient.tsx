@@ -2,12 +2,20 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronDown, ChevronUp, MapPin, User, Truck, Package, DollarSign } from 'lucide-react';
+import { ChevronLeft, ChevronDown, ChevronUp, MapPin, User, Truck, Package, DollarSign, AlertTriangle } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { PhotoField } from '@/components/ui/photo-field';
 import { DatePicker } from '@/components/ui/date-picker';
 import type { TripStatus, TripWithDetails, TripLoad, TripExpense } from '@/data/trips';
@@ -76,6 +84,11 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
   const [editingLoadId, setEditingLoadId] = useState<string | null>(null);
   const [addExpenseOpen, setAddExpenseOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Confirmation dialog states
+  const [showDeleteTripConfirm, setShowDeleteTripConfirm] = useState(false);
+  const [loadToRemove, setLoadToRemove] = useState<string | null>(null);
+  const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
 
   const tripDriver = Array.isArray(trip.driver) ? trip.driver[0] : trip.driver;
   const tripTruck = Array.isArray(trip.truck) ? trip.truck[0] : trip.truck;
@@ -527,12 +540,14 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                         </Sheet>
                       </div>
                     </div>
-                    <form action={actions.removeTripLoad} className="mt-2">
-                      <input type="hidden" name="load_id" value={tl.load_id} />
-                      <Button type="submit" variant="ghost" size="sm" className="text-red-500 hover:text-red-600 p-0 h-auto">
-                        Remove
-                      </Button>
-                    </form>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-500 hover:text-red-600 p-0 h-auto mt-2"
+                      onClick={() => setLoadToRemove(tl.load_id)}
+                    >
+                      Remove
+                    </Button>
                   </CardContent>
                 </Card>
               );
@@ -681,12 +696,14 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                         {expense.category} &bull; {expense.incurred_at}
                       </p>
                     </div>
-                    <form action={actions.deleteExpense}>
-                      <input type="hidden" name="expense_id" value={expense.id} />
-                      <Button type="submit" variant="ghost" size="sm" className="text-red-500 hover:text-red-600">
-                        Delete
-                      </Button>
-                    </form>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-500 hover:text-red-600"
+                      onClick={() => setExpenseToDelete(expense.id)}
+                    >
+                      Delete
+                    </Button>
                   </CardContent>
                 </Card>
               ))}
@@ -795,13 +812,117 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
           )}
 
           {/* Delete Trip */}
-          <form action={actions.deleteTrip}>
-            <Button type="submit" variant="destructive" className="w-full">
-              Delete Trip
-            </Button>
-          </form>
+          <Button
+            variant="destructive"
+            className="w-full"
+            onClick={() => setShowDeleteTripConfirm(true)}
+          >
+            Delete Trip
+          </Button>
         </TabsContent>
       </Tabs>
+
+      {/* Delete Trip Confirmation Dialog */}
+      <Dialog open={showDeleteTripConfirm} onOpenChange={setShowDeleteTripConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Trip
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete trip <strong>{trip.trip_number}</strong>? This action cannot be undone and will remove all associated data including loads, expenses, and settlements.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowDeleteTripConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                setIsSubmitting(true);
+                await actions.deleteTrip();
+                setShowDeleteTripConfirm(false);
+                setIsSubmitting(false);
+              }}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Deleting...' : 'Delete Trip'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove Load Confirmation Dialog */}
+      <Dialog open={!!loadToRemove} onOpenChange={(open) => !open && setLoadToRemove(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Remove Load
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove this load from the trip? The load will not be deleted but will no longer be associated with this trip.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setLoadToRemove(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!loadToRemove) return;
+                setIsSubmitting(true);
+                const formData = new FormData();
+                formData.append('load_id', loadToRemove);
+                await actions.removeTripLoad(formData);
+                setLoadToRemove(null);
+                setIsSubmitting(false);
+              }}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Removing...' : 'Remove Load'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Expense Confirmation Dialog */}
+      <Dialog open={!!expenseToDelete} onOpenChange={(open) => !open && setExpenseToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Expense
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this expense? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setExpenseToDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!expenseToDelete) return;
+                setIsSubmitting(true);
+                const formData = new FormData();
+                formData.append('expense_id', expenseToDelete);
+                await actions.deleteExpense(formData);
+                setExpenseToDelete(null);
+                setIsSubmitting(false);
+              }}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Deleting...' : 'Delete Expense'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
