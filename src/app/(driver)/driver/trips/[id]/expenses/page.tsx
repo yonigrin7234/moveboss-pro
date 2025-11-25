@@ -11,14 +11,15 @@ import { DriverExpenseForm } from "@/components/driver/driver-expense-form";
 import type { DriverFormState } from "@/components/driver/driver-trip-forms";
 
 interface DriverTripExpensesPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function DriverTripExpensesPage({ params }: DriverTripExpensesPageProps) {
+  const { id } = await params;
   const driver = await requireCurrentDriver();
   if (!driver?.owner_id) notFound();
 
-  const detail = await getDriverTripDetail(params.id, { id: driver.id, owner_id: driver.owner_id });
+  const detail = await getDriverTripDetail(id, { id: driver.id, owner_id: driver.owner_id });
   if (!detail?.trip) notFound();
   const expenses = detail.expenses;
 
@@ -86,15 +87,15 @@ export default async function DriverTripExpensesPage({ params }: DriverTripExpen
     if (typeof expenseId !== "string") return;
     const currentDriver = await requireCurrentDriver();
     if (!currentDriver?.owner_id) return;
-    const tripCheck = await getDriverTripDetail(params.id, {
+    const tripCheck = await getDriverTripDetail(id, {
       id: currentDriver.id,
       owner_id: currentDriver.owner_id,
     });
     if (!tripCheck?.trip) return;
     const supabase = await getDriverDbClientForActions();
     await deleteTripExpense(expenseId, currentDriver.owner_id, supabase);
-    revalidatePath(`/driver/trips/${params.id}/expenses`);
-    revalidatePath(`/driver/trips/${params.id}`);
+    revalidatePath(`/driver/trips/${id}/expenses`);
+    revalidatePath(`/driver/trips/${id}`);
   };
 
   return (
@@ -107,7 +108,7 @@ export default async function DriverTripExpensesPage({ params }: DriverTripExpen
         </div>
       </div>
 
-      <DriverExpenseForm tripId={params.id} action={addExpenseAction} />
+      <DriverExpenseForm tripId={id} action={addExpenseAction} />
 
       <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
         <h3 className="text-lg font-semibold text-foreground mb-3">Existing expenses</h3>

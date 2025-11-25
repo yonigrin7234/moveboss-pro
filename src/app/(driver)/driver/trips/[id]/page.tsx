@@ -12,7 +12,7 @@ import { updateTrip } from "@/data/trips";
 import { CompleteTripForm, StartTripForm, type DriverFormState } from "@/components/driver/driver-trip-forms";
 
 interface DriverTripDetailPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 const statusTone: Record<string, string> = {
@@ -30,6 +30,7 @@ function formatCityState(city?: string | null, state?: string | null) {
 }
 
 export default async function DriverTripDetailPage({ params }: DriverTripDetailPageProps) {
+  const { id } = await params;
   let driver: Awaited<ReturnType<typeof requireCurrentDriver>> | null = null;
   try {
     driver = await requireCurrentDriver();
@@ -43,7 +44,7 @@ export default async function DriverTripDetailPage({ params }: DriverTripDetailP
 
   let detail: Awaited<ReturnType<typeof getDriverTripDetail>> | null = null;
   try {
-    detail = await getDriverTripDetail(params.id, { id: driver.id, owner_id: driver.owner_id });
+    detail = await getDriverTripDetail(id, { id: driver.id, owner_id: driver.owner_id });
   } catch (error) {
     console.error("[DriverTripDetailPage] Failed to load trip detail", error);
     detail = null;

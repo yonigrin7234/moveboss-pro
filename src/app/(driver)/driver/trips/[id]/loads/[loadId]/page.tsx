@@ -12,7 +12,7 @@ import { LoadDeliveryForm, LoadPickupForm, LoadStorageForm } from "@/components/
 import type { DriverFormState } from "@/components/driver/driver-trip-forms";
 
 interface DriverLoadPageProps {
-  params: { id: string; loadId: string };
+  params: Promise<{ id: string; loadId: string }>;
 }
 
 const statusTone: Record<string, string> = {
@@ -23,10 +23,11 @@ const statusTone: Record<string, string> = {
 };
 
 export default async function DriverLoadPage({ params }: DriverLoadPageProps) {
+  const { id, loadId } = await params;
   const driver = await requireCurrentDriver();
   if (!driver?.owner_id) notFound();
 
-  const loadDetail = await getDriverLoadDetail(params.loadId, { id: driver.id, owner_id: driver.owner_id });
+  const loadDetail = await getDriverLoadDetail(loadId, { id: driver.id, owner_id: driver.owner_id });
   if (!loadDetail) notFound();
   const { load, tripId } = loadDetail;
 
@@ -58,8 +59,8 @@ export default async function DriverLoadPage({ params }: DriverLoadPageProps) {
         load_report_photo_url: (formData.get("load_report_photo_url") as string) || undefined,
       });
 
-      revalidatePath(`/driver/trips/${params.id}/loads/${params.loadId}`);
-      revalidatePath(`/driver/trips/${params.id}`);
+      revalidatePath(`/driver/trips/${id}/loads/${loadId}`);
+      revalidatePath(`/driver/trips/${id}`);
       return { success: "Load marked as loaded" };
     } catch (error) {
       return { error: error instanceof Error ? error.message : "Failed to save load pickup" };
@@ -93,8 +94,8 @@ export default async function DriverLoadPage({ params }: DriverLoadPageProps) {
         delivery_report_photo_url: (formData.get("delivery_report_photo_url") as string) || undefined,
       });
 
-      revalidatePath(`/driver/trips/${params.id}/loads/${params.loadId}`);
-      revalidatePath(`/driver/trips/${params.id}`);
+      revalidatePath(`/driver/trips/${id}/loads/${loadId}`);
+      revalidatePath(`/driver/trips/${id}`);
       return { success: "Load marked as delivered" };
     } catch (error) {
       return { error: error instanceof Error ? error.message : "Failed to save delivery" };
@@ -126,8 +127,8 @@ export default async function DriverLoadPage({ params }: DriverLoadPageProps) {
         company_approved_exception_delivery: formData.get("company_approved_exception_delivery") === "on",
       });
 
-      revalidatePath(`/driver/trips/${params.id}/loads/${params.loadId}`);
-      revalidatePath(`/driver/trips/${params.id}`);
+      revalidatePath(`/driver/trips/${id}/loads/${loadId}`);
+      revalidatePath(`/driver/trips/${id}`);
       return { success: "Storage details saved" };
     } catch (error) {
       return { error: error instanceof Error ? error.message : "Failed to save storage info" };
@@ -142,7 +143,7 @@ export default async function DriverLoadPage({ params }: DriverLoadPageProps) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs uppercase text-muted-foreground">Load</p>
-          <h1 className="text-2xl font-semibold text-foreground">{load.load_number || params.loadId}</h1>
+          <h1 className="text-2xl font-semibold text-foreground">{load.load_number || loadId}</h1>
           <p className="text-sm text-muted-foreground">{company?.name || "Company n/a"}</p>
         </div>
         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone[loadStatus] || ""}`}>
@@ -151,14 +152,14 @@ export default async function DriverLoadPage({ params }: DriverLoadPageProps) {
       </div>
 
       {loadStatus === "pending" || loadStatus === "loaded" ? (
-        <LoadPickupForm loadId={params.loadId} action={pickupAction} defaults={load} />
+        <LoadPickupForm loadId={loadId} action={pickupAction} defaults={load} />
       ) : null}
 
       {loadStatus === "loaded" ? (
-        <LoadDeliveryForm loadId={params.loadId} action={deliveryAction} defaults={load} />
+        <LoadDeliveryForm loadId={loadId} action={deliveryAction} defaults={load} />
       ) : null}
 
-      <LoadStorageForm loadId={params.loadId} action={storageAction} defaults={load} />
+      <LoadStorageForm loadId={loadId} action={storageAction} defaults={load} />
     </div>
   );
 }

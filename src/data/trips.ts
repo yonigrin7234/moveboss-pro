@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase-server';
 import type { Load } from '@/data/loads';
+import { computeTripFinancialsWithDriverPay, snapshotDriverCompensation, type TripFinancialResult } from '@/data/trip-financials';
 
 export const tripStatusSchema = z.enum(['planned', 'active', 'en_route', 'completed', 'settled', 'cancelled']);
 export const tripExpenseCategorySchema = z.enum([
@@ -110,6 +111,15 @@ export interface Trip {
   driver?: { id: string; first_name: string; last_name: string } | null;
   truck?: { id: string; unit_number: string } | null;
   trailer?: { id: string; unit_number: string } | null;
+  // Driver pay calculation fields
+  driver_pay_breakdown: { payMode: string; basePay: number; breakdown: Record<string, unknown>; totalDriverPay: number } | null;
+  total_cuft: number | null;
+  // Snapshot fields for driver compensation at time of assignment
+  trip_pay_mode: string | null;
+  trip_rate_per_mile: number | null;
+  trip_rate_per_cuft: number | null;
+  trip_percent_of_revenue: number | null;
+  trip_flat_daily_rate: number | null;
 }
 
 export interface TripLoad {
@@ -462,7 +472,7 @@ export async function getTripById(id: string, userId: string): Promise<TripWithD
   const loads = (loadRows || []) as TripLoad[];
   const expenses = (expenseRows || []) as TripExpense[];
 
-  const summary = await computeTripFinancialSummary(supabase, id, userId, { tripLoads: loads, expenses });
+  const summary: TripFinancialResult = await computeTripFinancialsWithDriverPay(supabase, id, userId, { tripLoads: loads, expenses });
 
   return {
     ...(trip as Trip),
@@ -532,7 +542,7 @@ export async function updateTrip(
 
   const { data: currentTrip, error: fetchError } = await supabase
     .from('trips')
-    .select('status, odometer_start, odometer_end, odometer_start_photo_url, odometer_end_photo_url')
+    .select('status, driver_id, odometer_start, odometer_end, odometer_start_photo_url, odometer_end_photo_url')
     .eq('id', id)
     .eq('owner_id', userId)
     .single();
@@ -627,6 +637,11 @@ export async function updateTrip(
       throw new Error('Trip number must be unique for your account');
     }
     throw new Error(`Failed to update trip: ${error.message}`);
+  }
+
+  // Snapshot driver compensation rates when driver is assigned/changed
+  if (input.driver_id && input.driver_id !== (currentTrip as any).driver_id) {
+    await snapshotDriverCompensation(supabase, id, input.driver_id, userId);
   }
 
   return data as Trip;
