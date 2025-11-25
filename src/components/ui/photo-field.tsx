@@ -95,7 +95,8 @@ export function PhotoField({
           />
         </label>
 
-        {allowManualUrl ? (
+        {/* Show URL input only when no photo - once uploaded, just show thumbnail */}
+        {allowManualUrl && !value ? (
           <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2">
             <LinkIcon className="h-4 w-4 text-muted-foreground" />
             <input
@@ -109,17 +110,32 @@ export function PhotoField({
           </div>
         ) : null}
 
+        {/* Show thumbnail when photo exists */}
         {value ? (
-          <div className="rounded-md border border-border/70 bg-background p-2 text-xs">
-            <p className="text-muted-foreground mb-1">Uploaded URL</p>
+          <div className="flex items-center gap-2">
             <a
               href={value}
               target="_blank"
               rel="noreferrer"
-              className="text-primary break-all underline-offset-2 hover:underline"
+              className="block rounded-md border border-border/70 bg-background p-1 hover:border-primary transition-colors"
             >
-              {value}
+              <img
+                src={value}
+                alt="Uploaded photo"
+                className="w-20 h-15 object-cover rounded"
+                onError={(e) => {
+                  // Fallback to placeholder if image fails to load
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
             </a>
+            <button
+              type="button"
+              onClick={() => setValue("")}
+              className="text-xs text-muted-foreground hover:text-destructive"
+            >
+              Remove
+            </button>
           </div>
         ) : null}
 

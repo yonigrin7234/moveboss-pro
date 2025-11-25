@@ -671,3 +671,46 @@ export async function getSettlementSnapshot(tripId: string, userId: string) {
     payables: payables || [],
   };
 }
+
+/**
+ * Recalculate settlement for a trip by deleting existing records and recreating
+ */
+export async function recalculateTripSettlement(tripId: string, userId: string): Promise<TripSettlement> {
+  const supabase = await createClient();
+
+  // Delete existing settlement-related records for this trip
+  // Order matters due to foreign keys: line_items first, then receivables/payables, then settlement
+  await supabase
+    .from('settlement_line_items')
+    .delete()
+    .eq('trip_id', tripId)
+    .eq('owner_id', userId);
+
+  await supabase
+    .from('receivables')
+    .delete()
+    .eq('trip_id', tripId)
+    .eq('owner_id', userId);
+
+  await supabase
+    .from('payables')
+    .delete()
+    .eq('trip_id', tripId)
+    .eq('owner_id', userId);
+
+  await supabase
+    .from('trip_settlements')
+    .delete()
+    .eq('trip_id', tripId)
+    .eq('owner_id', userId);
+
+  // Reset trip status to completed so it can be re-settled
+  await supabase
+    .from('trips')
+    .update({ status: 'completed' })
+    .eq('id', tripId)
+    .eq('owner_id', userId);
+
+  // Create fresh settlement with updated amounts
+  return createTripSettlement(tripId, userId);
+}
