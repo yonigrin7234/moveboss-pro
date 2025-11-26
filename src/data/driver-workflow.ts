@@ -153,36 +153,66 @@ export async function getDriverTripDetail(
 
   if (!trip) return null;
 
-  const [{ data: tripLoads, error: loadError }, { data: expenses, error: expenseError }] = await Promise.all([
-    supabase
-      .from('trip_loads')
-      .select(
-        `
-        *,
-        load:loads(
-          *,
-          company:companies(id, name, trust_level)
-        )
-      `
-      )
-      .eq('trip_id', tripId)
-      .eq('owner_id', driver.owner_id)
-      .order('load_order', { ascending: true })
-      .order('sequence_index', { ascending: true }),
-    supabase
-      .from('trip_expenses')
-      .select('*')
-      .eq('trip_id', tripId)
-      .eq('owner_id', driver.owner_id)
-      .order('incurred_at', { ascending: false })
-      .order('created_at', { ascending: false }),
-  ]);
+  // Fetch expenses
+  const { data: expenses, error: expenseError } = await supabase
+    .from('trip_expenses')
+    .select('*')
+    .eq('trip_id', tripId)
+    .eq('owner_id', driver.owner_id)
+    .order('incurred_at', { ascending: false })
+    .order('created_at', { ascending: false });
 
-  if (loadError) {
-    throw new Error(`Failed to fetch trip loads: ${loadError.message}`);
-  }
   if (expenseError) {
     throw new Error(`Failed to fetch trip expenses: ${expenseError.message}`);
+  }
+
+  // Fetch trip loads - try with trust_level first, fall back to basic
+  let tripLoads: any[] = [];
+  const { data: loadsWithTrust, error: loadError } = await supabase
+    .from('trip_loads')
+    .select(
+      `
+      *,
+      load:loads(
+        *,
+        company:companies(id, name, trust_level)
+      )
+    `
+    )
+    .eq('trip_id', tripId)
+    .eq('owner_id', driver.owner_id)
+    .order('load_order', { ascending: true })
+    .order('sequence_index', { ascending: true });
+
+  if (loadError) {
+    // If trust_level column doesn't exist, fall back to basic query
+    if (loadError.message.includes('column') || loadError.code === '42703') {
+      console.warn('[getDriverTripDetail] trust_level column missing, using basic query. Run migrations for full features.');
+      const { data: basicLoads, error: basicError } = await supabase
+        .from('trip_loads')
+        .select(
+          `
+          *,
+          load:loads(
+            *,
+            company:companies(id, name)
+          )
+        `
+        )
+        .eq('trip_id', tripId)
+        .eq('owner_id', driver.owner_id)
+        .order('load_order', { ascending: true })
+        .order('sequence_index', { ascending: true });
+
+      if (basicError) {
+        throw new Error(`Failed to fetch trip loads: ${basicError.message}`);
+      }
+      tripLoads = basicLoads || [];
+    } else {
+      throw new Error(`Failed to fetch trip loads: ${loadError.message}`);
+    }
+  } else {
+    tripLoads = loadsWithTrust || [];
   }
 
   return {
@@ -215,7 +245,9 @@ export async function getDriverLoadDetail(
   }
   if (!tripLoad || tripLoad.trip?.driver_id !== driver.id) return null;
 
-  const { data: load, error: loadError } = await supabase
+  // Try with full company columns first
+  let load: any = null;
+  const { data: loadWithCompany, error: loadError } = await supabase
     .from('loads')
     .select(
       `
@@ -239,8 +271,31 @@ export async function getDriverLoadDetail(
     .maybeSingle();
 
   if (loadError) {
-    throw new Error(`Failed to fetch load: ${loadError.message}`);
+    // If columns don't exist, fall back to basic company info
+    if (loadError.message.includes('column') || loadError.code === '42703') {
+      console.warn('[getDriverLoadDetail] Some company columns missing, using basic query. Run migrations for full features.');
+      const { data: basicLoad, error: basicError } = await supabase
+        .from('loads')
+        .select(
+          `
+          *,
+          company:companies(id, name)
+        `
+        )
+        .eq('id', loadId)
+        .eq('owner_id', driver.owner_id)
+        .maybeSingle();
+      if (basicError) {
+        throw new Error(`Failed to fetch load: ${basicError.message}`);
+      }
+      load = basicLoad;
+    } else {
+      throw new Error(`Failed to fetch load: ${loadError.message}`);
+    }
+  } else {
+    load = loadWithCompany;
   }
+
   if (!load) return null;
 
   // Get load order from trip_load
