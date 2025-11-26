@@ -802,11 +802,11 @@ export function CompleteDeliveryCard({ loadId, action, defaults }: CompleteDeliv
       {/* SECTION 2: Signed Documents */}
       <div className="space-y-4 p-3 bg-white/80 rounded-lg border border-emerald-100">
         <div>
-          <h5 className="font-medium text-foreground flex items-center gap-2">
-            <FileText className="h-4 w-4" />
+          <h5 className="font-semibold text-foreground flex items-center gap-2">
+            <FileText className="h-4 w-4 text-emerald-600" />
             Signed Documents
           </h5>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Required for billing - owner needs these immediately
           </p>
         </div>
@@ -833,12 +833,12 @@ export function CompleteDeliveryCard({ loadId, action, defaults }: CompleteDeliv
       {/* SECTION 3: Payment Collection */}
       <div className="space-y-4 p-3 bg-white/80 rounded-lg border border-emerald-100">
         <div>
-          <h5 className="font-medium text-foreground flex items-center gap-2">
-            <DollarSign className="h-4 w-4" />
+          <h5 className="font-semibold text-foreground flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-emerald-600" />
             Payment Collection
           </h5>
-          <p className="text-xs text-muted-foreground mt-1">
-            Balance due: {formatCurrency(balanceDue)}
+          <p className="text-sm text-muted-foreground mt-1">
+            Balance due: <span className="font-medium text-foreground">{formatCurrency(balanceDue)}</span>
           </p>
         </div>
 
@@ -978,7 +978,9 @@ export function DeliveryCompleteCard({ defaults }: DeliveryCompleteCardProps) {
 
       {/* Company Owes - Highlighted */}
       <div className="flex justify-between items-center bg-white/80 p-3 rounded-lg border border-green-200">
-        <span className="font-bold text-foreground">Company Owes</span>
+        <span className="font-bold text-foreground">
+          Company Owes{defaults?.company?.name ? ` (${defaults.company.name})` : ""}
+        </span>
         <span className={`text-xl font-bold ${companyOwes >= 0 ? "text-green-600" : "text-red-600"}`}>
           {formatCurrency(companyOwes)}
         </span>
