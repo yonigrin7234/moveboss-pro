@@ -61,13 +61,14 @@ const navItems: NavItem[] = [
   {
     label: "Fleet",
     href: "/dashboard/fleet",
-    icon: Warehouse,
+    icon: Truck,
     children: [
       { label: "Trucks", href: "/dashboard/fleet/trucks", icon: Truck },
       { label: "Trailers", href: "/dashboard/fleet/trailers", icon: Boxes },
       { label: "Live Fleet", href: "/dashboard/fleet/live", icon: MapPin },
     ],
   },
+  { label: "Storage", href: "/dashboard/storage", icon: Warehouse },
   {
     label: "People",
     href: "/dashboard/people",
