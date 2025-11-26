@@ -49,6 +49,8 @@ export async function requireCurrentDriver() {
 
 export async function getDriverTripsForDriver(driverId: string, ownerId: string) {
   const supabase = await getDbClient();
+
+  // First try with truck/trailer joins
   const { data, error } = await supabase
     .from('trips')
     .select(
@@ -58,8 +60,8 @@ export async function getDriverTripsForDriver(driverId: string, ownerId: string)
       destination_city, destination_state, destination_postal_code,
       start_date, end_date, odometer_start, odometer_end, actual_miles,
       updated_at,
-      truck:trucks!trips_truck_id_fkey(id, unit_number),
-      trailer:trailers!trips_trailer_id_fkey(id, unit_number)
+      truck:trucks(id, unit_number),
+      trailer:trailers(id, unit_number)
     `
     )
     .eq('driver_id', driverId)
@@ -68,7 +70,20 @@ export async function getDriverTripsForDriver(driverId: string, ownerId: string)
     .order('updated_at', { ascending: false });
 
   if (error) {
-    throw new Error(`Failed to fetch trips for driver: ${error.message}`);
+    // If join fails, try without joins
+    console.warn('[getDriverTripsForDriver] Query with joins failed, trying without:', error.message);
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('trips')
+      .select('*')
+      .eq('driver_id', driverId)
+      .eq('owner_id', ownerId)
+      .order('status', { ascending: true })
+      .order('updated_at', { ascending: false });
+
+    if (fallbackError) {
+      throw new Error(`Failed to fetch trips for driver: ${fallbackError.message}`);
+    }
+    return fallbackData || [];
   }
 
   return data || [];
@@ -80,13 +95,15 @@ export async function getDriverTripDetail(
 ): Promise<{ trip: TripWithDetails; loads: TripLoad[]; expenses: TripExpense[] } | null> {
   const supabase = await getDbClient();
 
-  const { data: trip, error: tripError } = await supabase
+  // First try with truck/trailer joins
+  let trip: any = null;
+  const { data: tripWithJoins, error: tripError } = await supabase
     .from('trips')
     .select(
       `
       *,
-      truck:trucks!trips_truck_id_fkey(id, unit_number, make, model, year),
-      trailer:trailers!trips_trailer_id_fkey(id, unit_number, type, length)
+      truck:trucks(id, unit_number, make, model, year),
+      trailer:trailers(id, unit_number, type, length)
     `
     )
     .eq('id', tripId)
@@ -95,8 +112,45 @@ export async function getDriverTripDetail(
     .maybeSingle();
 
   if (tripError) {
-    throw new Error(`Failed to fetch trip: ${tripError.message}`);
+    // If join fails, try without joins and fetch truck/trailer separately
+    console.warn('[getDriverTripDetail] Query with joins failed, trying without:', tripError.message);
+    const { data: tripBasic, error: basicError } = await supabase
+      .from('trips')
+      .select('*')
+      .eq('id', tripId)
+      .eq('owner_id', driver.owner_id)
+      .eq('driver_id', driver.id)
+      .maybeSingle();
+
+    if (basicError) {
+      throw new Error(`Failed to fetch trip: ${basicError.message}`);
+    }
+    if (!tripBasic) return null;
+
+    // Fetch truck and trailer separately if IDs exist
+    let truck = null;
+    let trailer = null;
+    if (tripBasic.truck_id) {
+      const { data } = await supabase
+        .from('trucks')
+        .select('id, unit_number, make, model, year')
+        .eq('id', tripBasic.truck_id)
+        .maybeSingle();
+      truck = data;
+    }
+    if (tripBasic.trailer_id) {
+      const { data } = await supabase
+        .from('trailers')
+        .select('id, unit_number, type, length')
+        .eq('id', tripBasic.trailer_id)
+        .maybeSingle();
+      trailer = data;
+    }
+    trip = { ...tripBasic, truck, trailer };
+  } else {
+    trip = tripWithJoins;
   }
+
   if (!trip) return null;
 
   const [{ data: tripLoads, error: loadError }, { data: expenses, error: expenseError }] = await Promise.all([
