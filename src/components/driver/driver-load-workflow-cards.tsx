@@ -919,6 +919,30 @@ export function DeliveryCompleteCard({ defaults }: DeliveryCompleteCardProps) {
     (defaults?.signed_bol_photos?.length || 0) +
     (defaults?.signed_inventory_photos?.length || 0);
 
+  // Calculate Company Owes = Total Revenue - Collected
+  const actualCuft = Number(defaults?.actual_cuft_loaded) || 0;
+  const ratePerCuft = Number(defaults?.contract_rate_per_cuft || defaults?.rate_per_cuft) || 0;
+  const baseRevenue = actualCuft * ratePerCuft;
+  const contractTotal =
+    (Number(defaults?.contract_accessorials_shuttle) || 0) +
+    (Number(defaults?.contract_accessorials_stairs) || 0) +
+    (Number(defaults?.contract_accessorials_long_carry) || 0) +
+    (Number(defaults?.contract_accessorials_packing) || 0) +
+    (Number(defaults?.contract_accessorials_bulky) || 0) +
+    (Number(defaults?.contract_accessorials_other) || 0);
+  const extraTotal =
+    (Number(defaults?.extra_shuttle) || 0) +
+    (Number(defaults?.extra_stairs) || 0) +
+    (Number(defaults?.extra_long_carry) || 0) +
+    (Number(defaults?.extra_packing) || 0) +
+    (Number(defaults?.extra_bulky) || 0) +
+    (Number(defaults?.extra_other) || 0);
+  const storageTotal =
+    (Number(defaults?.storage_move_in_fee) || 0) +
+    (Number(defaults?.storage_daily_fee) || 0) * (Number(defaults?.storage_days_billed) || 0);
+  const totalRevenue = baseRevenue + contractTotal + extraTotal + storageTotal;
+  const companyOwes = totalRevenue - collected;
+
   return (
     <div className="rounded-lg border-2 border-green-300 bg-green-50/50 p-4 shadow-sm space-y-4">
       <div className="flex items-center gap-3">
@@ -939,17 +963,25 @@ export function DeliveryCompleteCard({ defaults }: DeliveryCompleteCardProps) {
           <p className="font-medium text-foreground">{deliveredAt}</p>
         </div>
         <div>
-          <p className="text-muted-foreground">Collected</p>
-          <p className="font-medium text-green-600">{formatCurrency(collected)}</p>
+          <p className="text-muted-foreground">Total Revenue</p>
+          <p className="font-medium text-foreground">{formatCurrency(totalRevenue)}</p>
         </div>
         <div>
-          <p className="text-muted-foreground">Method</p>
-          <p className="font-medium capitalize text-foreground">{method.replace("_", " ")}</p>
+          <p className="text-muted-foreground">Collected ({method.replace("_", " ")})</p>
+          <p className="font-medium text-green-600">-{formatCurrency(collected)}</p>
         </div>
         <div>
           <p className="text-muted-foreground">Documents</p>
           <p className="font-medium text-foreground">{signedDocsCount} photos</p>
         </div>
+      </div>
+
+      {/* Company Owes - Highlighted */}
+      <div className="flex justify-between items-center bg-white/80 p-3 rounded-lg border border-green-200">
+        <span className="font-bold text-foreground">Company Owes</span>
+        <span className={`text-xl font-bold ${companyOwes >= 0 ? "text-green-600" : "text-red-600"}`}>
+          {formatCurrency(companyOwes)}
+        </span>
       </div>
 
       {defaults?.delivery_notes && (

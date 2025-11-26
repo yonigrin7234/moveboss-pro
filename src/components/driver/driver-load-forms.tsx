@@ -22,92 +22,206 @@ export function LoadFinancialSummary({ load }: LoadFinancialSummaryProps) {
   const ratePerCuft = Number(load.contract_rate_per_cuft || load.rate_per_cuft) || 0;
   const baseRevenue = actualCuft * ratePerCuft;
 
-  const contractTotal =
-    (Number(load.contract_accessorials_stairs) || 0) +
-    (Number(load.contract_accessorials_shuttle) || 0) +
-    (Number(load.contract_accessorials_long_carry) || 0) +
-    (Number(load.contract_accessorials_packing) || 0) +
-    (Number(load.contract_accessorials_bulky) || 0) +
-    (Number(load.contract_accessorials_other) || 0);
+  // Individual contract accessorials
+  const contractShuttle = Number(load.contract_accessorials_shuttle) || 0;
+  const contractStairs = Number(load.contract_accessorials_stairs) || 0;
+  const contractLongCarry = Number(load.contract_accessorials_long_carry) || 0;
+  const contractPacking = Number(load.contract_accessorials_packing) || 0;
+  const contractBulky = Number(load.contract_accessorials_bulky) || 0;
+  const contractOther = Number(load.contract_accessorials_other) || 0;
+  const contractTotal = contractShuttle + contractStairs + contractLongCarry + contractPacking + contractBulky + contractOther;
 
-  const extraTotal =
-    (Number(load.extra_stairs) || 0) +
-    (Number(load.extra_shuttle) || 0) +
-    (Number(load.extra_long_carry) || 0) +
-    (Number(load.extra_packing) || 0) +
-    (Number(load.extra_bulky) || 0) +
-    (Number(load.extra_other) || 0);
+  // Individual extra accessorials
+  const extraShuttle = Number(load.extra_shuttle) || 0;
+  const extraStairs = Number(load.extra_stairs) || 0;
+  const extraLongCarry = Number(load.extra_long_carry) || 0;
+  const extraPacking = Number(load.extra_packing) || 0;
+  const extraBulky = Number(load.extra_bulky) || 0;
+  const extraOther = Number(load.extra_other) || 0;
+  const extraTotal = extraShuttle + extraStairs + extraLongCarry + extraPacking + extraBulky + extraOther;
 
   const storageTotal =
     (Number(load.storage_move_in_fee) || 0) +
     (Number(load.storage_daily_fee) || 0) * (Number(load.storage_days_billed) || 0);
 
   const totalRevenue = baseRevenue + contractTotal + extraTotal + storageTotal;
-  const collectedOnDelivery = Number(load.amount_collected_on_delivery) || 0;
+
+  // Support both old field (amount_collected_on_delivery) and new field (collected_amount)
+  const collectedAmount = Number(load.collected_amount) || Number(load.amount_collected_on_delivery) || 0;
   const paidToCompany = Number(load.amount_paid_directly_to_company) || 0;
-  const companyOwes = totalRevenue - collectedOnDelivery - paidToCompany;
+  const companyOwes = totalRevenue - collectedAmount - paidToCompany;
+
+  const hasContractAccessorials = contractTotal > 0;
+  const hasExtraAccessorials = extraTotal > 0;
 
   return (
     <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-      <h4 className="mb-3 text-base font-semibold text-foreground">Load Financial Summary</h4>
+      <h4 className="mb-4 text-base font-semibold text-foreground">Load Financial Summary</h4>
 
-      <div className="space-y-2 text-sm">
+      <div className="space-y-3 text-sm">
         {/* Base Revenue */}
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">
-            Base ({actualCuft.toLocaleString()} cf × ${ratePerCuft.toFixed(2)})
-          </span>
-          <span>{formatCurrency(baseRevenue)}</span>
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="font-medium text-foreground">Base Revenue</p>
+            <p className="text-xs text-muted-foreground">
+              {actualCuft.toLocaleString()} cf × ${ratePerCuft.toFixed(2)}
+            </p>
+          </div>
+          <span className="font-medium">{formatCurrency(baseRevenue)}</span>
         </div>
 
-        {/* Contract Accessorials */}
-        {contractTotal > 0 && (
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Contract Accessorials</span>
-            <span>{formatCurrency(contractTotal)}</span>
-          </div>
-        )}
+        {/* Contract Accessorials - Full Breakdown */}
+        <div className="border-t border-border pt-3 space-y-2">
+          <p className="font-medium text-foreground">Contract Accessorials</p>
 
-        {/* Extra Accessorials */}
-        {extraTotal > 0 && (
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Extra Accessorials</span>
-            <span>{formatCurrency(extraTotal)}</span>
+          {contractShuttle > 0 && (
+            <div className="flex justify-between pl-2">
+              <span className="text-muted-foreground">Shuttle</span>
+              <span>{formatCurrency(contractShuttle)}</span>
+            </div>
+          )}
+          {contractStairs > 0 && (
+            <div className="flex justify-between pl-2">
+              <span className="text-muted-foreground">Stairs</span>
+              <span>{formatCurrency(contractStairs)}</span>
+            </div>
+          )}
+          {contractLongCarry > 0 && (
+            <div className="flex justify-between pl-2">
+              <span className="text-muted-foreground">Long Carry</span>
+              <span>{formatCurrency(contractLongCarry)}</span>
+            </div>
+          )}
+          {contractPacking > 0 && (
+            <div className="flex justify-between pl-2">
+              <span className="text-muted-foreground">Packing</span>
+              <span>{formatCurrency(contractPacking)}</span>
+            </div>
+          )}
+          {contractBulky > 0 && (
+            <div className="flex justify-between pl-2">
+              <span className="text-muted-foreground">Bulky Items</span>
+              <span>{formatCurrency(contractBulky)}</span>
+            </div>
+          )}
+          {contractOther > 0 && (
+            <div className="flex justify-between pl-2">
+              <span className="text-muted-foreground">Other</span>
+              <span>{formatCurrency(contractOther)}</span>
+            </div>
+          )}
+
+          {!hasContractAccessorials && (
+            <p className="text-xs text-muted-foreground italic pl-2">No contract accessorials</p>
+          )}
+
+          {hasContractAccessorials && (
+            <div className="flex justify-between pl-2 pt-1 border-t border-border/50">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="font-medium">{formatCurrency(contractTotal)}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Extra Accessorials - Full Breakdown */}
+        {hasExtraAccessorials && (
+          <div className="border-t border-border pt-3 space-y-2">
+            <p className="font-medium text-foreground">Extra Accessorials</p>
+
+            {extraShuttle > 0 && (
+              <div className="flex justify-between pl-2">
+                <span className="text-muted-foreground">Shuttle</span>
+                <span>{formatCurrency(extraShuttle)}</span>
+              </div>
+            )}
+            {extraStairs > 0 && (
+              <div className="flex justify-between pl-2">
+                <span className="text-muted-foreground">Stairs</span>
+                <span>{formatCurrency(extraStairs)}</span>
+              </div>
+            )}
+            {extraLongCarry > 0 && (
+              <div className="flex justify-between pl-2">
+                <span className="text-muted-foreground">Long Carry</span>
+                <span>{formatCurrency(extraLongCarry)}</span>
+              </div>
+            )}
+            {extraPacking > 0 && (
+              <div className="flex justify-between pl-2">
+                <span className="text-muted-foreground">Packing</span>
+                <span>{formatCurrency(extraPacking)}</span>
+              </div>
+            )}
+            {extraBulky > 0 && (
+              <div className="flex justify-between pl-2">
+                <span className="text-muted-foreground">Bulky Items</span>
+                <span>{formatCurrency(extraBulky)}</span>
+              </div>
+            )}
+            {extraOther > 0 && (
+              <div className="flex justify-between pl-2">
+                <span className="text-muted-foreground">Other</span>
+                <span>{formatCurrency(extraOther)}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between pl-2 pt-1 border-t border-border/50">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="font-medium">{formatCurrency(extraTotal)}</span>
+            </div>
           </div>
         )}
 
         {/* Storage */}
         {storageTotal > 0 && (
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Storage Fees</span>
-            <span>{formatCurrency(storageTotal)}</span>
+          <div className="flex justify-between border-t border-border pt-3">
+            <span className="font-medium text-foreground">Storage Fees</span>
+            <span className="font-medium">{formatCurrency(storageTotal)}</span>
           </div>
         )}
 
         {/* Total Revenue */}
-        <div className="flex justify-between border-t border-border pt-2 font-medium">
-          <span>Total Revenue</span>
-          <span>{formatCurrency(totalRevenue)}</span>
+        <div className="flex justify-between border-t border-border pt-3">
+          <span className="font-semibold text-foreground">Total Revenue</span>
+          <span className="font-semibold text-lg">{formatCurrency(totalRevenue)}</span>
         </div>
 
-        {/* Collections */}
-        {collectedOnDelivery > 0 && (
-          <div className="flex justify-between text-muted-foreground">
-            <span>Collected on Delivery</span>
-            <span className="text-red-500">-{formatCurrency(collectedOnDelivery)}</span>
-          </div>
-        )}
-        {paidToCompany > 0 && (
-          <div className="flex justify-between text-muted-foreground">
-            <span>Paid to Company</span>
-            <span className="text-red-500">-{formatCurrency(paidToCompany)}</span>
-          </div>
-        )}
+        {/* Collection Info */}
+        <div className="border-t border-border pt-3 space-y-2">
+          <p className="font-medium text-foreground">Collection</p>
 
-        {/* Company Owes */}
-        <div className="flex justify-between border-t border-border pt-2">
-          <span className="font-semibold">Company Owes</span>
-          <span className={`text-lg font-bold ${companyOwes >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+          {Number(load.balance_due_on_delivery) > 0 && (
+            <div className="flex justify-between pl-2">
+              <span className="text-muted-foreground">Balance Due on Delivery</span>
+              <span>{formatCurrency(load.balance_due_on_delivery)}</span>
+            </div>
+          )}
+
+          {collectedAmount > 0 && (
+            <div className="flex justify-between pl-2">
+              <span className="text-muted-foreground">
+                Collected {load.collection_method ? `(${load.collection_method})` : ""}
+              </span>
+              <span className="text-emerald-600">-{formatCurrency(collectedAmount)}</span>
+            </div>
+          )}
+
+          {paidToCompany > 0 && (
+            <div className="flex justify-between pl-2">
+              <span className="text-muted-foreground">Paid to Company</span>
+              <span className="text-emerald-600">-{formatCurrency(paidToCompany)}</span>
+            </div>
+          )}
+
+          {collectedAmount === 0 && paidToCompany === 0 && (
+            <p className="text-xs text-muted-foreground italic pl-2">No payments collected yet</p>
+          )}
+        </div>
+
+        {/* Company Owes - Highlighted */}
+        <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg mt-2">
+          <span className="font-bold text-foreground">Company Owes</span>
+          <span className={`text-xl font-bold ${companyOwes >= 0 ? "text-emerald-600" : "text-red-600"}`}>
             {formatCurrency(companyOwes)}
           </span>
         </div>
