@@ -167,6 +167,7 @@ export async function getDriverTripDetail(
   }
 
   // Fetch trip loads - try with trust_level first, fall back to basic
+  // Note: Avoiding ORDER BY on load_order/sequence_index as columns may not exist
   let tripLoads: any[] = [];
   const { data: loadsWithTrust, error: loadError } = await supabase
     .from('trip_loads')
@@ -180,9 +181,7 @@ export async function getDriverTripDetail(
     `
     )
     .eq('trip_id', tripId)
-    .eq('owner_id', driver.owner_id)
-    .order('load_order', { ascending: true })
-    .order('sequence_index', { ascending: true });
+    .eq('owner_id', driver.owner_id);
 
   if (loadError) {
     // If trust_level column doesn't exist, fall back to basic query
@@ -200,9 +199,7 @@ export async function getDriverTripDetail(
         `
         )
         .eq('trip_id', tripId)
-        .eq('owner_id', driver.owner_id)
-        .order('load_order', { ascending: true })
-        .order('sequence_index', { ascending: true });
+        .eq('owner_id', driver.owner_id);
 
       if (basicError) {
         throw new Error(`Failed to fetch trip loads: ${basicError.message}`);
@@ -214,6 +211,13 @@ export async function getDriverTripDetail(
   } else {
     tripLoads = loadsWithTrust || [];
   }
+
+  // Sort by load_order or sequence_index if available (handles missing columns gracefully)
+  tripLoads.sort((a, b) => {
+    const orderA = (a as any).load_order ?? (a as any).sequence_index ?? 0;
+    const orderB = (b as any).load_order ?? (b as any).sequence_index ?? 0;
+    return orderA - orderB;
+  });
 
   return {
     trip: trip as unknown as TripWithDetails,
