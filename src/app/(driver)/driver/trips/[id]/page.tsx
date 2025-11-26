@@ -10,22 +10,13 @@ import {
   requireCurrentDriver,
 } from "@/data/driver-workflow";
 import { updateTrip } from "@/data/trips";
-import { CompleteTripForm, StartTripForm, type DriverFormState } from "@/components/driver/driver-trip-forms";
+import { TripHeaderCompact, type DriverFormState } from "@/components/driver/trip-header-compact";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 interface DriverTripDetailPageProps {
   params: Promise<{ id: string }>;
 }
-
-const statusTone: Record<string, string> = {
-  planned: "bg-amber-100 text-amber-800",
-  active: "bg-emerald-100 text-emerald-800",
-  en_route: "bg-blue-100 text-blue-800",
-  completed: "bg-slate-100 text-slate-800",
-  settled: "bg-purple-100 text-purple-800",
-  cancelled: "bg-red-100 text-red-800",
-};
 
 const loadStatusTone: Record<string, string> = {
   pending: "bg-amber-100 text-amber-800",
@@ -36,11 +27,6 @@ const loadStatusTone: Record<string, string> = {
   delivered: "bg-emerald-100 text-emerald-800",
   storage_completed: "bg-purple-100 text-purple-800",
 };
-
-function formatCityState(city?: string | null, state?: string | null) {
-  if (!city && !state) return "Not set";
-  return [city, state].filter(Boolean).join(", ");
-}
 
 export default async function DriverTripDetailPage({ params }: DriverTripDetailPageProps) {
   const { id } = await params;
@@ -167,58 +153,26 @@ export default async function DriverTripDetailPage({ params }: DriverTripDetailP
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase text-muted-foreground">Trip</p>
-            <h1 className="text-2xl font-semibold text-foreground">{trip.trip_number}</h1>
-          </div>
-          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone[trip.status]}`}>
-            {trip.status.replace("_", " ")}
-          </span>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {formatCityState((trip as any).origin_city, (trip as any).origin_state)} →{" "}
-          {formatCityState((trip as any).destination_city, (trip as any).destination_state)}
-        </p>
-        <div className="grid gap-3 sm:grid-cols-3 text-sm text-muted-foreground">
-          <div className="rounded-lg border border-border bg-muted/40 p-3">
-            <p className="text-xs uppercase text-muted-foreground">Odometer start</p>
-            <p className="text-base font-semibold text-foreground">
-              {trip.odometer_start ?? "—"} {trip.odometer_start_photo_url ? "📷" : ""}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border bg-muted/40 p-3">
-            <p className="text-xs uppercase text-muted-foreground">Odometer end</p>
-            <p className="text-base font-semibold text-foreground">
-              {trip.odometer_end ?? "—"} {trip.odometer_end_photo_url ? "📷" : ""}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border bg-muted/40 p-3">
-            <p className="text-xs uppercase text-muted-foreground">Actual miles</p>
-            <p className="text-base font-semibold text-foreground">{trip.actual_miles ?? "—"}</p>
-          </div>
-        </div>
-      </div>
-
-      {trip.status === "planned" ? (
-        <StartTripForm
-          tripId={trip.id}
-          action={startTripAction}
-          defaultOdometerStart={(trip as any).odometer_start}
-          defaultPhoto={(trip as any).odometer_start_photo_url}
-        />
-      ) : null}
-
-      {(trip.status === "active" || trip.status === "en_route") && loadsCompleted ? (
-        <CompleteTripForm
-          tripId={trip.id}
-          action={completeTripAction}
-          defaultOdometerEnd={(trip as any).odometer_end}
-          defaultPhoto={(trip as any).odometer_end_photo_url}
-        />
-      ) : null}
+    <div className="space-y-4">
+      {/* Compact Trip Header with Odometer */}
+      <TripHeaderCompact
+        trip={{
+          id: trip.id,
+          trip_number: trip.trip_number,
+          status: trip.status,
+          origin_city: (trip as any).origin_city,
+          origin_state: (trip as any).origin_state,
+          destination_city: (trip as any).destination_city,
+          destination_state: (trip as any).destination_state,
+          odometer_start: trip.odometer_start,
+          odometer_end: trip.odometer_end,
+          odometer_start_photo_url: trip.odometer_start_photo_url,
+          odometer_end_photo_url: trip.odometer_end_photo_url,
+        }}
+        startTripAction={startTripAction}
+        completeTripAction={completeTripAction}
+        canCompleteTrip={loadsCompleted}
+      />
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
