@@ -864,3 +864,33 @@ export async function deleteTripExpense(
 
   await computeTripFinancialSummary(supabase, data.trip_id, userId);
 }
+
+/**
+ * Get trips available for load assignment.
+ * Returns planned, active, and en_route trips that can have new loads assigned.
+ */
+export async function getTripsForLoadAssignment(userId: string): Promise<Trip[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('trips')
+    .select(
+      `
+      *,
+      driver:drivers!trips_driver_id_fkey(id, first_name, last_name),
+      truck:trucks!trips_truck_id_fkey(id, unit_number),
+      trailer:trailers!trips_trailer_id_fkey(id, unit_number)
+    `
+    )
+    .eq('owner_id', userId)
+    .in('status', ['planned', 'active', 'en_route'])
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (error) {
+    console.error('Error fetching trips for load assignment:', error);
+    return [];
+  }
+
+  return (data || []) as Trip[];
+}

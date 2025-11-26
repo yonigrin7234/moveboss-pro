@@ -4,6 +4,7 @@ import { createLoad, newLoadInputSchema } from '@/data/loads';
 import { getCompaniesForUser } from '@/data/companies';
 import { getDriversForUser } from '@/data/drivers';
 import { getTrucksForUser, getTrailersForUser } from '@/data/fleet';
+import { getTripsForLoadAssignment, addLoadToTrip } from '@/data/trips';
 import { LoadCreateForm } from '@/components/loads/LoadCreateForm';
 import { CreationPageShell } from '@/components/layout/CreationPageShell';
 import { cleanFormValues, extractFormValues } from '@/lib/form-data';
@@ -13,17 +14,18 @@ export default async function NewLoadPage() {
   if (!user) redirect('/login');
 
   // Fetch related entities for dropdowns
-  const [companies, drivers, trucks, trailers] = await Promise.all([
+  const [companies, drivers, trucks, trailers, trips] = await Promise.all([
     getCompaniesForUser(user.id),
     getDriversForUser(user.id),
     getTrucksForUser(user.id),
     getTrailersForUser(user.id),
+    getTripsForLoadAssignment(user.id),
   ]);
 
   async function createLoadAction(
-    prevState: { errors?: Record<string, string>; success?: boolean; loadId?: string } | null,
+    prevState: { errors?: Record<string, string>; success?: boolean; loadId?: string; tripId?: string } | null,
     formData: FormData
-  ): Promise<{ errors?: Record<string, string>; success?: boolean; loadId?: string } | null> {
+  ): Promise<{ errors?: Record<string, string>; success?: boolean; loadId?: string; tripId?: string } | null> {
     'use server';
     const user = await getCurrentUser();
     if (!user) return { errors: { _form: 'Not authenticated' } };
@@ -70,9 +72,38 @@ export default async function NewLoadPage() {
     const rawData = extractFormValues(formData, fields);
     const cleanedData = cleanFormValues(rawData);
 
+    // Get optional trip assignment fields
+    const tripId = formData.get('trip_id') as string | null;
+    const loadOrder = formData.get('load_order') as string | null;
+
     try {
       const validated = newLoadInputSchema.parse(cleanedData);
       const created = await createLoad(validated, user.id);
+
+      // If a trip was selected, attach the load to the trip
+      if (tripId && created.id) {
+        try {
+          await addLoadToTrip(
+            tripId,
+            {
+              load_id: created.id,
+              sequence_index: loadOrder ? parseInt(loadOrder, 10) - 1 : 0, // Convert 1-based to 0-based
+              role: 'primary',
+            },
+            user.id
+          );
+          return { success: true, loadId: created.id, tripId };
+        } catch (tripError) {
+          // Load was created but trip attachment failed - show warning
+          console.error('Failed to attach load to trip:', tripError);
+          return {
+            success: true,
+            loadId: created.id,
+            errors: { _form: 'Load created but could not attach to trip. You can add it manually.' },
+          };
+        }
+      }
+
       return { success: true, loadId: created.id };
     } catch (error) {
       if (error && typeof error === 'object' && 'issues' in error) {
@@ -109,6 +140,7 @@ export default async function NewLoadPage() {
         drivers={drivers}
         trucks={trucks}
         trailers={trailers}
+        trips={trips}
         onSubmit={createLoadAction}
       />
     </CreationPageShell>

@@ -7,6 +7,7 @@ import Link from 'next/link'
 import type { Company } from '@/data/companies'
 import type { Driver } from '@/data/drivers'
 import type { Truck, Trailer } from '@/data/fleet'
+import type { Trip } from '@/data/trips'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -30,6 +31,19 @@ const serviceTypeOptions = [
   { value: 'storage_out', label: 'Storage Out' },
   { value: 'freight', label: 'Freight' },
   { value: 'other', label: 'Other' },
+]
+
+const loadOrderOptions = [
+  { value: '1', label: '1st Load' },
+  { value: '2', label: '2nd Load' },
+  { value: '3', label: '3rd Load' },
+  { value: '4', label: '4th Load' },
+  { value: '5', label: '5th Load' },
+  { value: '6', label: '6th Load' },
+  { value: '7', label: '7th Load' },
+  { value: '8', label: '8th Load' },
+  { value: '9', label: '9th Load' },
+  { value: '10', label: '10th Load' },
 ]
 
 async function lookupZip(zip: string) {
@@ -74,18 +88,31 @@ function SelectWithHiddenInput({ name, options, placeholder, required }: SelectW
   )
 }
 
+function formatTripLabel(trip: Trip): string {
+  const parts = [`Trip ${trip.trip_number}`]
+  if (trip.origin_city && trip.destination_city) {
+    parts.push(`${trip.origin_city} → ${trip.destination_city}`)
+  }
+  const driver = trip.driver as { first_name?: string; last_name?: string } | null
+  if (driver?.first_name) {
+    parts.push(`(${driver.first_name} ${driver.last_name || ''})`.trim())
+  }
+  return parts.join(' - ')
+}
+
 interface LoadCreateFormProps {
   companies: Company[]
   drivers: Driver[]
   trucks: Truck[]
   trailers: Trailer[]
+  trips?: Trip[]
   onSubmit: (
-    prevState: { errors?: Record<string, string>; success?: boolean; loadId?: string } | null,
+    prevState: { errors?: Record<string, string>; success?: boolean; loadId?: string; tripId?: string } | null,
     formData: FormData
-  ) => Promise<{ errors?: Record<string, string>; success?: boolean; loadId?: string } | null>
+  ) => Promise<{ errors?: Record<string, string>; success?: boolean; loadId?: string; tripId?: string } | null>
 }
 
-export function LoadCreateForm({ companies, drivers, trucks, trailers, onSubmit }: LoadCreateFormProps) {
+export function LoadCreateForm({ companies, drivers, trucks, trailers, trips = [], onSubmit }: LoadCreateFormProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [state, formAction, pending] = useActionState(onSubmit, null)
@@ -95,6 +122,8 @@ export function LoadCreateForm({ companies, drivers, trucks, trailers, onSubmit 
   const [dropoff, setDropoff] = useState({ postalCode: '', city: '', state: '', address1: '', address2: '' })
   const [loadingContact, setLoadingContact] = useState({ name: '', phone: '', email: '', address1: '', address2: '', city: '', state: '', postalCode: '' })
   const [pricing, setPricing] = useState({ cubicFeet: '', rate: '' })
+  const [selectedTripId, setSelectedTripId] = useState('')
+  const [loadOrder, setLoadOrder] = useState('1')
 
   const selectedCompany = useMemo(() => companies.find((company) => company.id === companyId), [companies, companyId])
 
@@ -146,16 +175,25 @@ export function LoadCreateForm({ companies, drivers, trucks, trailers, onSubmit 
     if (state?.success) {
       toast({
         title: 'Load saved',
-        description: 'The load was created successfully.',
+        description: state.tripId
+          ? 'The load was created and attached to the trip.'
+          : 'The load was created successfully.',
       })
-      router.push('/dashboard/loads')
+      // Redirect to trip detail page if a trip was selected, otherwise to loads list
+      if (state.tripId) {
+        router.push(`/dashboard/trips/${state.tripId}`)
+      } else {
+        router.push('/dashboard/loads')
+      }
       router.refresh()
     }
-  }, [state?.success, router, toast])
+  }, [state?.success, state?.tripId, router, toast])
 
   return (
     <form action={formAction} className="space-y-6">
       <input type="hidden" name="load_type" value={loadType} />
+      <input type="hidden" name="trip_id" value={selectedTripId} />
+      <input type="hidden" name="load_order" value={loadOrder} />
 
       <Card>
         <CardHeader>
@@ -548,6 +586,67 @@ export function LoadCreateForm({ companies, drivers, trucks, trailers, onSubmit 
           </div>
         </CardContent>
       </Card>
+
+      {/* OPTIONAL TRIP ASSIGNMENT */}
+      {trips.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-semibold text-muted-foreground">
+              Assign to Trip (optional)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Trip</Label>
+              <Select
+                value={selectedTripId || undefined}
+                onValueChange={(value) => {
+                  setSelectedTripId(value === 'none' ? '' : value)
+                  if (value === 'none' || !value) {
+                    setLoadOrder('1')
+                  }
+                }}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Select a trip (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No trip - create unassigned</SelectItem>
+                  {trips.map((trip) => (
+                    <SelectItem key={trip.id} value={trip.id}>
+                      {formatTripLabel(trip)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Leave blank to create an unassigned load
+              </p>
+            </div>
+
+            {selectedTripId && (
+              <div className="space-y-1.5">
+                <Label>Loading Order</Label>
+                <Select value={loadOrder} onValueChange={setLoadOrder}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {loadOrderOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Which load is this on the trailer? (1st = loaded first)
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {state?.errors?._form && (
         <Card className="border-destructive bg-destructive/10">
