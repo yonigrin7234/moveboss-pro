@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Receipt, Plus } from "lucide-react";
+import { Receipt, Plus, Wallet } from "lucide-react";
 
 import { DriverQuickActions } from "@/components/driver/driver-quick-actions";
-import { getDriverTripsForDriver, getDriverTripDetail, requireCurrentDriver } from "@/data/driver-workflow";
+import { getDriverTripsForDriver, getDriverTripDetail, requireCurrentDriver, getDriverPaySettings } from "@/data/driver-workflow";
 import { Card, CardContent } from "@/components/ui/card";
 
 const statusBadge: Record<string, string> = {
@@ -65,6 +65,22 @@ export default async function DriverHomePage() {
   }
 
   const driverName = [driver.first_name, driver.last_name].filter(Boolean).join(" ") || "Driver";
+
+  // Fetch driver pay settings
+  let paySettings: Awaited<ReturnType<typeof getDriverPaySettings>> = null;
+  try {
+    paySettings = await getDriverPaySettings({ id: driver.id, owner_id: driver.owner_id });
+  } catch (e) {
+    console.error("[DriverHomePage] Failed to fetch pay settings:", e);
+  }
+
+  const payModeLabels: Record<string, string> = {
+    per_mile: "Per Mile",
+    per_cuft: "Per Cubic Foot",
+    per_mile_and_cuft: "Per Mile + Cubic Foot",
+    percent_of_revenue: "% of Revenue",
+    flat_daily_rate: "Daily Rate",
+  };
 
   return (
     <div className="space-y-6">
@@ -238,6 +254,72 @@ export default async function DriverHomePage() {
           )}
         </div>
       </div>
+
+      {/* PAY SETTINGS CARD */}
+      {paySettings && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                <Wallet className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Your Pay Settings</h3>
+                <p className="text-sm text-muted-foreground">
+                  {payModeLabels[paySettings.pay_mode] || paySettings.pay_mode}
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2 pt-3 border-t border-border">
+              {paySettings.pay_mode === "per_mile" && paySettings.rate_per_mile && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Rate per Mile</span>
+                  <span className="font-medium">${Number(paySettings.rate_per_mile).toFixed(2)}</span>
+                </div>
+              )}
+              {paySettings.pay_mode === "per_cuft" && paySettings.rate_per_cuft && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Rate per Cubic Foot</span>
+                  <span className="font-medium">${Number(paySettings.rate_per_cuft).toFixed(2)}</span>
+                </div>
+              )}
+              {paySettings.pay_mode === "per_mile_and_cuft" && (
+                <>
+                  {paySettings.rate_per_mile && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Rate per Mile</span>
+                      <span className="font-medium">${Number(paySettings.rate_per_mile).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {paySettings.rate_per_cuft && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Rate per Cubic Foot</span>
+                      <span className="font-medium">${Number(paySettings.rate_per_cuft).toFixed(2)}</span>
+                    </div>
+                  )}
+                </>
+              )}
+              {paySettings.pay_mode === "percent_of_revenue" && paySettings.percent_of_revenue && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Percent of Revenue</span>
+                  <span className="font-medium">{Number(paySettings.percent_of_revenue)}%</span>
+                </div>
+              )}
+              {paySettings.pay_mode === "flat_daily_rate" && paySettings.flat_daily_rate && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Daily Rate</span>
+                  <span className="font-medium">${Number(paySettings.flat_daily_rate).toFixed(2)}</span>
+                </div>
+              )}
+              {paySettings.pay_notes && (
+                <div className="pt-2 text-xs text-muted-foreground">
+                  <span className="font-medium">Notes:</span> {paySettings.pay_notes}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -8,9 +8,11 @@ import {
   getDriverDbClientForActions,
   getDriverTripDetail,
   requireCurrentDriver,
+  calculateDriverSettlementPreview,
 } from "@/data/driver-workflow";
 import { updateTrip } from "@/data/trips";
 import { TripHeaderCompact, type DriverFormState } from "@/components/driver/trip-header-compact";
+import { DriverSettlementCard } from "@/components/driver/driver-settlement-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -90,6 +92,17 @@ export default async function DriverTripDetailPage({ params }: DriverTripDetailP
     },
     { total: 0, companyPaid: 0, driverPaid: 0 }
   );
+
+  // Calculate settlement preview for active/completed trips
+  const showSettlement = ["active", "en_route", "completed", "settled"].includes(trip.status);
+  let settlementPreview = null;
+  if (showSettlement) {
+    try {
+      settlementPreview = await calculateDriverSettlementPreview(id, { id: driver.id, owner_id: driver.owner_id });
+    } catch (e) {
+      console.error("[DriverTripDetailPage] Failed to calculate settlement preview:", e);
+    }
+  }
 
   const startTripAction = async (prevState: DriverFormState | null, formData: FormData) => {
     "use server";
@@ -247,6 +260,11 @@ export default async function DriverTripDetailPage({ params }: DriverTripDetailP
           )}
         </CardContent>
       </Card>
+
+      {/* SETTLEMENT PREVIEW - Show for active/completed trips */}
+      {settlementPreview && (
+        <DriverSettlementCard settlement={settlementPreview} tripStatus={trip.status} />
+      )}
 
       {/* LOADS SECTION */}
       <div className="space-y-3">

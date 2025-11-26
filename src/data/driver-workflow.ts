@@ -846,3 +846,264 @@ export async function driverUpdateLoadingDocuments(loadId: string, userId: strin
     }
   }
 }
+
+// ============================================================================
+// DRIVER SETTLEMENT PREVIEW
+// ============================================================================
+
+export interface DriverSettlementPreview {
+  // Driver pay calculation
+  payMode: string;
+  grossPay: number;
+  payBreakdown: {
+    label: string;
+    amount: number;
+    calculation?: string;
+  }[];
+
+  // Reimbursements (driver-paid expenses to be paid back)
+  reimbursements: number;
+  reimbursementItems: {
+    description: string;
+    amount: number;
+  }[];
+
+  // Collections (cash/check collected by driver, owed to owner)
+  collections: number;
+  collectionItems: {
+    loadNumber: string;
+    amount: number;
+    method: string;
+  }[];
+
+  // Final calculation
+  netPay: number; // grossPay + reimbursements - collections
+
+  // Trip metrics used in calculation
+  metrics: {
+    actualMiles: number;
+    totalCuft: number;
+    totalRevenue: number;
+    daysWorked: number;
+  };
+}
+
+/**
+ * Calculate settlement preview for driver
+ * Shows what the driver will earn/owe when the trip is settled
+ */
+export async function calculateDriverSettlementPreview(
+  tripId: string,
+  driver: { id: string; owner_id: string }
+): Promise<DriverSettlementPreview | null> {
+  const supabase = await getDbClient();
+
+  // Get trip detail
+  const detail = await getDriverTripDetail(tripId, driver);
+  if (!detail?.trip) return null;
+
+  const { trip, loads, expenses } = detail;
+
+  // Get driver pay settings
+  const { data: driverData, error: driverError } = await supabase
+    .from('drivers')
+    .select('pay_mode, rate_per_mile, rate_per_cuft, percent_of_revenue, flat_daily_rate')
+    .eq('id', driver.id)
+    .eq('owner_id', driver.owner_id)
+    .single();
+
+  if (driverError || !driverData) {
+    console.error('[calculateDriverSettlementPreview] Failed to load driver pay settings:', driverError?.message);
+    return null;
+  }
+
+  // Calculate metrics
+  const odoStart = Number((trip as any).odometer_start) || 0;
+  const odoEnd = Number((trip as any).odometer_end) || 0;
+  const actualMiles = odoEnd > odoStart ? odoEnd - odoStart : 0;
+
+  const totalCuft = loads.reduce((sum, tl) => {
+    const load = (tl.load || {}) as any;
+    return sum + (Number(load.actual_cuft_loaded) || 0);
+  }, 0);
+
+  const totalRevenue = loads.reduce((sum, tl) => {
+    const load = (tl.load || {}) as any;
+    return sum + (Number(load.total_revenue) || 0);
+  }, 0);
+
+  const daysWorked = (() => {
+    const startDate = (trip as any).start_date;
+    const endDate = (trip as any).end_date;
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diff = Math.max(0, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+      return diff + 1;
+    }
+    return 1;
+  })();
+
+  // Calculate gross pay based on pay mode
+  let grossPay = 0;
+  const payBreakdown: DriverSettlementPreview['payBreakdown'] = [];
+  const payMode = (driverData as any).pay_mode || 'per_mile';
+
+  switch (payMode) {
+    case 'per_mile': {
+      const rate = Number((driverData as any).rate_per_mile) || 0;
+      const amount = round(actualMiles * rate);
+      grossPay = amount;
+      if (rate > 0) {
+        payBreakdown.push({
+          label: 'Per Mile',
+          amount,
+          calculation: `${actualMiles.toLocaleString()} mi × $${rate.toFixed(2)}/mi`,
+        });
+      }
+      break;
+    }
+    case 'per_cuft': {
+      const rate = Number((driverData as any).rate_per_cuft) || 0;
+      const amount = round(totalCuft * rate);
+      grossPay = amount;
+      if (rate > 0) {
+        payBreakdown.push({
+          label: 'Per Cubic Foot',
+          amount,
+          calculation: `${totalCuft.toLocaleString()} cf × $${rate.toFixed(2)}/cf`,
+        });
+      }
+      break;
+    }
+    case 'per_mile_and_cuft': {
+      const mileRate = Number((driverData as any).rate_per_mile) || 0;
+      const cuftRate = Number((driverData as any).rate_per_cuft) || 0;
+      const mileAmount = round(actualMiles * mileRate);
+      const cuftAmount = round(totalCuft * cuftRate);
+      grossPay = mileAmount + cuftAmount;
+      if (mileRate > 0) {
+        payBreakdown.push({
+          label: 'Per Mile',
+          amount: mileAmount,
+          calculation: `${actualMiles.toLocaleString()} mi × $${mileRate.toFixed(2)}/mi`,
+        });
+      }
+      if (cuftRate > 0) {
+        payBreakdown.push({
+          label: 'Per Cubic Foot',
+          amount: cuftAmount,
+          calculation: `${totalCuft.toLocaleString()} cf × $${cuftRate.toFixed(2)}/cf`,
+        });
+      }
+      break;
+    }
+    case 'percent_of_revenue': {
+      const pct = Number((driverData as any).percent_of_revenue) || 0;
+      const amount = round(totalRevenue * (pct / 100));
+      grossPay = amount;
+      if (pct > 0) {
+        payBreakdown.push({
+          label: 'Percent of Revenue',
+          amount,
+          calculation: `${pct}% × $${totalRevenue.toFixed(2)}`,
+        });
+      }
+      break;
+    }
+    case 'flat_daily_rate': {
+      const rate = Number((driverData as any).flat_daily_rate) || 0;
+      const amount = round(daysWorked * rate);
+      grossPay = amount;
+      if (rate > 0) {
+        payBreakdown.push({
+          label: 'Daily Rate',
+          amount,
+          calculation: `${daysWorked} day${daysWorked !== 1 ? 's' : ''} × $${rate.toFixed(2)}/day`,
+        });
+      }
+      break;
+    }
+  }
+
+  // Calculate reimbursements (driver-paid expenses)
+  let reimbursements = 0;
+  const reimbursementItems: DriverSettlementPreview['reimbursementItems'] = [];
+
+  for (const exp of expenses) {
+    const paidBy = (exp as any).paid_by || '';
+    // Driver-paid methods that get reimbursed
+    if (['driver_cash', 'driver_card', 'driver_personal'].includes(paidBy)) {
+      const amount = Number(exp.amount) || 0;
+      reimbursements += amount;
+      reimbursementItems.push({
+        description: (exp as any).expense_type || exp.description || 'Expense',
+        amount,
+      });
+    }
+  }
+  reimbursements = round(reimbursements);
+
+  // Calculate collections (amounts collected by driver that go to owner)
+  let collections = 0;
+  const collectionItems: DriverSettlementPreview['collectionItems'] = [];
+
+  for (const tl of loads) {
+    const load = (tl.load || {}) as any;
+    const collected = Number(load.amount_collected_on_delivery) || 0;
+    if (collected > 0) {
+      collections += collected;
+      collectionItems.push({
+        loadNumber: load.load_number || tl.load_id,
+        amount: collected,
+        method: load.payment_method || 'cash',
+      });
+    }
+  }
+  collections = round(collections);
+
+  // Net pay = Gross + Reimbursements - Collections
+  const netPay = round(grossPay + reimbursements - collections);
+
+  return {
+    payMode,
+    grossPay,
+    payBreakdown,
+    reimbursements,
+    reimbursementItems,
+    collections,
+    collectionItems,
+    netPay,
+    metrics: {
+      actualMiles,
+      totalCuft,
+      totalRevenue,
+      daysWorked,
+    },
+  };
+}
+
+/**
+ * Get driver pay settings for display
+ */
+export async function getDriverPaySettings(driver: { id: string; owner_id: string }) {
+  const supabase = await getDbClient();
+
+  const { data, error } = await supabase
+    .from('drivers')
+    .select('pay_mode, rate_per_mile, rate_per_cuft, percent_of_revenue, flat_daily_rate, pay_notes')
+    .eq('id', driver.id)
+    .eq('owner_id', driver.owner_id)
+    .single();
+
+  if (error) {
+    console.error('[getDriverPaySettings] Failed:', error.message);
+    return null;
+  }
+
+  return data;
+}
+
+function round(value: number): number {
+  return Math.round(value * 100) / 100;
+}
