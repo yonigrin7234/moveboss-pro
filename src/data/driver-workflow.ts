@@ -138,7 +138,7 @@ export async function getDriverTripDetail(
 export async function getDriverLoadDetail(
   loadId: string,
   driver: { id: string; owner_id: string }
-): Promise<{ load: any; tripId: string } | null> {
+): Promise<{ load: any; tripId: string; loadOrder: number } | null> {
   const supabase = await getDbClient();
   const { data: tripLoad, error: tlError } = await supabase
     .from('trip_loads')
@@ -163,7 +163,18 @@ export async function getDriverLoadDetail(
     .select(
       `
       *,
-      company:companies(id, name, trust_level)
+      company:companies(
+        id,
+        name,
+        trust_level,
+        dispatch_contact_name,
+        dispatch_contact_phone,
+        dispatch_contact_email,
+        address,
+        city,
+        state,
+        zip
+      )
     `
     )
     .eq('id', loadId)
@@ -175,7 +186,10 @@ export async function getDriverLoadDetail(
   }
   if (!load) return null;
 
-  return { load, tripId: (tripLoad as any).trip_id as string };
+  // Get load order from trip_load
+  const loadOrder = (tripLoad as any).load_order ?? (tripLoad as any).sequence_index ?? 1;
+
+  return { load, tripId: (tripLoad as any).trip_id as string, loadOrder };
 }
 
 // Driver-side trip start (planned -> active)
@@ -347,5 +361,133 @@ export async function driverSetStorageDrop(loadId: string, userId: string, paylo
 
   if (error) {
     throw new Error(`Failed to set storage drop info: ${error.message}`);
+  }
+}
+
+// Driver accepts a load (pending -> accepted)
+export async function driverAcceptLoad(loadId: string, userId: string) {
+  const supabase = await getDbClient();
+  const { error } = await supabase
+    .from('loads')
+    .update({
+      load_status: 'accepted',
+      accepted_at: new Date().toISOString(),
+    })
+    .eq('id', loadId)
+    .eq('owner_id', userId)
+    .eq('load_status', 'pending');
+
+  if (error) {
+    throw new Error(`Failed to accept load: ${error.message}`);
+  }
+}
+
+// Driver starts loading (accepted -> loading)
+export async function driverStartLoading(loadId: string, userId: string, payload: {
+  starting_cuft: number;
+  loading_start_photo: string;
+}) {
+  const supabase = await getDbClient();
+  const { error } = await supabase
+    .from('loads')
+    .update({
+      load_status: 'loading',
+      loading_started_at: new Date().toISOString(),
+      starting_cuft: payload.starting_cuft,
+      loading_start_photo: payload.loading_start_photo,
+    })
+    .eq('id', loadId)
+    .eq('owner_id', userId)
+    .eq('load_status', 'accepted');
+
+  if (error) {
+    throw new Error(`Failed to start loading: ${error.message}`);
+  }
+}
+
+// Driver finishes loading (loading -> loaded)
+export async function driverFinishLoading(loadId: string, userId: string, payload: {
+  ending_cuft: number;
+  loading_end_photo: string;
+  actual_cuft_loaded?: number;
+}) {
+  const supabase = await getDbClient();
+
+  // First get the starting CUFT to calculate actual loaded
+  const { data: load, error: fetchError } = await supabase
+    .from('loads')
+    .select('starting_cuft')
+    .eq('id', loadId)
+    .eq('owner_id', userId)
+    .single();
+
+  if (fetchError) {
+    throw new Error(`Failed to fetch load: ${fetchError.message}`);
+  }
+
+  const startingCuft = Number(load?.starting_cuft) || 0;
+  const endingCuft = payload.ending_cuft;
+  const actualCuftLoaded = payload.actual_cuft_loaded ?? (endingCuft - startingCuft);
+
+  const { error } = await supabase
+    .from('loads')
+    .update({
+      load_status: 'loaded',
+      loading_finished_at: new Date().toISOString(),
+      ending_cuft: endingCuft,
+      loading_end_photo: payload.loading_end_photo,
+      actual_cuft_loaded: actualCuftLoaded,
+    })
+    .eq('id', loadId)
+    .eq('owner_id', userId)
+    .eq('load_status', 'loading');
+
+  if (error) {
+    throw new Error(`Failed to finish loading: ${error.message}`);
+  }
+}
+
+// Driver completes load details (after loading, before delivery)
+export async function driverCompleteLoadDetails(loadId: string, userId: string, payload: {
+  actual_cuft_loaded?: number;
+  contract_rate_per_cuft?: number;
+  contract_accessorials_shuttle?: number;
+  contract_accessorials_stairs?: number;
+  contract_accessorials_long_carry?: number;
+  contract_accessorials_bulky?: number;
+  contract_accessorials_other?: number;
+  balance_due_on_delivery?: number;
+  first_available_date?: string;
+  load_report_photo_url?: string;
+}) {
+  const supabase = await getDbClient();
+
+  const accessorials =
+    (payload.contract_accessorials_shuttle || 0) +
+    (payload.contract_accessorials_stairs || 0) +
+    (payload.contract_accessorials_long_carry || 0) +
+    (payload.contract_accessorials_bulky || 0) +
+    (payload.contract_accessorials_other || 0);
+
+  const { error } = await supabase
+    .from('loads')
+    .update({
+      actual_cuft_loaded: payload.actual_cuft_loaded ?? null,
+      contract_rate_per_cuft: payload.contract_rate_per_cuft ?? null,
+      contract_accessorials_shuttle: payload.contract_accessorials_shuttle ?? 0,
+      contract_accessorials_stairs: payload.contract_accessorials_stairs ?? 0,
+      contract_accessorials_long_carry: payload.contract_accessorials_long_carry ?? 0,
+      contract_accessorials_bulky: payload.contract_accessorials_bulky ?? 0,
+      contract_accessorials_other: payload.contract_accessorials_other ?? 0,
+      contract_accessorials_total: accessorials,
+      balance_due_on_delivery: payload.balance_due_on_delivery ?? null,
+      first_available_date: payload.first_available_date ?? null,
+      load_report_photo_url: payload.load_report_photo_url ?? null,
+    })
+    .eq('id', loadId)
+    .eq('owner_id', userId);
+
+  if (error) {
+    throw new Error(`Failed to complete load details: ${error.message}`);
   }
 }

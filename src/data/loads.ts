@@ -128,7 +128,7 @@ export const newLoadInputSchema = z
     load_report_photo_url: optionalTrimmedString(2000),
     delivery_report_photo_url: optionalTrimmedString(2000),
     delivery_photos: z.array(z.string()).optional(),
-    load_status: z.enum(['pending','loaded','delivered','storage_completed']).optional(),
+    load_status: z.enum(['pending','accepted','loading','loaded','in_transit','delivered','storage_completed']).optional(),
     payment_method: z.enum(['cash','card','certified_check','customer_paid_directly_to_company']).optional(),
     payment_method_notes: optionalTrimmedString(1000),
     extra_shuttle: z.coerce.number().nonnegative().optional(),
@@ -303,7 +303,15 @@ export interface Load {
   load_report_photo_url?: string | null;
   delivery_report_photo_url?: string | null;
   delivery_photos?: string[] | null;
-  load_status?: 'pending' | 'loaded' | 'delivered' | 'storage_completed' | null;
+  load_status?: 'pending' | 'accepted' | 'loading' | 'loaded' | 'in_transit' | 'delivered' | 'storage_completed' | null;
+  accepted_at?: string | null;
+  loading_started_at?: string | null;
+  loading_finished_at?: string | null;
+  starting_cuft?: number | null;
+  ending_cuft?: number | null;
+  loading_start_photo?: string | null;
+  loading_end_photo?: string | null;
+  first_available_date?: string | null;
   payment_method?: 'cash' | 'card' | 'certified_check' | 'customer_paid_directly_to_company' | null;
   payment_method_notes?: string | null;
   extra_shuttle?: number | null;
