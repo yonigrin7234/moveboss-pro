@@ -979,7 +979,7 @@ export function DeliveryCompleteCard({ defaults }: DeliveryCompleteCardProps) {
       {/* Company Owes - Highlighted */}
       <div className="flex justify-between items-center bg-white/80 p-3 rounded-lg border border-green-200">
         <span className="font-bold text-foreground">
-          Company Owes{defaults?.company?.name ? ` (${defaults.company.name})` : ""}
+          Company Owes{companyOwes < 0 && defaults?.company?.name ? ` (${defaults.company.name})` : ""}
         </span>
         <span className={`text-xl font-bold ${companyOwes >= 0 ? "text-green-600" : "text-red-600"}`}>
           {formatCurrency(companyOwes)}

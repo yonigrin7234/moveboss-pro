@@ -221,7 +221,7 @@ export function LoadFinancialSummary({ load }: LoadFinancialSummaryProps) {
         {/* Company Owes - Highlighted */}
         <div className="flex justify-between items-center bg-muted/50 p-3 rounded-lg mt-2">
           <span className="font-bold text-foreground">
-            Company Owes{load.company?.name ? ` (${load.company.name})` : ""}
+            Company Owes{companyOwes < 0 && load.company?.name ? ` (${load.company.name})` : ""}
           </span>
           <span className={`text-xl font-bold ${companyOwes >= 0 ? "text-emerald-600" : "text-red-600"}`}>
             {formatCurrency(companyOwes)}
