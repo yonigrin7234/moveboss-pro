@@ -139,6 +139,9 @@ export default async function DriverLoadPage({ params }: DriverLoadPageProps) {
       if (!currentDriver?.owner_id) return { error: "Not authorized" };
       const loadId = formData.get("load_id");
       if (typeof loadId !== "string") return { error: "Missing load" };
+      // Parse multi-photo field from JSON
+      const originPaperworkPhotos = JSON.parse((formData.get("origin_paperwork_photos") as string) || "[]");
+
       await driverCompleteLoadDetails(loadId, currentDriver.owner_id, {
         actual_cuft_loaded: Number(formData.get("actual_cuft_loaded")) || undefined,
         contract_rate_per_cuft: Number(formData.get("contract_rate_per_cuft")) || undefined,
@@ -149,7 +152,8 @@ export default async function DriverLoadPage({ params }: DriverLoadPageProps) {
         contract_accessorials_other: Number(formData.get("contract_accessorials_other")) || 0,
         balance_due_on_delivery: Number(formData.get("balance_due_on_delivery")) || 0,
         first_available_date: (formData.get("first_available_date") as string) || undefined,
-        load_report_photo_url: (formData.get("load_report_photo_url") as string) || undefined,
+        loading_report_photo: (formData.get("loading_report_photo") as string) || undefined,
+        origin_paperwork_photos: originPaperworkPhotos,
       });
       revalidatePath(`/driver/trips/${id}/loads/${loadId}`);
       revalidatePath(`/driver/trips/${id}`);

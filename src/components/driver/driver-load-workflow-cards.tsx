@@ -212,6 +212,8 @@ interface CompleteLoadDetailsCardProps {
 
 export function CompleteLoadDetailsCard({ loadId, action, defaults }: CompleteLoadDetailsCardProps) {
   const [state, formAction, pending] = useActionState(action, null);
+  const [loadingReportPhoto, setLoadingReportPhoto] = useState(defaults?.loading_report_photo || "");
+  const [originPaperworkPhotos, setOriginPaperworkPhotos] = useState<string[]>(defaults?.origin_paperwork_photos || []);
 
   return (
     <form action={formAction} className="rounded-lg border border-border bg-card p-4 shadow-sm space-y-4">
@@ -301,12 +303,33 @@ export function CompleteLoadDetailsCard({ loadId, action, defaults }: CompleteLo
         </div>
       </div>
 
-      <PhotoField
-        name="load_report_photo_url"
-        label="Load report / contract photo"
-        defaultValue={defaults?.load_report_photo_url ?? ""}
-        description="Upload the contract or load report photo from the origin."
-      />
+      {/* Separator */}
+      <div className="border-t border-border pt-4">
+        <h5 className="font-medium text-foreground mb-3">Loading Documents</h5>
+      </div>
+
+      {/* Loading Report - Single Photo */}
+      <div className="space-y-3 p-3 bg-muted/30 rounded-lg border border-border">
+        <PhotoField
+          name="loading_report_photo"
+          label="Loading Report"
+          description="Photo of the loading report from the company"
+          defaultValue={loadingReportPhoto}
+          onUploaded={setLoadingReportPhoto}
+        />
+      </div>
+
+      {/* Origin Paperwork - Multiple Photos */}
+      <div className="space-y-3 p-3 bg-muted/30 rounded-lg border border-border">
+        <MultiPhotoField
+          name="origin_paperwork_photos"
+          label="Origin Paperwork"
+          description="Bill of lading, inventory pages, and other origin documents"
+          defaultValue={originPaperworkPhotos}
+          onChange={setOriginPaperworkPhotos}
+          maxPhotos={10}
+        />
+      </div>
 
       <button
         type="submit"

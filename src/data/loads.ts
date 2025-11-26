@@ -331,6 +331,7 @@ export interface Load {
   company_approved_exception_delivery?: boolean | null;
   // Loading document photos
   loading_report_photo?: string | null;
+  origin_paperwork_photos?: string[] | null;
   contract_documents?: string[] | null;
   // Delivery workflow
   delivery_started_at?: string | null;

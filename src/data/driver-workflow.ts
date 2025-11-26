@@ -641,7 +641,8 @@ export async function driverCompleteLoadDetails(loadId: string, userId: string, 
   contract_accessorials_other?: number;
   balance_due_on_delivery?: number;
   first_available_date?: string;
-  load_report_photo_url?: string;
+  loading_report_photo?: string;
+  origin_paperwork_photos?: string[];
 }) {
   const supabase = await getDbClient();
 
@@ -652,6 +653,7 @@ export async function driverCompleteLoadDetails(loadId: string, userId: string, 
     (payload.contract_accessorials_bulky || 0) +
     (payload.contract_accessorials_other || 0);
 
+  // Try full update with new columns first
   const { error } = await supabase
     .from('loads')
     .update({
@@ -665,12 +667,38 @@ export async function driverCompleteLoadDetails(loadId: string, userId: string, 
       contract_accessorials_total: accessorials,
       balance_due_on_delivery: payload.balance_due_on_delivery ?? null,
       first_available_date: payload.first_available_date ?? null,
-      load_report_photo_url: payload.load_report_photo_url ?? null,
+      loading_report_photo: payload.loading_report_photo ?? null,
+      origin_paperwork_photos: payload.origin_paperwork_photos ?? [],
     })
     .eq('id', loadId)
     .eq('owner_id', userId);
 
   if (error) {
+    // Fallback: try without new photo columns if they don't exist yet
+    if (error.message.includes('loading_report_photo') || error.message.includes('origin_paperwork_photos')) {
+      console.warn('[driverCompleteLoadDetails] New photo columns not yet available, falling back to basic update');
+      const { error: fallbackError } = await supabase
+        .from('loads')
+        .update({
+          actual_cuft_loaded: payload.actual_cuft_loaded ?? null,
+          contract_rate_per_cuft: payload.contract_rate_per_cuft ?? null,
+          contract_accessorials_shuttle: payload.contract_accessorials_shuttle ?? 0,
+          contract_accessorials_stairs: payload.contract_accessorials_stairs ?? 0,
+          contract_accessorials_long_carry: payload.contract_accessorials_long_carry ?? 0,
+          contract_accessorials_bulky: payload.contract_accessorials_bulky ?? 0,
+          contract_accessorials_other: payload.contract_accessorials_other ?? 0,
+          contract_accessorials_total: accessorials,
+          balance_due_on_delivery: payload.balance_due_on_delivery ?? null,
+          first_available_date: payload.first_available_date ?? null,
+        })
+        .eq('id', loadId)
+        .eq('owner_id', userId);
+
+      if (fallbackError) {
+        throw new Error(`Failed to complete load details: ${fallbackError.message}`);
+      }
+      return;
+    }
     throw new Error(`Failed to complete load details: ${error.message}`);
   }
 }
