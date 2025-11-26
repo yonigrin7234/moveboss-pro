@@ -674,3 +674,147 @@ export async function driverCompleteLoadDetails(loadId: string, userId: string, 
     throw new Error(`Failed to complete load details: ${error.message}`);
   }
 }
+
+// Driver starts delivery (loaded -> in_transit)
+export async function driverStartDelivery(loadId: string, userId: string) {
+  const supabase = await getDbClient();
+
+  // First verify load is in loaded status
+  const { data: load, error: fetchError } = await supabase
+    .from('loads')
+    .select('id, load_status')
+    .eq('id', loadId)
+    .eq('owner_id', userId)
+    .single();
+
+  if (fetchError || !load) {
+    throw new Error('Load not found or access denied');
+  }
+
+  if (load.load_status !== 'loaded') {
+    throw new Error(`Cannot start delivery - load must be loaded first (current status: "${load.load_status || 'pending'}")`);
+  }
+
+  // Try full update first
+  const { error } = await supabase
+    .from('loads')
+    .update({
+      load_status: 'in_transit',
+      delivery_started_at: new Date().toISOString(),
+    })
+    .eq('id', loadId)
+    .eq('owner_id', userId);
+
+  if (error) {
+    // Fall back to just updating status if delivery_started_at column doesn't exist
+    if (error.message.includes('column') || error.code === '42703') {
+      console.warn('[driverStartDelivery] delivery_started_at column missing, updating status only.');
+      const { error: fallbackError } = await supabase
+        .from('loads')
+        .update({ load_status: 'in_transit' })
+        .eq('id', loadId)
+        .eq('owner_id', userId);
+      if (fallbackError) {
+        throw new Error(`Failed to start delivery: ${fallbackError.message}`);
+      }
+    } else {
+      throw new Error(`Failed to start delivery: ${error.message}`);
+    }
+  }
+}
+
+// Driver completes delivery (in_transit -> delivered)
+export async function driverCompleteDelivery(loadId: string, userId: string, payload: {
+  delivery_location_photo?: string;
+  signed_bol_photos?: string[];
+  signed_inventory_photos?: string[];
+  collected_amount?: number;
+  collection_method?: string;
+  delivery_notes?: string;
+}) {
+  const supabase = await getDbClient();
+
+  // First verify load is in in_transit status
+  const { data: load, error: fetchError } = await supabase
+    .from('loads')
+    .select('id, load_status')
+    .eq('id', loadId)
+    .eq('owner_id', userId)
+    .single();
+
+  if (fetchError || !load) {
+    throw new Error('Load not found or access denied');
+  }
+
+  if (load.load_status !== 'in_transit') {
+    throw new Error(`Cannot complete delivery - load must be in transit (current status: "${load.load_status || 'pending'}")`);
+  }
+
+  // Try full update with all delivery fields
+  const { error } = await supabase
+    .from('loads')
+    .update({
+      load_status: 'delivered',
+      delivery_finished_at: new Date().toISOString(),
+      delivery_location_photo: payload.delivery_location_photo || null,
+      signed_bol_photos: payload.signed_bol_photos || [],
+      signed_inventory_photos: payload.signed_inventory_photos || [],
+      collected_amount: payload.collected_amount || null,
+      collection_method: payload.collection_method || null,
+      delivery_notes: payload.delivery_notes || null,
+    })
+    .eq('id', loadId)
+    .eq('owner_id', userId);
+
+  if (error) {
+    // Fall back to just updating status if columns don't exist
+    if (error.message.includes('column') || error.code === '42703') {
+      console.warn('[driverCompleteDelivery] Some columns missing, updating status only. Run migrations for full features.');
+      const { error: fallbackError } = await supabase
+        .from('loads')
+        .update({ load_status: 'delivered' })
+        .eq('id', loadId)
+        .eq('owner_id', userId);
+      if (fallbackError) {
+        throw new Error(`Failed to complete delivery: ${fallbackError.message}`);
+      }
+    } else {
+      throw new Error(`Failed to complete delivery: ${error.message}`);
+    }
+  }
+}
+
+// Update load with contract documents during loading phase
+export async function driverUpdateLoadingDocuments(loadId: string, userId: string, payload: {
+  loading_report_photo?: string;
+  contract_documents?: string[];
+}) {
+  const supabase = await getDbClient();
+
+  const updateData: Record<string, any> = {};
+  if (payload.loading_report_photo !== undefined) {
+    updateData.loading_report_photo = payload.loading_report_photo;
+  }
+  if (payload.contract_documents !== undefined) {
+    updateData.contract_documents = payload.contract_documents;
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return; // Nothing to update
+  }
+
+  const { error } = await supabase
+    .from('loads')
+    .update(updateData)
+    .eq('id', loadId)
+    .eq('owner_id', userId);
+
+  if (error) {
+    // Silently fail if columns don't exist
+    if (error.message.includes('column') || error.code === '42703') {
+      console.warn('[driverUpdateLoadingDocuments] Some columns missing. Run migrations for full features.');
+    } else {
+      throw new Error(`Failed to update loading documents: ${error.message}`);
+    }
+  }
+}

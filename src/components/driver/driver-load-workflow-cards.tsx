@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useActionState } from "react";
-import { CheckCircle, Truck, Camera, Package, Calendar, Warehouse } from "lucide-react";
+import { CheckCircle, Truck, Camera, Package, Calendar, Warehouse, MapPin, FileText, DollarSign } from "lucide-react";
 import { PhotoField } from "@/components/ui/photo-field";
+import { MultiPhotoField } from "@/components/ui/multi-photo-field";
 import type { DriverFormState } from "./driver-trip-forms";
 
 type ServerAction = (state: DriverFormState | null, formData: FormData) => Promise<DriverFormState | null>;
@@ -652,5 +653,288 @@ export function StorageDropCard({ loadId, action, defaults }: StorageDropCardPro
         <div className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{state.success}</div>
       )}
     </form>
+  );
+}
+
+// ============================================================================
+// READY FOR DELIVERY CARD (status: loaded)
+// ============================================================================
+interface ReadyForDeliveryCardProps {
+  loadId: string;
+  action: ServerAction;
+  defaults?: Record<string, any>;
+}
+
+export function ReadyForDeliveryCard({ loadId, action, defaults }: ReadyForDeliveryCardProps) {
+  const [state, formAction, pending] = useActionState(action, null);
+
+  const deliveryCity = defaults?.delivery_city || defaults?.dropoff_city || "—";
+  const deliveryState = defaults?.delivery_state || defaults?.dropoff_state || "";
+  const balanceDue = Number(defaults?.balance_due_on_delivery) || 0;
+  const actualCuft = Number(defaults?.actual_cuft_loaded) || 0;
+
+  return (
+    <form action={formAction} className="rounded-lg border-2 border-blue-200 bg-blue-50/50 p-4 shadow-sm space-y-4">
+      <input type="hidden" name="load_id" value={loadId} />
+      <div className="flex items-center gap-3">
+        <div className="rounded-full bg-blue-100 p-2">
+          <MapPin className="h-5 w-5 text-blue-600" />
+        </div>
+        <div>
+          <h4 className="font-semibold text-foreground">Ready for Delivery</h4>
+          <p className="text-sm text-muted-foreground">
+            Loading complete with {actualCuft} CUFT. Start delivery when you arrive.
+          </p>
+        </div>
+      </div>
+
+      {/* Delivery destination */}
+      <div className="bg-white/80 p-3 rounded-lg border border-blue-100">
+        <div className="flex items-start gap-3">
+          <MapPin className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+          <div>
+            <p className="font-medium text-foreground">Delivery Address</p>
+            <p className="text-sm text-muted-foreground">
+              {deliveryCity}{deliveryState ? `, ${deliveryState}` : ""}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Balance due reminder */}
+      {balanceDue > 0 && (
+        <div className="bg-white/80 p-3 rounded-lg border border-blue-100">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-green-600" />
+              <span className="text-sm text-muted-foreground">Balance Due on Delivery</span>
+            </div>
+            <span className="text-lg font-bold text-green-600">
+              {formatCurrency(balanceDue)}
+            </span>
+          </div>
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={pending}
+        className="w-full rounded-md bg-blue-600 py-3 text-sm font-semibold text-white disabled:opacity-60"
+      >
+        {pending ? "Starting..." : "Start Delivery"}
+      </button>
+      {state?.error && (
+        <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{state.error}</div>
+      )}
+      {state?.success && (
+        <div className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{state.success}</div>
+      )}
+    </form>
+  );
+}
+
+// ============================================================================
+// COMPLETE DELIVERY CARD (status: in_transit)
+// ============================================================================
+interface CompleteDeliveryCardProps {
+  loadId: string;
+  action: ServerAction;
+  defaults?: Record<string, any>;
+}
+
+export function CompleteDeliveryCard({ loadId, action, defaults }: CompleteDeliveryCardProps) {
+  const [state, formAction, pending] = useActionState(action, null);
+  const [deliveryPhoto, setDeliveryPhoto] = useState(defaults?.delivery_location_photo || "");
+  const [signedBolPhotos, setSignedBolPhotos] = useState<string[]>(defaults?.signed_bol_photos || []);
+  const [signedInventoryPhotos, setSignedInventoryPhotos] = useState<string[]>(defaults?.signed_inventory_photos || []);
+
+  const balanceDue = Number(defaults?.balance_due_on_delivery) || 0;
+
+  return (
+    <form action={formAction} className="rounded-lg border-2 border-emerald-200 bg-emerald-50/50 p-4 shadow-sm space-y-5">
+      <input type="hidden" name="load_id" value={loadId} />
+      <div className="flex items-center gap-3">
+        <div className="rounded-full bg-emerald-100 p-2">
+          <FileText className="h-5 w-5 text-emerald-600" />
+        </div>
+        <div>
+          <h4 className="font-semibold text-foreground">Complete Delivery</h4>
+          <p className="text-sm text-muted-foreground">
+            Upload signed documents and collect payment.
+          </p>
+        </div>
+      </div>
+
+      {/* SECTION 1: Delivery Photo */}
+      <div className="space-y-3 p-3 bg-white/80 rounded-lg border border-emerald-100">
+        <PhotoField
+          name="delivery_location_photo"
+          label="Delivery Location Photo"
+          description="Photo showing delivery at customer location"
+          defaultValue={deliveryPhoto}
+          onUploaded={setDeliveryPhoto}
+        />
+      </div>
+
+      {/* SECTION 2: Signed Documents */}
+      <div className="space-y-4 p-3 bg-white/80 rounded-lg border border-emerald-100">
+        <div>
+          <h5 className="font-medium text-foreground flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Signed Documents
+          </h5>
+          <p className="text-xs text-muted-foreground mt-1">
+            Required for billing - owner needs these immediately
+          </p>
+        </div>
+
+        <MultiPhotoField
+          name="signed_bol_photos"
+          label="Signed Bill of Lading"
+          description="All pages of the signed BOL"
+          defaultValue={signedBolPhotos}
+          onChange={setSignedBolPhotos}
+          maxPhotos={10}
+        />
+
+        <MultiPhotoField
+          name="signed_inventory_photos"
+          label="Signed Inventory Pages"
+          description="All signed inventory/packing list pages"
+          defaultValue={signedInventoryPhotos}
+          onChange={setSignedInventoryPhotos}
+          maxPhotos={20}
+        />
+      </div>
+
+      {/* SECTION 3: Payment Collection */}
+      <div className="space-y-4 p-3 bg-white/80 rounded-lg border border-emerald-100">
+        <div>
+          <h5 className="font-medium text-foreground flex items-center gap-2">
+            <DollarSign className="h-4 w-4" />
+            Payment Collection
+          </h5>
+          <p className="text-xs text-muted-foreground mt-1">
+            Balance due: {formatCurrency(balanceDue)}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Amount Collected</label>
+            <input
+              type="number"
+              name="collected_amount"
+              defaultValue={balanceDue || ""}
+              min={0}
+              step="0.01"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              placeholder="0.00"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Payment Method</label>
+            <select
+              name="collection_method"
+              defaultValue="cash"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="cash">Cash</option>
+              <option value="check">Check</option>
+              <option value="money_order">Money Order</option>
+              <option value="card">Card</option>
+              <option value="none">No Collection (Bill Company)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 4: Notes */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-foreground">Delivery Notes (optional)</label>
+        <textarea
+          name="delivery_notes"
+          rows={2}
+          defaultValue={defaults?.delivery_notes || ""}
+          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          placeholder="Any notes about the delivery, damages, issues, etc."
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={pending}
+        className="w-full rounded-md bg-emerald-600 py-3 text-sm font-semibold text-white disabled:opacity-60"
+      >
+        {pending ? "Completing..." : "Complete Delivery"}
+      </button>
+      {state?.error && (
+        <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{state.error}</div>
+      )}
+      {state?.success && (
+        <div className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{state.success}</div>
+      )}
+    </form>
+  );
+}
+
+// ============================================================================
+// DELIVERY COMPLETE CARD (status: delivered) - Read-only summary
+// ============================================================================
+interface DeliveryCompleteCardProps {
+  defaults?: Record<string, any>;
+}
+
+export function DeliveryCompleteCard({ defaults }: DeliveryCompleteCardProps) {
+  const deliveredAt = defaults?.delivery_finished_at
+    ? new Date(defaults.delivery_finished_at).toLocaleString()
+    : "—";
+  const collected = Number(defaults?.collected_amount) || 0;
+  const method = defaults?.collection_method || "—";
+  const signedDocsCount =
+    (defaults?.signed_bol_photos?.length || 0) +
+    (defaults?.signed_inventory_photos?.length || 0);
+
+  return (
+    <div className="rounded-lg border-2 border-green-300 bg-green-50/50 p-4 shadow-sm space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="rounded-full bg-green-200 p-2">
+          <CheckCircle className="h-5 w-5 text-green-700" />
+        </div>
+        <div>
+          <h4 className="font-semibold text-green-800">Delivery Complete</h4>
+          <p className="text-sm text-green-700">
+            This load has been successfully delivered.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <p className="text-muted-foreground">Delivered</p>
+          <p className="font-medium text-foreground">{deliveredAt}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Collected</p>
+          <p className="font-medium text-green-600">{formatCurrency(collected)}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Method</p>
+          <p className="font-medium capitalize text-foreground">{method.replace("_", " ")}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Documents</p>
+          <p className="font-medium text-foreground">{signedDocsCount} photos</p>
+        </div>
+      </div>
+
+      {defaults?.delivery_notes && (
+        <div className="bg-white/80 p-3 rounded-lg border border-green-200">
+          <p className="text-xs text-muted-foreground mb-1">Notes</p>
+          <p className="text-sm text-foreground">{defaults.delivery_notes}</p>
+        </div>
+      )}
+    </div>
   );
 }

@@ -8,8 +8,9 @@ import {
   driverStartLoading,
   driverFinishLoading,
   driverCompleteLoadDetails,
-  driverMarkLoadDelivered,
   driverSetStorageDrop,
+  driverStartDelivery,
+  driverCompleteDelivery,
   getDriverLoadDetail,
   requireCurrentDriver,
 } from "@/data/driver-workflow";
@@ -20,8 +21,10 @@ import {
   StartLoadingCard,
   FinishLoadingCard,
   CompleteLoadDetailsCard,
-  DeliverLoadCard,
   StorageDropCard,
+  ReadyForDeliveryCard,
+  CompleteDeliveryCard,
+  DeliveryCompleteCard,
 } from "@/components/driver/driver-load-workflow-cards";
 import type { DriverFormState } from "@/components/driver/driver-trip-forms";
 
@@ -156,34 +159,6 @@ export default async function DriverLoadPage({ params }: DriverLoadPageProps) {
     }
   };
 
-  const deliveryAction = async (prev: DriverFormState | null, formData: FormData) => {
-    "use server";
-    try {
-      const currentDriver = await requireCurrentDriver();
-      if (!currentDriver?.owner_id) return { error: "Not authorized" };
-      const loadId = formData.get("load_id");
-      if (typeof loadId !== "string") return { error: "Missing load" };
-      await driverMarkLoadDelivered(loadId, currentDriver.owner_id, {
-        amount_collected_on_delivery: Number(formData.get("amount_collected_on_delivery")) || 0,
-        amount_paid_directly_to_company: Number(formData.get("amount_paid_directly_to_company")) || 0,
-        payment_method: (formData.get("payment_method") as any) || undefined,
-        payment_method_notes: (formData.get("payment_method_notes") as string) || undefined,
-        extra_shuttle: Number(formData.get("extra_shuttle")) || 0,
-        extra_stairs: Number(formData.get("extra_stairs")) || 0,
-        extra_long_carry: Number(formData.get("extra_long_carry")) || 0,
-        extra_packing: Number(formData.get("extra_packing")) || 0,
-        extra_bulky: Number(formData.get("extra_bulky")) || 0,
-        extra_other: Number(formData.get("extra_other")) || 0,
-        delivery_report_photo_url: (formData.get("delivery_report_photo_url") as string) || undefined,
-      });
-      revalidatePath(`/driver/trips/${id}/loads/${loadId}`);
-      revalidatePath(`/driver/trips/${id}`);
-      return { success: "Load marked as delivered" };
-    } catch (error) {
-      return { error: error instanceof Error ? error.message : "Failed to save delivery" };
-    }
-  };
-
   const storageAction = async (prev: DriverFormState | null, formData: FormData) => {
     "use server";
     try {
@@ -207,6 +182,50 @@ export default async function DriverLoadPage({ params }: DriverLoadPageProps) {
       return { success: "Storage details saved" };
     } catch (error) {
       return { error: error instanceof Error ? error.message : "Failed to save storage info" };
+    }
+  };
+
+  const startDeliveryAction = async (prev: DriverFormState | null, formData: FormData) => {
+    "use server";
+    try {
+      const currentDriver = await requireCurrentDriver();
+      if (!currentDriver?.owner_id) return { error: "Not authorized" };
+      const loadId = formData.get("load_id");
+      if (typeof loadId !== "string") return { error: "Missing load" };
+      await driverStartDelivery(loadId, currentDriver.owner_id);
+      revalidatePath(`/driver/trips/${id}/loads/${loadId}`);
+      revalidatePath(`/driver/trips/${id}`);
+      return { success: "Delivery started" };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : "Failed to start delivery" };
+    }
+  };
+
+  const completeDeliveryAction = async (prev: DriverFormState | null, formData: FormData) => {
+    "use server";
+    try {
+      const currentDriver = await requireCurrentDriver();
+      if (!currentDriver?.owner_id) return { error: "Not authorized" };
+      const loadId = formData.get("load_id");
+      if (typeof loadId !== "string") return { error: "Missing load" };
+
+      // Parse multi-photo fields from JSON
+      const signedBolPhotos = JSON.parse((formData.get("signed_bol_photos") as string) || "[]");
+      const signedInventoryPhotos = JSON.parse((formData.get("signed_inventory_photos") as string) || "[]");
+
+      await driverCompleteDelivery(loadId, currentDriver.owner_id, {
+        delivery_location_photo: (formData.get("delivery_location_photo") as string) || undefined,
+        signed_bol_photos: signedBolPhotos,
+        signed_inventory_photos: signedInventoryPhotos,
+        collected_amount: Number(formData.get("collected_amount")) || 0,
+        collection_method: (formData.get("collection_method") as string) || undefined,
+        delivery_notes: (formData.get("delivery_notes") as string) || undefined,
+      });
+      revalidatePath(`/driver/trips/${id}/loads/${loadId}`);
+      revalidatePath(`/driver/trips/${id}`);
+      return { success: "Delivery completed" };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : "Failed to complete delivery" };
     }
   };
 
@@ -345,7 +364,7 @@ export default async function DriverLoadPage({ params }: DriverLoadPageProps) {
         />
       )}
 
-      {/* Status: loaded - Complete Load Details + Delivery */}
+      {/* Status: loaded - Complete Load Details + Start Delivery */}
       {loadStatus === "loaded" && (
         <>
           <CompleteLoadDetailsCard
@@ -353,17 +372,30 @@ export default async function DriverLoadPage({ params }: DriverLoadPageProps) {
             action={completeDetailsAction}
             defaults={load}
           />
-          <DeliverLoadCard
+          <ReadyForDeliveryCard
             loadId={loadId}
-            action={deliveryAction}
+            action={startDeliveryAction}
             defaults={load}
-            company={company}
           />
         </>
       )}
 
+      {/* Status: in_transit - Complete Delivery with signed docs */}
+      {loadStatus === "in_transit" && (
+        <CompleteDeliveryCard
+          loadId={loadId}
+          action={completeDeliveryAction}
+          defaults={load}
+        />
+      )}
+
+      {/* Status: delivered - Read-only summary */}
+      {loadStatus === "delivered" && (
+        <DeliveryCompleteCard defaults={load} />
+      )}
+
       {/* STORAGE DROP SECTION - always visible but conditionally expands */}
-      {loadStatus !== "delivered" && loadStatus !== "storage_completed" && (
+      {loadStatus !== "delivered" && loadStatus !== "storage_completed" && loadStatus !== "in_transit" && (
         <StorageDropCard
           loadId={loadId}
           action={storageAction}

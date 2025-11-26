@@ -329,6 +329,23 @@ export interface Load {
   storage_days_billed?: number | null;
   storage_notes?: string | null;
   company_approved_exception_delivery?: boolean | null;
+  // Loading document photos
+  loading_report_photo?: string | null;
+  contract_documents?: string[] | null;
+  // Delivery workflow
+  delivery_started_at?: string | null;
+  delivery_finished_at?: string | null;
+  delivery_location_photo?: string | null;
+  // Signed documents at delivery (critical for billing/compliance)
+  signed_bol_photos?: string[] | null;
+  signed_inventory_photos?: string[] | null;
+  // Collection
+  collected_amount?: number | null;
+  collection_method?: 'cash' | 'check' | 'money_order' | 'card' | 'none' | null;
+  delivery_notes?: string | null;
+  // Customer signature
+  customer_signature?: string | null;
+  customer_name_printed?: string | null;
 }
 
 // Filter interface
