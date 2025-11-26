@@ -5,6 +5,7 @@ import { getCompaniesForUser } from '@/data/companies';
 import { getDriversForUser } from '@/data/drivers';
 import { getTrucksForUser, getTrailersForUser } from '@/data/fleet';
 import { getTripsForLoadAssignment, addLoadToTrip } from '@/data/trips';
+import { getStorageLocations, createStorageLocation, type StorageLocation } from '@/data/storage-locations';
 import { LoadCreateForm } from '@/components/loads/LoadCreateForm';
 import { CreationPageShell } from '@/components/layout/CreationPageShell';
 import { cleanFormValues, extractFormValues } from '@/lib/form-data';
@@ -14,12 +15,13 @@ export default async function NewLoadPage() {
   if (!user) redirect('/login');
 
   // Fetch related entities for dropdowns
-  const [companies, drivers, trucks, trailers, trips] = await Promise.all([
+  const [companies, drivers, trucks, trailers, trips, storageLocations] = await Promise.all([
     getCompaniesForUser(user.id),
     getDriversForUser(user.id),
     getTrucksForUser(user.id),
     getTrailersForUser(user.id),
     getTripsForLoadAssignment(user.id),
+    getStorageLocations(user.id),
   ]);
 
   async function createLoadAction(
@@ -67,6 +69,8 @@ export default async function NewLoadPage() {
       'materials_rate',
       'accessorials_rate',
       'notes',
+      'storage_location_id',
+      'storage_unit',
     ];
 
     const rawData = extractFormValues(formData, fields);
@@ -119,6 +123,16 @@ export default async function NewLoadPage() {
     }
   }
 
+  async function createStorageLocationAction(
+    data: Partial<StorageLocation>
+  ): Promise<{ success: boolean; id?: string; error?: string }> {
+    'use server';
+    const user = await getCurrentUser();
+    if (!user) return { success: false, error: 'Not authenticated' };
+
+    return createStorageLocation(user.id, data);
+  }
+
   return (
     <CreationPageShell
       title="Add Load"
@@ -141,6 +155,8 @@ export default async function NewLoadPage() {
         trucks={trucks}
         trailers={trailers}
         trips={trips}
+        storageLocations={storageLocations}
+        onCreateStorageLocation={createStorageLocationAction}
         onSubmit={createLoadAction}
       />
     </CreationPageShell>

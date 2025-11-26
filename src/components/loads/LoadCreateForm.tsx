@@ -3,11 +3,13 @@
 import { useActionState, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Plus, Warehouse, X } from 'lucide-react'
 
 import type { Company } from '@/data/companies'
 import type { Driver } from '@/data/drivers'
 import type { Truck, Trailer } from '@/data/fleet'
 import type { Trip } from '@/data/trips'
+import type { StorageLocation } from '@/data/storage-locations'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -20,6 +22,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 
@@ -106,13 +115,24 @@ interface LoadCreateFormProps {
   trucks: Truck[]
   trailers: Trailer[]
   trips?: Trip[]
+  storageLocations?: StorageLocation[]
+  onCreateStorageLocation?: (data: Partial<StorageLocation>) => Promise<{ success: boolean; id?: string; error?: string }>
   onSubmit: (
     prevState: { errors?: Record<string, string>; success?: boolean; loadId?: string; tripId?: string } | null,
     formData: FormData
   ) => Promise<{ errors?: Record<string, string>; success?: boolean; loadId?: string; tripId?: string } | null>
 }
 
-export function LoadCreateForm({ companies, drivers, trucks, trailers, trips = [], onSubmit }: LoadCreateFormProps) {
+export function LoadCreateForm({
+  companies,
+  drivers,
+  trucks,
+  trailers,
+  trips = [],
+  storageLocations = [],
+  onCreateStorageLocation,
+  onSubmit
+}: LoadCreateFormProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [state, formAction, pending] = useActionState(onSubmit, null)
@@ -124,6 +144,24 @@ export function LoadCreateForm({ companies, drivers, trucks, trailers, trips = [
   const [pricing, setPricing] = useState({ cubicFeet: '', rate: '' })
   const [selectedTripId, setSelectedTripId] = useState('')
   const [loadOrder, setLoadOrder] = useState('1')
+
+  // Storage location state
+  const [storageLocationId, setStorageLocationId] = useState('')
+  const [storageUnit, setStorageUnit] = useState('')
+  const [showAddLocationModal, setShowAddLocationModal] = useState(false)
+  const [newLocationSaving, setNewLocationSaving] = useState(false)
+  const [localStorageLocations, setLocalStorageLocations] = useState<StorageLocation[]>(storageLocations)
+  const [newLocation, setNewLocation] = useState({
+    name: '',
+    location_type: 'warehouse',
+    address_line1: '',
+    city: '',
+    state: '',
+    zip: '',
+    contact_name: '',
+    contact_phone: '',
+    gate_code: '',
+  })
 
   const selectedCompany = useMemo(() => companies.find((company) => company.id === companyId), [companies, companyId])
 
@@ -169,6 +207,96 @@ export function LoadCreateForm({ companies, drivers, trucks, trailers, trips = [
     if (!dropoff.postalCode) return
     const { city, state } = await lookupZip(dropoff.postalCode)
     setDropoff((prev) => ({ ...prev, city: city || prev.city, state: state || prev.state }))
+  }
+
+  const handleNewLocationZip = async () => {
+    if (!newLocation.zip) return
+    const { city, state } = await lookupZip(newLocation.zip)
+    setNewLocation((prev) => ({ ...prev, city: city || prev.city, state: state || prev.state }))
+  }
+
+  const handleCreateStorageLocation = async () => {
+    if (!onCreateStorageLocation) return
+    if (!newLocation.name || !newLocation.city || !newLocation.state || !newLocation.zip) {
+      toast({
+        title: 'Missing fields',
+        description: 'Please fill in all required fields for the storage location.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setNewLocationSaving(true)
+    try {
+      const result = await onCreateStorageLocation(newLocation)
+      if (result.success && result.id) {
+        // Add the new location to the local list
+        const createdLocation: StorageLocation = {
+          id: result.id,
+          company_id: null,
+          owner_id: '',
+          name: newLocation.name,
+          code: null,
+          location_type: newLocation.location_type,
+          address_line1: newLocation.address_line1,
+          address_line2: null,
+          city: newLocation.city,
+          state: newLocation.state,
+          zip: newLocation.zip,
+          country: 'USA',
+          latitude: null,
+          longitude: null,
+          contact_name: newLocation.contact_name || null,
+          contact_phone: newLocation.contact_phone || null,
+          contact_email: null,
+          access_hours: null,
+          access_instructions: null,
+          special_notes: null,
+          gate_code: newLocation.gate_code || null,
+          total_capacity_cuft: null,
+          current_usage_cuft: null,
+          monthly_rent: null,
+          rent_due_day: null,
+          lease_start_date: null,
+          lease_end_date: null,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }
+        setLocalStorageLocations((prev) => [...prev, createdLocation])
+        setStorageLocationId(result.id)
+        setShowAddLocationModal(false)
+        setNewLocation({
+          name: '',
+          location_type: 'warehouse',
+          address_line1: '',
+          city: '',
+          state: '',
+          zip: '',
+          contact_name: '',
+          contact_phone: '',
+          gate_code: '',
+        })
+        toast({
+          title: 'Location created',
+          description: `${newLocation.name} has been added and selected.`,
+        })
+      } else {
+        toast({
+          title: 'Error',
+          description: result.error || 'Failed to create storage location.',
+          variant: 'destructive',
+        })
+      }
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred.',
+        variant: 'destructive',
+      })
+    } finally {
+      setNewLocationSaving(false)
+    }
   }
 
   useEffect(() => {
@@ -587,6 +715,83 @@ export function LoadCreateForm({ companies, drivers, trucks, trailers, trips = [
         </CardContent>
       </Card>
 
+      {/* STORAGE LOCATION */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <Warehouse className="h-4 w-4" />
+            Storage Location (Optional)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Location</Label>
+              <div className="flex gap-2">
+                <Select
+                  value={storageLocationId || undefined}
+                  onValueChange={(value) => setStorageLocationId(value === 'none' ? '' : value)}
+                >
+                  <SelectTrigger className="h-9 flex-1">
+                    <SelectValue placeholder="Select storage location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No storage location</SelectItem>
+                    {localStorageLocations.map((loc) => (
+                      <SelectItem key={loc.id} value={loc.id}>
+                        {loc.name} - {loc.city}, {loc.state}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {onCreateStorageLocation && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 flex-shrink-0"
+                    onClick={() => setShowAddLocationModal(true)}
+                    title="Add new storage location"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              <input type="hidden" name="storage_location_id" value={storageLocationId} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Storage Unit / Bay</Label>
+              <Input
+                name="storage_unit"
+                value={storageUnit}
+                onChange={(e) => setStorageUnit(e.target.value)}
+                placeholder="e.g., Unit 205, Bay 12"
+              />
+              <p className="text-xs text-muted-foreground">
+                Specific unit or bay number at this location
+              </p>
+            </div>
+          </div>
+          {storageLocationId && localStorageLocations.find((loc) => loc.id === storageLocationId) && (
+            <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm">
+              {(() => {
+                const loc = localStorageLocations.find((l) => l.id === storageLocationId)!
+                return (
+                  <div className="space-y-1">
+                    <p className="font-medium">{loc.name}</p>
+                    {loc.address_line1 && <p className="text-muted-foreground">{loc.address_line1}</p>}
+                    <p className="text-muted-foreground">{loc.city}, {loc.state} {loc.zip}</p>
+                    {loc.gate_code && (
+                      <p className="text-xs">Gate code: <span className="font-mono">{loc.gate_code}</span></p>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* OPTIONAL TRIP ASSIGNMENT */}
       {trips.length > 0 && (
         <Card>
@@ -662,6 +867,130 @@ export function LoadCreateForm({ companies, drivers, trucks, trailers, trips = [
           {pending ? 'Saving...' : 'Create Load'}
         </Button>
       </div>
+
+      {/* Add Storage Location Modal */}
+      <Dialog open={showAddLocationModal} onOpenChange={setShowAddLocationModal}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Warehouse className="h-5 w-5" />
+              Add Storage Location
+            </DialogTitle>
+            <DialogDescription>
+              Quickly add a new storage location for this load.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-1.5">
+              <Label>Location Name *</Label>
+              <Input
+                value={newLocation.name}
+                onChange={(e) => setNewLocation((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="ABC Warehouse Chicago"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Location Type</Label>
+              <Select
+                value={newLocation.location_type}
+                onValueChange={(value) => setNewLocation((prev) => ({ ...prev, location_type: value }))}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="warehouse">Warehouse</SelectItem>
+                  <SelectItem value="public_storage">Public Storage</SelectItem>
+                  <SelectItem value="partner_facility">Partner Facility</SelectItem>
+                  <SelectItem value="container_yard">Container Yard</SelectItem>
+                  <SelectItem value="vault_storage">Vault Storage</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Street Address</Label>
+              <Input
+                value={newLocation.address_line1}
+                onChange={(e) => setNewLocation((prev) => ({ ...prev, address_line1: e.target.value }))}
+                placeholder="1234 Industrial Blvd"
+              />
+            </div>
+            <div className="grid grid-cols-6 gap-3">
+              <div className="col-span-2 space-y-1.5">
+                <Label>ZIP *</Label>
+                <Input
+                  value={newLocation.zip}
+                  onChange={(e) => setNewLocation((prev) => ({ ...prev, zip: e.target.value }))}
+                  onBlur={handleNewLocationZip}
+                  placeholder="60601"
+                />
+              </div>
+              <div className="col-span-3 space-y-1.5">
+                <Label>City *</Label>
+                <Input
+                  value={newLocation.city}
+                  onChange={(e) => setNewLocation((prev) => ({ ...prev, city: e.target.value }))}
+                  placeholder="Chicago"
+                />
+              </div>
+              <div className="col-span-1 space-y-1.5">
+                <Label>State *</Label>
+                <Input
+                  value={newLocation.state}
+                  onChange={(e) => setNewLocation((prev) => ({ ...prev, state: e.target.value }))}
+                  placeholder="IL"
+                  maxLength={2}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Contact Name</Label>
+                <Input
+                  value={newLocation.contact_name}
+                  onChange={(e) => setNewLocation((prev) => ({ ...prev, contact_name: e.target.value }))}
+                  placeholder="Mike"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Contact Phone</Label>
+                <Input
+                  value={newLocation.contact_phone}
+                  onChange={(e) => setNewLocation((prev) => ({ ...prev, contact_phone: e.target.value }))}
+                  placeholder="312-555-1234"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Gate Code</Label>
+              <Input
+                value={newLocation.gate_code}
+                onChange={(e) => setNewLocation((prev) => ({ ...prev, gate_code: e.target.value }))}
+                placeholder="1234#"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowAddLocationModal(false)}
+              disabled={newLocationSaving}
+            >
+              <X className="h-4 w-4 mr-2" />
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleCreateStorageLocation}
+              disabled={newLocationSaving}
+            >
+              {newLocationSaving ? 'Saving...' : 'Add Location'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </form>
   )
 }
