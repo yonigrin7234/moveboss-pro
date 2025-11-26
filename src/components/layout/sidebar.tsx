@@ -26,6 +26,7 @@ import {
   ShieldCheck,
   Plug,
   ChevronRight,
+  Radio,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -45,6 +46,7 @@ type SidebarProps = {
 
 const navItems: NavItem[] = [
   { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Activity", href: "/dashboard/activity", icon: Radio },
   {
     label: "Operations",
     href: "/dashboard/operations",

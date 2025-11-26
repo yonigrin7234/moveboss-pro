@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase-admin';
 import { updateTrip } from '@/data/trips';
 import { addLoadToTrip } from '@/data/trips';
 import type { AddTripLoadInput, TripExpense, TripLoad, TripWithDetails } from '@/data/trips';
+import { logActivity } from '@/data/activity-log';
 
 const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
@@ -309,15 +310,20 @@ export async function getDriverLoadDetail(
 }
 
 // Driver-side trip start (planned -> active)
-export async function driverStartTrip(tripId: string, userId: string, payload: {
-  odometer_start: number;
-  odometer_start_photo_url: string;
-  driver_id?: string;
-  truck_id?: string;
-  trailer_id?: string;
-}) {
+export async function driverStartTrip(
+  tripId: string,
+  userId: string,
+  payload: {
+    odometer_start: number;
+    odometer_start_photo_url: string;
+    driver_id?: string;
+    truck_id?: string;
+    trailer_id?: string;
+  },
+  context?: { driver?: { id: string; first_name?: string; last_name?: string }; tripNumber?: string; originCity?: string; destinationCity?: string }
+) {
   const supabase = await getDbClient();
-  return updateTrip(
+  const result = await updateTrip(
     tripId,
     {
       status: 'active',
@@ -330,6 +336,23 @@ export async function driverStartTrip(tripId: string, userId: string, payload: {
     userId,
     supabase,
   );
+
+  // Log activity
+  const driverName = context?.driver ? `${context.driver.first_name || ''} ${context.driver.last_name || ''}`.trim() : 'Driver';
+  const route = [context?.originCity, context?.destinationCity].filter(Boolean).join(' → ') || 'Route TBD';
+  await logActivity({
+    ownerId: userId,
+    driverId: context?.driver?.id || payload.driver_id,
+    driverName,
+    activityType: 'trip_started',
+    tripId,
+    tripNumber: context?.tripNumber,
+    title: `${driverName} started Trip ${context?.tripNumber || tripId.slice(0, 8)}`,
+    description: `Odometer: ${payload.odometer_start.toLocaleString()} • ${route}`,
+    metadata: { odometerStart: payload.odometer_start, originCity: context?.originCity, destinationCity: context?.destinationCity },
+  });
+
+  return result;
 }
 
 // Driver attaches a load to trip (future use)
@@ -481,13 +504,17 @@ export async function driverSetStorageDrop(loadId: string, userId: string, paylo
 }
 
 // Driver accepts a load (pending/null -> accepted)
-export async function driverAcceptLoad(loadId: string, userId: string) {
+export async function driverAcceptLoad(
+  loadId: string,
+  userId: string,
+  context?: { driver?: { id: string; first_name?: string; last_name?: string }; tripId?: string; tripNumber?: string }
+) {
   const supabase = await getDbClient();
 
   // First check if load exists and is in correct status (pending or null)
   const { data: load, error: fetchError } = await supabase
     .from('loads')
-    .select('id, load_status')
+    .select('id, load_status, load_number, estimated_cuft, company:companies(id, name)')
     .eq('id', loadId)
     .eq('owner_id', userId)
     .single();
@@ -497,8 +524,8 @@ export async function driverAcceptLoad(loadId: string, userId: string) {
   }
 
   // Only allow accepting loads that are pending or have no status (null)
-  if (load.load_status && load.load_status !== 'pending') {
-    throw new Error(`Cannot accept load - current status is "${load.load_status}"`);
+  if ((load as any).load_status && (load as any).load_status !== 'pending') {
+    throw new Error(`Cannot accept load - current status is "${(load as any).load_status}"`);
   }
 
   const { error } = await supabase
@@ -513,19 +540,41 @@ export async function driverAcceptLoad(loadId: string, userId: string) {
   if (error) {
     throw new Error(`Failed to accept load: ${error.message}`);
   }
+
+  // Log activity
+  const company = Array.isArray((load as any).company) ? (load as any).company[0] : (load as any).company;
+  const driverName = context?.driver ? `${context.driver.first_name || ''} ${context.driver.last_name || ''}`.trim() : 'Driver';
+  await logActivity({
+    ownerId: userId,
+    driverId: context?.driver?.id,
+    driverName,
+    activityType: 'load_accepted',
+    tripId: context?.tripId,
+    tripNumber: context?.tripNumber,
+    loadId,
+    loadNumber: (load as any).load_number,
+    title: `${driverName} accepted load ${(load as any).load_number || loadId.slice(0, 8)}`,
+    description: `${(load as any).estimated_cuft || 0} CUFT estimated • ${company?.name || 'Unknown company'}`,
+    metadata: { estimatedCuft: (load as any).estimated_cuft, companyName: company?.name },
+  });
 }
 
 // Driver starts loading (accepted -> loading)
-export async function driverStartLoading(loadId: string, userId: string, payload: {
-  starting_cuft: number;
-  loading_start_photo: string;
-}) {
+export async function driverStartLoading(
+  loadId: string,
+  userId: string,
+  payload: {
+    starting_cuft: number;
+    loading_start_photo: string;
+  },
+  context?: { driver?: { id: string; first_name?: string; last_name?: string }; tripId?: string; tripNumber?: string }
+) {
   const supabase = await getDbClient();
 
   // First verify load is in accepted status
   const { data: load, error: fetchError } = await supabase
     .from('loads')
-    .select('id, load_status')
+    .select('id, load_status, load_number, company:companies(id, name)')
     .eq('id', loadId)
     .eq('owner_id', userId)
     .single();
@@ -534,8 +583,8 @@ export async function driverStartLoading(loadId: string, userId: string, payload
     throw new Error('Load not found or access denied');
   }
 
-  if (load.load_status !== 'accepted') {
-    throw new Error(`Cannot start loading - load must be accepted first (current status: "${load.load_status || 'pending'}")`);
+  if ((load as any).load_status !== 'accepted') {
+    throw new Error(`Cannot start loading - load must be accepted first (current status: "${(load as any).load_status || 'pending'}")`);
   }
 
   // Try full update with all workflow columns
@@ -566,20 +615,42 @@ export async function driverStartLoading(loadId: string, userId: string, payload
       throw new Error(`Failed to start loading: ${error.message}`);
     }
   }
+
+  // Log activity
+  const company = Array.isArray((load as any).company) ? (load as any).company[0] : (load as any).company;
+  const driverName = context?.driver ? `${context.driver.first_name || ''} ${context.driver.last_name || ''}`.trim() : 'Driver';
+  await logActivity({
+    ownerId: userId,
+    driverId: context?.driver?.id,
+    driverName,
+    activityType: 'loading_started',
+    tripId: context?.tripId,
+    tripNumber: context?.tripNumber,
+    loadId,
+    loadNumber: (load as any).load_number,
+    title: `${driverName} started loading ${(load as any).load_number || loadId.slice(0, 8)}`,
+    description: `Starting at ${payload.starting_cuft} CUFT • ${company?.name || 'Unknown company'}`,
+    metadata: { startingCuft: payload.starting_cuft, companyName: company?.name },
+  });
 }
 
 // Driver finishes loading (loading -> loaded)
-export async function driverFinishLoading(loadId: string, userId: string, payload: {
-  ending_cuft: number;
-  loading_end_photo: string;
-  actual_cuft_loaded?: number;
-}) {
+export async function driverFinishLoading(
+  loadId: string,
+  userId: string,
+  payload: {
+    ending_cuft: number;
+    loading_end_photo: string;
+    actual_cuft_loaded?: number;
+  },
+  context?: { driver?: { id: string; first_name?: string; last_name?: string }; tripId?: string; tripNumber?: string }
+) {
   const supabase = await getDbClient();
 
   // First get the load to verify status and get starting CUFT
   const { data: load, error: fetchError } = await supabase
     .from('loads')
-    .select('id, load_status, starting_cuft')
+    .select('id, load_status, load_number, starting_cuft, company:companies(id, name)')
     .eq('id', loadId)
     .eq('owner_id', userId)
     .single();
@@ -588,8 +659,8 @@ export async function driverFinishLoading(loadId: string, userId: string, payloa
     throw new Error('Load not found or access denied');
   }
 
-  if (load.load_status !== 'loading') {
-    throw new Error(`Cannot finish loading - load must be in loading status (current status: "${load.load_status || 'pending'}")`);
+  if ((load as any).load_status !== 'loading') {
+    throw new Error(`Cannot finish loading - load must be in loading status (current status: "${(load as any).load_status || 'pending'}")`);
   }
 
   const startingCuft = Number((load as any).starting_cuft) || 0;
@@ -628,6 +699,23 @@ export async function driverFinishLoading(loadId: string, userId: string, payloa
       throw new Error(`Failed to finish loading: ${error.message}`);
     }
   }
+
+  // Log activity
+  const company = Array.isArray((load as any).company) ? (load as any).company[0] : (load as any).company;
+  const driverName = context?.driver ? `${context.driver.first_name || ''} ${context.driver.last_name || ''}`.trim() : 'Driver';
+  await logActivity({
+    ownerId: userId,
+    driverId: context?.driver?.id,
+    driverName,
+    activityType: 'loading_finished',
+    tripId: context?.tripId,
+    tripNumber: context?.tripNumber,
+    loadId,
+    loadNumber: (load as any).load_number,
+    title: `${driverName} finished loading ${(load as any).load_number || loadId.slice(0, 8)}`,
+    description: `${actualCuftLoaded} CUFT loaded • ${company?.name || 'Unknown company'}`,
+    metadata: { actualCuft: actualCuftLoaded, endingCuft, companyName: company?.name },
+  });
 }
 
 // Driver completes load details (after loading, before delivery)
@@ -704,13 +792,17 @@ export async function driverCompleteLoadDetails(loadId: string, userId: string, 
 }
 
 // Driver starts delivery (loaded -> in_transit)
-export async function driverStartDelivery(loadId: string, userId: string) {
+export async function driverStartDelivery(
+  loadId: string,
+  userId: string,
+  context?: { driver?: { id: string; first_name?: string; last_name?: string }; tripId?: string; tripNumber?: string }
+) {
   const supabase = await getDbClient();
 
   // First verify load is in loaded status
   const { data: load, error: fetchError } = await supabase
     .from('loads')
-    .select('id, load_status')
+    .select('id, load_status, load_number, destination_city, destination_state, company:companies(id, name)')
     .eq('id', loadId)
     .eq('owner_id', userId)
     .single();
@@ -719,8 +811,8 @@ export async function driverStartDelivery(loadId: string, userId: string) {
     throw new Error('Load not found or access denied');
   }
 
-  if (load.load_status !== 'loaded') {
-    throw new Error(`Cannot start delivery - load must be loaded first (current status: "${load.load_status || 'pending'}")`);
+  if ((load as any).load_status !== 'loaded') {
+    throw new Error(`Cannot start delivery - load must be loaded first (current status: "${(load as any).load_status || 'pending'}")`);
   }
 
   // Try full update first
@@ -749,23 +841,46 @@ export async function driverStartDelivery(loadId: string, userId: string) {
       throw new Error(`Failed to start delivery: ${error.message}`);
     }
   }
+
+  // Log activity
+  const company = Array.isArray((load as any).company) ? (load as any).company[0] : (load as any).company;
+  const driverName = context?.driver ? `${context.driver.first_name || ''} ${context.driver.last_name || ''}`.trim() : 'Driver';
+  const destination = [(load as any).destination_city, (load as any).destination_state].filter(Boolean).join(', ') || 'Unknown';
+  await logActivity({
+    ownerId: userId,
+    driverId: context?.driver?.id,
+    driverName,
+    activityType: 'delivery_started',
+    tripId: context?.tripId,
+    tripNumber: context?.tripNumber,
+    loadId,
+    loadNumber: (load as any).load_number,
+    title: `${driverName} started delivery for ${(load as any).load_number || loadId.slice(0, 8)}`,
+    description: `${destination} • ${company?.name || 'Unknown company'}`,
+    metadata: { destinationCity: (load as any).destination_city, destinationState: (load as any).destination_state, companyName: company?.name },
+  });
 }
 
 // Driver completes delivery (in_transit -> delivered)
-export async function driverCompleteDelivery(loadId: string, userId: string, payload: {
-  delivery_location_photo?: string;
-  signed_bol_photos?: string[];
-  signed_inventory_photos?: string[];
-  collected_amount?: number;
-  collection_method?: string;
-  delivery_notes?: string;
-}) {
+export async function driverCompleteDelivery(
+  loadId: string,
+  userId: string,
+  payload: {
+    delivery_location_photo?: string;
+    signed_bol_photos?: string[];
+    signed_inventory_photos?: string[];
+    collected_amount?: number;
+    collection_method?: string;
+    delivery_notes?: string;
+  },
+  context?: { driver?: { id: string; first_name?: string; last_name?: string }; tripId?: string; tripNumber?: string }
+) {
   const supabase = await getDbClient();
 
   // First verify load is in in_transit status
   const { data: load, error: fetchError } = await supabase
     .from('loads')
-    .select('id, load_status')
+    .select('id, load_status, load_number, company:companies(id, name)')
     .eq('id', loadId)
     .eq('owner_id', userId)
     .single();
@@ -774,8 +889,8 @@ export async function driverCompleteDelivery(loadId: string, userId: string, pay
     throw new Error('Load not found or access denied');
   }
 
-  if (load.load_status !== 'in_transit') {
-    throw new Error(`Cannot complete delivery - load must be in transit (current status: "${load.load_status || 'pending'}")`);
+  if ((load as any).load_status !== 'in_transit') {
+    throw new Error(`Cannot complete delivery - load must be in transit (current status: "${(load as any).load_status || 'pending'}")`);
   }
 
   // Try full update with all delivery fields
@@ -810,6 +925,24 @@ export async function driverCompleteDelivery(loadId: string, userId: string, pay
       throw new Error(`Failed to complete delivery: ${error.message}`);
     }
   }
+
+  // Log activity
+  const company = Array.isArray((load as any).company) ? (load as any).company[0] : (load as any).company;
+  const driverName = context?.driver ? `${context.driver.first_name || ''} ${context.driver.last_name || ''}`.trim() : 'Driver';
+  const collectedText = payload.collected_amount ? `$${payload.collected_amount} collected (${payload.collection_method || 'cash'})` : 'No collection';
+  await logActivity({
+    ownerId: userId,
+    driverId: context?.driver?.id,
+    driverName,
+    activityType: 'delivery_completed',
+    tripId: context?.tripId,
+    tripNumber: context?.tripNumber,
+    loadId,
+    loadNumber: (load as any).load_number,
+    title: `${driverName} completed delivery for ${(load as any).load_number || loadId.slice(0, 8)}`,
+    description: `${collectedText} • ${company?.name || 'Unknown company'}`,
+    metadata: { collectedAmount: payload.collected_amount, collectionMethod: payload.collection_method, companyName: company?.name },
+  });
 }
 
 // Update load with contract documents during loading phase
@@ -1249,7 +1382,7 @@ export function calculateTripTotals(
 export async function driverCompleteTrip(
   tripId: string,
   data: { completion_notes?: string },
-  driver: { id: string; owner_id: string }
+  driver: { id: string; owner_id: string; first_name?: string; last_name?: string }
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await getDbClient();
 
@@ -1286,6 +1419,28 @@ export async function driverCompleteTrip(
     console.error('[driverCompleteTrip] Error:', error);
     return { success: false, error: error.message };
   }
+
+  // Log activity
+  const odoStart = Number((trip as any).odometer_start) || 0;
+  const odoEnd = Number((trip as any).odometer_end) || 0;
+  const totalMiles = odoEnd > odoStart ? odoEnd - odoStart : 0;
+  const loadsDelivered = loads.filter(tl => {
+    const status = (tl.load as any)?.load_status;
+    return status === 'delivered' || status === 'storage_completed';
+  }).length;
+
+  const driverName = `${driver.first_name || ''} ${driver.last_name || ''}`.trim() || 'Driver';
+  await logActivity({
+    ownerId: driver.owner_id,
+    driverId: driver.id,
+    driverName,
+    activityType: 'trip_completed',
+    tripId,
+    tripNumber: (trip as any).trip_number,
+    title: `${driverName} completed Trip ${(trip as any).trip_number || tripId.slice(0, 8)}`,
+    description: `${totalMiles.toLocaleString()} miles • ${loadsDelivered} load${loadsDelivered !== 1 ? 's' : ''} delivered`,
+    metadata: { totalMiles, loadsDelivered, odometerStart: odoStart, odometerEnd: odoEnd },
+  });
 
   return { success: true };
 }

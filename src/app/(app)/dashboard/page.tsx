@@ -1,5 +1,15 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import {
+  CheckCircle,
+  Package,
+  Truck,
+  MapPin,
+  Receipt,
+  Flag,
+  CircleDot,
+  Clock,
+} from 'lucide-react';
 
 import {
   getCompaniesForUser,
@@ -7,6 +17,7 @@ import {
   type Company,
 } from '@/data/companies';
 import { getDriversForUser, getDriverStatsForUser, type Driver } from '@/data/drivers';
+import { getRecentActivities, type ActivityType, type ActivityLogEntry } from '@/data/activity-log';
 import { getCurrentUser } from '@/lib/supabase-server';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,6 +35,28 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+
+const activityIcons: Record<ActivityType, { icon: any; color: string }> = {
+  trip_started: { icon: Flag, color: 'text-blue-500' },
+  trip_completed: { icon: CheckCircle, color: 'text-emerald-500' },
+  load_accepted: { icon: CircleDot, color: 'text-green-500' },
+  loading_started: { icon: Package, color: 'text-purple-500' },
+  loading_finished: { icon: Package, color: 'text-purple-600' },
+  delivery_started: { icon: Truck, color: 'text-blue-500' },
+  delivery_completed: { icon: MapPin, color: 'text-green-600' },
+  expense_added: { icon: Receipt, color: 'text-yellow-500' },
+};
+
+function timeAgo(dateString: string) {
+  const now = new Date();
+  const then = new Date(dateString);
+  const seconds = Math.floor((now.getTime() - then.getTime()) / 1000);
+
+  if (seconds < 60) return 'Just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
+}
 
 const recentTrips = [
   {
@@ -74,14 +107,16 @@ export default async function DashboardPage() {
   let totalCompanies = 0;
   let drivers: Driver[] = [];
   let driverStats = { totalDrivers: 0, activeDrivers: 0, suspendedDrivers: 0 };
+  let recentActivities: ActivityLogEntry[] = [];
   let error: string | null = null;
 
   try {
-    [companies, totalCompanies, drivers, driverStats] = await Promise.all([
+    [companies, totalCompanies, drivers, driverStats, recentActivities] = await Promise.all([
       getCompaniesForUser(user.id).then((cs) => cs.slice(0, 5)),
       getCompaniesCountForUser(user.id),
       getDriversForUser(user.id).then((ds) => ds.slice(0, 5)),
       getDriverStatsForUser(user.id),
+      getRecentActivities(user.id, { limit: 5 }),
     ]);
   } catch (err) {
     error = err instanceof Error ? err.message : 'Failed to load companies';
@@ -261,6 +296,59 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Recent Activity Widget */}
+      <Card>
+        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-3">
+          <div>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+              </span>
+              Recent Activity
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Live updates from your drivers
+            </p>
+          </div>
+          <Button asChild size="sm" variant="ghost">
+            <Link href="/dashboard/activity">View all</Link>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {recentActivities.length === 0 ? (
+            <div className="py-6 text-center text-muted-foreground">
+              <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No recent activity</p>
+              <p className="text-xs">Activity will appear here as your drivers work</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentActivities.map((activity) => {
+                const config = activityIcons[activity.activity_type] || activityIcons.load_accepted;
+                const Icon = config.icon;
+                return (
+                  <div key={activity.id} className="flex items-start gap-3">
+                    <div className={`mt-0.5 ${config.color}`}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-foreground truncate">{activity.title}</p>
+                      {activity.description && (
+                        <p className="text-xs text-muted-foreground truncate">{activity.description}</p>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {timeAgo(activity.created_at)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
