@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { ArrowLeft, CheckCircle, DollarSign, Truck, User, MapPin, Package, Receipt, Camera } from 'lucide-react';
+import { ArrowLeft, CheckCircle, DollarSign, Truck, User, MapPin, Package, Receipt, Camera, Building2 } from 'lucide-react';
 
 import { getCurrentUser } from '@/lib/supabase-server';
 import { getTripById } from '@/data/trips';
@@ -84,6 +84,54 @@ export default async function TripSettlementPage({ params }: SettlementPageProps
 
   // Receivables (what company still owes)
   const receivables = totalRevenue - totalCollected;
+
+  // Group loads by company for company-level breakdown
+  interface CompanyBreakdown {
+    companyId: string | null;
+    companyName: string;
+    loads: Array<{ loadNumber: string; revenue: number; collected: number; receivable: number }>;
+    totalRevenue: number;
+    totalCollected: number;
+    totalReceivable: number;
+  }
+
+  const companyBreakdowns = loads.reduce<Record<string, CompanyBreakdown>>((acc, tl) => {
+    const load = (tl.load || {}) as any;
+    const company = Array.isArray(load.company) ? load.company[0] : load.company;
+    const companyId = load.company_id || company?.id || null;
+    const companyName = company?.name || 'Unknown Company';
+    const key = companyId || 'unknown';
+
+    const loadRevenue = Number(load.total_revenue) || 0;
+    const loadCollected = Number(load.amount_collected_on_delivery) || 0;
+    const loadReceivable = loadRevenue - loadCollected;
+
+    if (!acc[key]) {
+      acc[key] = {
+        companyId,
+        companyName,
+        loads: [],
+        totalRevenue: 0,
+        totalCollected: 0,
+        totalReceivable: 0,
+      };
+    }
+
+    acc[key].loads.push({
+      loadNumber: load.load_number || tl.load_id,
+      revenue: loadRevenue,
+      collected: loadCollected,
+      receivable: loadReceivable,
+    });
+    acc[key].totalRevenue += loadRevenue;
+    acc[key].totalCollected += loadCollected;
+    acc[key].totalReceivable += loadReceivable;
+
+    return acc;
+  }, {});
+
+  const companyList = Object.values(companyBreakdowns).sort((a, b) => b.totalRevenue - a.totalRevenue);
+  const hasMultipleCompanies = companyList.length > 1;
 
   // Expense totals
   const expensesByType = expenses.reduce(
@@ -299,6 +347,111 @@ export default async function TripSettlementPage({ params }: SettlementPageProps
           </div>
         </CardContent>
       </Card>
+
+      {/* Company-by-Company Breakdown */}
+      {hasMultipleCompanies && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Revenue by Company ({companyList.length} companies)
+            </CardTitle>
+            <CardDescription>
+              Breakdown of revenue, collections, and receivables per company
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {companyList.map((company, index) => (
+              <div key={company.companyId || index} className="space-y-2">
+                {index > 0 && <Separator className="my-4" />}
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-foreground">{company.companyName}</h4>
+                  <Badge variant="outline">{company.loads.length} load{company.loads.length !== 1 ? 's' : ''}</Badge>
+                </div>
+                <div className="pl-4 space-y-1 text-sm">
+                  {company.loads.map((load, loadIndex) => (
+                    <div key={loadIndex} className="flex justify-between text-muted-foreground">
+                      <span>{load.loadNumber}</span>
+                      <span>{currencyFormatter.format(load.revenue)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 pt-2 border-t border-border/50 space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Revenue</span>
+                    <span className="font-medium">{currencyFormatter.format(company.totalRevenue)}</span>
+                  </div>
+                  {company.totalCollected > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Collected (COD)</span>
+                      <span className="font-medium text-green-600">-{currencyFormatter.format(company.totalCollected)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm font-semibold">
+                    <span>Receivable</span>
+                    <span className={company.totalReceivable > 0 ? 'text-amber-600' : 'text-green-600'}>
+                      {currencyFormatter.format(company.totalReceivable)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Summary row */}
+            <Separator className="my-4" />
+            <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Total Revenue (all companies)</span>
+                <span className="font-medium">{currencyFormatter.format(totalRevenue)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Total Collected</span>
+                <span className="font-medium text-green-600">-{currencyFormatter.format(totalCollected)}</span>
+              </div>
+              <div className="flex justify-between font-semibold">
+                <span>Total Receivables</span>
+                <span className={receivables > 0 ? 'text-amber-600' : 'text-green-600'}>
+                  {currencyFormatter.format(receivables)}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Single Company Detail (when only one company) */}
+      {!hasMultipleCompanies && companyList.length === 1 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Company: {companyList[0].companyName}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="space-y-1 text-sm">
+              {companyList[0].loads.map((load, loadIndex) => (
+                <div key={loadIndex} className="flex justify-between">
+                  <span className="text-muted-foreground">{load.loadNumber}</span>
+                  <div className="text-right">
+                    <span className="font-medium">{currencyFormatter.format(load.revenue)}</span>
+                    {load.collected > 0 && (
+                      <span className="ml-2 text-green-600 text-xs">({currencyFormatter.format(load.collected)} collected)</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Separator />
+            <div className="flex justify-between text-sm font-semibold">
+              <span>Receivable from {companyList[0].companyName}</span>
+              <span className={companyList[0].totalReceivable > 0 ? 'text-amber-600' : 'text-green-600'}>
+                {currencyFormatter.format(companyList[0].totalReceivable)}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Driver Pay */}
       <Card>
