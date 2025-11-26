@@ -105,12 +105,13 @@ export async function getDriverTripDetail(
         *,
         load:loads(
           *,
-          company:companies(id, name)
+          company:companies(id, name, trust_level)
         )
       `
       )
       .eq('trip_id', tripId)
       .eq('owner_id', driver.owner_id)
+      .order('load_order', { ascending: true })
       .order('sequence_index', { ascending: true }),
     supabase
       .from('trip_expenses')

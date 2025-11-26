@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { Package, DollarSign, MapPin, Target } from "lucide-react";
 
 import {
   driverStartTrip,
@@ -10,6 +11,8 @@ import {
 } from "@/data/driver-workflow";
 import { updateTrip } from "@/data/trips";
 import { CompleteTripForm, StartTripForm, type DriverFormState } from "@/components/driver/driver-trip-forms";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface DriverTripDetailPageProps {
   params: Promise<{ id: string }>;
@@ -22,6 +25,16 @@ const statusTone: Record<string, string> = {
   completed: "bg-slate-100 text-slate-800",
   settled: "bg-purple-100 text-purple-800",
   cancelled: "bg-red-100 text-red-800",
+};
+
+const loadStatusTone: Record<string, string> = {
+  pending: "bg-amber-100 text-amber-800",
+  accepted: "bg-blue-100 text-blue-800",
+  loading: "bg-purple-100 text-purple-800",
+  loaded: "bg-green-100 text-green-800",
+  in_transit: "bg-blue-100 text-blue-800",
+  delivered: "bg-emerald-100 text-emerald-800",
+  storage_completed: "bg-purple-100 text-purple-800",
 };
 
 function formatCityState(city?: string | null, state?: string | null) {
@@ -207,7 +220,7 @@ export default async function DriverTripDetailPage({ params }: DriverTripDetailP
         />
       ) : null}
 
-      <div className="space-y-3 rounded-lg border border-border bg-card p-4 shadow-sm">
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-foreground">Loads</h3>
           <Link href={`/driver/trips/${trip.id}/expenses`} className="text-sm text-primary hover:underline">
@@ -216,34 +229,96 @@ export default async function DriverTripDetailPage({ params }: DriverTripDetailP
         </div>
         <div className="grid gap-3">
           {loads.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3 text-sm text-muted-foreground">
-              No loads attached to this trip yet.
-            </div>
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+                <Package className="h-10 w-10 text-muted-foreground mb-3" />
+                <p className="text-sm font-medium text-foreground">No loads attached to this trip yet.</p>
+                <p className="text-xs text-muted-foreground mt-1">Your dispatcher will assign loads to this trip.</p>
+              </CardContent>
+            </Card>
           ) : (
-            loads.map((tl) => {
+            loads.map((tl, index) => {
               const load = tl.load as any;
               const company = Array.isArray(load?.company) ? load.company[0] : load?.company;
+              const loadStatus = load?.load_status || "pending";
+              const loadOrder = (tl as any).load_order ?? (tl as any).sequence_index ?? index + 1;
+
+              // Build location strings
+              const pickupLocation = [
+                load?.loading_city || load?.pickup_city || load?.origin_city,
+                load?.loading_state || load?.pickup_state || load?.origin_state,
+                load?.loading_postal_code || load?.pickup_postal_code || load?.origin_zip,
+              ].filter(Boolean).join(", ") || "Not set";
+
+              const deliveryLocation = [
+                load?.delivery_city || load?.dropoff_city || load?.destination_city,
+                load?.delivery_state || load?.dropoff_state || load?.destination_state,
+                load?.delivery_postal_code || load?.dropoff_postal_code || load?.destination_zip,
+              ].filter(Boolean).join(", ") || "Not set";
+
               return (
-                <Link
-                  key={tl.id}
-                  href={`/driver/trips/${trip.id}/loads/${tl.load_id}`}
-                  className="rounded-lg border border-border bg-background p-3 transition hover:border-primary/60"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs uppercase text-muted-foreground">Load</p>
-                      <h4 className="text-base font-semibold text-foreground">{load?.load_number || tl.load_id}</h4>
-                      <p className="text-sm text-muted-foreground">{company?.name || "Company n/a"}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
-                        {load?.load_status || "pending"}
-                      </span>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        CUFT: {load?.actual_cuft_loaded ?? "—"}
-                      </p>
-                    </div>
-                  </div>
+                <Link key={tl.id} href={`/driver/trips/${trip.id}/loads/${tl.load_id}`}>
+                  <Card className="transition hover:border-primary/60">
+                    <CardContent className="p-4 space-y-3">
+                      {/* Header: Load order badge + Status badge */}
+                      <div className="flex items-center justify-between">
+                        <Badge variant="secondary" className="text-xs">
+                          Load #{loadOrder}
+                        </Badge>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${loadStatusTone[loadStatus] || "bg-gray-100 text-gray-800"}`}>
+                          {loadStatus.replace("_", " ")}
+                        </span>
+                      </div>
+
+                      {/* Load number and company */}
+                      <div>
+                        <h4 className="text-lg font-semibold text-foreground">{load?.load_number || tl.load_id}</h4>
+                        <p className="text-sm text-muted-foreground">{company?.name || "Company n/a"}</p>
+                      </div>
+
+                      {/* Locations */}
+                      <div className="space-y-1 text-sm">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-blue-500 shrink-0" />
+                          <span className="text-muted-foreground">Pickup:</span>
+                          <span className="font-medium truncate">{pickupLocation}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Target className="h-4 w-4 text-green-500 shrink-0" />
+                          <span className="text-muted-foreground">Deliver:</span>
+                          <span className="font-medium truncate">{deliveryLocation}</span>
+                        </div>
+                      </div>
+
+                      {/* CUFT and Rate */}
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-1.5">
+                          <Package className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">Est:</span>
+                          <span className="font-medium">
+                            {load?.cubic_feet ? Number(load.cubic_feet).toLocaleString() : "—"} cf
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <DollarSign className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">Rate:</span>
+                          <span className="font-medium">
+                            {load?.rate_per_cuft ? `$${Number(load.rate_per_cuft).toFixed(2)}` : "—"}/cf
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Actual CUFT if loaded */}
+                      {load?.actual_cuft_loaded != null && (
+                        <div className="border-t border-border pt-2 flex items-center gap-2 text-sm">
+                          <span className="text-muted-foreground">Actual:</span>
+                          <span className="font-semibold text-green-600">
+                            {Number(load.actual_cuft_loaded).toLocaleString()} cf
+                          </span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 </Link>
               );
             })
