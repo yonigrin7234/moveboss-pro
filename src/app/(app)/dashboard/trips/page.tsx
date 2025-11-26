@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { AlertCircle, DollarSign } from 'lucide-react';
 import { getCurrentUser } from '@/lib/supabase-server';
 import {
   listTripsForUser,
@@ -7,10 +8,12 @@ import {
   type TripFilters,
   type TripStatus,
   getTripStatsForUser,
+  getTripsNeedingSettlement,
+  type TripNeedingSettlement,
 } from '@/data/trips';
 import { getDriversForUser, type Driver } from '@/data/drivers';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -95,6 +98,7 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
 
   let trips: Trip[] = [];
   let drivers: Driver[] = [];
+  let tripsNeedingSettlement: TripNeedingSettlement[] = [];
   let error: string | null = null;
   let stats = {
     totalTrips: 0,
@@ -104,10 +108,11 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
   };
 
   try {
-    [trips, drivers, stats] = await Promise.all([
+    [trips, drivers, stats, tripsNeedingSettlement] = await Promise.all([
       listTripsForUser(user.id, filters),
       getDriversForUser(user.id),
       getTripStatsForUser(user.id),
+      getTripsNeedingSettlement(user.id),
     ]);
   } catch (err) {
     error = err instanceof Error ? err.message : 'Failed to load trips';
@@ -155,6 +160,60 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* TRIPS NEEDING SETTLEMENT */}
+      {tripsNeedingSettlement.length > 0 && (
+        <Card className="border-yellow-500/30 bg-yellow-500/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-yellow-600">
+              <AlertCircle className="h-5 w-5" />
+              Trips Needing Settlement ({tripsNeedingSettlement.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {tripsNeedingSettlement.slice(0, 5).map((trip) => {
+                const driverName = trip.driver
+                  ? `${trip.driver.first_name} ${trip.driver.last_name}`
+                  : 'No driver';
+                const netPay = (trip.driver_pay_total || 0);
+
+                return (
+                  <Link
+                    key={trip.id}
+                    href={`/dashboard/trips/${trip.id}/settlement`}
+                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <div>
+                      <p className="font-medium text-foreground">Trip {trip.trip_number}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {driverName}
+                        {trip.completed_at && (
+                          <> • Completed {new Date(trip.completed_at).toLocaleDateString()}</>
+                        )}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-foreground">
+                        {currencyFormatter.format(netPay)}
+                      </p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
+                        <DollarSign className="h-3 w-3" />
+                        Driver pay due
+                      </p>
+                    </div>
+                  </Link>
+                );
+              })}
+              {tripsNeedingSettlement.length > 5 && (
+                <p className="text-sm text-muted-foreground text-center pt-2">
+                  +{tripsNeedingSettlement.length - 5} more trips needing settlement
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <TripListFilters initialFilters={filters} drivers={drivers} />
 

@@ -785,6 +785,16 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
             </CardContent>
           </Card>
 
+          {/* View Settlement Button - show for completed/settled trips */}
+          {(trip.status === 'completed' || trip.status === 'settled') && (
+            <Button asChild className="w-full" size="lg" variant="default">
+              <Link href={`/dashboard/trips/${trip.id}/settlement`}>
+                <DollarSign className="h-4 w-4 mr-2" />
+                View Settlement
+              </Link>
+            </Button>
+          )}
+
           {/* Settle Button */}
           <form action={async (formData) => {
             setIsSubmitting(true);

@@ -361,6 +361,100 @@ export async function getTripStatsForUser(userId: string): Promise<TripStats> {
   };
 }
 
+export interface TripNeedingSettlement {
+  id: string;
+  trip_number: string;
+  status: TripStatus;
+  completed_at: string | null;
+  settlement_status: string | null;
+  driver: { id: string; first_name: string; last_name: string } | null;
+  // Financial preview
+  revenue_total: number;
+  driver_pay_total: number;
+  fuel_total: number;
+  tolls_total: number;
+  other_expenses_total: number;
+  profit_total: number;
+  actual_miles: number | null;
+  total_cuft: number | null;
+}
+
+/**
+ * Get trips that are completed but need settlement review/payment
+ */
+export async function getTripsNeedingSettlement(userId: string): Promise<TripNeedingSettlement[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('trips')
+    .select(
+      `
+      id,
+      trip_number,
+      status,
+      completed_at,
+      settlement_status,
+      revenue_total,
+      driver_pay_total,
+      fuel_total,
+      tolls_total,
+      other_expenses_total,
+      profit_total,
+      actual_miles,
+      total_cuft,
+      driver:drivers!trips_driver_id_fkey(id, first_name, last_name)
+    `
+    )
+    .eq('owner_id', userId)
+    .eq('status', 'completed')
+    .or('settlement_status.is.null,settlement_status.eq.pending,settlement_status.eq.review')
+    .order('completed_at', { ascending: false });
+
+  if (error) {
+    // If settlement_status column doesn't exist yet, fall back to just completed trips
+    if (error.message.includes('column') || error.code === '42703') {
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('trips')
+        .select(
+          `
+          id,
+          trip_number,
+          status,
+          completed_at,
+          revenue_total,
+          driver_pay_total,
+          fuel_total,
+          tolls_total,
+          other_expenses_total,
+          profit_total,
+          actual_miles,
+          total_cuft,
+          driver:drivers!trips_driver_id_fkey(id, first_name, last_name)
+        `
+        )
+        .eq('owner_id', userId)
+        .eq('status', 'completed')
+        .order('updated_at', { ascending: false });
+
+      if (fallbackError) {
+        throw new Error(`Failed to get trips needing settlement: ${fallbackError.message}`);
+      }
+
+      return (fallbackData || []).map((row: any) => ({
+        ...row,
+        settlement_status: null,
+        driver: Array.isArray(row.driver) ? row.driver[0] : row.driver,
+      }));
+    }
+    throw new Error(`Failed to get trips needing settlement: ${error.message}`);
+  }
+
+  return (data || []).map((row: any) => ({
+    ...row,
+    driver: Array.isArray(row.driver) ? row.driver[0] : row.driver,
+  }));
+}
+
 export async function listTripsForUser(userId: string, filters?: TripFilters): Promise<Trip[]> {
   const supabase = await createClient();
 
