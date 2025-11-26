@@ -57,7 +57,9 @@ export async function getDriverTripsForDriver(driverId: string, ownerId: string)
       origin_city, origin_state, origin_postal_code,
       destination_city, destination_state, destination_postal_code,
       start_date, end_date, odometer_start, odometer_end, actual_miles,
-      updated_at
+      updated_at,
+      truck:trucks!trips_truck_id_fkey(id, unit_number),
+      trailer:trailers!trips_trailer_id_fkey(id, unit_number)
     `
     )
     .eq('driver_id', driverId)
@@ -83,8 +85,8 @@ export async function getDriverTripDetail(
     .select(
       `
       *,
-      truck:trucks!trips_truck_id_fkey(id, unit_number),
-      trailer:trailers!trips_trailer_id_fkey(id, unit_number)
+      truck:trucks!trips_truck_id_fkey(id, unit_number, make, model, year),
+      trailer:trailers!trips_trailer_id_fkey(id, unit_number, type, length)
     `
     )
     .eq('id', tripId)

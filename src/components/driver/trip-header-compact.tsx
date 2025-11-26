@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useActionState } from "react";
-import { Camera, ChevronDown } from "lucide-react";
+import { Camera, ChevronDown, Truck, Container } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,19 @@ interface TripHeaderCompactProps {
     odometer_start_photo_url?: string | null;
     odometer_end_photo_url?: string | null;
   };
+  truck?: {
+    id: string;
+    unit_number: string;
+    make?: string | null;
+    model?: string | null;
+    year?: number | null;
+  } | null;
+  trailer?: {
+    id: string;
+    unit_number: string;
+    type?: string | null;
+    length?: number | null;
+  } | null;
   startTripAction: ServerAction;
   completeTripAction: ServerAction;
   canCompleteTrip: boolean;
@@ -46,6 +59,8 @@ function formatCityState(city?: string | null, state?: string | null) {
 
 export function TripHeaderCompact({
   trip,
+  truck,
+  trailer,
   startTripAction,
   completeTripAction,
   canCompleteTrip,
@@ -92,6 +107,44 @@ export function TripHeaderCompact({
           {formatCityState(trip.destination_city, trip.destination_state)}
         </p>
       </div>
+
+      {/* Equipment Card - Truck & Trailer */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="grid grid-cols-2 gap-4">
+            {/* Truck */}
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                <Truck className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground uppercase">Truck</p>
+                <p className="font-semibold truncate">{truck?.unit_number || "—"}</p>
+                {truck?.make && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {[truck.make, truck.model].filter(Boolean).join(" ")}
+                  </p>
+                )}
+              </div>
+            </div>
+            {/* Trailer */}
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                <Container className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground uppercase">Trailer</p>
+                <p className="font-semibold truncate">{trailer?.unit_number || "—"}</p>
+                {(trailer?.type || trailer?.length) && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {[trailer.type, trailer.length ? `${trailer.length}ft` : null].filter(Boolean).join(" • ")}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Odometer Compact Card */}
       <Card>

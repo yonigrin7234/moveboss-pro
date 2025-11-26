@@ -81,6 +81,9 @@ export default async function DriverHomePage() {
               Miles: {activeTrip.actual_miles ?? "—"} | Odometer: {activeTrip.odometer_start ?? "—"} →{" "}
               {activeTrip.odometer_end ?? "—"}
             </p>
+            <p className="text-sm text-muted-foreground">
+              🚛 {(activeTrip as any).truck?.unit_number || "—"} • 📦 {(activeTrip as any).trailer?.unit_number || "—"}
+            </p>
             <div className="pt-2">
               <Link
                 href={`/driver/trips/${activeTrip.id}`}

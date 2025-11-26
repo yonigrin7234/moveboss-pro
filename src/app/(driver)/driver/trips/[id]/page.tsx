@@ -169,6 +169,8 @@ export default async function DriverTripDetailPage({ params }: DriverTripDetailP
           odometer_start_photo_url: trip.odometer_start_photo_url,
           odometer_end_photo_url: trip.odometer_end_photo_url,
         }}
+        truck={(trip as any).truck}
+        trailer={(trip as any).trailer}
         startTripAction={startTripAction}
         completeTripAction={completeTripAction}
         canCompleteTrip={loadsCompleted}
