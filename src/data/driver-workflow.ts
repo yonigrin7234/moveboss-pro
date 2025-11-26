@@ -479,6 +479,7 @@ export async function driverStartLoading(loadId: string, userId: string, payload
     throw new Error(`Cannot start loading - load must be accepted first (current status: "${load.load_status || 'pending'}")`);
   }
 
+  // Try full update with all workflow columns
   const { error } = await supabase
     .from('loads')
     .update({
@@ -491,7 +492,20 @@ export async function driverStartLoading(loadId: string, userId: string, payload
     .eq('owner_id', userId);
 
   if (error) {
-    throw new Error(`Failed to start loading: ${error.message}`);
+    // If columns don't exist, fall back to just updating status
+    if (error.message.includes('column') || error.code === '42703') {
+      console.warn('[driverStartLoading] Some columns missing, updating status only. Run migrations to enable full workflow.');
+      const { error: fallbackError } = await supabase
+        .from('loads')
+        .update({ load_status: 'loading' })
+        .eq('id', loadId)
+        .eq('owner_id', userId);
+      if (fallbackError) {
+        throw new Error(`Failed to start loading: ${fallbackError.message}`);
+      }
+    } else {
+      throw new Error(`Failed to start loading: ${error.message}`);
+    }
   }
 }
 
@@ -519,10 +533,11 @@ export async function driverFinishLoading(loadId: string, userId: string, payloa
     throw new Error(`Cannot finish loading - load must be in loading status (current status: "${load.load_status || 'pending'}")`);
   }
 
-  const startingCuft = Number(load.starting_cuft) || 0;
+  const startingCuft = Number((load as any).starting_cuft) || 0;
   const endingCuft = payload.ending_cuft;
   const actualCuftLoaded = payload.actual_cuft_loaded ?? (endingCuft - startingCuft);
 
+  // Try full update with all workflow columns
   const { error } = await supabase
     .from('loads')
     .update({
@@ -536,7 +551,23 @@ export async function driverFinishLoading(loadId: string, userId: string, payloa
     .eq('owner_id', userId);
 
   if (error) {
-    throw new Error(`Failed to finish loading: ${error.message}`);
+    // If columns don't exist, fall back to updating status and actual_cuft_loaded only
+    if (error.message.includes('column') || error.code === '42703') {
+      console.warn('[driverFinishLoading] Some columns missing, updating status only. Run migrations to enable full workflow.');
+      const { error: fallbackError } = await supabase
+        .from('loads')
+        .update({
+          load_status: 'loaded',
+          actual_cuft_loaded: actualCuftLoaded,
+        })
+        .eq('id', loadId)
+        .eq('owner_id', userId);
+      if (fallbackError) {
+        throw new Error(`Failed to finish loading: ${fallbackError.message}`);
+      }
+    } else {
+      throw new Error(`Failed to finish loading: ${error.message}`);
+    }
   }
 }
 
