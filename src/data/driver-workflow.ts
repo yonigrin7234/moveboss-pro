@@ -367,9 +367,27 @@ export async function driverSetStorageDrop(loadId: string, userId: string, paylo
   }
 }
 
-// Driver accepts a load (pending -> accepted)
+// Driver accepts a load (pending/null -> accepted)
 export async function driverAcceptLoad(loadId: string, userId: string) {
   const supabase = await getDbClient();
+
+  // First check if load exists and is in correct status (pending or null)
+  const { data: load, error: fetchError } = await supabase
+    .from('loads')
+    .select('id, load_status')
+    .eq('id', loadId)
+    .eq('owner_id', userId)
+    .single();
+
+  if (fetchError || !load) {
+    throw new Error('Load not found or access denied');
+  }
+
+  // Only allow accepting loads that are pending or have no status (null)
+  if (load.load_status && load.load_status !== 'pending') {
+    throw new Error(`Cannot accept load - current status is "${load.load_status}"`);
+  }
+
   const { error } = await supabase
     .from('loads')
     .update({
@@ -377,8 +395,7 @@ export async function driverAcceptLoad(loadId: string, userId: string) {
       accepted_at: new Date().toISOString(),
     })
     .eq('id', loadId)
-    .eq('owner_id', userId)
-    .eq('load_status', 'pending');
+    .eq('owner_id', userId);
 
   if (error) {
     throw new Error(`Failed to accept load: ${error.message}`);
@@ -391,6 +408,23 @@ export async function driverStartLoading(loadId: string, userId: string, payload
   loading_start_photo: string;
 }) {
   const supabase = await getDbClient();
+
+  // First verify load is in accepted status
+  const { data: load, error: fetchError } = await supabase
+    .from('loads')
+    .select('id, load_status')
+    .eq('id', loadId)
+    .eq('owner_id', userId)
+    .single();
+
+  if (fetchError || !load) {
+    throw new Error('Load not found or access denied');
+  }
+
+  if (load.load_status !== 'accepted') {
+    throw new Error(`Cannot start loading - load must be accepted first (current status: "${load.load_status || 'pending'}")`);
+  }
+
   const { error } = await supabase
     .from('loads')
     .update({
@@ -400,8 +434,7 @@ export async function driverStartLoading(loadId: string, userId: string, payload
       loading_start_photo: payload.loading_start_photo,
     })
     .eq('id', loadId)
-    .eq('owner_id', userId)
-    .eq('load_status', 'accepted');
+    .eq('owner_id', userId);
 
   if (error) {
     throw new Error(`Failed to start loading: ${error.message}`);
@@ -416,19 +449,23 @@ export async function driverFinishLoading(loadId: string, userId: string, payloa
 }) {
   const supabase = await getDbClient();
 
-  // First get the starting CUFT to calculate actual loaded
+  // First get the load to verify status and get starting CUFT
   const { data: load, error: fetchError } = await supabase
     .from('loads')
-    .select('starting_cuft')
+    .select('id, load_status, starting_cuft')
     .eq('id', loadId)
     .eq('owner_id', userId)
     .single();
 
-  if (fetchError) {
-    throw new Error(`Failed to fetch load: ${fetchError.message}`);
+  if (fetchError || !load) {
+    throw new Error('Load not found or access denied');
   }
 
-  const startingCuft = Number(load?.starting_cuft) || 0;
+  if (load.load_status !== 'loading') {
+    throw new Error(`Cannot finish loading - load must be in loading status (current status: "${load.load_status || 'pending'}")`);
+  }
+
+  const startingCuft = Number(load.starting_cuft) || 0;
   const endingCuft = payload.ending_cuft;
   const actualCuftLoaded = payload.actual_cuft_loaded ?? (endingCuft - startingCuft);
 
@@ -442,8 +479,7 @@ export async function driverFinishLoading(loadId: string, userId: string, payloa
       actual_cuft_loaded: actualCuftLoaded,
     })
     .eq('id', loadId)
-    .eq('owner_id', userId)
-    .eq('load_status', 'loading');
+    .eq('owner_id', userId);
 
   if (error) {
     throw new Error(`Failed to finish loading: ${error.message}`);
