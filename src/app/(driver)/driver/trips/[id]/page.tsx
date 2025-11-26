@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { Package, DollarSign, MapPin, Target } from "lucide-react";
+import { Package, DollarSign, MapPin, Target, Receipt, Plus } from "lucide-react";
 
 import {
   driverStartTrip,
@@ -74,7 +74,22 @@ export default async function DriverTripDetailPage({ params }: DriverTripDetailP
         (tl.load as any)?.load_status === "delivered" || (tl.load as any)?.load_status === "storage_completed"
     );
 
-  const expenseTotal = expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+  // Calculate expense totals by payment method
+  const expenseTotals = expenses.reduce(
+    (acc, exp) => {
+      const amount = Number(exp.amount) || 0;
+      acc.total += amount;
+      const paidBy = (exp as any).paid_by || "";
+      if (["company_card", "fuel_card", "efs_card", "comdata"].includes(paidBy)) {
+        acc.companyPaid += amount;
+      } else {
+        // driver_cash, driver_card, driver_personal
+        acc.driverPaid += amount;
+      }
+      return acc;
+    },
+    { total: 0, companyPaid: 0, driverPaid: 0 }
+  );
 
   const startTripAction = async (prevState: DriverFormState | null, formData: FormData) => {
     "use server";
@@ -176,13 +191,66 @@ export default async function DriverTripDetailPage({ params }: DriverTripDetailP
         canCompleteTrip={loadsCompleted}
       />
 
+      {/* EXPENSES CARD - Moved up for visibility */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                <Receipt className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Trip Expenses</h3>
+                <p className="text-sm text-muted-foreground">
+                  {expenses.length} expense{expenses.length === 1 ? "" : "s"} • ${expenseTotals.total.toFixed(2)}
+                </p>
+              </div>
+            </div>
+            <Link
+              href={`/driver/trips/${trip.id}/expenses`}
+              className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" />
+              Add
+            </Link>
+          </div>
+
+          {expenses.length > 0 && (
+            <div className="space-y-2 pt-3 border-t border-border">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Total Expenses</span>
+                <span className="font-medium">${expenseTotals.total.toFixed(2)}</span>
+              </div>
+              {expenseTotals.driverPaid > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Driver Paid (to reimburse)</span>
+                  <span className="font-medium text-green-600">${expenseTotals.driverPaid.toFixed(2)}</span>
+                </div>
+              )}
+              {expenseTotals.companyPaid > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Company Paid</span>
+                  <span className="font-medium">${expenseTotals.companyPaid.toFixed(2)}</span>
+                </div>
+              )}
+              <Link
+                href={`/driver/trips/${trip.id}/expenses`}
+                className="block w-full mt-2 text-center rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              >
+                View All ({expenses.length})
+              </Link>
+            </div>
+          )}
+
+          {expenses.length === 0 && (
+            <p className="text-sm text-muted-foreground">No expenses recorded yet. Add fuel, tolls, food, and other trip expenses.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* LOADS SECTION */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-foreground">Loads</h3>
-          <Link href={`/driver/trips/${trip.id}/expenses`} className="text-sm text-primary hover:underline">
-            Expenses
-          </Link>
-        </div>
+        <h3 className="text-lg font-semibold text-foreground">Loads</h3>
         <div className="grid gap-3">
           {loads.length === 0 ? (
             <Card className="border-dashed">
@@ -280,27 +348,6 @@ export default async function DriverTripDetailPage({ params }: DriverTripDetailP
             })
           )}
         </div>
-      </div>
-
-      <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase text-muted-foreground">Expenses</p>
-            <h3 className="text-lg font-semibold text-foreground">
-              {expenses.length} expense{expenses.length === 1 ? "" : "s"}
-            </h3>
-          </div>
-          <div className="text-right">
-            <p className="text-xs uppercase text-muted-foreground">Total</p>
-            <p className="text-lg font-semibold text-foreground">${expenseTotal.toFixed(2)}</p>
-          </div>
-        </div>
-        <Link
-          href={`/driver/trips/${trip.id}/expenses`}
-          className="mt-3 inline-flex items-center rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-        >
-          Manage expenses
-        </Link>
       </div>
     </div>
   );

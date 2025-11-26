@@ -24,10 +24,12 @@ const expenseTypes = [
 ];
 
 const paidByOptions = [
-  { value: "driver_personal", label: "Driver personal" },
-  { value: "driver_cash", label: "Driver cash" },
-  { value: "company_card", label: "Company card" },
-  { value: "fuel_card", label: "Fuel card" },
+  { value: "driver_cash", label: "Driver Paid (Cash)" },
+  { value: "driver_card", label: "Driver Paid (Card)" },
+  { value: "company_card", label: "Company Card" },
+  { value: "fuel_card", label: "Fuel Card" },
+  { value: "efs_card", label: "EFS Card" },
+  { value: "comdata", label: "Comdata" },
 ];
 
 interface DriverExpenseFormProps {

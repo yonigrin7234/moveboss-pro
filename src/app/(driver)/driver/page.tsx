@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Receipt, Plus } from "lucide-react";
 
 import { DriverQuickActions } from "@/components/driver/driver-quick-actions";
-import { getDriverTripsForDriver, requireCurrentDriver } from "@/data/driver-workflow";
+import { getDriverTripsForDriver, getDriverTripDetail, requireCurrentDriver } from "@/data/driver-workflow";
+import { Card, CardContent } from "@/components/ui/card";
 
 const statusBadge: Record<string, string> = {
   planned: "bg-amber-100 text-amber-800",
@@ -36,6 +38,31 @@ export default async function DriverHomePage() {
   const recent = trips
     .filter((t) => t.status === "completed" || t.status === "settled")
     .sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
+
+  // Fetch expenses for active trip
+  let activeTripExpenses: { total: number; driverPaid: number; count: number } = { total: 0, driverPaid: 0, count: 0 };
+  if (activeTrip) {
+    try {
+      const detail = await getDriverTripDetail(activeTrip.id, { id: driver.id, owner_id: driver.owner_id });
+      if (detail?.expenses) {
+        activeTripExpenses = detail.expenses.reduce(
+          (acc, exp) => {
+            const amount = Number(exp.amount) || 0;
+            acc.total += amount;
+            acc.count += 1;
+            const paidBy = (exp as any).paid_by || "";
+            if (!["company_card", "fuel_card", "efs_card", "comdata"].includes(paidBy)) {
+              acc.driverPaid += amount;
+            }
+            return acc;
+          },
+          { total: 0, driverPaid: 0, count: 0 }
+        );
+      }
+    } catch (e) {
+      console.error("[DriverHomePage] Failed to fetch active trip expenses", e);
+    }
+  }
 
   const driverName = [driver.first_name, driver.last_name].filter(Boolean).join(" ") || "Driver";
 
@@ -99,6 +126,47 @@ export default async function DriverHomePage() {
           </div>
         )}
       </div>
+
+      {/* EXPENSES QUICK ACCESS - Only show when there's an active trip */}
+      {activeTrip && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                  <Receipt className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Trip Expenses</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {activeTripExpenses.count} expense{activeTripExpenses.count === 1 ? "" : "s"} • ${activeTripExpenses.total.toFixed(2)}
+                  </p>
+                  {activeTripExpenses.driverPaid > 0 && (
+                    <p className="text-xs text-green-600">
+                      ${activeTripExpenses.driverPaid.toFixed(2)} to reimburse
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Link
+                  href={`/driver/trips/${activeTrip.id}/expenses`}
+                  className="inline-flex items-center rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                >
+                  View
+                </Link>
+                <Link
+                  href={`/driver/trips/${activeTrip.id}/expenses`}
+                  className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
