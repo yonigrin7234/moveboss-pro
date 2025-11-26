@@ -9,10 +9,15 @@ import {
   getDriverTripDetail,
   requireCurrentDriver,
   calculateDriverSettlementPreview,
+  checkTripCanComplete,
+  calculateTripTotals,
+  driverCompleteTrip,
 } from "@/data/driver-workflow";
 import { updateTrip } from "@/data/trips";
 import { TripHeaderCompact, type DriverFormState } from "@/components/driver/trip-header-compact";
 import { DriverSettlementCard } from "@/components/driver/driver-settlement-card";
+import { TripCompletionCard } from "@/components/driver/trip-completion-card";
+import { TripCompletedCard } from "@/components/driver/trip-completed-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -104,6 +109,22 @@ export default async function DriverTripDetailPage({ params }: DriverTripDetailP
     }
   }
 
+  // Check if trip can be completed
+  const completionCheck = checkTripCanComplete(
+    { status: trip.status, odometer_end: trip.odometer_end },
+    loads
+  );
+
+  // Calculate trip totals for display
+  const tripTotals = calculateTripTotals(
+    { odometer_start: trip.odometer_start, odometer_end: trip.odometer_end },
+    loads,
+    expenses as any[]
+  );
+
+  // Determine if trip is editable (not completed/settled)
+  const isCompleted = trip.status === "completed" || trip.status === "settled";
+
   const startTripAction = async (prevState: DriverFormState | null, formData: FormData) => {
     "use server";
     try {
@@ -139,7 +160,8 @@ export default async function DriverTripDetailPage({ params }: DriverTripDetailP
     }
   };
 
-  const completeTripAction = async (prevState: DriverFormState | null, formData: FormData) => {
+  // This action updates the odometer end (used by TripHeaderCompact)
+  const updateOdometerEndAction = async (prevState: DriverFormState | null, formData: FormData) => {
     "use server";
     try {
       const currentDriver = await requireCurrentDriver();
@@ -164,7 +186,6 @@ export default async function DriverTripDetailPage({ params }: DriverTripDetailP
       await updateTrip(
         tripId,
         {
-          status: "completed",
           odometer_end: odometerEnd,
           odometer_end_photo_url: photoUrl,
         } as any,
@@ -174,7 +195,35 @@ export default async function DriverTripDetailPage({ params }: DriverTripDetailP
 
       revalidatePath(`/driver/trips/${tripId}`);
       revalidatePath("/driver");
-      return { success: "Trip completed" };
+      return { success: "Odometer updated" };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : "Failed to update odometer" };
+    }
+  };
+
+  // This action completes the trip (used by TripCompletionCard)
+  const finalizeTripAction = async (prevState: { error?: string; success?: string } | null, formData: FormData) => {
+    "use server";
+    try {
+      const currentDriver = await requireCurrentDriver();
+      if (!currentDriver?.owner_id) return { error: "Not authorized" };
+      const tripId = formData.get("trip_id");
+      const completionNotes = formData.get("completion_notes") as string | null;
+      if (typeof tripId !== "string") return { error: "Missing trip" };
+
+      const result = await driverCompleteTrip(
+        tripId,
+        { completion_notes: completionNotes || undefined },
+        { id: currentDriver.id, owner_id: currentDriver.owner_id }
+      );
+
+      if (!result.success) {
+        return { error: result.error || "Failed to complete trip" };
+      }
+
+      revalidatePath(`/driver/trips/${tripId}`);
+      revalidatePath("/driver");
+      return { success: "Trip completed successfully!" };
     } catch (error) {
       return { error: error instanceof Error ? error.message : "Failed to complete trip" };
     }
@@ -200,9 +249,21 @@ export default async function DriverTripDetailPage({ params }: DriverTripDetailP
         truck={(trip as any).truck}
         trailer={(trip as any).trailer}
         startTripAction={startTripAction}
-        completeTripAction={completeTripAction}
+        completeTripAction={updateOdometerEndAction}
         canCompleteTrip={loadsCompleted}
       />
+
+      {/* TRIP COMPLETED CARD - Show when trip is completed/settled */}
+      {isCompleted && (
+        <TripCompletedCard
+          trip={{
+            completed_at: (trip as any).completed_at,
+            completion_notes: (trip as any).completion_notes,
+          }}
+          tripTotals={tripTotals}
+          loadsCount={loads.length}
+        />
+      )}
 
       {/* EXPENSES CARD - Moved up for visibility */}
       <Card>
@@ -219,13 +280,15 @@ export default async function DriverTripDetailPage({ params }: DriverTripDetailP
                 </p>
               </div>
             </div>
-            <Link
-              href={`/driver/trips/${trip.id}/expenses`}
-              className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              <Plus className="h-4 w-4" />
-              Add
-            </Link>
+            {!isCompleted && (
+              <Link
+                href={`/driver/trips/${trip.id}/expenses`}
+                className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                <Plus className="h-4 w-4" />
+                Add
+              </Link>
+            )}
           </div>
 
           {expenses.length > 0 && (
@@ -264,6 +327,17 @@ export default async function DriverTripDetailPage({ params }: DriverTripDetailP
       {/* SETTLEMENT PREVIEW - Show for active/completed trips */}
       {settlementPreview && (
         <DriverSettlementCard settlement={settlementPreview} tripStatus={trip.status} />
+      )}
+
+      {/* TRIP COMPLETION CARD - Show for active trips only */}
+      {!isCompleted && (trip.status === "active" || trip.status === "en_route") && (
+        <TripCompletionCard
+          tripId={trip.id}
+          tripStatus={trip.status}
+          completionCheck={completionCheck}
+          tripTotals={tripTotals}
+          completeTripAction={finalizeTripAction}
+        />
       )}
 
       {/* LOADS SECTION */}

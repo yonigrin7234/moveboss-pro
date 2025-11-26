@@ -1107,3 +1107,185 @@ export async function getDriverPaySettings(driver: { id: string; owner_id: strin
 function round(value: number): number {
   return Math.round(value * 100) / 100;
 }
+
+// ============================================================================
+// TRIP COMPLETION
+// ============================================================================
+
+export interface TripCompletionCheck {
+  canComplete: boolean;
+  totalLoads: number;
+  deliveredLoads: number;
+  pendingLoads: {
+    loadId: string;
+    loadNumber: string;
+    status: string;
+    destinationCity?: string;
+    destinationState?: string;
+  }[];
+  hasOdometerEnd: boolean;
+  reason?: string;
+}
+
+/**
+ * Check if a trip can be completed
+ */
+export function checkTripCanComplete(
+  trip: { status: string; odometer_end?: number | null },
+  loads: { load_id: string; load?: any }[]
+): TripCompletionCheck {
+  const totalLoads = loads.length;
+
+  const deliveredLoads = loads.filter(tl => {
+    const status = (tl.load as any)?.load_status;
+    return status === 'delivered' || status === 'storage_completed';
+  }).length;
+
+  const pendingLoads = loads
+    .filter(tl => {
+      const status = (tl.load as any)?.load_status;
+      return status !== 'delivered' && status !== 'storage_completed';
+    })
+    .map(tl => ({
+      loadId: tl.load_id,
+      loadNumber: (tl.load as any)?.load_number || tl.load_id,
+      status: (tl.load as any)?.load_status || 'pending',
+      destinationCity: (tl.load as any)?.destination_city || (tl.load as any)?.delivery_city,
+      destinationState: (tl.load as any)?.destination_state || (tl.load as any)?.delivery_state,
+    }));
+
+  const hasOdometerEnd = trip.odometer_end != null && Number(trip.odometer_end) > 0;
+
+  // Determine if trip can be completed
+  let canComplete = false;
+  let reason: string | undefined;
+
+  if (trip.status !== 'active' && trip.status !== 'en_route') {
+    reason = `Trip is ${trip.status}, must be active to complete`;
+  } else if (totalLoads === 0) {
+    reason = 'Trip has no loads';
+  } else if (deliveredLoads < totalLoads) {
+    reason = `${totalLoads - deliveredLoads} load(s) still pending delivery`;
+  } else if (!hasOdometerEnd) {
+    reason = 'Please enter odometer end reading first';
+  } else {
+    canComplete = true;
+  }
+
+  return {
+    canComplete,
+    totalLoads,
+    deliveredLoads,
+    pendingLoads,
+    hasOdometerEnd,
+    reason,
+  };
+}
+
+export interface TripTotals {
+  totalRevenue: number;
+  totalCollected: number;
+  receivables: number;
+  totalExpenses: number;
+  companyPaidExpenses: number;
+  driverPaidExpenses: number;
+  totalCuft: number;
+  actualMiles: number;
+}
+
+/**
+ * Calculate trip totals for display
+ */
+export function calculateTripTotals(
+  trip: { odometer_start?: number | null; odometer_end?: number | null },
+  loads: { load?: any }[],
+  expenses: { amount: number; paid_by?: string }[]
+): TripTotals {
+  // Calculate load totals
+  const totalRevenue = loads.reduce((sum, tl) => {
+    const load = tl.load || {};
+    return sum + (Number(load.total_revenue) || 0);
+  }, 0);
+
+  const totalCollected = loads.reduce((sum, tl) => {
+    const load = tl.load || {};
+    return sum + (Number(load.amount_collected_on_delivery) || 0);
+  }, 0);
+
+  const totalCuft = loads.reduce((sum, tl) => {
+    const load = tl.load || {};
+    return sum + (Number(load.actual_cuft_loaded) || 0);
+  }, 0);
+
+  // Calculate expense totals
+  const totalExpenses = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+  const companyPaidExpenses = expenses
+    .filter(e => ['company_card', 'fuel_card', 'efs_card', 'comdata'].includes((e as any).paid_by || ''))
+    .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+  const driverPaidExpenses = totalExpenses - companyPaidExpenses;
+
+  // Calculate miles
+  const odoStart = Number(trip.odometer_start) || 0;
+  const odoEnd = Number(trip.odometer_end) || 0;
+  const actualMiles = odoEnd > odoStart ? odoEnd - odoStart : 0;
+
+  return {
+    totalRevenue: round(totalRevenue),
+    totalCollected: round(totalCollected),
+    receivables: round(totalRevenue - totalCollected),
+    totalExpenses: round(totalExpenses),
+    companyPaidExpenses: round(companyPaidExpenses),
+    driverPaidExpenses: round(driverPaidExpenses),
+    totalCuft: round(totalCuft),
+    actualMiles: round(actualMiles),
+  };
+}
+
+/**
+ * Complete a trip (driver-side)
+ */
+export async function driverCompleteTrip(
+  tripId: string,
+  data: { completion_notes?: string },
+  driver: { id: string; owner_id: string }
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await getDbClient();
+
+  // Get trip detail to verify completion eligibility
+  const detail = await getDriverTripDetail(tripId, driver);
+  if (!detail?.trip) {
+    return { success: false, error: 'Trip not found' };
+  }
+
+  const { trip, loads } = detail;
+
+  // Check if trip can be completed
+  const check = checkTripCanComplete(
+    { status: trip.status, odometer_end: trip.odometer_end },
+    loads
+  );
+
+  if (!check.canComplete) {
+    return { success: false, error: check.reason || 'Cannot complete trip' };
+  }
+
+  // Complete the trip
+  const { error } = await supabase
+    .from('trips')
+    .update({
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      completion_notes: data.completion_notes || null,
+    })
+    .eq('id', tripId)
+    .eq('owner_id', driver.owner_id);
+
+  if (error) {
+    console.error('[driverCompleteTrip] Error:', error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
