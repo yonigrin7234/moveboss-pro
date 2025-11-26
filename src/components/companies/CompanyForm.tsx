@@ -22,9 +22,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ShieldCheck, Banknote } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+
+type TrustLevel = 'trusted' | 'cod_required';
 
 interface CompanyFormProps {
   initialData?: Partial<NewCompanyInput>;
@@ -117,6 +119,9 @@ export function CompanyForm({
     message: null,
   });
   const formRef = useRef<HTMLFormElement>(null);
+  const [trustLevel, setTrustLevel] = useState<TrustLevel>(
+    (initialData as any)?.trust_level || 'cod_required'
+  );
   const [snapshot, setSnapshot] = useState({
     name: initialData?.name || '',
     type: initialData?.company_type || '',
@@ -368,6 +373,78 @@ export function CompanyForm({
                     defaultValue={initialData?.mc_number}
                     className="h-10"
                   />
+                </div>
+              </div>
+
+              {/* Trust Level Selection */}
+              <div className="space-y-3 pt-4 border-t">
+                <div>
+                  <Label className="text-sm font-medium">Trust Level</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Determines if payment is required before unloading
+                  </p>
+                </div>
+                <input type="hidden" name="trust_level" value={trustLevel} />
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setTrustLevel('trusted')}
+                    className={cn(
+                      "flex flex-col items-center rounded-xl border-2 p-4 transition-all",
+                      trustLevel === 'trusted'
+                        ? "border-emerald-500 bg-emerald-500 text-white shadow-md"
+                        : "border-border bg-card hover:border-emerald-300 hover:bg-emerald-50"
+                    )}
+                  >
+                    <ShieldCheck
+                      className={cn(
+                        "h-6 w-6 mb-2",
+                        trustLevel === 'trusted' ? "text-white" : "text-emerald-500"
+                      )}
+                    />
+                    <span className={cn(
+                      "text-sm font-semibold",
+                      trustLevel === 'trusted' ? "text-white" : "text-foreground"
+                    )}>
+                      Trusted
+                    </span>
+                    <span className={cn(
+                      "text-xs mt-1",
+                      trustLevel === 'trusted' ? "text-emerald-100" : "text-muted-foreground"
+                    )}>
+                      Pay after delivery
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTrustLevel('cod_required')}
+                    className={cn(
+                      "flex flex-col items-center rounded-xl border-2 p-4 transition-all",
+                      trustLevel === 'cod_required'
+                        ? "border-amber-500 bg-amber-500 text-white shadow-md"
+                        : "border-border bg-card hover:border-amber-300 hover:bg-amber-50"
+                    )}
+                  >
+                    <Banknote
+                      className={cn(
+                        "h-6 w-6 mb-2",
+                        trustLevel === 'cod_required' ? "text-white" : "text-amber-500"
+                      )}
+                    />
+                    <span className={cn(
+                      "text-sm font-semibold",
+                      trustLevel === 'cod_required' ? "text-white" : "text-foreground"
+                    )}>
+                      COD Required
+                    </span>
+                    <span className={cn(
+                      "text-xs mt-1",
+                      trustLevel === 'cod_required' ? "text-amber-100" : "text-muted-foreground"
+                    )}>
+                      Pay before unload
+                    </span>
+                  </button>
                 </div>
               </div>
             </CardContent>

@@ -9,6 +9,7 @@ import {
   requireCurrentDriver,
 } from "@/data/driver-workflow";
 import { LoadDeliveryForm, LoadPickupForm, LoadStorageForm, LoadFinancialSummary } from "@/components/driver/driver-load-forms";
+import { PreDeliveryCheckCard } from "@/components/driver/pre-delivery-check-card";
 import type { DriverFormState } from "@/components/driver/driver-trip-forms";
 
 interface DriverLoadPageProps {
@@ -161,12 +162,15 @@ export default async function DriverLoadPage({ params }: DriverLoadPageProps) {
       {/* Financial Summary - always visible */}
       <LoadFinancialSummary load={load} />
 
+      {/* Pre-Delivery Check - shows COD/trust requirements when load is ready for delivery */}
+      <PreDeliveryCheckCard load={load} company={company} />
+
       {loadStatus === "pending" || loadStatus === "loaded" ? (
         <LoadPickupForm loadId={loadId} action={pickupAction} defaults={load} />
       ) : null}
 
       {loadStatus === "loaded" ? (
-        <LoadDeliveryForm loadId={loadId} action={deliveryAction} defaults={load} />
+        <LoadDeliveryForm loadId={loadId} action={deliveryAction} defaults={load} company={company} />
       ) : null}
 
       <LoadStorageForm loadId={loadId} action={storageAction} defaults={load} />

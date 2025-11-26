@@ -236,10 +236,30 @@ interface DeliveryFormProps {
   loadId: string;
   action: ServerAction;
   defaults?: Record<string, any>;
+  company?: { name: string; trust_level?: string } | null;
 }
 
-export function LoadDeliveryForm({ loadId, action, defaults }: DeliveryFormProps) {
+export function LoadDeliveryForm({ loadId, action, defaults, company }: DeliveryFormProps) {
   const [state, formAction, pending] = useActionState(action, null);
+
+  // Calculate COD requirements
+  const trustLevel = company?.trust_level || "cod_required";
+  const isTrusted = trustLevel === "trusted";
+
+  // Calculate carrier rate (what company owes us)
+  const actualCuft = Number(defaults?.actual_cuft_loaded) || 0;
+  const ratePerCuft = Number(defaults?.contract_rate_per_cuft || defaults?.rate_per_cuft) || 0;
+  const carrierRate = actualCuft * ratePerCuft + (Number(defaults?.contract_accessorials_total) || 0);
+
+  // Customer balance (what customer owes on delivery)
+  const customerBalance = Number(defaults?.balance_due_on_delivery) || 0;
+
+  // Shortfall is what company needs to pay us that customer won't cover
+  const shortfall = Math.max(0, carrierRate - customerBalance);
+
+  // COD is required when not trusted AND there's a shortfall
+  const requiresCOD = !isTrusted && shortfall > 0;
+  const codAmount = shortfall;
 
   return (
     <form action={formAction} className="space-y-3 rounded-lg border border-border bg-card p-4 shadow-sm">
@@ -259,6 +279,43 @@ export function LoadDeliveryForm({ loadId, action, defaults }: DeliveryFormProps
           {pending ? "Saving..." : "Mark delivered"}
         </button>
       </div>
+
+      {/* COD Payment Alert */}
+      {requiresCOD && (
+        <div className="rounded-lg border-2 border-amber-400 bg-amber-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 text-amber-600 text-xl">⚠️</div>
+            <div className="flex-1">
+              <h5 className="font-semibold text-amber-800">COD Payment Required</h5>
+              <p className="text-sm text-amber-700 mt-1">
+                {company?.name || "Company"} requires COD payment of{" "}
+                <span className="font-bold">{formatCurrency(codAmount)}</span> before unloading.
+              </p>
+              <div className="mt-3 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="cod_payment_confirmed"
+                  id="cod_payment_confirmed"
+                  className="h-4 w-4 rounded border-amber-400"
+                  required
+                />
+                <label htmlFor="cod_payment_confirmed" className="text-sm font-medium text-amber-800">
+                  I confirm I received {formatCurrency(codAmount)} COD payment from {company?.name || "the company"}
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Trusted Company Notice */}
+      {isTrusted && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+          <p className="text-sm text-emerald-700">
+            ✓ <span className="font-medium">{company?.name || "Company"}</span> is a trusted company. No COD payment required.
+          </p>
+        </div>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-2">

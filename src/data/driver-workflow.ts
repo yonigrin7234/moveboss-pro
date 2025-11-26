@@ -163,7 +163,7 @@ export async function getDriverLoadDetail(
     .select(
       `
       *,
-      company:companies(id, name)
+      company:companies(id, name, trust_level)
     `
     )
     .eq('id', loadId)

@@ -11,6 +11,8 @@ export const verificationStatusSchema = z.enum(['unverified', 'pending', 'verifi
 
 export const loadingLocationTypeSchema = z.enum(['public_storage', 'warehouse']).optional();
 
+export const trustLevelSchema = z.enum(['trusted', 'cod_required']).default('cod_required');
+
 // Helper schemas for optional email/URL
 const optionalEmailSchema = z
   .string()
@@ -54,6 +56,7 @@ export const newCompanyInputSchema = z
     dispatch_contact_phone: z.string().trim().min(1, 'Dispatch contact phone is required').max(50),
     dispatch_notes: z.string().trim().max(1000).optional(),
     loading_location_type: loadingLocationTypeSchema,
+    trust_level: trustLevelSchema,
 
     // Main Company Address
     street: z.string().trim().max(200).optional(),
@@ -92,6 +95,7 @@ export type CompanyType = z.infer<typeof companyTypeSchema>;
 export type Status = z.infer<typeof statusSchema>;
 export type NewCompanyInput = z.infer<typeof newCompanyInputSchema>;
 export type UpdateCompanyInput = z.infer<typeof updateCompanyInputSchema>;
+export type TrustLevel = z.infer<typeof trustLevelSchema>;
 export type CompanyRole = 'owner' | 'admin' | 'dispatcher' | 'driver' | 'viewer';
 
 export interface Company {
@@ -118,6 +122,7 @@ export interface Company {
   dispatch_contact_phone: string;
   dispatch_notes: string | null;
   loading_location_type: 'public_storage' | 'warehouse' | null;
+  trust_level: TrustLevel;
   // Main Company Address
   street: string | null;
   city: string | null;
