@@ -35,6 +35,8 @@ import {
   AlertCircle,
   Warehouse,
   Users,
+  User,
+  Phone,
 } from 'lucide-react';
 
 async function getCompanySession() {
@@ -277,6 +279,58 @@ export default async function CompanyLoadDetailPage({
                     </p>
                   )}
                 </div>
+
+                {/* Expected Load Date & Driver Info */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 border rounded-lg">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                      <Calendar className="h-4 w-4" />
+                      <span>Expected Load Date</span>
+                    </div>
+                    {load.expected_load_date ? (
+                      <p className="font-medium">
+                        {new Date(load.expected_load_date as string).toLocaleDateString()}
+                      </p>
+                    ) : (
+                      <p className="text-muted-foreground">
+                        {load.carrier_confirmed_at ? 'Not set' : 'Awaiting confirmation'}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="p-3 border rounded-lg">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                      <User className="h-4 w-4" />
+                      <span>Assigned Driver</span>
+                    </div>
+                    {load.assigned_driver_name ? (
+                      <div>
+                        <p className="font-medium">{load.assigned_driver_name}</p>
+                        {load.assigned_driver_phone && (
+                          <a
+                            href={`tel:${load.assigned_driver_phone}`}
+                            className="flex items-center gap-1 text-sm text-blue-500 hover:underline"
+                          >
+                            <Phone className="h-3 w-3" />
+                            {load.assigned_driver_phone}
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-yellow-500 font-medium">TBD</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Confirmation Status */}
+                {!load.carrier_confirmed_at && (
+                  <div className="flex items-center gap-2 p-3 bg-yellow-500/10 rounded-lg">
+                    <Clock className="h-4 w-4 text-yellow-500" />
+                    <span className="text-sm text-yellow-600">
+                      Carrier has not yet confirmed this load
+                    </span>
+                  </div>
+                )}
 
                 {canUnassign && (
                   <form action={unassignCarrierAction}>

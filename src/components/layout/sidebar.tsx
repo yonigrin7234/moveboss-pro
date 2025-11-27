@@ -8,6 +8,7 @@ import {
   Building2,
   Package,
   ClipboardList,
+  ClipboardCheck,
   Users,
   Truck,
   Boxes,
@@ -58,6 +59,7 @@ const navItems: NavItem[] = [
     children: [
       { label: "Load Board", href: "/dashboard/load-board", icon: Search },
       { label: "My Requests", href: "/dashboard/my-requests", icon: Send },
+      { label: "Assigned Loads", href: "/dashboard/assigned-loads", icon: ClipboardCheck },
       { label: "Loads", href: "/dashboard/loads", icon: Package },
       { label: "Trips", href: "/dashboard/trips", icon: Route },
       { label: "Alerts", href: "/dashboard/alerts", icon: Bell },

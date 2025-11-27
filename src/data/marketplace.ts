@@ -462,14 +462,14 @@ export async function withdrawLoadRequest(
   return { success: true };
 }
 
-// Carrier confirms load (after accepted)
+// Carrier confirms load (after accepted) - driver is optional
 export async function confirmLoadAssignment(
   loadId: string,
   data: {
     expected_load_date: string;
     assigned_driver_id?: string;
-    assigned_driver_name: string;
-    assigned_driver_phone: string;
+    assigned_driver_name?: string;
+    assigned_driver_phone?: string;
   }
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
@@ -479,9 +479,9 @@ export async function confirmLoadAssignment(
     .update({
       carrier_confirmed_at: new Date().toISOString(),
       expected_load_date: data.expected_load_date,
-      assigned_driver_id: data.assigned_driver_id,
-      assigned_driver_name: data.assigned_driver_name,
-      assigned_driver_phone: data.assigned_driver_phone,
+      assigned_driver_id: data.assigned_driver_id || null,
+      assigned_driver_name: data.assigned_driver_name || null,
+      assigned_driver_phone: data.assigned_driver_phone || null,
       load_status: 'accepted',
       updated_at: new Date().toISOString(),
     })
@@ -493,6 +493,247 @@ export async function confirmLoadAssignment(
   }
 
   return { success: true };
+}
+
+// Update driver on a load (carrier can assign driver later)
+export async function updateLoadDriver(
+  loadId: string,
+  data: {
+    assigned_driver_id?: string;
+    assigned_driver_name: string;
+    assigned_driver_phone: string;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('loads')
+    .update({
+      assigned_driver_id: data.assigned_driver_id || null,
+      assigned_driver_name: data.assigned_driver_name,
+      assigned_driver_phone: data.assigned_driver_phone,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', loadId);
+
+  if (error) {
+    console.error('Error updating driver:', error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+// Get carrier's assigned loads (confirmed)
+export async function getCarrierAssignedLoads(carrierOwnerId: string): Promise<
+  Array<{
+    id: string;
+    load_number: string;
+    origin_city: string;
+    origin_state: string;
+    origin_zip: string;
+    destination_city: string;
+    destination_state: string;
+    destination_zip: string;
+    estimated_cuft: number | null;
+    carrier_rate: number | null;
+    carrier_rate_type: string;
+    load_status: string;
+    expected_load_date: string | null;
+    assigned_driver_name: string | null;
+    carrier_confirmed_at: string | null;
+    company: { id: string; name: string } | null;
+  }>
+> {
+  const supabase = await createClient();
+
+  // Get carrier's company
+  const { data: carrier } = await supabase
+    .from('companies')
+    .select('id')
+    .eq('owner_id', carrierOwnerId)
+    .eq('company_type', 'carrier')
+    .single();
+
+  if (!carrier) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('loads')
+    .select(
+      `
+      id, load_number,
+      origin_city, origin_state, origin_zip,
+      destination_city, destination_state, destination_zip,
+      estimated_cuft, carrier_rate, carrier_rate_type,
+      load_status, expected_load_date, assigned_driver_name,
+      carrier_confirmed_at,
+      company:companies!loads_company_id_fkey(id, name)
+    `
+    )
+    .eq('assigned_carrier_id', carrier.id)
+    .not('load_status', 'eq', 'cancelled')
+    .order('carrier_assigned_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching assigned loads:', error);
+    return [];
+  }
+
+  return (data || []) as unknown as Array<{
+    id: string;
+    load_number: string;
+    origin_city: string;
+    origin_state: string;
+    origin_zip: string;
+    destination_city: string;
+    destination_state: string;
+    destination_zip: string;
+    estimated_cuft: number | null;
+    carrier_rate: number | null;
+    carrier_rate_type: string;
+    load_status: string;
+    expected_load_date: string | null;
+    assigned_driver_name: string | null;
+    carrier_confirmed_at: string | null;
+    company: { id: string; name: string } | null;
+  }>;
+}
+
+// Get single assigned load with full details (for carrier)
+export async function getAssignedLoadDetails(
+  loadId: string,
+  carrierOwnerId: string
+): Promise<{
+  id: string;
+  load_number: string;
+  // Origin with full address (revealed after confirm)
+  origin_city: string;
+  origin_state: string;
+  origin_zip: string;
+  origin_address: string | null;
+  origin_address2: string | null;
+  origin_contact_name: string | null;
+  origin_contact_phone: string | null;
+  origin_contact_email: string | null;
+  origin_gate_code: string | null;
+  origin_notes: string | null;
+  // Destination
+  destination_city: string;
+  destination_state: string;
+  destination_zip: string;
+  destination_address: string | null;
+  destination_address2: string | null;
+  destination_contact_name: string | null;
+  destination_contact_phone: string | null;
+  destination_contact_email: string | null;
+  destination_gate_code: string | null;
+  destination_notes: string | null;
+  // Size
+  estimated_cuft: number | null;
+  estimated_weight_lbs: number | null;
+  pieces_count: number | null;
+  // Rate
+  carrier_rate: number | null;
+  carrier_rate_type: string;
+  // Status
+  load_status: string;
+  expected_load_date: string | null;
+  carrier_confirmed_at: string | null;
+  carrier_assigned_at: string | null;
+  // Driver
+  assigned_driver_id: string | null;
+  assigned_driver_name: string | null;
+  assigned_driver_phone: string | null;
+  // Instructions
+  special_instructions: string | null;
+  // Company
+  company: { id: string; name: string; phone: string | null } | null;
+} | null> {
+  const supabase = await createClient();
+
+  // Get carrier's company
+  const { data: carrier } = await supabase
+    .from('companies')
+    .select('id')
+    .eq('owner_id', carrierOwnerId)
+    .eq('company_type', 'carrier')
+    .single();
+
+  if (!carrier) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from('loads')
+    .select(
+      `
+      id, load_number,
+      origin_city, origin_state, origin_zip,
+      origin_address, origin_address2,
+      origin_contact_name, origin_contact_phone, origin_contact_email,
+      origin_gate_code, origin_notes,
+      destination_city, destination_state, destination_zip,
+      destination_address, destination_address2,
+      destination_contact_name, destination_contact_phone, destination_contact_email,
+      destination_gate_code, destination_notes,
+      estimated_cuft, estimated_weight_lbs, pieces_count,
+      carrier_rate, carrier_rate_type,
+      load_status, expected_load_date,
+      carrier_confirmed_at, carrier_assigned_at,
+      assigned_driver_id, assigned_driver_name, assigned_driver_phone,
+      special_instructions,
+      company:companies!loads_company_id_fkey(id, name, phone)
+    `
+    )
+    .eq('id', loadId)
+    .eq('assigned_carrier_id', carrier.id)
+    .single();
+
+  if (error || !data) {
+    console.error('Error fetching assigned load:', error);
+    return null;
+  }
+
+  return data as unknown as {
+    id: string;
+    load_number: string;
+    origin_city: string;
+    origin_state: string;
+    origin_zip: string;
+    origin_address: string | null;
+    origin_address2: string | null;
+    origin_contact_name: string | null;
+    origin_contact_phone: string | null;
+    origin_contact_email: string | null;
+    origin_gate_code: string | null;
+    origin_notes: string | null;
+    destination_city: string;
+    destination_state: string;
+    destination_zip: string;
+    destination_address: string | null;
+    destination_address2: string | null;
+    destination_contact_name: string | null;
+    destination_contact_phone: string | null;
+    destination_contact_email: string | null;
+    destination_gate_code: string | null;
+    destination_notes: string | null;
+    estimated_cuft: number | null;
+    estimated_weight_lbs: number | null;
+    pieces_count: number | null;
+    carrier_rate: number | null;
+    carrier_rate_type: string;
+    load_status: string;
+    expected_load_date: string | null;
+    carrier_confirmed_at: string | null;
+    carrier_assigned_at: string | null;
+    assigned_driver_id: string | null;
+    assigned_driver_name: string | null;
+    assigned_driver_phone: string | null;
+    special_instructions: string | null;
+    company: { id: string; name: string; phone: string | null } | null;
+  };
 }
 
 // Get carrier's requests
