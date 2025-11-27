@@ -2,15 +2,15 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/supabase-server';
 import {
+  getComplianceAlerts,
+  getAllComplianceItems,
   getComplianceDocuments,
-  getExpiringDocuments,
-  getExpiredDocuments,
-  getDocumentCounts,
-  DOCUMENT_TYPES,
-  DOCUMENT_STATUS_CONFIG,
+  type ComplianceItem,
   type ComplianceDocument,
+  DOCUMENT_STATUS_CONFIG,
+  DOCUMENT_TYPES,
 } from '@/data/compliance-documents';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -23,28 +23,75 @@ import {
   XCircle,
   Building2,
   Calendar,
-  Download,
-  ExternalLink,
+  User,
+  Truck,
+  Container,
+  ChevronRight,
 } from 'lucide-react';
 
-function getDocumentTypeLabel(type: string): string {
-  return DOCUMENT_TYPES.find((t) => t.value === type)?.label || type;
-}
+const CATEGORY_CONFIG = {
+  driver: { label: 'Drivers', icon: User, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
+  truck: { label: 'Trucks', icon: Truck, color: 'text-green-500', bgColor: 'bg-green-500/10' },
+  trailer: { label: 'Trailers', icon: Container, color: 'text-purple-500', bgColor: 'bg-purple-500/10' },
+  document: { label: 'Documents', icon: FileText, color: 'text-orange-500', bgColor: 'bg-orange-500/10' },
+};
 
-function getDaysUntilExpiration(expirationDate: string | null): number | null {
-  if (!expirationDate) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const expDate = new Date(expirationDate);
-  const diffTime = expDate.getTime() - today.getTime();
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+function ComplianceItemCard({ item }: { item: ComplianceItem }) {
+  const categoryConfig = CATEGORY_CONFIG[item.category];
+  const CategoryIcon = categoryConfig.icon;
+
+  return (
+    <Link href={item.link}>
+      <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-3">
+              <div className={`h-10 w-10 rounded-lg ${categoryConfig.bgColor} flex items-center justify-center`}>
+                <CategoryIcon className={`h-5 w-5 ${categoryConfig.color}`} />
+              </div>
+              <div>
+                <p className="font-medium">{item.name}</p>
+                <p className="text-sm text-muted-foreground">{item.type}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span
+                    className={`text-sm ${
+                      item.status === 'expired'
+                        ? 'text-red-600 dark:text-red-400 font-medium'
+                        : item.status === 'expiring_soon'
+                          ? 'text-yellow-600 dark:text-yellow-400 font-medium'
+                          : 'text-muted-foreground'
+                    }`}
+                  >
+                    {item.status === 'expired'
+                      ? `Expired ${Math.abs(item.days_until_expiration)} days ago`
+                      : item.status === 'expiring_soon'
+                        ? `Expires in ${item.days_until_expiration} days`
+                        : new Date(item.expiration_date).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <Badge
+              className={
+                item.status === 'expired'
+                  ? 'bg-red-500/20 text-red-600 dark:text-red-400'
+                  : item.status === 'expiring_soon'
+                    ? 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400'
+                    : 'bg-green-500/20 text-green-600 dark:text-green-400'
+              }
+            >
+              {item.status === 'expired' ? 'Expired' : item.status === 'expiring_soon' ? 'Expiring' : 'Valid'}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
 }
 
 function DocumentCard({ document }: { document: ComplianceDocument }) {
   const status = DOCUMENT_STATUS_CONFIG[document.status] || DOCUMENT_STATUS_CONFIG.pending_review;
-  const daysUntilExpiration = getDaysUntilExpiration(document.expiration_date);
-  const isExpired = daysUntilExpiration !== null && daysUntilExpiration < 0;
-  const isExpiringSoon = daysUntilExpiration !== null && daysUntilExpiration >= 0 && daysUntilExpiration <= 30;
 
   return (
     <Link href={`/dashboard/compliance/${document.id}`}>
@@ -58,55 +105,17 @@ function DocumentCard({ document }: { document: ComplianceDocument }) {
               <div>
                 <p className="font-semibold">{document.document_name}</p>
                 <p className="text-sm text-muted-foreground">
-                  {getDocumentTypeLabel(document.document_type)}
+                  {DOCUMENT_TYPES.find((t) => t.value === document.document_type)?.label || document.document_type}
                 </p>
               </div>
             </div>
             <Badge className={status.color}>{status.label}</Badge>
           </div>
 
-          <div className="space-y-2 text-sm">
-            {document.company && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Building2 className="h-3.5 w-3.5" />
-                <span>{document.company.name}</span>
-              </div>
-            )}
-
-            {document.expiration_date && (
-              <div
-                className={`flex items-center gap-2 ${
-                  isExpired
-                    ? 'text-red-600 dark:text-red-400'
-                    : isExpiringSoon
-                      ? 'text-yellow-600 dark:text-yellow-400'
-                      : 'text-muted-foreground'
-                }`}
-              >
-                <Calendar className="h-3.5 w-3.5" />
-                <span>
-                  {isExpired
-                    ? `Expired ${Math.abs(daysUntilExpiration!)} days ago`
-                    : isExpiringSoon
-                      ? `Expires in ${daysUntilExpiration} days`
-                      : `Expires ${new Date(document.expiration_date).toLocaleDateString()}`}
-                </span>
-              </div>
-            )}
-
-            {document.policy_number && (
-              <p className="text-muted-foreground">Policy: {document.policy_number}</p>
-            )}
-          </div>
-
-          {(isExpired || isExpiringSoon) && document.status === 'approved' && (
-            <div
-              className={`mt-3 flex items-center gap-1 text-xs ${
-                isExpired ? 'text-red-600 dark:text-red-400' : 'text-yellow-600 dark:text-yellow-400'
-              }`}
-            >
-              <AlertTriangle className="h-3 w-3" />
-              {isExpired ? 'Document has expired' : 'Expiring soon'}
+          {document.company && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Building2 className="h-3.5 w-3.5" />
+              <span>{document.company.name}</span>
             </div>
           )}
         </CardContent>
@@ -119,23 +128,26 @@ export default async function CompliancePage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  const [allDocuments, expiringDocuments, expiredDocuments, counts] = await Promise.all([
+  const [alerts, allItems, documents] = await Promise.all([
+    getComplianceAlerts(user.id),
+    getAllComplianceItems(user.id),
     getComplianceDocuments(user.id),
-    getExpiringDocuments(user.id),
-    getExpiredDocuments(user.id),
-    getDocumentCounts(user.id),
   ]);
 
-  const pendingDocuments = allDocuments.filter((d) => d.status === 'pending_review');
-  const approvedDocuments = allDocuments.filter((d) => d.status === 'approved');
+  const pendingDocuments = documents.filter((d) => d.status === 'pending_review');
+
+  // Filter items by category
+  const driverItems = allItems.filter((i) => i.category === 'driver');
+  const truckItems = allItems.filter((i) => i.category === 'truck');
+  const trailerItems = allItems.filter((i) => i.category === 'trailer');
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Compliance Documents</h1>
-          <p className="text-muted-foreground">Manage W-9s, insurance, and hauling agreements</p>
+          <h1 className="text-2xl font-bold">Compliance Center</h1>
+          <p className="text-muted-foreground">Track expirations for drivers, fleet, and documents</p>
         </div>
         <Button asChild>
           <Link href="/dashboard/compliance/upload">
@@ -146,16 +158,16 @@ export default async function CompliancePage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-blue-500/10 flex items-center justify-center">
-                <FileText className="h-6 w-6 text-blue-500" />
+              <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center">
+                <XCircle className="h-6 w-6 text-red-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{counts.total}</p>
-                <p className="text-sm text-muted-foreground">Total Documents</p>
+                <p className="text-2xl font-bold">{alerts.counts.expired}</p>
+                <p className="text-sm text-muted-foreground">Expired</p>
               </div>
             </div>
           </CardContent>
@@ -165,24 +177,10 @@ export default async function CompliancePage() {
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
               <div className="h-12 w-12 rounded-full bg-yellow-500/10 flex items-center justify-center">
-                <Clock className="h-6 w-6 text-yellow-500" />
+                <AlertTriangle className="h-6 w-6 text-yellow-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{counts.pending}</p>
-                <p className="text-sm text-muted-foreground">Pending Review</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-orange-500/10 flex items-center justify-center">
-                <AlertTriangle className="h-6 w-6 text-orange-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{counts.expiring}</p>
+                <p className="text-2xl font-bold">{alerts.counts.expiringSoon}</p>
                 <p className="text-sm text-muted-foreground">Expiring Soon</p>
               </div>
             </div>
@@ -192,42 +190,86 @@ export default async function CompliancePage() {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center">
-                <XCircle className="h-6 w-6 text-red-500" />
+              <div className="h-12 w-12 rounded-full bg-blue-500/10 flex items-center justify-center">
+                <Clock className="h-6 w-6 text-blue-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{counts.expired}</p>
-                <p className="text-sm text-muted-foreground">Expired</p>
+                <p className="text-2xl font-bold">{pendingDocuments.length}</p>
+                <p className="text-sm text-muted-foreground">Pending Review</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-full bg-green-500/10 flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-green-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{alerts.counts.total - alerts.counts.expired - alerts.counts.expiringSoon}</p>
+                <p className="text-sm text-muted-foreground">Up to Date</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Expiration Alerts */}
-      {(expiringDocuments.length > 0 || expiredDocuments.length > 0) && (
+      {/* Category Breakdown */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {Object.entries(CATEGORY_CONFIG).map(([category, config]) => {
+          const Icon = config.icon;
+          const stats = alerts.counts.byCategory[category] || { expired: 0, expiringSoon: 0 };
+          const hasIssues = stats.expired > 0 || stats.expiringSoon > 0;
+
+          return (
+            <Card key={category} className={hasIssues ? 'border-orange-500/30' : ''}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className={`h-10 w-10 rounded-lg ${config.bgColor} flex items-center justify-center`}>
+                    <Icon className={`h-5 w-5 ${config.color}`} />
+                  </div>
+                  <div>
+                    <p className="font-medium">{config.label}</p>
+                    <div className="flex gap-2 text-xs">
+                      {stats.expired > 0 && (
+                        <span className="text-red-600 dark:text-red-400">{stats.expired} expired</span>
+                      )}
+                      {stats.expiringSoon > 0 && (
+                        <span className="text-yellow-600 dark:text-yellow-400">{stats.expiringSoon} expiring</span>
+                      )}
+                      {!hasIssues && <span className="text-green-600 dark:text-green-400">All good</span>}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Alerts Section */}
+      {(alerts.expired.length > 0 || alerts.expiringSoon.length > 0) && (
         <Card className="border-orange-500/30 bg-orange-500/5">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-orange-500 mt-0.5" />
-              <div>
-                <p className="font-medium text-orange-600 dark:text-orange-400">
-                  Attention Required
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {expiredDocuments.length > 0 && (
-                    <span className="text-red-600 dark:text-red-400">
-                      {expiredDocuments.length} document{expiredDocuments.length !== 1 ? 's' : ''} expired.{' '}
-                    </span>
-                  )}
-                  {expiringDocuments.length > 0 && (
-                    <span>
-                      {expiringDocuments.length} document{expiringDocuments.length !== 1 ? 's' : ''} expiring within 30 days.
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <AlertTriangle className="h-5 w-5 text-orange-500" />
+              Attention Required
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {alerts.expired.slice(0, 3).map((item) => (
+              <ComplianceItemCard key={item.id} item={item} />
+            ))}
+            {alerts.expiringSoon.slice(0, 3).map((item) => (
+              <ComplianceItemCard key={item.id} item={item} />
+            ))}
+            {(alerts.expired.length + alerts.expiringSoon.length) > 6 && (
+              <p className="text-sm text-muted-foreground text-center pt-2">
+                And {alerts.expired.length + alerts.expiringSoon.length - 6} more items...
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
@@ -235,23 +277,106 @@ export default async function CompliancePage() {
       {/* Tabs */}
       <Tabs defaultValue="all">
         <TabsList>
-          <TabsTrigger value="all">All ({allDocuments.length})</TabsTrigger>
-          <TabsTrigger value="pending">Pending ({pendingDocuments.length})</TabsTrigger>
-          <TabsTrigger value="expiring">
-            Expiring ({expiringDocuments.length + expiredDocuments.length})
-          </TabsTrigger>
-          <TabsTrigger value="approved">Approved ({approvedDocuments.length})</TabsTrigger>
+          <TabsTrigger value="all">All Items ({allItems.length})</TabsTrigger>
+          <TabsTrigger value="drivers">Drivers ({driverItems.length})</TabsTrigger>
+          <TabsTrigger value="trucks">Trucks ({truckItems.length})</TabsTrigger>
+          <TabsTrigger value="trailers">Trailers ({trailerItems.length})</TabsTrigger>
+          <TabsTrigger value="documents">Documents ({documents.length})</TabsTrigger>
         </TabsList>
 
-        {/* All Tab */}
+        {/* All Items Tab */}
         <TabsContent value="all" className="space-y-4 mt-4">
-          {allDocuments.length === 0 ? (
+          {allItems.length === 0 ? (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <CheckCircle className="h-12 w-12 mx-auto text-green-500 mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No compliance items yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  Add drivers, trucks, trailers, or upload documents to track expirations
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {allItems.map((item) => (
+                <ComplianceItemCard key={item.id} item={item} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Drivers Tab */}
+        <TabsContent value="drivers" className="space-y-4 mt-4">
+          {driverItems.length === 0 ? (
+            <Card>
+              <CardContent className="p-6 text-center">
+                <User className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-muted-foreground">No driver compliance items</p>
+                <Button variant="outline" size="sm" className="mt-4" asChild>
+                  <Link href="/dashboard/people/drivers">Manage Drivers</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {driverItems.map((item) => (
+                <ComplianceItemCard key={item.id} item={item} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Trucks Tab */}
+        <TabsContent value="trucks" className="space-y-4 mt-4">
+          {truckItems.length === 0 ? (
+            <Card>
+              <CardContent className="p-6 text-center">
+                <Truck className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-muted-foreground">No truck compliance items</p>
+                <Button variant="outline" size="sm" className="mt-4" asChild>
+                  <Link href="/dashboard/fleet/trucks">Manage Trucks</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {truckItems.map((item) => (
+                <ComplianceItemCard key={item.id} item={item} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Trailers Tab */}
+        <TabsContent value="trailers" className="space-y-4 mt-4">
+          {trailerItems.length === 0 ? (
+            <Card>
+              <CardContent className="p-6 text-center">
+                <Container className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-muted-foreground">No trailer compliance items</p>
+                <Button variant="outline" size="sm" className="mt-4" asChild>
+                  <Link href="/dashboard/fleet/trailers">Manage Trailers</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {trailerItems.map((item) => (
+                <ComplianceItemCard key={item.id} item={item} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Documents Tab */}
+        <TabsContent value="documents" className="space-y-4 mt-4">
+          {documents.length === 0 ? (
             <Card>
               <CardContent className="p-12 text-center">
                 <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No documents yet</h3>
                 <p className="text-muted-foreground mb-4">
-                  Upload compliance documents for your companies and partners
+                  Upload W-9s, insurance certificates, and hauling agreements
                 </p>
                 <Button asChild>
                   <Link href="/dashboard/compliance/upload">
@@ -263,82 +388,7 @@ export default async function CompliancePage() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {allDocuments.map((doc) => (
-                <DocumentCard key={doc.id} document={doc} />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Pending Tab */}
-        <TabsContent value="pending" className="space-y-4 mt-4">
-          {pendingDocuments.length === 0 ? (
-            <Card>
-              <CardContent className="p-6 text-center text-muted-foreground">
-                <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
-                No documents pending review
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {pendingDocuments.map((doc) => (
-                <DocumentCard key={doc.id} document={doc} />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Expiring Tab */}
-        <TabsContent value="expiring" className="space-y-4 mt-4">
-          {expiredDocuments.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="font-semibold text-red-600 dark:text-red-400 flex items-center gap-2">
-                <XCircle className="h-4 w-4" />
-                Expired
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {expiredDocuments.map((doc) => (
-                  <DocumentCard key={doc.id} document={doc} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {expiringDocuments.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="font-semibold text-yellow-600 dark:text-yellow-400 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" />
-                Expiring Soon (within 30 days)
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {expiringDocuments.map((doc) => (
-                  <DocumentCard key={doc.id} document={doc} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {expiringDocuments.length === 0 && expiredDocuments.length === 0 && (
-            <Card>
-              <CardContent className="p-6 text-center text-muted-foreground">
-                <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
-                No expiring or expired documents
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* Approved Tab */}
-        <TabsContent value="approved" className="space-y-4 mt-4">
-          {approvedDocuments.length === 0 ? (
-            <Card>
-              <CardContent className="p-6 text-center text-muted-foreground">
-                No approved documents
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {approvedDocuments.map((doc) => (
+              {documents.map((doc) => (
                 <DocumentCard key={doc.id} document={doc} />
               ))}
             </div>

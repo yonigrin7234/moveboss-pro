@@ -1,5 +1,23 @@
 import { createClient } from '@/lib/supabase-server';
 
+// ===========================================
+// UNIFIED COMPLIANCE ITEM TYPE
+// ===========================================
+
+export interface ComplianceItem {
+  id: string;
+  category: 'document' | 'driver' | 'truck' | 'trailer';
+  type: string;
+  name: string;
+  description: string;
+  expiration_date: string;
+  days_until_expiration: number;
+  status: 'expired' | 'expiring_soon' | 'valid';
+  entity_id: string;
+  entity_name: string;
+  link: string;
+}
+
 export interface ComplianceDocument {
   id: string;
   company_id: string;
@@ -482,4 +500,287 @@ export async function getCompaniesForDocuments(ownerId: string): Promise<
   );
 
   return unique.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// ===========================================
+// UNIFIED COMPLIANCE FUNCTIONS
+// ===========================================
+
+function calculateDaysUntil(dateStr: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const targetDate = new Date(dateStr);
+  const diffTime = targetDate.getTime() - today.getTime();
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+}
+
+function getComplianceStatus(daysUntil: number): 'expired' | 'expiring_soon' | 'valid' {
+  if (daysUntil < 0) return 'expired';
+  if (daysUntil <= 30) return 'expiring_soon';
+  return 'valid';
+}
+
+// Get all expiring driver documents
+export async function getDriverComplianceItems(ownerId: string): Promise<ComplianceItem[]> {
+  const supabase = await createClient();
+
+  const { data: drivers } = await supabase
+    .from('drivers')
+    .select('id, first_name, last_name, license_expiry, medical_card_expiry, status')
+    .eq('owner_id', ownerId)
+    .in('status', ['active', 'suspended']);
+
+  if (!drivers) return [];
+
+  const items: ComplianceItem[] = [];
+
+  for (const driver of drivers) {
+    const driverName = `${driver.first_name} ${driver.last_name}`;
+
+    if (driver.license_expiry) {
+      const days = calculateDaysUntil(driver.license_expiry);
+      items.push({
+        id: `driver-license-${driver.id}`,
+        category: 'driver',
+        type: 'Driver License',
+        name: `${driverName} - Driver License`,
+        description: `CDL expires ${new Date(driver.license_expiry).toLocaleDateString()}`,
+        expiration_date: driver.license_expiry,
+        days_until_expiration: days,
+        status: getComplianceStatus(days),
+        entity_id: driver.id,
+        entity_name: driverName,
+        link: `/dashboard/people/drivers/${driver.id}`,
+      });
+    }
+
+    if (driver.medical_card_expiry) {
+      const days = calculateDaysUntil(driver.medical_card_expiry);
+      items.push({
+        id: `driver-medical-${driver.id}`,
+        category: 'driver',
+        type: 'Medical Card',
+        name: `${driverName} - Medical Card`,
+        description: `Medical card expires ${new Date(driver.medical_card_expiry).toLocaleDateString()}`,
+        expiration_date: driver.medical_card_expiry,
+        days_until_expiration: days,
+        status: getComplianceStatus(days),
+        entity_id: driver.id,
+        entity_name: driverName,
+        link: `/dashboard/people/drivers/${driver.id}`,
+      });
+    }
+  }
+
+  return items;
+}
+
+// Get all expiring truck documents
+export async function getTruckComplianceItems(ownerId: string): Promise<ComplianceItem[]> {
+  const supabase = await createClient();
+
+  const { data: trucks } = await supabase
+    .from('trucks')
+    .select('id, unit_number, plate_number, make, model, year, registration_expiry, inspection_expiry, status')
+    .eq('owner_id', ownerId)
+    .in('status', ['active', 'maintenance']);
+
+  if (!trucks) return [];
+
+  const items: ComplianceItem[] = [];
+
+  for (const truck of trucks) {
+    const truckName = truck.unit_number || truck.plate_number || `${truck.year} ${truck.make} ${truck.model}`.trim() || 'Truck';
+
+    if (truck.registration_expiry) {
+      const days = calculateDaysUntil(truck.registration_expiry);
+      items.push({
+        id: `truck-registration-${truck.id}`,
+        category: 'truck',
+        type: 'Truck Registration',
+        name: `${truckName} - Registration`,
+        description: `Registration expires ${new Date(truck.registration_expiry).toLocaleDateString()}`,
+        expiration_date: truck.registration_expiry,
+        days_until_expiration: days,
+        status: getComplianceStatus(days),
+        entity_id: truck.id,
+        entity_name: truckName,
+        link: `/dashboard/fleet/trucks/${truck.id}`,
+      });
+    }
+
+    if (truck.inspection_expiry) {
+      const days = calculateDaysUntil(truck.inspection_expiry);
+      items.push({
+        id: `truck-inspection-${truck.id}`,
+        category: 'truck',
+        type: 'Truck Inspection',
+        name: `${truckName} - Inspection`,
+        description: `Inspection expires ${new Date(truck.inspection_expiry).toLocaleDateString()}`,
+        expiration_date: truck.inspection_expiry,
+        days_until_expiration: days,
+        status: getComplianceStatus(days),
+        entity_id: truck.id,
+        entity_name: truckName,
+        link: `/dashboard/fleet/trucks/${truck.id}`,
+      });
+    }
+  }
+
+  return items;
+}
+
+// Get all expiring trailer documents
+export async function getTrailerComplianceItems(ownerId: string): Promise<ComplianceItem[]> {
+  const supabase = await createClient();
+
+  const { data: trailers } = await supabase
+    .from('trailers')
+    .select('id, unit_number, plate_number, make, model, year, registration_expiry, inspection_expiry, status')
+    .eq('owner_id', ownerId)
+    .in('status', ['active', 'maintenance']);
+
+  if (!trailers) return [];
+
+  const items: ComplianceItem[] = [];
+
+  for (const trailer of trailers) {
+    const trailerName = trailer.unit_number || trailer.plate_number || `${trailer.year} ${trailer.make} ${trailer.model}`.trim() || 'Trailer';
+
+    if (trailer.registration_expiry) {
+      const days = calculateDaysUntil(trailer.registration_expiry);
+      items.push({
+        id: `trailer-registration-${trailer.id}`,
+        category: 'trailer',
+        type: 'Trailer Registration',
+        name: `${trailerName} - Registration`,
+        description: `Registration expires ${new Date(trailer.registration_expiry).toLocaleDateString()}`,
+        expiration_date: trailer.registration_expiry,
+        days_until_expiration: days,
+        status: getComplianceStatus(days),
+        entity_id: trailer.id,
+        entity_name: trailerName,
+        link: `/dashboard/fleet/trailers/${trailer.id}`,
+      });
+    }
+
+    if (trailer.inspection_expiry) {
+      const days = calculateDaysUntil(trailer.inspection_expiry);
+      items.push({
+        id: `trailer-inspection-${trailer.id}`,
+        category: 'trailer',
+        type: 'Trailer Inspection',
+        name: `${trailerName} - Inspection`,
+        description: `Inspection expires ${new Date(trailer.inspection_expiry).toLocaleDateString()}`,
+        expiration_date: trailer.inspection_expiry,
+        days_until_expiration: days,
+        status: getComplianceStatus(days),
+        entity_id: trailer.id,
+        entity_name: trailerName,
+        link: `/dashboard/fleet/trailers/${trailer.id}`,
+      });
+    }
+  }
+
+  return items;
+}
+
+// Get document compliance items
+export async function getDocumentComplianceItems(ownerId: string): Promise<ComplianceItem[]> {
+  const supabase = await createClient();
+
+  const { data: docs } = await supabase
+    .from('compliance_documents')
+    .select(`
+      id, document_type, document_name, expiration_date, status,
+      company:companies!compliance_documents_company_id_fkey(id, name)
+    `)
+    .eq('owner_id', ownerId)
+    .eq('is_current', true)
+    .eq('status', 'approved')
+    .not('expiration_date', 'is', null);
+
+  if (!docs) return [];
+
+  const items: ComplianceItem[] = [];
+
+  for (const doc of docs) {
+    if (!doc.expiration_date) continue;
+
+    const days = calculateDaysUntil(doc.expiration_date);
+    const typeLabel = DOCUMENT_TYPES.find((t) => t.value === doc.document_type)?.label || doc.document_type;
+    const companyData = doc.company as unknown as { name: string } | null;
+    const companyName = companyData?.name || 'Unknown';
+
+    items.push({
+      id: `document-${doc.id}`,
+      category: 'document',
+      type: typeLabel,
+      name: doc.document_name,
+      description: `${typeLabel} for ${companyName}`,
+      expiration_date: doc.expiration_date,
+      days_until_expiration: days,
+      status: getComplianceStatus(days),
+      entity_id: doc.id,
+      entity_name: companyName,
+      link: `/dashboard/compliance/${doc.id}`,
+    });
+  }
+
+  return items;
+}
+
+// Get ALL compliance items across all categories
+export async function getAllComplianceItems(ownerId: string): Promise<ComplianceItem[]> {
+  const [driverItems, truckItems, trailerItems, documentItems] = await Promise.all([
+    getDriverComplianceItems(ownerId),
+    getTruckComplianceItems(ownerId),
+    getTrailerComplianceItems(ownerId),
+    getDocumentComplianceItems(ownerId),
+  ]);
+
+  return [...driverItems, ...truckItems, ...trailerItems, ...documentItems]
+    .sort((a, b) => a.days_until_expiration - b.days_until_expiration);
+}
+
+// Get expiring and expired items (for alerts)
+export async function getComplianceAlerts(ownerId: string): Promise<{
+  expired: ComplianceItem[];
+  expiringSoon: ComplianceItem[];
+  counts: {
+    total: number;
+    expired: number;
+    expiringSoon: number;
+    byCategory: Record<string, { expired: number; expiringSoon: number }>;
+  };
+}> {
+  const allItems = await getAllComplianceItems(ownerId);
+
+  const expired = allItems.filter((item) => item.status === 'expired');
+  const expiringSoon = allItems.filter((item) => item.status === 'expiring_soon');
+
+  const byCategory: Record<string, { expired: number; expiringSoon: number }> = {
+    driver: { expired: 0, expiringSoon: 0 },
+    truck: { expired: 0, expiringSoon: 0 },
+    trailer: { expired: 0, expiringSoon: 0 },
+    document: { expired: 0, expiringSoon: 0 },
+  };
+
+  for (const item of expired) {
+    byCategory[item.category].expired++;
+  }
+  for (const item of expiringSoon) {
+    byCategory[item.category].expiringSoon++;
+  }
+
+  return {
+    expired,
+    expiringSoon,
+    counts: {
+      total: allItems.length,
+      expired: expired.length,
+      expiringSoon: expiringSoon.length,
+      byCategory,
+    },
+  };
 }
