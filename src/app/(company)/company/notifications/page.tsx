@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   Undo2,
   Navigation,
+  Star,
 } from 'lucide-react';
 
 async function getCompanySession() {
@@ -84,6 +85,11 @@ const typeConfig: Record<
     icon: CheckCircle,
     color: 'text-green-500',
     href: (n) => (n.load_id ? `/company/loads/${n.load_id}` : '/company/dashboard'),
+  },
+  rating_received: {
+    icon: Star,
+    color: 'text-yellow-500',
+    href: () => '/company/dashboard',
   },
 };
 

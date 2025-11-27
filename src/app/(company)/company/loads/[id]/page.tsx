@@ -10,6 +10,9 @@ import {
   unassignCarrierFromLoad,
 } from '@/data/company-portal';
 import { cancelCarrierAssignment } from '@/data/cancellations';
+import { getRatingForLoad, submitRating } from '@/data/ratings';
+import { RatingForm } from '@/components/rating-form';
+import { RatingStars } from '@/components/rating-stars';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +43,7 @@ import {
   Phone,
   XCircle,
   Navigation,
+  Star,
 } from 'lucide-react';
 
 const cancelReasonOptions = [
@@ -118,9 +122,10 @@ export default async function CompanyLoadDetailPage({
     redirect('/company-login');
   }
 
-  const [load, carrierPartners] = await Promise.all([
+  const [load, carrierPartners, existingRating] = await Promise.all([
     getCompanyLoadDetail(session.company_id, id),
     getCompanyCarrierPartners(session.company_id),
+    getRatingForLoad(id, session.company_id),
   ]);
 
   if (!load) {
@@ -194,6 +199,36 @@ export default async function CompanyLoadDetailPage({
 
     revalidatePath(`/company/loads/${loadId}`);
     revalidatePath('/company/dashboard');
+  }
+
+  async function submitRatingAction(formData: FormData) {
+    'use server';
+
+    const loadId = formData.get('load_id') as string;
+    const raterCompanyId = formData.get('rater_company_id') as string;
+    const ratedCompanyId = formData.get('rated_company_id') as string;
+    const raterType = formData.get('rater_type') as 'shipper' | 'carrier';
+    const rating = parseInt(formData.get('rating') as string, 10);
+    const comment = formData.get('comment') as string | undefined;
+
+    if (!loadId || !raterCompanyId || !ratedCompanyId || !rating) {
+      throw new Error('Missing required fields');
+    }
+
+    const result = await submitRating(
+      loadId,
+      raterCompanyId,
+      ratedCompanyId,
+      rating,
+      raterType,
+      comment
+    );
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to submit rating');
+    }
+
+    revalidatePath(`/company/loads/${loadId}`);
   }
 
   return (
@@ -625,6 +660,40 @@ export default async function CompanyLoadDetailPage({
               )}
             </CardContent>
           </Card>
+        )}
+
+        {/* Rate Carrier - Only show for delivered loads with carrier */}
+        {load.load_status === 'delivered' && carrier && (
+          existingRating ? (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Star className="h-5 w-5 text-yellow-400" />
+                  Your Rating for {carrier.name}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-3">
+                  <RatingStars rating={existingRating.rating} size="lg" showValue />
+                </div>
+                {existingRating.comment && (
+                  <p className="text-sm text-muted-foreground mt-2">{existingRating.comment}</p>
+                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  Rated on {new Date(existingRating.created_at).toLocaleDateString()}
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <RatingForm
+              loadId={id}
+              raterCompanyId={session.company_id}
+              ratedCompanyId={carrier.id}
+              ratedCompanyName={carrier.name}
+              raterType="shipper"
+              onSubmit={submitRatingAction}
+            />
+          )
         )}
 
         {/* Notes */}

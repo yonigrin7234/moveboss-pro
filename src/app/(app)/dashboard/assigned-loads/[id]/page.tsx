@@ -4,6 +4,10 @@ import { getCurrentUser } from '@/lib/supabase-server';
 import { getAssignedLoadDetails, updateLoadDriver } from '@/data/marketplace';
 import { getDriversForUser } from '@/data/drivers';
 import { updateLoadStatus, getLoadStatusHistory } from '@/data/load-status';
+import { getRatingForLoad, submitRating } from '@/data/ratings';
+import { getWorkspaceCompanyForUser } from '@/data/companies';
+import { RatingForm } from '@/components/rating-form';
+import { RatingStars } from '@/components/rating-stars';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +42,7 @@ import {
   Key,
   FileText,
   Truck,
+  Star,
 } from 'lucide-react';
 
 interface PageProps {
@@ -80,10 +85,12 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
     redirect(`/dashboard/assigned-loads/${id}/confirm`);
   }
 
-  // Get carrier's drivers for assignment and status history
-  const [drivers, statusHistory] = await Promise.all([
+  // Get carrier's drivers for assignment, status history, company info, and existing rating
+  const carrierCompany = await getWorkspaceCompanyForUser(user.id);
+  const [drivers, statusHistory, existingRating] = await Promise.all([
     getDriversForUser(user.id),
     getLoadStatusHistory(id),
+    carrierCompany ? getRatingForLoad(id, carrierCompany.id) : Promise.resolve(null),
   ]);
 
   async function updateDriverAction(formData: FormData) {
@@ -150,6 +157,36 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
 
     revalidatePath(`/dashboard/assigned-loads/${loadId}`);
     revalidatePath('/dashboard/assigned-loads');
+  }
+
+  async function submitRatingAction(formData: FormData) {
+    'use server';
+
+    const loadId = formData.get('load_id') as string;
+    const raterCompanyId = formData.get('rater_company_id') as string;
+    const ratedCompanyId = formData.get('rated_company_id') as string;
+    const raterType = formData.get('rater_type') as 'shipper' | 'carrier';
+    const rating = parseInt(formData.get('rating') as string, 10);
+    const comment = formData.get('comment') as string | undefined;
+
+    if (!loadId || !raterCompanyId || !ratedCompanyId || !rating) {
+      throw new Error('Missing required fields');
+    }
+
+    const result = await submitRating(
+      loadId,
+      raterCompanyId,
+      ratedCompanyId,
+      rating,
+      raterType,
+      comment
+    );
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to submit rating');
+    }
+
+    revalidatePath(`/dashboard/assigned-loads/${loadId}`);
   }
 
   const company = Array.isArray(load.company) ? load.company[0] : load.company;
@@ -614,6 +651,40 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Rate Company - Only show for delivered loads */}
+      {load.load_status === 'delivered' && company && carrierCompany && (
+        existingRating ? (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Star className="h-5 w-5 text-yellow-400" />
+                Your Rating for {company.name}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-3">
+                <RatingStars rating={existingRating.rating} size="lg" showValue />
+              </div>
+              {existingRating.comment && (
+                <p className="text-sm text-muted-foreground mt-2">{existingRating.comment}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-2">
+                Rated on {new Date(existingRating.created_at).toLocaleDateString()}
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <RatingForm
+            loadId={id}
+            raterCompanyId={carrierCompany.id}
+            ratedCompanyId={company.id}
+            ratedCompanyName={company.name}
+            raterType="carrier"
+            onSubmit={submitRatingAction}
+          />
+        )
+      )}
 
       {/* Special Instructions */}
       {load.special_instructions && (
