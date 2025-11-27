@@ -71,7 +71,7 @@ export function CompanySetup({ currentStep }: CompanySetupProps) {
         return;
       }
 
-      router.push('/company/dashboard');
+      router.push('/dashboard');
     }
   };
 

@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
         // Redirect to appropriate dashboard
         const dashboards: Record<string, string> = {
-          company: '/company/dashboard',
+          company: '/dashboard',
           carrier: '/dashboard',
           owner_operator: '/dashboard',
           driver: '/driver',

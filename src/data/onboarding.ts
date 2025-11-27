@@ -365,7 +365,7 @@ export async function useInviteCode(code: string): Promise<boolean> {
 export function getDashboardRouteForRole(role: UserRole): string {
   switch (role) {
     case 'company':
-      return '/company/dashboard';
+      return '/dashboard'; // Company owners use main dashboard
     case 'carrier':
       return '/dashboard';
     case 'owner_operator':
