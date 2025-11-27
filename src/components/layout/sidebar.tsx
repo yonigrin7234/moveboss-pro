@@ -29,6 +29,8 @@ import {
   Radio,
   Handshake,
   FileCheck,
+  Search,
+  Send,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -54,7 +56,8 @@ const navItems: NavItem[] = [
     href: "/dashboard/operations",
     icon: ClipboardList,
     children: [
-      { label: "Marketplace", href: "/dashboard/marketplace", icon: Store },
+      { label: "Load Board", href: "/dashboard/load-board", icon: Search },
+      { label: "My Requests", href: "/dashboard/my-requests", icon: Send },
       { label: "Loads", href: "/dashboard/loads", icon: Package },
       { label: "Trips", href: "/dashboard/trips", icon: Route },
       { label: "Alerts", href: "/dashboard/alerts", icon: Bell },
