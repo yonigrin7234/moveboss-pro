@@ -87,11 +87,12 @@ const roles: RoleOption[] = [
 
 interface RoleSelectionProps {
   userId: string;
+  currentRole?: UserRole | null;
 }
 
-export function RoleSelection({ userId }: RoleSelectionProps) {
+export function RoleSelection({ userId, currentRole }: RoleSelectionProps) {
   const router = useRouter();
-  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
+  const [selectedRole, setSelectedRole] = useState<UserRole | null>(currentRole ?? null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // We're using userId to identify this component is user-specific

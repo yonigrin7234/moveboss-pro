@@ -115,7 +115,7 @@ export function CarrierSetup({ currentStep }: CarrierSetupProps) {
     if (step > 1) {
       setStep(step - 1);
     } else {
-      router.push('/onboarding');
+      router.push('/onboarding?change=true');
     }
   };
 
