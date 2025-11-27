@@ -57,15 +57,12 @@ export async function middleware(request: NextRequest) {
 
     if (profile?.onboarding_completed && profile?.role) {
       // Go to role-appropriate dashboard
-      switch (profile.role) {
-        case 'company':
-          url.pathname = '/company/dashboard';
-          break;
-        case 'driver':
-          url.pathname = '/driver';
-          break;
-        default:
-          url.pathname = '/dashboard';
+      // Note: 'company', 'carrier', 'owner_operator' all use /dashboard
+      // Only 'driver' uses /driver
+      if (profile.role === 'driver') {
+        url.pathname = '/driver';
+      } else {
+        url.pathname = '/dashboard';
       }
     } else {
       // Go to onboarding
@@ -79,7 +76,6 @@ export async function middleware(request: NextRequest) {
   const isOnboardingRoute = request.nextUrl.pathname.startsWith('/onboarding');
   const isProtectedRoute =
     request.nextUrl.pathname.startsWith('/dashboard') ||
-    request.nextUrl.pathname.startsWith('/company') ||
     request.nextUrl.pathname.startsWith('/driver');
 
   if (user && (isProtectedRoute || isOnboardingRoute)) {
@@ -102,15 +98,12 @@ export async function middleware(request: NextRequest) {
     // If user has completed onboarding and is on main onboarding page, redirect to appropriate dashboard
     if (hasCompletedOnboarding && request.nextUrl.pathname === '/onboarding') {
       const url = request.nextUrl.clone();
-      switch (profile.role) {
-        case 'company':
-          url.pathname = '/company/dashboard';
-          break;
-        case 'driver':
-          url.pathname = '/driver';
-          break;
-        default:
-          url.pathname = '/dashboard';
+      // Note: 'company', 'carrier', 'owner_operator' all use /dashboard
+      // Only 'driver' uses /driver
+      if (profile.role === 'driver') {
+        url.pathname = '/driver';
+      } else {
+        url.pathname = '/dashboard';
       }
       return NextResponse.redirect(url);
     }
@@ -172,15 +165,12 @@ export async function middleware(request: NextRequest) {
 
     if (profile?.onboarding_completed && profile?.role) {
       // Go to role-appropriate dashboard
-      switch (profile.role) {
-        case 'company':
-          url.pathname = '/company/dashboard';
-          break;
-        case 'driver':
-          url.pathname = '/driver';
-          break;
-        default:
-          url.pathname = '/dashboard';
+      // Note: 'company', 'carrier', 'owner_operator' all use /dashboard
+      // Only 'driver' uses /driver
+      if (profile.role === 'driver') {
+        url.pathname = '/driver';
+      } else {
+        url.pathname = '/dashboard';
       }
     } else {
       // Go to onboarding
