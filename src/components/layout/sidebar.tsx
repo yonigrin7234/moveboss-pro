@@ -28,6 +28,7 @@ import {
   ChevronRight,
   Radio,
   Handshake,
+  FileCheck,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -81,6 +82,7 @@ const navItems: NavItem[] = [
   },
   { label: "Companies", href: "/dashboard/companies", icon: Building2 },
   { label: "Partnerships", href: "/dashboard/partnerships", icon: Handshake },
+  { label: "Compliance", href: "/dashboard/compliance", icon: FileCheck },
   {
     label: "Finance",
     href: "/dashboard/finance",
