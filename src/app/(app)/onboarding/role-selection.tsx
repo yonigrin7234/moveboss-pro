@@ -94,6 +94,7 @@ export function RoleSelection({ userId, currentRole }: RoleSelectionProps) {
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(currentRole ?? null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // We're using userId to identify this component is user-specific
   // but the actual user id is handled by the server action
@@ -103,12 +104,20 @@ export function RoleSelection({ userId, currentRole }: RoleSelectionProps) {
     if (!selectedRole) return;
 
     setIsSubmitting(true);
+    setError(null);
 
-    const result = await setRoleAction(selectedRole);
+    try {
+      const result = await setRoleAction(selectedRole);
 
-    if (result.success) {
-      router.push(`/onboarding/${selectedRole}`);
-    } else {
+      if (result.success) {
+        router.push(`/onboarding/${selectedRole}`);
+      } else {
+        setError(result.error || 'Failed to set role. Please try again.');
+        setIsSubmitting(false);
+      }
+    } catch (err) {
+      console.error('Error setting role:', err);
+      setError('An unexpected error occurred. Please try again.');
       setIsSubmitting(false);
     }
   };
@@ -180,6 +189,15 @@ export function RoleSelection({ userId, currentRole }: RoleSelectionProps) {
             );
           })}
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="text-center">
+            <p className="text-sm text-red-500 bg-red-500/10 px-4 py-2 rounded-lg inline-block">
+              {error}
+            </p>
+          </div>
+        )}
 
         {/* Continue Button */}
         <div className="flex justify-center">

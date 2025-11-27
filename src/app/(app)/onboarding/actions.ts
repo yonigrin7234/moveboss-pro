@@ -29,13 +29,13 @@ export async function setRoleAction(
     return { success: false, error: 'Not authenticated' };
   }
 
-  const success = await setUserRole(user.id, role);
+  const result = await setUserRole(user.id, role);
 
-  if (success) {
+  if (result.success) {
     revalidatePath('/onboarding');
   }
 
-  return { success };
+  return result;
 }
 
 // ============================================

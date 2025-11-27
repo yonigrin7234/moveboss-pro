@@ -36,7 +36,10 @@ export async function getOnboardingState(userId: string): Promise<OnboardingStat
 // SET USER ROLE
 // ============================================
 
-export async function setUserRole(userId: string, role: UserRole): Promise<boolean> {
+export async function setUserRole(
+  userId: string,
+  role: UserRole
+): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
 
   const { error } = await supabase
@@ -48,7 +51,12 @@ export async function setUserRole(userId: string, role: UserRole): Promise<boole
     })
     .eq('id', userId);
 
-  return !error;
+  if (error) {
+    console.error('setUserRole error:', error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
 }
 
 // ============================================
