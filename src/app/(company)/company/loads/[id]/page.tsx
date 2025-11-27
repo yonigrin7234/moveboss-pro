@@ -39,6 +39,7 @@ import {
   User,
   Phone,
   XCircle,
+  Navigation,
 } from 'lucide-react';
 
 const cancelReasonOptions = [
@@ -92,6 +93,18 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
     icon: <CheckCircle className="h-4 w-4" />,
   },
 };
+
+function getStatusOrder(status: string): number {
+  const order: Record<string, number> = {
+    pending: 0,
+    accepted: 1,
+    loading: 2,
+    loaded: 3,
+    in_transit: 4,
+    delivered: 5,
+  };
+  return order[status] ?? 0;
+}
 
 export default async function CompanyLoadDetailPage({
   params,
@@ -626,7 +639,65 @@ export default async function CompanyLoadDetailPage({
           </Card>
         )}
 
-        {/* Timeline / Status History - could be added later */}
+        {/* Load Status Timeline */}
+        {load.assigned_carrier_id && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Status Timeline
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[
+                  { status: 'accepted', label: 'Carrier Confirmed', timestamp: load.carrier_confirmed_at, icon: CheckCircle },
+                  { status: 'loading', label: 'Loading Started', timestamp: load.loading_started_at, icon: Package },
+                  { status: 'loaded', label: 'Loaded on Truck', timestamp: load.loaded_at, icon: Truck },
+                  { status: 'in_transit', label: 'In Transit', timestamp: load.in_transit_at, icon: Navigation },
+                  { status: 'delivered', label: 'Delivered', timestamp: load.delivered_at, icon: CheckCircle },
+                ].map((step) => {
+                  const isCompleted = getStatusOrder(load.load_status as string) >= getStatusOrder(step.status);
+                  const isCurrent = load.load_status === step.status;
+                  const StepIcon = step.icon;
+
+                  return (
+                    <div key={step.status} className="flex items-center gap-3">
+                      <div
+                        className={`
+                        h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0
+                        ${isCompleted ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'}
+                        ${isCurrent ? 'ring-2 ring-green-500 ring-offset-2' : ''}
+                      `}
+                      >
+                        <StepIcon className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 flex items-center justify-between">
+                        <p className={`${isCompleted ? 'font-medium' : 'text-muted-foreground'}`}>
+                          {step.label}
+                        </p>
+                        {step.timestamp && (
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(step.timestamp as string).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {load.load_status === 'delivered' && (
+                <div className="mt-4 p-3 bg-green-500/10 rounded-lg text-center">
+                  <CheckCircle className="h-6 w-6 mx-auto text-green-500 mb-1" />
+                  <p className="font-medium text-green-600">Delivered Successfully</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Activity Log */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
@@ -646,38 +717,6 @@ export default async function CompanyLoadDetailPage({
                   <span>
                     {new Date(load.carrier_assigned_at as string).toLocaleString()}
                   </span>
-                </div>
-              )}
-              {load.accepted_at && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Accepted by Carrier</span>
-                  <span>{new Date(load.accepted_at as string).toLocaleString()}</span>
-                </div>
-              )}
-              {load.loading_started_at && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Loading Started</span>
-                  <span>{new Date(load.loading_started_at as string).toLocaleString()}</span>
-                </div>
-              )}
-              {load.loading_completed_at && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Loading Completed</span>
-                  <span>
-                    {new Date(load.loading_completed_at as string).toLocaleString()}
-                  </span>
-                </div>
-              )}
-              {load.in_transit_at && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">In Transit</span>
-                  <span>{new Date(load.in_transit_at as string).toLocaleString()}</span>
-                </div>
-              )}
-              {load.delivered_at && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Delivered</span>
-                  <span>{new Date(load.delivered_at as string).toLocaleString()}</span>
                 </div>
               )}
             </div>

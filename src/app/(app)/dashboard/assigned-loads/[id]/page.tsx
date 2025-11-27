@@ -3,11 +3,13 @@ import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/lib/supabase-server';
 import { getAssignedLoadDetails, updateLoadDriver } from '@/data/marketplace';
 import { getDriversForUser } from '@/data/drivers';
+import { updateLoadStatus, getLoadStatusHistory } from '@/data/load-status';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -50,6 +52,18 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   delivered: { label: 'Delivered', color: 'bg-green-500/20 text-green-400' },
 };
 
+function getStatusOrder(status: string): number {
+  const order: Record<string, number> = {
+    pending: 0,
+    accepted: 1,
+    loading: 2,
+    loaded: 3,
+    in_transit: 4,
+    delivered: 5,
+  };
+  return order[status] ?? 0;
+}
+
 export default async function AssignedLoadDetailPage({ params }: PageProps) {
   const { id } = await params;
   const user = await getCurrentUser();
@@ -66,8 +80,11 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
     redirect(`/dashboard/assigned-loads/${id}/confirm`);
   }
 
-  // Get carrier's drivers for assignment
-  const drivers = await getDriversForUser(user.id);
+  // Get carrier's drivers for assignment and status history
+  const [drivers, statusHistory] = await Promise.all([
+    getDriversForUser(user.id),
+    getLoadStatusHistory(id),
+  ]);
 
   async function updateDriverAction(formData: FormData) {
     'use server';
@@ -115,6 +132,24 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
     if (result.success) {
       revalidatePath(`/dashboard/assigned-loads/${id}`);
     }
+  }
+
+  async function updateStatusAction(formData: FormData) {
+    'use server';
+
+    const currentUser = await getCurrentUser();
+    if (!currentUser) redirect('/login');
+
+    const loadId = formData.get('load_id') as string;
+    const newStatus = formData.get('new_status') as string;
+    const notes = formData.get('notes') as string;
+
+    await updateLoadStatus(loadId, newStatus as 'loading' | 'loaded' | 'in_transit' | 'delivered', currentUser.id, {
+      notes: notes || undefined,
+    });
+
+    revalidatePath(`/dashboard/assigned-loads/${loadId}`);
+    revalidatePath('/dashboard/assigned-loads');
   }
 
   const company = Array.isArray(load.company) ? load.company[0] : load.company;
@@ -446,6 +481,136 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
                 Assign Driver
               </Button>
             </form>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Load Status Timeline & Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            Load Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Status Timeline */}
+          <div className="space-y-3">
+            {[
+              { status: 'accepted', label: 'Confirmed', icon: CheckCircle },
+              { status: 'loading', label: 'Loading', icon: Package },
+              { status: 'loaded', label: 'Loaded', icon: Truck },
+              { status: 'in_transit', label: 'In Transit', icon: Navigation },
+              { status: 'delivered', label: 'Delivered', icon: CheckCircle },
+            ].map((step) => {
+              const isCompleted = getStatusOrder(load.load_status) >= getStatusOrder(step.status);
+              const isCurrent = load.load_status === step.status;
+              const StepIcon = step.icon;
+              const historyEntry = statusHistory.find((h) => h.status === step.status);
+
+              return (
+                <div key={step.status} className="flex items-center gap-3">
+                  <div
+                    className={`
+                    h-8 w-8 rounded-full flex items-center justify-center
+                    ${isCompleted ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'}
+                    ${isCurrent ? 'ring-2 ring-green-500 ring-offset-2' : ''}
+                  `}
+                  >
+                    <StepIcon className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1">
+                    <p className={`font-medium ${isCompleted ? '' : 'text-muted-foreground'}`}>
+                      {step.label}
+                    </p>
+                    {historyEntry && (
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(historyEntry.created_at).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <Separator />
+
+          {/* Status Update Buttons */}
+          {load.load_status !== 'delivered' && (
+            <form action={updateStatusAction} className="space-y-3">
+              <input type="hidden" name="load_id" value={load.id} />
+
+              {load.load_status === 'accepted' && (
+                <>
+                  <input type="hidden" name="new_status" value="loading" />
+                  <Button type="submit" className="w-full">
+                    <Package className="h-4 w-4 mr-2" />
+                    Start Loading
+                  </Button>
+                </>
+              )}
+
+              {load.load_status === 'loading' && (
+                <>
+                  <input type="hidden" name="new_status" value="loaded" />
+                  <div>
+                    <Label htmlFor="notes">Loading Notes (optional)</Label>
+                    <Textarea
+                      id="notes"
+                      name="notes"
+                      placeholder="Number of items, condition, etc."
+                      rows={2}
+                    />
+                  </div>
+                  <Button type="submit" className="w-full">
+                    <Truck className="h-4 w-4 mr-2" />
+                    Mark as Loaded
+                  </Button>
+                </>
+              )}
+
+              {load.load_status === 'loaded' && (
+                <>
+                  <input type="hidden" name="new_status" value="in_transit" />
+                  <Button type="submit" className="w-full">
+                    <Navigation className="h-4 w-4 mr-2" />
+                    Start Transit
+                  </Button>
+                </>
+              )}
+
+              {load.load_status === 'in_transit' && (
+                <>
+                  <input type="hidden" name="new_status" value="delivered" />
+                  <div>
+                    <Label htmlFor="notes">Delivery Notes (optional)</Label>
+                    <Textarea
+                      id="notes"
+                      name="notes"
+                      placeholder="Delivery details, who received, etc."
+                      rows={2}
+                    />
+                  </div>
+                  <Button type="submit" className="w-full bg-green-600 hover:bg-green-700">
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Mark as Delivered
+                  </Button>
+                </>
+              )}
+            </form>
+          )}
+
+          {load.load_status === 'delivered' && (
+            <div className="p-4 bg-green-500/10 rounded-lg text-center">
+              <CheckCircle className="h-8 w-8 mx-auto text-green-500 mb-2" />
+              <p className="font-medium text-green-600">Load Delivered!</p>
+              {load.delivered_at && (
+                <p className="text-sm text-muted-foreground">
+                  {new Date(load.delivered_at).toLocaleString()}
+                </p>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>

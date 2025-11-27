@@ -22,6 +22,7 @@ import {
   ArrowLeft,
   AlertTriangle,
   Undo2,
+  Navigation,
 } from 'lucide-react';
 
 async function getCompanySession() {
@@ -62,6 +63,26 @@ const typeConfig: Record<
   load_given_back: {
     icon: AlertTriangle,
     color: 'text-red-500',
+    href: (n) => (n.load_id ? `/company/loads/${n.load_id}` : '/company/dashboard'),
+  },
+  load_loading: {
+    icon: Package,
+    color: 'text-blue-500',
+    href: (n) => (n.load_id ? `/company/loads/${n.load_id}` : '/company/dashboard'),
+  },
+  load_loaded: {
+    icon: Truck,
+    color: 'text-orange-500',
+    href: (n) => (n.load_id ? `/company/loads/${n.load_id}` : '/company/dashboard'),
+  },
+  load_in_transit: {
+    icon: Navigation,
+    color: 'text-purple-500',
+    href: (n) => (n.load_id ? `/company/loads/${n.load_id}` : '/company/dashboard'),
+  },
+  load_delivered: {
+    icon: CheckCircle,
+    color: 'text-green-500',
     href: (n) => (n.load_id ? `/company/loads/${n.load_id}` : '/company/dashboard'),
   },
 };

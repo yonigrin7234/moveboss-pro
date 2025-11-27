@@ -769,6 +769,10 @@ export async function getAssignedLoadDetails(
   expected_load_date: string | null;
   carrier_confirmed_at: string | null;
   carrier_assigned_at: string | null;
+  loading_started_at: string | null;
+  loaded_at: string | null;
+  in_transit_at: string | null;
+  delivered_at: string | null;
   // Driver
   assigned_driver_id: string | null;
   assigned_driver_name: string | null;
@@ -809,6 +813,7 @@ export async function getAssignedLoadDetails(
       carrier_rate, carrier_rate_type,
       load_status, expected_load_date,
       carrier_confirmed_at, carrier_assigned_at,
+      loading_started_at, loaded_at, in_transit_at, delivered_at,
       assigned_driver_id, assigned_driver_name, assigned_driver_phone,
       special_instructions,
       company:companies!loads_company_id_fkey(id, name, phone)
@@ -855,6 +860,10 @@ export async function getAssignedLoadDetails(
     expected_load_date: string | null;
     carrier_confirmed_at: string | null;
     carrier_assigned_at: string | null;
+    loading_started_at: string | null;
+    loaded_at: string | null;
+    in_transit_at: string | null;
+    delivered_at: string | null;
     assigned_driver_id: string | null;
     assigned_driver_name: string | null;
     assigned_driver_phone: string | null;
