@@ -57,10 +57,10 @@ export function CompanySetup({ currentStep }: CompanySetupProps) {
         mc_number: mcNumber || undefined,
         phone: phone || undefined,
         email: email || undefined,
-        address_line1: address || undefined,
-        address_city: city || undefined,
-        address_state: state || undefined,
-        address_zip: zip || undefined,
+        street: address || undefined,
+        city: city || undefined,
+        state: state || undefined,
+        postal_code: zip || undefined,
         is_carrier: false,
         is_broker: true, // Companies/brokers post loads
       });

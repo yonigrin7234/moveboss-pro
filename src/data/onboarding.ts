@@ -114,10 +114,10 @@ export interface CreateCompanyData {
   mc_number?: string;
   phone?: string;
   email?: string;
-  address_line1?: string;
-  address_city?: string;
-  address_state?: string;
-  address_zip?: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
   is_carrier: boolean;
   is_broker: boolean;
 }
@@ -137,10 +137,10 @@ export async function createCompanyForUser(
       mc_number: data.mc_number || null,
       phone: data.phone || null,
       email: data.email || null,
-      address_line1: data.address_line1 || null,
-      address_city: data.address_city || null,
-      address_state: data.address_state || null,
-      address_zip: data.address_zip || null,
+      street: data.street || null,
+      city: data.city || null,
+      state: data.state || null,
+      postal_code: data.postal_code || null,
       is_carrier: data.is_carrier,
       is_broker: data.is_broker,
       status: 'active',
