@@ -128,11 +128,20 @@ export async function createCompanyForUser(
 ): Promise<{ success: boolean; companyId?: string; error?: string }> {
   const supabase = await createClient();
 
+  // Determine company_type based on is_carrier/is_broker flags
+  let companyType: 'customer' | 'carrier' | 'both' = 'customer';
+  if (data.is_carrier && data.is_broker) {
+    companyType = 'both';
+  } else if (data.is_carrier) {
+    companyType = 'carrier';
+  }
+
   const { data: company, error } = await supabase
     .from('companies')
     .insert({
       owner_id: userId,
       name: data.name,
+      company_type: companyType,
       dot_number: data.dot_number || null,
       mc_number: data.mc_number || null,
       phone: data.phone || null,
