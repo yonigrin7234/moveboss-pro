@@ -22,6 +22,7 @@ import {
   Bell,
   Users,
 } from 'lucide-react';
+import { CompanyNotificationBell } from '@/components/company-notification-bell';
 
 async function getCompanySession() {
   const cookieStore = await cookies();
@@ -77,6 +78,7 @@ export default async function CompanyDashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <CompanyNotificationBell />
             <Button asChild>
               <Link href="/company/loads/new">
                 <Plus className="h-4 w-4 mr-2" />

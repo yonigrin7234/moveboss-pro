@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase-server';
 import { getCompanyStorageLocations } from '@/data/company-portal';
+import { notifyPartnersOfNewLoad } from '@/data/notifications';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -222,6 +223,23 @@ export default async function PostLoadPage() {
     if (error) {
       console.error('Error creating load:', error);
       return;
+    }
+
+    // Notify partner carriers if push_to_partners is enabled
+    if (pushToPartners) {
+      const destCity = ((formData.get('destination_city') as string) || '').toUpperCase();
+      const destState = ((formData.get('destination_state') as string) || '').toUpperCase();
+      const route = `${originCity}, ${originState} → ${destCity}, ${destState}`;
+
+      await notifyPartnersOfNewLoad(
+        session.company_id,
+        session.company_name,
+        newLoad.id,
+        load_number,
+        route,
+        cuft,
+        companyRate || null
+      );
     }
 
     revalidatePath('/company/dashboard');

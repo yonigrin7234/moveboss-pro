@@ -278,3 +278,110 @@ export async function notifyCarrierCanceled(
     load_id: loadId,
   });
 }
+
+// ============================================
+// COMPANY-SPECIFIC NOTIFICATION FUNCTIONS
+// ============================================
+
+// Get notifications for a company (company portal context)
+export async function getCompanyNotifications(
+  companyId: string,
+  limit: number = 20
+): Promise<Notification[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .eq('company_id', companyId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('Error fetching company notifications:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+// Get unread count for a company
+export async function getUnreadCompanyNotificationCount(companyId: string): Promise<number> {
+  const supabase = await createClient();
+
+  const { count, error } = await supabase
+    .from('notifications')
+    .select('*', { count: 'exact', head: true })
+    .eq('company_id', companyId)
+    .eq('is_read', false);
+
+  if (error) {
+    console.error('Error counting company notifications:', error);
+    return 0;
+  }
+
+  return count || 0;
+}
+
+// Mark all company notifications as read
+export async function markAllCompanyNotificationsRead(companyId: string): Promise<void> {
+  const supabase = await createClient();
+
+  await supabase
+    .from('notifications')
+    .update({
+      is_read: true,
+      read_at: new Date().toISOString(),
+    })
+    .eq('company_id', companyId)
+    .eq('is_read', false);
+}
+
+// Notify partner carriers when load is posted
+export async function notifyPartnersOfNewLoad(
+  companyId: string,
+  companyName: string,
+  loadId: string,
+  loadNumber: string,
+  route: string,
+  cuft: number,
+  rate: number | null
+): Promise<void> {
+  const supabase = await createClient();
+
+  // Get all active carrier partners
+  const { data: partnerships } = await supabase
+    .from('company_partnerships')
+    .select(`
+      id,
+      company_a_id,
+      company_b_id,
+      company_a:companies!company_partnerships_company_a_id_fkey(id, owner_id, name),
+      company_b:companies!company_partnerships_company_b_id_fkey(id, owner_id, name)
+    `)
+    .or(`company_a_id.eq.${companyId},company_b_id.eq.${companyId}`)
+    .eq('status', 'active');
+
+  if (!partnerships || partnerships.length === 0) return;
+
+  // Create notification for each partner
+  for (const partnership of partnerships) {
+    // Determine which company is the partner (not us)
+    const isCompanyA = partnership.company_a_id === companyId;
+    const partnerCompanyRaw = isCompanyA ? partnership.company_b : partnership.company_a;
+    const partnerCompany = Array.isArray(partnerCompanyRaw) ? partnerCompanyRaw[0] : partnerCompanyRaw;
+
+    if (!partnerCompany) continue;
+
+    const rateText = rate ? `$${rate}/cf` : 'Make an offer';
+
+    await createNotification({
+      user_id: partnerCompany.owner_id,
+      company_id: partnerCompany.id,
+      type: 'partner_load_posted',
+      title: `${companyName} posted a load`,
+      message: `${route} • ${cuft} CUFT • ${rateText}`,
+      load_id: loadId,
+    });
+  }
+}

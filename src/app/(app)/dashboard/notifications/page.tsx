@@ -11,6 +11,7 @@ import {
   Truck,
   ArrowLeft,
   Undo2,
+  Star,
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/supabase-server';
 import {
@@ -32,6 +33,7 @@ const notificationIcons: Record<string, { icon: React.ElementType; color: string
   request_withdrawn: { icon: ArrowLeft, color: 'text-amber-500' },
   load_given_back: { icon: Undo2, color: 'text-orange-500' },
   carrier_canceled: { icon: X, color: 'text-red-600' },
+  partner_load_posted: { icon: Star, color: 'text-yellow-500' },
 };
 
 function timeAgo(dateString: string) {
@@ -153,11 +155,13 @@ export default async function NotificationsPage() {
                       notificationIcons[notification.type] || notificationIcons.load_request_received;
                     const Icon = config.icon;
                     const isUnread = !notification.is_read;
-                    const linkHref = notification.load_id
-                      ? `/dashboard/loads/${notification.load_id}`
-                      : notification.request_id
-                        ? `/dashboard/marketplace/my-requests`
-                        : '#';
+                    const linkHref = notification.type === 'partner_load_posted' && notification.load_id
+                      ? `/dashboard/marketplace`
+                      : notification.load_id
+                        ? `/dashboard/loads/${notification.load_id}`
+                        : notification.request_id
+                          ? `/dashboard/marketplace/my-requests`
+                          : '#';
 
                     return (
                       <div
