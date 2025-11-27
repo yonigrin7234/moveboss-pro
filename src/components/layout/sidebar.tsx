@@ -27,6 +27,7 @@ import {
   Plug,
   ChevronRight,
   Radio,
+  Handshake,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -79,6 +80,7 @@ const navItems: NavItem[] = [
     ],
   },
   { label: "Companies", href: "/dashboard/companies", icon: Building2 },
+  { label: "Partnerships", href: "/dashboard/partnerships", icon: Handshake },
   {
     label: "Finance",
     href: "/dashboard/finance",
