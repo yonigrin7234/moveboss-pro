@@ -44,15 +44,92 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect /login to /dashboard if already logged in
+  // Redirect /login to appropriate page if already logged in
   if (request.nextUrl.pathname === '/login' && user) {
+    // Check if user has completed onboarding
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, onboarding_completed')
+      .eq('id', user.id)
+      .single();
+
     const url = request.nextUrl.clone();
-    url.pathname = '/dashboard';
+
+    if (profile?.onboarding_completed && profile?.role) {
+      // Go to role-appropriate dashboard
+      switch (profile.role) {
+        case 'company':
+          url.pathname = '/company/dashboard';
+          break;
+        case 'driver':
+          url.pathname = '/driver';
+          break;
+        default:
+          url.pathname = '/dashboard';
+      }
+    } else {
+      // Go to onboarding
+      url.pathname = '/onboarding';
+    }
+
     return NextResponse.redirect(url);
   }
 
-  // Ensure workspace company exists before accessing dashboard areas
+  // Check onboarding status for authenticated users accessing protected routes
+  const isOnboardingRoute = request.nextUrl.pathname.startsWith('/onboarding');
+  const isProtectedRoute =
+    request.nextUrl.pathname.startsWith('/dashboard') ||
+    request.nextUrl.pathname.startsWith('/company') ||
+    request.nextUrl.pathname.startsWith('/driver');
+
+  if (user && (isProtectedRoute || isOnboardingRoute)) {
+    // Get user's onboarding status
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, onboarding_completed')
+      .eq('id', user.id)
+      .single();
+
+    const hasCompletedOnboarding = profile?.onboarding_completed === true && profile?.role;
+
+    // If user hasn't completed onboarding and is trying to access protected routes
+    if (!hasCompletedOnboarding && isProtectedRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/onboarding';
+      return NextResponse.redirect(url);
+    }
+
+    // If user has completed onboarding and is on main onboarding page, redirect to appropriate dashboard
+    if (hasCompletedOnboarding && request.nextUrl.pathname === '/onboarding') {
+      const url = request.nextUrl.clone();
+      switch (profile.role) {
+        case 'company':
+          url.pathname = '/company/dashboard';
+          break;
+        case 'driver':
+          url.pathname = '/driver';
+          break;
+        default:
+          url.pathname = '/dashboard';
+      }
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // Ensure workspace company exists before accessing dashboard areas (legacy check)
   if (user && request.nextUrl.pathname.startsWith('/dashboard')) {
+    // Get profile to check if they have completed new onboarding
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('onboarding_completed')
+      .eq('id', user.id)
+      .single();
+
+    // Skip workspace check if user completed new onboarding flow
+    if (profile?.onboarding_completed) {
+      return supabaseResponse;
+    }
+
     const allowWorkspaceSetup =
       request.nextUrl.pathname.startsWith('/dashboard/settings/company-profile') ||
       request.nextUrl.pathname.startsWith('/onboarding/workspace');
@@ -82,10 +159,34 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect root to /dashboard if logged in, /login if not
+  // Redirect root to appropriate page if logged in, /login if not
   if (request.nextUrl.pathname === '/' && user) {
+    // Check if user has completed onboarding
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, onboarding_completed')
+      .eq('id', user.id)
+      .single();
+
     const url = request.nextUrl.clone();
-    url.pathname = '/dashboard';
+
+    if (profile?.onboarding_completed && profile?.role) {
+      // Go to role-appropriate dashboard
+      switch (profile.role) {
+        case 'company':
+          url.pathname = '/company/dashboard';
+          break;
+        case 'driver':
+          url.pathname = '/driver';
+          break;
+        default:
+          url.pathname = '/dashboard';
+      }
+    } else {
+      // Go to onboarding
+      url.pathname = '/onboarding';
+    }
+
     return NextResponse.redirect(url);
   }
 
