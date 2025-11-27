@@ -1,8 +1,62 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 import { getCurrentUser } from "@/lib/supabase-server";
 import { getFinanceSummary } from "@/data/settlements";
 import { formatCurrency } from "@/lib/utils";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  BarChart3,
+  TrendingUp,
+  Users,
+  Shield,
+  Store,
+  DollarSign,
+  ArrowRight,
+} from "lucide-react";
+
+const detailedReports = [
+  {
+    id: 'revenue',
+    title: 'Revenue Report',
+    description: 'Earnings by period, customer, and lane',
+    icon: DollarSign,
+    href: '/dashboard/reports/revenue',
+    color: 'text-green-500',
+  },
+  {
+    id: 'profitability',
+    title: 'Trip Profitability',
+    description: 'Profit margins, costs, and per-mile metrics',
+    icon: TrendingUp,
+    href: '/dashboard/reports/profitability',
+    color: 'text-blue-500',
+  },
+  {
+    id: 'drivers',
+    title: 'Driver Performance',
+    description: 'Loads completed, pay, and efficiency',
+    icon: Users,
+    href: '/dashboard/reports/drivers',
+    color: 'text-purple-500',
+  },
+  {
+    id: 'compliance',
+    title: 'Compliance Status',
+    description: 'Expiring documents and compliance overview',
+    icon: Shield,
+    href: '/dashboard/reports/compliance',
+    color: 'text-orange-500',
+  },
+  {
+    id: 'marketplace',
+    title: 'Marketplace Activity',
+    description: 'Load requests, acceptance rates, reliability',
+    icon: Store,
+    href: '/dashboard/reports/marketplace',
+    color: 'text-cyan-500',
+  },
+];
 
 export default async function ReportsPage() {
   const user = await getCurrentUser();
@@ -14,9 +68,38 @@ export default async function ReportsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-foreground">Finance Overview</h1>
-          <p className="text-sm text-muted-foreground">Last 30 days snapshot with receivables and recent trips.</p>
+          <h1 className="text-3xl font-semibold text-foreground flex items-center gap-2">
+            <BarChart3 className="h-7 w-7" />
+            Reports
+          </h1>
+          <p className="text-sm text-muted-foreground">Business insights and performance analytics</p>
         </div>
+      </div>
+
+      {/* Detailed Report Links */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {detailedReports.map((report) => {
+          const Icon = report.icon;
+          return (
+            <Link key={report.id} href={report.href}>
+              <Card className="h-full hover:bg-muted/50 transition-colors cursor-pointer">
+                <CardHeader className="p-4">
+                  <div className="flex items-start justify-between">
+                    <Icon className={`h-6 w-6 ${report.color}`} />
+                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <CardTitle className="mt-2 text-sm">{report.title}</CardTitle>
+                  <CardDescription className="text-xs">{report.description}</CardDescription>
+                </CardHeader>
+              </Card>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Finance Overview Section */}
+      <div className="pt-4 border-t">
+        <h2 className="text-xl font-semibold text-foreground mb-4">Finance Overview (30 days)</h2>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
