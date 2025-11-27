@@ -34,6 +34,7 @@ import {
   Camera,
   AlertCircle,
   Warehouse,
+  Users,
 } from 'lucide-react';
 
 async function getCompanySession() {
@@ -354,6 +355,28 @@ export default async function CompanyLoadDetailPage({
             )}
           </CardContent>
         </Card>
+
+        {/* Carrier Requests - Show when on marketplace and not assigned */}
+        {load.is_marketplace_visible && !load.assigned_carrier_id && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Carrier Requests
+              </CardTitle>
+              <CardDescription>
+                View and respond to carrier requests for this load
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild className="w-full">
+                <Link href={`/company/loads/${id}/requests`}>
+                  View Requests
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Delivery Proof - Only show for delivered loads */}
         {load.load_status === 'delivered' && (

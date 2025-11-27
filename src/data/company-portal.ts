@@ -443,3 +443,286 @@ export async function getCompanyPaymentSummary(companyId: string): Promise<{
 
   return { total_owed, by_carrier };
 }
+
+// ===========================================
+// LOAD REQUESTS
+// ===========================================
+
+// Get count of pending requests for company's loads
+export async function getCompanyPendingRequestsCount(companyId: string): Promise<number> {
+  const supabase = await createClient();
+
+  // Get all load IDs for this company
+  const { data: loads } = await supabase
+    .from('loads')
+    .select('id')
+    .eq('company_id', companyId)
+    .eq('is_marketplace_visible', true);
+
+  if (!loads || loads.length === 0) return 0;
+
+  const loadIds = loads.map((l) => l.id);
+
+  const { count, error } = await supabase
+    .from('load_requests')
+    .select('*', { count: 'exact', head: true })
+    .in('load_id', loadIds)
+    .eq('status', 'pending');
+
+  if (error) {
+    console.error('Error counting requests:', error);
+    return 0;
+  }
+
+  return count || 0;
+}
+
+// Get all loads with their request counts
+export async function getCompanyLoadsWithRequests(companyId: string): Promise<
+  Array<{
+    id: string;
+    load_number: string;
+    internal_reference: string | null;
+    origin_city: string;
+    origin_state: string;
+    origin_zip: string;
+    destination_city: string;
+    destination_state: string;
+    destination_zip: string;
+    estimated_cuft: number | null;
+    company_rate: number | null;
+    company_rate_type: string | null;
+    rate_is_fixed: boolean;
+    is_ready_now: boolean;
+    available_date: string | null;
+    equipment_type: string | null;
+    load_status: string;
+    is_marketplace_visible: boolean;
+    posted_to_marketplace_at: string | null;
+    assigned_carrier_id: string | null;
+    carrier: { id: string; name: string } | null;
+    request_count: number;
+    pending_request_count: number;
+  }>
+> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('loads')
+    .select(
+      `
+      id,
+      load_number,
+      internal_reference,
+      origin_city,
+      origin_state,
+      origin_zip,
+      destination_city,
+      destination_state,
+      destination_zip,
+      estimated_cuft,
+      company_rate,
+      company_rate_type,
+      rate_is_fixed,
+      is_ready_now,
+      available_date,
+      equipment_type,
+      load_status,
+      is_marketplace_visible,
+      posted_to_marketplace_at,
+      assigned_carrier_id,
+      carrier:companies!loads_assigned_carrier_id_fkey(id, name)
+    `
+    )
+    .eq('company_id', companyId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching loads:', error);
+    return [];
+  }
+
+  // Get request counts for each load
+  const loadIds = data?.map((l) => l.id) || [];
+
+  if (loadIds.length === 0) return [];
+
+  const { data: requestCounts } = await supabase
+    .from('load_requests')
+    .select('load_id, status')
+    .in('load_id', loadIds);
+
+  // Count requests per load
+  const countsMap = new Map<string, { total: number; pending: number }>();
+  requestCounts?.forEach((r) => {
+    const current = countsMap.get(r.load_id) || { total: 0, pending: 0 };
+    current.total++;
+    if (r.status === 'pending') current.pending++;
+    countsMap.set(r.load_id, current);
+  });
+
+  // Merge counts into loads
+  return (data || []).map((load) => ({
+    ...load,
+    carrier: Array.isArray(load.carrier) ? load.carrier[0] : load.carrier,
+    request_count: countsMap.get(load.id)?.total || 0,
+    pending_request_count: countsMap.get(load.id)?.pending || 0,
+  })) as Array<{
+    id: string;
+    load_number: string;
+    internal_reference: string | null;
+    origin_city: string;
+    origin_state: string;
+    origin_zip: string;
+    destination_city: string;
+    destination_state: string;
+    destination_zip: string;
+    estimated_cuft: number | null;
+    company_rate: number | null;
+    company_rate_type: string | null;
+    rate_is_fixed: boolean;
+    is_ready_now: boolean;
+    available_date: string | null;
+    equipment_type: string | null;
+    load_status: string;
+    is_marketplace_visible: boolean;
+    posted_to_marketplace_at: string | null;
+    assigned_carrier_id: string | null;
+    carrier: { id: string; name: string } | null;
+    request_count: number;
+    pending_request_count: number;
+  }>;
+}
+
+// Get requests for a specific load
+export async function getLoadRequestsForCompany(loadId: string): Promise<
+  Array<{
+    id: string;
+    load_id: string;
+    carrier_id: string;
+    carrier_owner_id: string;
+    is_partner: boolean;
+    partnership_id: string | null;
+    offered_rate: number | null;
+    offered_rate_type: string;
+    accepted_company_rate: boolean;
+    message: string | null;
+    status: string;
+    responded_at: string | null;
+    response_message: string | null;
+    final_rate: number | null;
+    final_rate_type: string | null;
+    created_at: string;
+    carrier: {
+      id: string;
+      name: string;
+      city: string | null;
+      state: string | null;
+      mc_number: string | null;
+      dot_number: string | null;
+      phone: string | null;
+      email: string | null;
+      platform_loads_completed: number;
+      platform_rating: number | null;
+      platform_member_since: string | null;
+    } | null;
+  }>
+> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('load_requests')
+    .select(
+      `
+      *,
+      carrier:companies!load_requests_carrier_id_fkey(
+        id,
+        name,
+        city,
+        state,
+        mc_number,
+        dot_number,
+        phone,
+        email,
+        platform_loads_completed,
+        platform_rating,
+        platform_member_since
+      )
+    `
+    )
+    .eq('load_id', loadId)
+    .order('is_partner', { ascending: false })
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching requests:', error);
+    return [];
+  }
+
+  return (data || []).map((r) => ({
+    ...r,
+    carrier: Array.isArray(r.carrier) ? r.carrier[0] : r.carrier,
+  })) as Array<{
+    id: string;
+    load_id: string;
+    carrier_id: string;
+    carrier_owner_id: string;
+    is_partner: boolean;
+    partnership_id: string | null;
+    offered_rate: number | null;
+    offered_rate_type: string;
+    accepted_company_rate: boolean;
+    message: string | null;
+    status: string;
+    responded_at: string | null;
+    response_message: string | null;
+    final_rate: number | null;
+    final_rate_type: string | null;
+    created_at: string;
+    carrier: {
+      id: string;
+      name: string;
+      city: string | null;
+      state: string | null;
+      mc_number: string | null;
+      dot_number: string | null;
+      phone: string | null;
+      email: string | null;
+      platform_loads_completed: number;
+      platform_rating: number | null;
+      platform_member_since: string | null;
+    } | null;
+  }>;
+}
+
+// Get load details for company (includes full pickup info)
+export async function getCompanyLoadWithDetails(
+  companyId: string,
+  loadId: string
+): Promise<Record<string, unknown> | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('loads')
+    .select(
+      `
+      *,
+      storage_location:storage_locations(id, name, city, state),
+      carrier:companies!loads_assigned_carrier_id_fkey(id, name, phone)
+    `
+    )
+    .eq('id', loadId)
+    .eq('company_id', companyId)
+    .single();
+
+  if (error) {
+    console.error('Error fetching load:', error);
+    return null;
+  }
+
+  return {
+    ...data,
+    carrier: Array.isArray(data.carrier) ? data.carrier[0] : data.carrier,
+    storage_location: Array.isArray(data.storage_location) ? data.storage_location[0] : data.storage_location,
+  };
+}

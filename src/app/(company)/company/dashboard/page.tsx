@@ -5,6 +5,7 @@ import {
   getCompanyDashboardStats,
   getCompanyLoadsByStatusGroups,
   getCompanyPaymentSummary,
+  getCompanyPendingRequestsCount,
 } from '@/data/company-portal';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,8 @@ import {
   DollarSign,
   LogOut,
   Building2,
+  Bell,
+  Users,
 } from 'lucide-react';
 
 async function getCompanySession() {
@@ -38,10 +41,11 @@ export default async function CompanyDashboardPage() {
     redirect('/company-login');
   }
 
-  const [stats, loadGroups, payments] = await Promise.all([
+  const [stats, loadGroups, payments, pendingRequestsCount] = await Promise.all([
     getCompanyDashboardStats(session.company_id),
     getCompanyLoadsByStatusGroups(session.company_id),
     getCompanyPaymentSummary(session.company_id),
+    getCompanyPendingRequestsCount(session.company_id),
   ]);
 
   async function logoutAction() {
@@ -128,6 +132,33 @@ export default async function CompanyDashboardPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Pending Carrier Requests Alert */}
+        {pendingRequestsCount > 0 && (
+          <Card className="border-blue-500/30 bg-blue-500/5">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                    <Bell className="h-5 w-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="font-medium">
+                      {pendingRequestsCount} Carrier Request
+                      {pendingRequestsCount !== 1 ? 's' : ''}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Carriers want to haul your loads
+                    </p>
+                  </div>
+                </div>
+                <Button asChild>
+                  <Link href="/company/requests">View Requests</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Unassigned Loads - Need Attention */}
         {loadGroups.pending.length > 0 && (
@@ -292,13 +323,19 @@ export default async function CompanyDashboardPage() {
             </Card>
           </Link>
 
-          <Card className="h-full">
-            <CardContent className="p-4 text-center">
-              <DollarSign className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="font-medium">Payments</p>
-              <p className="text-xs text-muted-foreground">Coming Soon</p>
-            </CardContent>
-          </Card>
+          <Link href="/company/requests">
+            <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+              <CardContent className="p-4 text-center">
+                <Users className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                <p className="font-medium">Requests</p>
+                {pendingRequestsCount > 0 && (
+                  <Badge className="mt-1 bg-blue-500/20 text-blue-400">
+                    {pendingRequestsCount} pending
+                  </Badge>
+                )}
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       </main>
     </div>
