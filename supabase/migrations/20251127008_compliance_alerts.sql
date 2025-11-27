@@ -3,23 +3,23 @@
 -- ============================================
 
 -- ============================================
--- VEHICLE COMPLIANCE FIELDS
+-- TRUCK COMPLIANCE FIELDS
 -- Some fields already exist, add any missing ones
 -- ============================================
 
-ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS registration_number TEXT;
-ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS registration_document_url TEXT;
+ALTER TABLE trucks ADD COLUMN IF NOT EXISTS registration_number TEXT;
+ALTER TABLE trucks ADD COLUMN IF NOT EXISTS registration_document_url TEXT;
 
-ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS inspection_date DATE;
-ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS inspection_document_url TEXT;
+ALTER TABLE trucks ADD COLUMN IF NOT EXISTS inspection_date DATE;
+ALTER TABLE trucks ADD COLUMN IF NOT EXISTS inspection_document_url TEXT;
 
-ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS insurance_policy_number TEXT;
-ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS insurance_expiry DATE;
-ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS insurance_document_url TEXT;
+ALTER TABLE trucks ADD COLUMN IF NOT EXISTS insurance_policy_number TEXT;
+ALTER TABLE trucks ADD COLUMN IF NOT EXISTS insurance_expiry DATE;
+ALTER TABLE trucks ADD COLUMN IF NOT EXISTS insurance_document_url TEXT;
 
-ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS permit_number TEXT;
-ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS permit_expiry DATE;
-ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS permit_document_url TEXT;
+ALTER TABLE trucks ADD COLUMN IF NOT EXISTS permit_number TEXT;
+ALTER TABLE trucks ADD COLUMN IF NOT EXISTS permit_expiry DATE;
+ALTER TABLE trucks ADD COLUMN IF NOT EXISTS permit_document_url TEXT;
 
 -- ============================================
 -- DRIVER COMPLIANCE FIELDS
@@ -67,12 +67,12 @@ CREATE TABLE IF NOT EXISTS compliance_alerts (
 
   -- What type of alert
   alert_type TEXT NOT NULL,
-  -- vehicle_registration, vehicle_inspection, vehicle_insurance, vehicle_permit
+  -- truck_registration, truck_inspection, truck_insurance, truck_permit
   -- driver_license, driver_medical_card, driver_drug_test
   -- partner_insurance, partner_w9, partner_hauling_agreement
 
   -- Reference to the item
-  vehicle_id UUID REFERENCES vehicles(id) ON DELETE CASCADE,
+  vehicle_id UUID REFERENCES trucks(id) ON DELETE CASCADE,
   driver_id UUID REFERENCES drivers(id) ON DELETE CASCADE,
   partnership_id UUID REFERENCES company_partnerships(id) ON DELETE CASCADE,
 

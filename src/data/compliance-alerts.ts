@@ -54,7 +54,7 @@ export async function checkVehicleCompliance(vehicleId: string): Promise<Complia
   const issues: ComplianceIssue[] = [];
 
   const { data: vehicle } = await supabase
-    .from('vehicles')
+    .from('trucks')
     .select('*')
     .eq('id', vehicleId)
     .single();
@@ -324,8 +324,8 @@ export async function getComplianceAlertCounts(userId: string): Promise<Record<A
 export async function generateComplianceAlerts(userId: string, companyId?: string): Promise<void> {
   const supabase = await createClient();
 
-  // Get all vehicles for the user
-  const vehicleQuery = supabase.from('vehicles').select('id');
+  // Get all trucks for the user
+  const vehicleQuery = supabase.from('trucks').select('id');
   if (companyId) {
     vehicleQuery.eq('company_id', companyId);
   } else {
