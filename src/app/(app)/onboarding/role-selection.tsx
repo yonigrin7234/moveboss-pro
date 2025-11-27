@@ -10,6 +10,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
   Building2,
   Truck,
@@ -17,83 +19,27 @@ import {
   UserCircle,
   ArrowRight,
   Check,
+  Send,
   Loader2,
 } from 'lucide-react';
-import { setRoleAction } from './actions';
+import { setRoleAction, updateCapabilitiesAction } from './actions';
 import type { UserRole } from '@/data/onboarding';
-
-interface RoleOption {
-  id: UserRole;
-  title: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
-  features: string[];
-  color: string;
-}
-
-const roles: RoleOption[] = [
-  {
-    id: 'company',
-    title: 'Moving Company / Broker',
-    description: 'I post loads and hire carriers to haul them',
-    icon: Building2,
-    features: [
-      'Post loads to marketplace',
-      'Manage carrier partnerships',
-      'Track shipments in real-time',
-      'Review and rate carriers',
-    ],
-    color: 'border-blue-500 bg-blue-500/10',
-  },
-  {
-    id: 'carrier',
-    title: 'Carrier',
-    description: 'I have a fleet and haul loads for companies',
-    icon: Truck,
-    features: [
-      'Find and accept loads',
-      'Manage drivers & vehicles',
-      'Track trips & financials',
-      'Driver pay calculations',
-    ],
-    color: 'border-green-500 bg-green-500/10',
-  },
-  {
-    id: 'owner_operator',
-    title: 'Owner-Operator',
-    description: "I'm an independent operator - I drive my own truck",
-    icon: UserCircle,
-    features: [
-      'Find and accept loads',
-      'Manage your vehicle',
-      'Track your earnings',
-      'All-in-one driver + carrier',
-    ],
-    color: 'border-purple-500 bg-purple-500/10',
-  },
-  {
-    id: 'driver',
-    title: 'Driver',
-    description: 'I drive for a carrier company',
-    icon: User,
-    features: [
-      'View assigned loads',
-      'Update load status',
-      'Submit photos & docs',
-      'Track your trips',
-    ],
-    color: 'border-orange-500 bg-orange-500/10',
-  },
-];
 
 interface RoleSelectionProps {
   userId: string;
   currentRole?: UserRole | null;
 }
 
+type UserType = 'company' | 'driver';
+
 export function RoleSelection({ userId, currentRole }: RoleSelectionProps) {
   const router = useRouter();
-  const [selectedRole, setSelectedRole] = useState<UserRole | null>(currentRole ?? null);
+  const [userType, setUserType] = useState<UserType | null>(
+    currentRole === 'driver' ? 'driver' : currentRole ? 'company' : null
+  );
+  const [canPostLoads, setCanPostLoads] = useState(false);
+  const [canHaulLoads, setCanHaulLoads] = useState(false);
+  const [isOwnerOperator, setIsOwnerOperator] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -101,101 +47,295 @@ export function RoleSelection({ userId, currentRole }: RoleSelectionProps) {
   // but the actual user id is handled by the server action
   void userId;
 
-  const handleSelectRole = async (role: UserRole) => {
-    setSelectedRole(role);
+  const handleContinue = async () => {
+    if (!userType) return;
+
+    if (userType === 'company' && !canPostLoads && !canHaulLoads) {
+      setError('Please select at least one capability');
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const result = await setRoleAction(role);
+      // Determine the role and setup path
+      let role: UserRole;
+      let setupPath: string;
 
-      if (result.success) {
-        router.push(`/onboarding/${role}`);
+      if (userType === 'driver') {
+        role = 'driver';
+        setupPath = '/onboarding/driver';
+      } else if (canHaulLoads && !canPostLoads && isOwnerOperator) {
+        role = 'owner_operator';
+        setupPath = '/onboarding/owner_operator';
+      } else if (canHaulLoads && !canPostLoads) {
+        role = 'carrier';
+        setupPath = '/onboarding/carrier';
       } else {
-        setError(result.error || 'Failed to set role. Please try again.');
-        setIsSubmitting(false);
+        // Company (broker, or both broker and carrier)
+        role = 'company';
+        setupPath = '/onboarding/company';
       }
+
+      // Save role
+      const roleResult = await setRoleAction(role);
+      if (!roleResult.success) {
+        setError(roleResult.error || 'Failed to save role. Please try again.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Save capabilities
+      const capResult = await updateCapabilitiesAction({
+        canPostLoads,
+        canHaulLoads,
+        isOwnerOperator,
+      });
+
+      if (!capResult.success) {
+        setError(capResult.error || 'Failed to save. Please try again.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      router.push(setupPath);
     } catch (err) {
-      console.error('Error setting role:', err);
+      console.error('Error during onboarding:', err);
       setError('An unexpected error occurred. Please try again.');
       setIsSubmitting(false);
     }
   };
 
-  const handleContinue = async () => {
-    if (!selectedRole) return;
-    await handleSelectRole(selectedRole);
-  };
-
   return (
     <div className="min-h-[calc(100vh-5rem)] flex flex-col items-center justify-center px-4 py-8">
-      <div className="w-full max-w-4xl space-y-8">
+      <div className="w-full max-w-2xl space-y-8">
         {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold">Welcome to MoveBoss Pro</h1>
           <p className="text-lg text-muted-foreground">
-            Let&apos;s get you set up. What best describes you?
+            Let&apos;s set up your account
           </p>
         </div>
 
-        {/* Role Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {roles.map((role) => {
-            const Icon = role.icon;
-            const isSelected = selectedRole === role.id;
+        {/* Step 1: Company or Driver? */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">What best describes you?</h2>
 
-            return (
-              <button
-                key={role.id}
-                type="button"
-                disabled={isSubmitting}
-                className="text-left w-full focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg"
-                onClick={() => handleSelectRole(role.id)}
-              >
-                <Card
-                  className={`h-full cursor-pointer transition-all ${
-                    isSelected
-                      ? `${role.color} border-2`
-                      : 'hover:border-muted-foreground/50'
-                  } ${isSubmitting && selectedRole === role.id ? 'opacity-70' : ''}`}
-                >
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      {isSubmitting && isSelected ? (
-                        <Loader2 className="h-10 w-10 text-primary animate-spin" />
-                      ) : (
-                        <Icon
-                          className={`h-10 w-10 ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}
-                        />
-                      )}
-                      {isSelected && !isSubmitting && (
-                        <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
-                          <Check className="h-4 w-4 text-primary-foreground" />
-                        </div>
-                      )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card
+              className={`cursor-pointer transition-all ${
+                userType === 'company'
+                  ? 'border-primary border-2 bg-primary/5'
+                  : 'hover:border-muted-foreground/50'
+              }`}
+              onClick={() => {
+                setUserType('company');
+                setIsOwnerOperator(false);
+              }}
+            >
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <Building2 className="h-10 w-10 text-primary" />
+                  {userType === 'company' && (
+                    <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
+                      <Check className="h-4 w-4 text-primary-foreground" />
                     </div>
-                    <CardTitle className="mt-4">
-                      {isSubmitting && isSelected ? 'Setting up...' : role.title}
-                    </CardTitle>
-                    <CardDescription>{role.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2">
-                      {role.features.map((feature, index) => (
-                        <li key={index} className="flex items-center gap-2 text-sm">
-                          <Check className="h-4 w-4 text-green-500" />
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-              </button>
-            );
-          })}
+                  )}
+                </div>
+                <CardTitle className="mt-4">I run a moving company</CardTitle>
+                <CardDescription>
+                  Moving company, broker, or carrier
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Card
+              className={`cursor-pointer transition-all ${
+                userType === 'driver'
+                  ? 'border-primary border-2 bg-primary/5'
+                  : 'hover:border-muted-foreground/50'
+              }`}
+              onClick={() => {
+                setUserType('driver');
+                setCanPostLoads(false);
+                setCanHaulLoads(false);
+                setIsOwnerOperator(false);
+              }}
+            >
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <User className="h-10 w-10 text-orange-500" />
+                  {userType === 'driver' && (
+                    <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
+                      <Check className="h-4 w-4 text-primary-foreground" />
+                    </div>
+                  )}
+                </div>
+                <CardTitle className="mt-4">I&apos;m a driver</CardTitle>
+                <CardDescription>
+                  I drive for a carrier or moving company
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </div>
         </div>
 
-        {/* Error Message */}
+        {/* Step 2: Company capabilities */}
+        {userType === 'company' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>What does your company do?</CardTitle>
+              <CardDescription>Select all that apply</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div
+                className={`flex items-start space-x-4 p-4 rounded-lg border cursor-pointer transition-colors ${
+                  canPostLoads ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                }`}
+                onClick={() => setCanPostLoads(!canPostLoads)}
+              >
+                <Checkbox
+                  id="postLoads"
+                  checked={canPostLoads}
+                  onCheckedChange={(checked) => setCanPostLoads(checked as boolean)}
+                />
+                <div className="flex-1">
+                  <Label
+                    htmlFor="postLoads"
+                    className="text-base font-medium cursor-pointer"
+                  >
+                    <Send className="h-4 w-4 inline mr-2" />
+                    We post loads &amp; hire carriers
+                  </Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Post pickups, live loads, or overflow work for carriers to claim
+                  </p>
+                </div>
+              </div>
+
+              <div
+                className={`flex items-start space-x-4 p-4 rounded-lg border cursor-pointer transition-colors ${
+                  canHaulLoads ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                }`}
+                onClick={() => setCanHaulLoads(!canHaulLoads)}
+              >
+                <Checkbox
+                  id="haulLoads"
+                  checked={canHaulLoads}
+                  onCheckedChange={(checked) => setCanHaulLoads(checked as boolean)}
+                />
+                <div className="flex-1">
+                  <Label
+                    htmlFor="haulLoads"
+                    className="text-base font-medium cursor-pointer"
+                  >
+                    <Truck className="h-4 w-4 inline mr-2" />
+                    We haul loads with our own trucks
+                  </Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Find loads, manage drivers &amp; vehicles, track trips &amp;
+                    finances
+                  </p>
+                </div>
+              </div>
+
+              {canHaulLoads && !canPostLoads && (
+                <div
+                  className={`flex items-start space-x-4 p-4 rounded-lg border cursor-pointer transition-colors ${
+                    isOwnerOperator
+                      ? 'border-purple-500 bg-purple-500/5'
+                      : 'hover:bg-muted/50'
+                  }`}
+                  onClick={() => setIsOwnerOperator(!isOwnerOperator)}
+                >
+                  <Checkbox
+                    id="ownerOp"
+                    checked={isOwnerOperator}
+                    onCheckedChange={(checked) =>
+                      setIsOwnerOperator(checked as boolean)
+                    }
+                  />
+                  <div className="flex-1">
+                    <Label
+                      htmlFor="ownerOp"
+                      className="text-base font-medium cursor-pointer"
+                    >
+                      <UserCircle className="h-4 w-4 inline mr-2" />
+                      I&apos;m an owner-operator
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      I drive my own truck - one-person operation
+                    </p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Summary */}
+        {userType && (
+          <Card className="bg-muted/50">
+            <CardContent className="pt-6">
+              <p className="text-sm text-muted-foreground mb-2">
+                You&apos;ll get access to:
+              </p>
+              <ul className="space-y-1">
+                {userType === 'driver' && (
+                  <>
+                    <li className="flex items-center gap-2 text-sm">
+                      <Check className="h-4 w-4 text-green-500" />
+                      Driver mobile app
+                    </li>
+                    <li className="flex items-center gap-2 text-sm">
+                      <Check className="h-4 w-4 text-green-500" />
+                      View assigned loads &amp; trips
+                    </li>
+                    <li className="flex items-center gap-2 text-sm">
+                      <Check className="h-4 w-4 text-green-500" />
+                      Update status &amp; submit photos
+                    </li>
+                  </>
+                )}
+                {canPostLoads && (
+                  <>
+                    <li className="flex items-center gap-2 text-sm">
+                      <Check className="h-4 w-4 text-green-500" />
+                      Post pickups &amp; loads to marketplace
+                    </li>
+                    <li className="flex items-center gap-2 text-sm">
+                      <Check className="h-4 w-4 text-green-500" />
+                      Review carrier requests
+                    </li>
+                    <li className="flex items-center gap-2 text-sm">
+                      <Check className="h-4 w-4 text-green-500" />
+                      Manage carrier partnerships
+                    </li>
+                  </>
+                )}
+                {canHaulLoads && (
+                  <>
+                    <li className="flex items-center gap-2 text-sm">
+                      <Check className="h-4 w-4 text-green-500" />
+                      Find &amp; accept loads
+                    </li>
+                    <li className="flex items-center gap-2 text-sm">
+                      <Check className="h-4 w-4 text-green-500" />
+                      Manage drivers &amp; vehicles
+                    </li>
+                    <li className="flex items-center gap-2 text-sm">
+                      <Check className="h-4 w-4 text-green-500" />
+                      Track trips &amp; financials
+                    </li>
+                  </>
+                )}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Error */}
         {error && (
           <div className="text-center">
             <p className="text-sm text-red-500 bg-red-500/10 px-4 py-2 rounded-lg inline-block">
@@ -209,11 +349,20 @@ export function RoleSelection({ userId, currentRole }: RoleSelectionProps) {
           <Button
             size="lg"
             onClick={handleContinue}
-            disabled={!selectedRole || isSubmitting}
+            disabled={!userType || isSubmitting}
             className="min-w-[200px]"
           >
-            {isSubmitting ? 'Setting up...' : 'Continue'}
-            <ArrowRight className="ml-2 h-4 w-4" />
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Setting up...
+              </>
+            ) : (
+              <>
+                Continue
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </>
+            )}
           </Button>
         </div>
 

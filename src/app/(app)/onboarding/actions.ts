@@ -196,3 +196,29 @@ export async function validateInviteCodeAction(
     error: result.error,
   };
 }
+
+// ============================================
+// UPDATE CAPABILITIES ACTION
+// ============================================
+
+export interface CapabilitiesData {
+  canPostLoads: boolean;
+  canHaulLoads: boolean;
+  isOwnerOperator: boolean;
+}
+
+export async function updateCapabilitiesAction(
+  capabilities: CapabilitiesData
+): Promise<{ success: boolean; error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { success: false, error: 'Not authenticated' };
+  }
+
+  const success = await updateOnboardingStep(user.id, 1, {
+    canPostLoads: capabilities.canPostLoads,
+    canHaulLoads: capabilities.canHaulLoads,
+    isOwnerOperator: capabilities.isOwnerOperator,
+  });
+  return { success };
+}

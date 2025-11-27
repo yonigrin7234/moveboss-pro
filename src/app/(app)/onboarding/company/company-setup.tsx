@@ -17,9 +17,11 @@ import { updateStepAction, setupCompanyAction } from '../actions';
 
 interface CompanySetupProps {
   currentStep: number;
+  canPostLoads: boolean;
+  canHaulLoads: boolean;
 }
 
-export function CompanySetup({ currentStep }: CompanySetupProps) {
+export function CompanySetup({ currentStep, canPostLoads, canHaulLoads }: CompanySetupProps) {
   const router = useRouter();
   const [step, setStep] = useState(currentStep);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,8 +63,8 @@ export function CompanySetup({ currentStep }: CompanySetupProps) {
         city: city || undefined,
         state: state || undefined,
         postal_code: zip || undefined,
-        is_carrier: false,
-        is_broker: true, // Companies/brokers post loads
+        is_carrier: canHaulLoads,
+        is_broker: canPostLoads,
       });
 
       if (!result.success) {

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 
 import { getMembershipsForUser, getWorkspaceCompanyForUser } from "@/data/companies"
 import { getUnreadNotificationCount } from "@/data/notifications"
+import { getOnboardingState } from "@/data/onboarding"
 import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { WorkspaceProvider } from "@/components/layout/WorkspaceContext"
 import { getCurrentUser } from "@/lib/supabase-server"
@@ -21,10 +22,11 @@ export default async function DashboardLayout({
   const fullName =
     (user?.user_metadata?.full_name as string | undefined) ||
     (user?.user_metadata?.name as string | undefined)
-  const [workspaceCompany, memberships, unreadNotifications] = await Promise.all([
+  const [workspaceCompany, memberships, unreadNotifications, onboardingState] = await Promise.all([
     getWorkspaceCompanyForUser(user.id),
     getMembershipsForUser(user.id),
     getUnreadNotificationCount(user.id),
+    getOnboardingState(user.id),
   ])
   const companySummary = workspaceCompany
     ? {
@@ -32,6 +34,8 @@ export default async function DashboardLayout({
         name: workspaceCompany.name,
         dbaName: (workspaceCompany as any).dba_name,
         status: workspaceCompany.status,
+        isBroker: (workspaceCompany as any).is_broker ?? false,
+        isCarrier: (workspaceCompany as any).is_carrier ?? false,
       }
     : undefined
 
@@ -51,7 +55,12 @@ export default async function DashboardLayout({
         memberships,
       }}
     >
-      <DashboardShell user={{ email: user?.email, fullName }} company={companySummary} unreadNotifications={unreadNotifications}>
+      <DashboardShell
+        user={{ email: user?.email, fullName }}
+        company={companySummary}
+        role={onboardingState?.role}
+        unreadNotifications={unreadNotifications}
+      >
         {children}
       </DashboardShell>
     </WorkspaceProvider>

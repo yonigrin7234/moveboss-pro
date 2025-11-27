@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -12,7 +12,6 @@ import {
   Users,
   Truck,
   Boxes,
-  Store,
   Bell,
   MapPin,
   Route,
@@ -32,6 +31,7 @@ import {
   FileCheck,
   Search,
   Send,
+  Plus,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -42,76 +42,16 @@ type NavItem = {
   href: string
   icon: React.ComponentType<{ className?: string }>
   children?: NavItem[]
+  section?: "broker" | "carrier" | "general"
 }
 
 type SidebarProps = {
   companyName?: string | null
   userName?: string | null
+  canPostLoads?: boolean
+  canHaulLoads?: boolean
+  role?: string | null
 }
-
-const navItems: NavItem[] = [
-  { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Activity", href: "/dashboard/activity", icon: Radio },
-  {
-    label: "Operations",
-    href: "/dashboard/operations",
-    icon: ClipboardList,
-    children: [
-      { label: "Load Board", href: "/dashboard/load-board", icon: Search },
-      { label: "My Requests", href: "/dashboard/my-requests", icon: Send },
-      { label: "Assigned Loads", href: "/dashboard/assigned-loads", icon: ClipboardCheck },
-      { label: "Loads", href: "/dashboard/loads", icon: Package },
-      { label: "Trips", href: "/dashboard/trips", icon: Route },
-      { label: "Alerts", href: "/dashboard/alerts", icon: Bell },
-    ],
-  },
-  {
-    label: "Fleet",
-    href: "/dashboard/fleet",
-    icon: Truck,
-    children: [
-      { label: "Trucks", href: "/dashboard/fleet/trucks", icon: Truck },
-      { label: "Trailers", href: "/dashboard/fleet/trailers", icon: Boxes },
-      { label: "Live Fleet", href: "/dashboard/fleet/live", icon: MapPin },
-    ],
-  },
-  { label: "Storage", href: "/dashboard/storage", icon: Warehouse },
-  {
-    label: "People",
-    href: "/dashboard/people",
-    icon: Users,
-    children: [
-      { label: "Drivers", href: "/dashboard/people/drivers", icon: User },
-      { label: "Crew & Helpers", href: "/dashboard/people/helpers", icon: UserCog },
-    ],
-  },
-  { label: "Companies", href: "/dashboard/companies", icon: Building2 },
-  { label: "Partnerships", href: "/dashboard/partnerships", icon: Handshake },
-  { label: "Compliance", href: "/dashboard/compliance", icon: FileCheck },
-  {
-    label: "Finance",
-    href: "/dashboard/finance",
-    icon: Wallet,
-    children: [
-      { label: "Settlements", href: "/dashboard/finance/settlements", icon: Receipt },
-      { label: "Receivables", href: "/dashboard/finance/receivables", icon: Wallet },
-      { label: "Expenses", href: "/dashboard/finance/expenses", icon: CreditCard },
-      { label: "Reports", href: "/dashboard/finance/reports", icon: BarChart3 },
-    ],
-  },
-  { label: "Reports", href: "/dashboard/reports", icon: BarChart3 },
-  {
-    label: "Settings",
-    href: "/dashboard/settings",
-    icon: SettingsIcon,
-    children: [
-      { label: "Account", href: "/dashboard/settings/account", icon: User },
-      { label: "Company Profile", href: "/dashboard/settings/company", icon: Building2 },
-      { label: "Roles & Permissions", href: "/dashboard/settings/roles", icon: ShieldCheck },
-      { label: "Integrations", href: "/dashboard/settings/integrations", icon: Plug },
-    ],
-  },
-]
 
 function getInitials(label: string): string {
   const initials = label
@@ -127,6 +67,14 @@ function getInitials(label: string): string {
   }
 
   return label.slice(0, 2).toUpperCase() || "MB"
+}
+
+function getRoleBadge(canPostLoads: boolean, canHaulLoads: boolean, role?: string | null): string {
+  if (role === "owner_operator") return "Owner-Operator"
+  if (canPostLoads && canHaulLoads) return "Full Service"
+  if (canPostLoads) return "Broker"
+  if (canHaulLoads) return "Carrier"
+  return "Business"
 }
 
 function isChildActive(pathname: string, child: NavItem): boolean {
@@ -147,13 +95,108 @@ function isItemActive(pathname: string, item: NavItem): boolean {
   return false
 }
 
-export default function Sidebar({ companyName, userName }: SidebarProps) {
+export default function Sidebar({ companyName, userName, canPostLoads = false, canHaulLoads = false, role }: SidebarProps) {
   const pathname = usePathname() ?? ""
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
   const displayCompanyName = companyName?.trim() || "MoveBoss Pro"
   const displayUserName = userName?.trim() || "Fleet Owner"
   const workspaceInitials = getInitials(displayCompanyName)
-  
+  const roleBadge = getRoleBadge(canPostLoads, canHaulLoads, role)
+
+  // Build nav items based on capabilities
+  const navItems = useMemo(() => {
+    const items: NavItem[] = [
+      { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Activity", href: "/dashboard/activity", icon: Radio },
+    ]
+
+    // Broker section - only show when canPostLoads
+    if (canPostLoads) {
+      items.push({
+        label: "Posted Loads",
+        href: "/dashboard/loads",
+        icon: Send,
+        section: "broker",
+        children: [
+          { label: "All Loads", href: "/dashboard/loads", icon: Package },
+          { label: "Post New", href: "/dashboard/loads/new", icon: Plus },
+        ],
+      })
+      items.push({ label: "Carrier Requests", href: "/dashboard/assigned-loads", icon: ClipboardCheck, section: "broker" })
+    }
+
+    // Carrier section - only show when canHaulLoads
+    if (canHaulLoads) {
+      items.push({
+        label: "Operations",
+        href: "/dashboard/operations",
+        icon: ClipboardList,
+        section: "carrier",
+        children: [
+          { label: "Load Board", href: "/dashboard/load-board", icon: Search },
+          { label: "My Requests", href: "/dashboard/my-requests", icon: Send },
+          { label: "Assigned Loads", href: "/dashboard/assigned-loads", icon: ClipboardCheck },
+          { label: "Trips", href: "/dashboard/trips", icon: Route },
+          { label: "Alerts", href: "/dashboard/alerts", icon: Bell },
+        ],
+      })
+      items.push({
+        label: "Fleet",
+        href: "/dashboard/fleet",
+        icon: Truck,
+        section: "carrier",
+        children: [
+          { label: "Trucks", href: "/dashboard/fleet/trucks", icon: Truck },
+          { label: "Trailers", href: "/dashboard/fleet/trailers", icon: Boxes },
+          { label: "Live Fleet", href: "/dashboard/fleet/live", icon: MapPin },
+        ],
+      })
+      items.push({
+        label: "People",
+        href: "/dashboard/people",
+        icon: Users,
+        section: "carrier",
+        children: [
+          { label: "Drivers", href: "/dashboard/people/drivers", icon: User },
+          { label: "Crew & Helpers", href: "/dashboard/people/helpers", icon: UserCog },
+        ],
+      })
+    }
+
+    // General section - always visible
+    items.push({ label: "Storage", href: "/dashboard/storage", icon: Warehouse, section: "general" })
+    items.push({ label: "Companies", href: "/dashboard/companies", icon: Building2, section: "general" })
+    items.push({ label: "Partnerships", href: "/dashboard/partnerships", icon: Handshake, section: "general" })
+    items.push({ label: "Compliance", href: "/dashboard/compliance", icon: FileCheck, section: "general" })
+    items.push({
+      label: "Finance",
+      href: "/dashboard/finance",
+      icon: Wallet,
+      section: "general",
+      children: [
+        { label: "Settlements", href: "/dashboard/finance/settlements", icon: Receipt },
+        { label: "Receivables", href: "/dashboard/finance/receivables", icon: Wallet },
+        { label: "Expenses", href: "/dashboard/finance/expenses", icon: CreditCard },
+        { label: "Reports", href: "/dashboard/finance/reports", icon: BarChart3 },
+      ],
+    })
+    items.push({ label: "Reports", href: "/dashboard/reports", icon: BarChart3, section: "general" })
+    items.push({
+      label: "Settings",
+      href: "/dashboard/settings",
+      icon: SettingsIcon,
+      section: "general",
+      children: [
+        { label: "Account", href: "/dashboard/settings/account", icon: User },
+        { label: "Company Profile", href: "/dashboard/settings/company", icon: Building2 },
+        { label: "Roles & Permissions", href: "/dashboard/settings/roles", icon: ShieldCheck },
+        { label: "Integrations", href: "/dashboard/settings/integrations", icon: Plug },
+      ],
+    })
+
+    return items
+  }, [canPostLoads, canHaulLoads])
+
   useEffect(() => {
     setExpandedItems((prev) => {
       const next = new Set(prev)
@@ -164,7 +207,7 @@ export default function Sidebar({ companyName, userName }: SidebarProps) {
       })
       return next
     })
-  }, [pathname])
+  }, [pathname, navItems])
 
   const toggleExpanded = (href: string) => {
     setExpandedItems((prev) => {
@@ -176,6 +219,105 @@ export default function Sidebar({ companyName, userName }: SidebarProps) {
       }
       return newSet
     })
+  }
+
+  // Group items by section for visual separation
+  const brokerItems = navItems.filter((item) => item.section === "broker")
+  const carrierItems = navItems.filter((item) => item.section === "carrier")
+  const generalItems = navItems.filter((item) => item.section === "general")
+  const topItems = navItems.filter((item) => !item.section)
+
+  const renderNavItem = (item: NavItem) => {
+    const Icon = item.icon
+    const active = isItemActive(pathname, item)
+    const hasChildren = item.children && item.children.length > 0
+    const isExpanded = expandedItems.has(item.href)
+
+    return (
+      <div key={item.href} className="space-y-1">
+        {hasChildren ? (
+          <div className="flex items-center gap-1">
+            <Button
+              asChild
+              variant="ghost"
+              className={cn(
+                "flex-1 justify-start gap-3 text-sm font-medium transition-all duration-200",
+                active
+                  ? "bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+              )}
+            >
+              <Link href={item.href}>
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="flex-1">{item.label}</span>
+              </Link>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                toggleExpanded(item.href)
+              }}
+            >
+              <ChevronRight
+                className={cn(
+                  "h-4 w-4 transition-transform duration-200",
+                  isExpanded && "rotate-90"
+                )}
+              />
+            </Button>
+          </div>
+        ) : (
+          <Button
+            asChild
+            variant="ghost"
+            className={cn(
+              "w-full justify-start gap-3 text-sm font-medium transition-all duration-200",
+              active
+                ? "bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+            )}
+          >
+            <Link href={item.href}>
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className="flex-1">{item.label}</span>
+            </Link>
+          </Button>
+        )}
+
+        {hasChildren && isExpanded && item.children && (
+          <div className="ml-4 space-y-0.5 border-l-2 border-border/30 pl-4 animate-in slide-in-from-top-1 duration-200">
+            {item.children.map((child) => {
+              const ChildIcon = child.icon
+              const childActive = isChildActive(pathname, child)
+
+              return (
+                <Button
+                  key={child.href}
+                  asChild
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "w-full justify-start gap-2.5 text-xs font-normal transition-all duration-200 h-8",
+                    childActive
+                      ? "bg-accent/80 text-accent-foreground hover:bg-accent shadow-sm font-medium"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent/30"
+                  )}
+                >
+                  <Link href={child.href}>
+                    <ChildIcon className="h-3.5 w-3.5 shrink-0" />
+                    <span>{child.label}</span>
+                  </Link>
+                </Button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -192,104 +334,44 @@ export default function Sidebar({ companyName, userName }: SidebarProps) {
             <p className="max-w-[150px] truncate text-sm font-semibold text-foreground">
               {displayCompanyName}
             </p>
-            <p className="max-w-[150px] truncate text-xs text-muted-foreground">{displayUserName}</p>
+            <p className="max-w-[150px] truncate text-xs text-muted-foreground">{roleBadge}</p>
           </div>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
-        {navItems.map((item) => {
-          const Icon = item.icon
-          const active = isItemActive(pathname, item)
-          const hasChildren = item.children && item.children.length > 0
-          const isExpanded = expandedItems.has(item.href)
+      <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
+        {/* Top items (Overview, Activity) */}
+        {topItems.map(renderNavItem)}
 
-          return (
-            <div key={item.href} className="space-y-1">
-              {hasChildren ? (
-                <div className="flex items-center gap-1">
-                  <Button
-                    asChild
-                    variant="ghost"
-                    className={cn(
-                      "flex-1 justify-start gap-3 text-sm font-medium transition-all duration-200",
-                      active
-                        ? "bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm"
-                        : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                    )}
-                  >
-                    <Link href={item.href}>
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <span className="flex-1">{item.label}</span>
-                    </Link>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      toggleExpanded(item.href)
-                    }}
-                  >
-                    <ChevronRight
-                      className={cn(
-                        "h-4 w-4 transition-transform duration-200",
-                        isExpanded && "rotate-90"
-                      )}
-                    />
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  asChild
-                  variant="ghost"
-                  className={cn(
-                    "w-full justify-start gap-3 text-sm font-medium transition-all duration-200",
-                    active
-                      ? "bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                  )}
-                >
-                  <Link href={item.href}>
-                    <Icon className="h-4 w-4 shrink-0" />
-                    <span className="flex-1">{item.label}</span>
-                  </Link>
-                </Button>
-              )}
+        {/* Broker Section */}
+        {brokerItems.length > 0 && (
+          <>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-3 pt-4 pb-2">
+              Broker
+            </p>
+            {brokerItems.map(renderNavItem)}
+          </>
+        )}
 
-              {hasChildren && isExpanded && item.children && (
-                <div className="ml-4 space-y-0.5 border-l-2 border-border/30 pl-4 animate-in slide-in-from-top-1 duration-200">
-                  {item.children.map((child) => {
-                    const ChildIcon = child.icon
-                    const childActive = isChildActive(pathname, child)
+        {/* Carrier Section */}
+        {carrierItems.length > 0 && (
+          <>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-3 pt-4 pb-2">
+              Carrier
+            </p>
+            {carrierItems.map(renderNavItem)}
+          </>
+        )}
 
-                    return (
-                      <Button
-                        key={child.href}
-                        asChild
-                        variant="ghost"
-                        size="sm"
-                        className={cn(
-                          "w-full justify-start gap-2.5 text-xs font-normal transition-all duration-200 h-8",
-                          childActive
-                            ? "bg-accent/80 text-accent-foreground hover:bg-accent shadow-sm font-medium"
-                            : "text-muted-foreground hover:text-foreground hover:bg-accent/30"
-                        )}
-                      >
-                        <Link href={child.href}>
-                          <ChildIcon className="h-3.5 w-3.5 shrink-0" />
-                          <span>{child.label}</span>
-                        </Link>
-                      </Button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )
-        })}
+        {/* General Section */}
+        {generalItems.length > 0 && (
+          <>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-3 pt-4 pb-2">
+              General
+            </p>
+            {generalItems.map(renderNavItem)}
+          </>
+        )}
       </nav>
     </aside>
   )

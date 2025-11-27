@@ -17,8 +17,21 @@ export default async function CompanyOnboardingPage() {
   }
 
   if (state?.onboarding_completed) {
-    redirect('/company/dashboard');
+    redirect('/dashboard');
   }
 
-  return <CompanySetup currentStep={state?.onboarding_step || 1} />;
+  // Get capabilities from onboarding_data
+  const capabilities = state?.onboarding_data as {
+    canPostLoads?: boolean;
+    canHaulLoads?: boolean;
+    isOwnerOperator?: boolean;
+  } | undefined;
+
+  return (
+    <CompanySetup
+      currentStep={state?.onboarding_step || 1}
+      canPostLoads={capabilities?.canPostLoads ?? true}
+      canHaulLoads={capabilities?.canHaulLoads ?? false}
+    />
+  );
 }
