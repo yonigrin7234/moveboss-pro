@@ -30,7 +30,7 @@ export default async function OnboardingLayout({
       </header>
 
       {/* Content */}
-      <main className="container py-8">{children}</main>
+      <main>{children}</main>
     </div>
   );
 }
