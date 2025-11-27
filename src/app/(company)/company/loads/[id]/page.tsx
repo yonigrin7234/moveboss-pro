@@ -11,8 +11,10 @@ import {
 } from '@/data/company-portal';
 import { cancelCarrierAssignment } from '@/data/cancellations';
 import { getRatingForLoad, submitRating } from '@/data/ratings';
+import { getLoadPhotos } from '@/data/load-photos';
 import { RatingForm } from '@/components/rating-form';
 import { RatingStars } from '@/components/rating-stars';
+import { PhotoGallery } from '@/components/photo-gallery';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -122,10 +124,11 @@ export default async function CompanyLoadDetailPage({
     redirect('/company-login');
   }
 
-  const [load, carrierPartners, existingRating] = await Promise.all([
+  const [load, carrierPartners, existingRating, photos] = await Promise.all([
     getCompanyLoadDetail(session.company_id, id),
     getCompanyCarrierPartners(session.company_id),
     getRatingForLoad(id, session.company_id),
+    getLoadPhotos(id),
   ]);
 
   if (!load) {
@@ -135,7 +138,12 @@ export default async function CompanyLoadDetailPage({
   const carrier = load.carrier as { id: string; name: string; mc_number?: string } | null;
   const storageLocation = load.storage_location as { id: string; name: string; city: string; state: string } | null;
   const status = statusConfig[load.load_status as string] || statusConfig.pending;
-  const deliveryPhotos = (load.delivery_photos as string[]) || [];
+
+  // Filter photos by type
+  const loadingPhotos = photos.filter(
+    (p) => p.photo_type === 'loading' || p.photo_type === 'loaded'
+  );
+  const deliveryPhotos = photos.filter((p) => p.photo_type === 'delivery');
   const canAssignCarrier = load.load_status === 'pending';
   const canUnassign = load.load_status === 'pending' && load.assigned_carrier_id;
   // Can cancel carrier if load is confirmed but not yet in transit or delivered
@@ -572,6 +580,22 @@ export default async function CompanyLoadDetailPage({
           </Card>
         )}
 
+        {/* Loading Photos - Show when carrier has uploaded loading photos */}
+        {loadingPhotos.length > 0 && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Camera className="h-5 w-5" />
+                Loading Photos
+                <Badge variant="outline">{loadingPhotos.length}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PhotoGallery photos={loadingPhotos} />
+            </CardContent>
+          </Card>
+        )}
+
         {/* Delivery Proof - Only show for delivered loads */}
         {load.load_status === 'delivered' && (
           <Card className="border-green-500/30">
@@ -616,7 +640,7 @@ export default async function CompanyLoadDetailPage({
                 </div>
               )}
 
-              {/* Photos */}
+              {/* Delivery Photos */}
               {deliveryPhotos.length > 0 ? (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
@@ -625,24 +649,7 @@ export default async function CompanyLoadDetailPage({
                       Delivery Photos ({deliveryPhotos.length})
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {deliveryPhotos.map((url, idx) => (
-                      <a
-                        key={idx}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="relative aspect-square overflow-hidden rounded-lg border"
-                      >
-                        <Image
-                          src={url}
-                          alt={`Delivery photo ${idx + 1}`}
-                          fill
-                          className="object-cover"
-                        />
-                      </a>
-                    ))}
-                  </div>
+                  <PhotoGallery photos={deliveryPhotos} />
                 </div>
               ) : (
                 <div className="flex items-center gap-2 text-muted-foreground">

@@ -6,8 +6,10 @@ import { getDriversForUser } from '@/data/drivers';
 import { updateLoadStatus, getLoadStatusHistory } from '@/data/load-status';
 import { getRatingForLoad, submitRating } from '@/data/ratings';
 import { getWorkspaceCompanyForUser } from '@/data/companies';
+import { getLoadPhotos, uploadLoadPhoto } from '@/data/load-photos';
 import { RatingForm } from '@/components/rating-form';
 import { RatingStars } from '@/components/rating-stars';
+import { PhotoGallery } from '@/components/photo-gallery';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +45,7 @@ import {
   FileText,
   Truck,
   Star,
+  Camera,
 } from 'lucide-react';
 
 interface PageProps {
@@ -85,13 +88,20 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
     redirect(`/dashboard/assigned-loads/${id}/confirm`);
   }
 
-  // Get carrier's drivers for assignment, status history, company info, and existing rating
+  // Get carrier's drivers for assignment, status history, company info, existing rating, and photos
   const carrierCompany = await getWorkspaceCompanyForUser(user.id);
-  const [drivers, statusHistory, existingRating] = await Promise.all([
+  const [drivers, statusHistory, existingRating, photos] = await Promise.all([
     getDriversForUser(user.id),
     getLoadStatusHistory(id),
     carrierCompany ? getRatingForLoad(id, carrierCompany.id) : Promise.resolve(null),
+    getLoadPhotos(id),
   ]);
+
+  // Filter photos by type
+  const loadingPhotos = photos.filter(
+    (p) => p.photo_type === 'loading' || p.photo_type === 'loaded'
+  );
+  const deliveryPhotos = photos.filter((p) => p.photo_type === 'delivery');
 
   async function updateDriverAction(formData: FormData) {
     'use server';
@@ -157,6 +167,28 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
 
     revalidatePath(`/dashboard/assigned-loads/${loadId}`);
     revalidatePath('/dashboard/assigned-loads');
+  }
+
+  async function uploadPhotoAction(formData: FormData) {
+    'use server';
+
+    const currentUser = await getCurrentUser();
+    if (!currentUser) redirect('/login');
+
+    const loadId = formData.get('load_id') as string;
+    const photoType = formData.get('photo_type') as 'loading' | 'loaded' | 'delivery' | 'damage' | 'other';
+    const photo = formData.get('photo') as File;
+    const caption = formData.get('caption') as string;
+
+    if (!photo || photo.size === 0) {
+      return;
+    }
+
+    await uploadLoadPhoto(loadId, currentUser.id, null, photoType, photo, {
+      caption: caption || undefined,
+    });
+
+    revalidatePath(`/dashboard/assigned-loads/${loadId}`);
   }
 
   async function submitRatingAction(formData: FormData) {
@@ -607,6 +639,31 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
                 </>
               )}
 
+              {load.load_status === 'loading' && (
+                <div className="pt-3 border-t space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Camera className="h-4 w-4" />
+                    Loading Photos
+                    {loadingPhotos.length > 0 && (
+                      <span className="text-muted-foreground">({loadingPhotos.length})</span>
+                    )}
+                  </div>
+                  {loadingPhotos.length > 0 && (
+                    <PhotoGallery photos={loadingPhotos} canDelete />
+                  )}
+                  <form action={uploadPhotoAction} className="space-y-2">
+                    <input type="hidden" name="load_id" value={load.id} />
+                    <input type="hidden" name="photo_type" value="loading" />
+                    <Input type="file" name="photo" accept="image/*" capture="environment" />
+                    <Input name="caption" placeholder="Caption (optional)" />
+                    <Button type="submit" variant="outline" size="sm" className="w-full">
+                      <Camera className="h-4 w-4 mr-2" />
+                      Upload Loading Photo
+                    </Button>
+                  </form>
+                </div>
+              )}
+
               {load.load_status === 'loaded' && (
                 <>
                   <input type="hidden" name="new_status" value="in_transit" />
@@ -634,6 +691,31 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
                     Mark as Delivered
                   </Button>
                 </>
+              )}
+
+              {load.load_status === 'in_transit' && (
+                <div className="pt-3 border-t space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Camera className="h-4 w-4" />
+                    Delivery Photos
+                    {deliveryPhotos.length > 0 && (
+                      <span className="text-muted-foreground">({deliveryPhotos.length})</span>
+                    )}
+                  </div>
+                  {deliveryPhotos.length > 0 && (
+                    <PhotoGallery photos={deliveryPhotos} canDelete />
+                  )}
+                  <form action={uploadPhotoAction} className="space-y-2">
+                    <input type="hidden" name="load_id" value={load.id} />
+                    <input type="hidden" name="photo_type" value="delivery" />
+                    <Input type="file" name="photo" accept="image/*" capture="environment" />
+                    <Input name="caption" placeholder="Caption (optional)" />
+                    <Button type="submit" variant="outline" size="sm" className="w-full">
+                      <Camera className="h-4 w-4 mr-2" />
+                      Upload Delivery Photo
+                    </Button>
+                  </form>
+                </div>
               )}
             </form>
           )}
