@@ -82,18 +82,12 @@ export default async function CompanyCarriersPage() {
                             </p>
                           )}
                         </div>
-                        <div className="text-right space-y-1">
+                        <div className="text-right">
                           {p.total_loads > 0 && (
                             <Badge variant="outline" className="flex items-center gap-1">
                               <Package className="h-3 w-3" />
                               {p.total_loads} loads
                             </Badge>
-                          )}
-                          {p.default_rate_amount && (
-                            <p className="text-xs text-muted-foreground">
-                              Default: ${p.default_rate_amount}
-                              {p.default_rate_type && ` (${p.default_rate_type})`}
-                            </p>
                           )}
                         </div>
                       </div>

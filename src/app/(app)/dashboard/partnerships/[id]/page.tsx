@@ -102,10 +102,6 @@ export default async function PartnershipDetailPage({
     if (!user) redirect('/login');
     const { id } = await params;
     await updatePartnershipTerms(id, user.id, {
-      default_rate_type: (formData.get('default_rate_type') as string) || undefined,
-      default_rate_amount: formData.get('default_rate_amount')
-        ? parseFloat(formData.get('default_rate_amount') as string)
-        : undefined,
       payment_terms: formData.get('payment_terms') as string,
       internal_notes: (formData.get('internal_notes') as string) || undefined,
     });
@@ -227,39 +223,13 @@ export default async function PartnershipDetailPage({
           </CardContent>
         </Card>
 
-        {/* Terms */}
+        {/* Payment Terms */}
         <Card>
           <CardHeader>
-            <CardTitle>Partnership Terms</CardTitle>
+            <CardTitle>Payment Terms</CardTitle>
           </CardHeader>
           <CardContent>
             <form action={updateTermsAction} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="default_rate_type">Rate Type</Label>
-                  <Select name="default_rate_type" defaultValue={partnership.default_rate_type || ''}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="per_cuft">Per CUFT</SelectItem>
-                      <SelectItem value="per_cwt">Per CWT</SelectItem>
-                      <SelectItem value="percentage">Percentage</SelectItem>
-                      <SelectItem value="flat">Flat Rate</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="default_rate_amount">Rate Amount</Label>
-                  <Input
-                    name="default_rate_amount"
-                    type="number"
-                    step="0.01"
-                    defaultValue={partnership.default_rate_amount || ''}
-                  />
-                </div>
-              </div>
-
               <div>
                 <Label htmlFor="payment_terms">Payment Terms</Label>
                 <Select name="payment_terms" defaultValue={partnership.payment_terms}>

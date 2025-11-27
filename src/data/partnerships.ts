@@ -248,8 +248,6 @@ export async function createPartnership(
     company_a_id: string;
     company_b_id: string;
     relationship_type: string;
-    default_rate_type?: string;
-    default_rate_amount?: number;
     payment_terms?: string;
     internal_notes?: string;
   }
@@ -266,8 +264,6 @@ export async function createPartnership(
       relationship_type: data.relationship_type,
       status: 'active', // Auto-approve when owner creates
       approved_at: new Date().toISOString(),
-      default_rate_type: data.default_rate_type,
-      default_rate_amount: data.default_rate_amount,
       payment_terms: data.payment_terms || 'net_30',
       internal_notes: data.internal_notes,
     })
@@ -322,13 +318,11 @@ export async function updatePartnershipStatus(
   return { success: true };
 }
 
-// Update partnership terms
+// Update partnership payment terms
 export async function updatePartnershipTerms(
   id: string,
   ownerId: string,
   data: {
-    default_rate_type?: string;
-    default_rate_amount?: number;
     payment_terms?: string;
     internal_notes?: string;
   }
@@ -338,7 +332,8 @@ export async function updatePartnershipTerms(
   const { error } = await supabase
     .from('company_partnerships')
     .update({
-      ...data,
+      payment_terms: data.payment_terms,
+      internal_notes: data.internal_notes,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)

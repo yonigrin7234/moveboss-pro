@@ -239,8 +239,6 @@ export async function getCompanyCarrierPartners(companyId: string) {
       company_b:companies!company_partnerships_company_b_id_fkey(
         id, name, mc_number, city, state, compliance_status, is_carrier
       ),
-      default_rate_type,
-      default_rate_amount,
       total_loads,
       status
     `)
@@ -260,8 +258,6 @@ export async function getCompanyCarrierPartners(companyId: string) {
       company_a:companies!company_partnerships_company_a_id_fkey(
         id, name, mc_number, city, state, compliance_status, is_carrier
       ),
-      default_rate_type,
-      default_rate_amount,
       total_loads,
       status
     `)
@@ -272,16 +268,12 @@ export async function getCompanyCarrierPartners(companyId: string) {
   const partners: Array<{
     id: string;
     partner: { id: string; name: string; mc_number?: string; city?: string; state?: string; is_carrier?: boolean } | null;
-    default_rate_type: string | null;
-    default_rate_amount: number | null;
     total_loads: number;
   }> = [];
 
   (data as unknown as Array<{
     id: string;
     company_b: { id: string; name: string; mc_number?: string; city?: string; state?: string; is_carrier?: boolean } | null;
-    default_rate_type: string | null;
-    default_rate_amount: number | null;
     total_loads: number;
   }>)?.forEach((d) => {
     if (d.company_b?.is_carrier) {
@@ -292,8 +284,6 @@ export async function getCompanyCarrierPartners(companyId: string) {
   (reverseData as unknown as Array<{
     id: string;
     company_a: { id: string; name: string; mc_number?: string; city?: string; state?: string; is_carrier?: boolean } | null;
-    default_rate_type: string | null;
-    default_rate_amount: number | null;
     total_loads: number;
   }>)?.forEach((d) => {
     if (d.company_a?.is_carrier) {

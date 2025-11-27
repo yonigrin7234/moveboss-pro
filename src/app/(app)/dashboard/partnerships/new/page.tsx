@@ -48,10 +48,6 @@ export default async function NewPartnershipPage() {
       company_a_id: formData.get('my_company_id') as string,
       company_b_id: formData.get('partner_company_id') as string,
       relationship_type: formData.get('relationship_type') as string,
-      default_rate_type: (formData.get('default_rate_type') as string) || undefined,
-      default_rate_amount: formData.get('default_rate_amount')
-        ? parseFloat(formData.get('default_rate_amount') as string)
-        : undefined,
       payment_terms: (formData.get('payment_terms') as string) || 'net_30',
       internal_notes: (formData.get('internal_notes') as string) || undefined,
     });
@@ -159,33 +155,6 @@ export default async function NewPartnershipPage() {
                       <SelectItem value="mutual">Both directions</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="default_rate_type">Default Rate Type</Label>
-                    <Select name="default_rate_type">
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="per_cuft">Per CUFT</SelectItem>
-                        <SelectItem value="per_cwt">Per CWT (100 lbs)</SelectItem>
-                        <SelectItem value="percentage">Percentage</SelectItem>
-                        <SelectItem value="flat">Flat Rate</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="default_rate_amount">Default Rate</Label>
-                    <Input
-                      id="default_rate_amount"
-                      name="default_rate_amount"
-                      type="number"
-                      step="0.01"
-                      placeholder="2.50"
-                    />
-                  </div>
                 </div>
 
                 <div>
