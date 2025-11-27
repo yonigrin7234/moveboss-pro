@@ -1,10 +1,13 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 
 import { getCurrentUser } from '@/lib/supabase-server';
 import { ensureProfile, upsertProfile } from '@/data/profiles';
 import { accountSchema, type AccountFormValues } from '@/lib/validators/account';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { AccountFormClient, type AccountFormActionState } from './AccountFormClient';
+import { Mail, ChevronRight } from 'lucide-react';
 
 async function updateAccountAction(
   prevState: AccountFormActionState,
@@ -90,6 +93,26 @@ export default async function AccountPage() {
         </CardHeader>
         <CardContent>
           <AccountFormClient defaults={defaults} action={updateAccountAction} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Email Notifications</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Configure which email notifications you receive.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" asChild className="w-full justify-between">
+            <Link href="/dashboard/settings/notifications">
+              <span className="flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                Manage Email Preferences
+              </span>
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          </Button>
         </CardContent>
       </Card>
     </div>
