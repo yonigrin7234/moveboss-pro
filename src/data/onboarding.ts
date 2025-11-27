@@ -42,7 +42,34 @@ export async function setUserRole(
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
 
-  const { error } = await supabase
+  // First check if profile exists
+  const { data: existingProfile, error: selectError } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('id', userId)
+    .single();
+
+  if (selectError || !existingProfile) {
+    // Profile doesn't exist, create it first
+    const { data: user } = await supabase.auth.getUser();
+    const { error: insertError } = await supabase.from('profiles').insert({
+      id: userId,
+      email: user?.user?.email || null,
+      full_name: user?.user?.user_metadata?.full_name || user?.user?.user_metadata?.name || '',
+      role,
+      onboarding_step: 1,
+      onboarding_completed: false,
+    });
+
+    if (insertError) {
+      console.error('setUserRole insert error:', insertError);
+      return { success: false, error: insertError.message };
+    }
+    return { success: true };
+  }
+
+  // Profile exists, update it
+  const { error: updateError } = await supabase
     .from('profiles')
     .update({
       role,
@@ -51,9 +78,9 @@ export async function setUserRole(
     })
     .eq('id', userId);
 
-  if (error) {
-    console.error('setUserRole error:', error);
-    return { success: false, error: error.message };
+  if (updateError) {
+    console.error('setUserRole update error:', updateError);
+    return { success: false, error: updateError.message };
   }
 
   return { success: true };

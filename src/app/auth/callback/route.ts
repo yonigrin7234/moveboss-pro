@@ -26,12 +26,16 @@ export async function GET(request: NextRequest) {
 
         // Create profile if doesn't exist
         if (!profile) {
-          await supabase.from('profiles').insert({
+          const { error: insertError } = await supabase.from('profiles').insert({
             id: user.id,
             email: user.email,
-            full_name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+            full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
             onboarding_completed: false,
           });
+
+          if (insertError) {
+            console.error('Failed to create profile:', insertError);
+          }
 
           return NextResponse.redirect(new URL('/onboarding', requestUrl.origin));
         }
