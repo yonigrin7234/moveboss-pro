@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, TrendingUp, TrendingDown } from 'lucide-react';
+import { ProfitabilityExport } from './profitability-export';
 
 interface PageProps {
   searchParams: Promise<{ start?: string; end?: string }>;
@@ -43,24 +44,40 @@ export default async function ProfitabilityReportPage({ searchParams }: PageProp
           </p>
         </div>
 
-        <form className="flex flex-wrap items-center gap-2">
-          <input
-            type="date"
-            name="start"
-            defaultValue={startDate}
-            className="border rounded px-2 py-1 text-sm bg-background"
+        <div className="flex flex-wrap items-center gap-2">
+          <form className="flex flex-wrap items-center gap-2">
+            <input
+              type="date"
+              name="start"
+              defaultValue={startDate}
+              className="border rounded px-2 py-1 text-sm bg-background"
+            />
+            <span className="text-muted-foreground">to</span>
+            <input
+              type="date"
+              name="end"
+              defaultValue={endDate}
+              className="border rounded px-2 py-1 text-sm bg-background"
+            />
+            <Button type="submit" size="sm">
+              Apply
+            </Button>
+          </form>
+          <ProfitabilityExport
+            trips={trips.map((t) => ({
+              trip_number: t.trip_number,
+              route: t.route,
+              total_revenue: t.total_revenue,
+              total_costs: t.total_costs,
+              driver_pay: t.driver_pay,
+              net_profit: t.net_profit,
+              profit_margin: t.profit_margin,
+              revenue_per_mile: t.revenue_per_mile,
+            }))}
+            summary={summary}
+            dateRange={`${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`}
           />
-          <span className="text-muted-foreground">to</span>
-          <input
-            type="date"
-            name="end"
-            defaultValue={endDate}
-            className="border rounded px-2 py-1 text-sm bg-background"
-          />
-          <Button type="submit" size="sm">
-            Apply
-          </Button>
-        </form>
+        </div>
       </div>
 
       {/* Summary Cards */}

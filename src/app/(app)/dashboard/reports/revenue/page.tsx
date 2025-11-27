@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, DollarSign, Building2, MapPin, ArrowRight } from 'lucide-react';
+import { RevenueExport } from './revenue-export';
 
 interface PageProps {
   searchParams: Promise<{ start?: string; end?: string; period?: string }>;
@@ -78,34 +79,46 @@ export default async function RevenueReportPage({ searchParams }: PageProps) {
           </p>
         </div>
 
-        {/* Date Filter */}
-        <form className="flex flex-wrap items-center gap-2">
-          <input
-            type="date"
-            name="start"
-            defaultValue={startDate}
-            className="border rounded px-2 py-1 text-sm bg-background"
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Date Filter */}
+          <form className="flex flex-wrap items-center gap-2">
+            <input
+              type="date"
+              name="start"
+              defaultValue={startDate}
+              className="border rounded px-2 py-1 text-sm bg-background"
+            />
+            <span className="text-muted-foreground">to</span>
+            <input
+              type="date"
+              name="end"
+              defaultValue={endDate}
+              className="border rounded px-2 py-1 text-sm bg-background"
+            />
+            <select
+              name="period"
+              defaultValue={groupBy}
+              className="border rounded px-2 py-1 text-sm bg-background"
+            >
+              <option value="day">Daily</option>
+              <option value="week">Weekly</option>
+              <option value="month">Monthly</option>
+            </select>
+            <Button type="submit" size="sm">
+              Apply
+            </Button>
+          </form>
+          <RevenueExport
+            data={revenueData.map((r) => ({
+              period: r.period,
+              total_revenue: r.total_revenue,
+              load_count: r.load_count,
+              total_cuft: r.total_cuft,
+            }))}
+            totals={totals}
+            dateRange={`${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`}
           />
-          <span className="text-muted-foreground">to</span>
-          <input
-            type="date"
-            name="end"
-            defaultValue={endDate}
-            className="border rounded px-2 py-1 text-sm bg-background"
-          />
-          <select
-            name="period"
-            defaultValue={groupBy}
-            className="border rounded px-2 py-1 text-sm bg-background"
-          >
-            <option value="day">Daily</option>
-            <option value="week">Weekly</option>
-            <option value="month">Monthly</option>
-          </select>
-          <Button type="submit" size="sm">
-            Apply
-          </Button>
-        </form>
+        </div>
       </div>
 
       {/* Summary Cards */}

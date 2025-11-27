@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Users } from 'lucide-react';
+import { DriversExport } from './drivers-export';
 
 interface PageProps {
   searchParams: Promise<{ start?: string; end?: string }>;
@@ -50,24 +51,38 @@ export default async function DriverPerformanceReportPage({ searchParams }: Page
           </p>
         </div>
 
-        <form className="flex flex-wrap items-center gap-2">
-          <input
-            type="date"
-            name="start"
-            defaultValue={startDate}
-            className="border rounded px-2 py-1 text-sm bg-background"
+        <div className="flex flex-wrap items-center gap-2">
+          <form className="flex flex-wrap items-center gap-2">
+            <input
+              type="date"
+              name="start"
+              defaultValue={startDate}
+              className="border rounded px-2 py-1 text-sm bg-background"
+            />
+            <span className="text-muted-foreground">to</span>
+            <input
+              type="date"
+              name="end"
+              defaultValue={endDate}
+              className="border rounded px-2 py-1 text-sm bg-background"
+            />
+            <Button type="submit" size="sm">
+              Apply
+            </Button>
+          </form>
+          <DriversExport
+            drivers={driverData.map((d) => ({
+              driver_name: d.driver_name,
+              trip_count: d.trip_count,
+              load_count: d.load_count,
+              total_miles: d.total_miles,
+              total_revenue_generated: d.total_revenue_generated,
+              total_pay: d.total_pay,
+              avg_pay_per_trip: d.avg_pay_per_trip,
+            }))}
+            dateRange={`${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`}
           />
-          <span className="text-muted-foreground">to</span>
-          <input
-            type="date"
-            name="end"
-            defaultValue={endDate}
-            className="border rounded px-2 py-1 text-sm bg-background"
-          />
-          <Button type="submit" size="sm">
-            Apply
-          </Button>
-        </form>
+        </div>
       </div>
 
       {/* Summary */}

@@ -15,6 +15,7 @@ import {
   User,
   HelpCircle,
 } from 'lucide-react';
+import { ComplianceExport } from './compliance-export';
 
 export default async function ComplianceReportPage() {
   const user = await getCurrentUser();
@@ -55,18 +56,31 @@ export default async function ComplianceReportPage() {
   return (
     <div className="container py-6 space-y-6">
       {/* Header */}
-      <div>
-        <Button variant="ghost" size="sm" asChild className="mb-2">
-          <Link href="/dashboard/reports">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Reports
-          </Link>
-        </Button>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Shield className="h-6 w-6 text-orange-500" />
-          Compliance Report
-        </h1>
-        <p className="text-muted-foreground">Document expiration status overview</p>
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+        <div>
+          <Button variant="ghost" size="sm" asChild className="mb-2">
+            <Link href="/dashboard/reports">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Reports
+            </Link>
+          </Button>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Shield className="h-6 w-6 text-orange-500" />
+            Compliance Report
+          </h1>
+          <p className="text-muted-foreground">Document expiration status overview</p>
+        </div>
+        <ComplianceExport
+          items={items.map((i) => ({
+            item_name: i.item_name,
+            category: i.category,
+            document_type: i.document_type,
+            expiry_date: i.expiry_date,
+            days_until_expiry: i.days_until_expiry,
+            status: i.status,
+          }))}
+          summary={summary}
+        />
       </div>
 
       {/* Summary Cards */}
