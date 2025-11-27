@@ -5,7 +5,16 @@ import { getCompanyCarrierPartners } from '@/data/company-portal';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Truck, Building2, MapPin, Package } from 'lucide-react';
+import {
+  ArrowLeft,
+  Truck,
+  Building2,
+  MapPin,
+  Package,
+  FileText,
+  CheckCircle,
+  Clock,
+} from 'lucide-react';
 
 async function getCompanySession() {
   const cookieStore = await cookies();
@@ -82,13 +91,19 @@ export default async function CompanyCarriersPage() {
                             </p>
                           )}
                         </div>
-                        <div className="text-right">
+                        <div className="flex items-center gap-3">
                           {p.total_loads > 0 && (
                             <Badge variant="outline" className="flex items-center gap-1">
                               <Package className="h-3 w-3" />
                               {p.total_loads} loads
                             </Badge>
                           )}
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={`/company/carriers/${p.id}/compliance`}>
+                              <FileText className="h-4 w-4 mr-1" />
+                              Documents
+                            </Link>
+                          </Button>
                         </div>
                       </div>
                     );

@@ -91,6 +91,11 @@ const typeConfig: Record<
     color: 'text-yellow-500',
     href: () => '/company/dashboard',
   },
+  compliance_doc_uploaded: {
+    icon: Package,
+    color: 'text-blue-500',
+    href: () => '/company/carriers',
+  },
 };
 
 function formatTimeAgo(dateString: string): string {

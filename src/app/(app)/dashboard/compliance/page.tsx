@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/supabase-server';
+import { getWorkspaceCompanyForUser } from '@/data/companies';
 import {
   getComplianceAlerts,
   getAllComplianceItems,
@@ -10,7 +11,8 @@ import {
   DOCUMENT_STATUS_CONFIG,
   DOCUMENT_TYPES,
 } from '@/data/compliance-documents';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { getComplianceRequestsForCarrier } from '@/data/compliance';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -27,6 +29,7 @@ import {
   Truck,
   Container,
   ChevronRight,
+  Upload,
 } from 'lucide-react';
 
 const CATEGORY_CONFIG = {
@@ -128,13 +131,18 @@ export default async function CompliancePage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  const [alerts, allItems, documents] = await Promise.all([
+  // Get user's carrier company for partner compliance requests
+  const carrierCompany = await getWorkspaceCompanyForUser(user.id);
+
+  const [alerts, allItems, documents, partnerRequests] = await Promise.all([
     getComplianceAlerts(user.id),
     getAllComplianceItems(user.id),
     getComplianceDocuments(user.id),
+    carrierCompany ? getComplianceRequestsForCarrier(carrierCompany.id) : Promise.resolve([]),
   ]);
 
   const pendingDocuments = documents.filter((d) => d.status === 'pending_review');
+  const pendingPartnerRequests = partnerRequests.filter((r) => r.status === 'pending' || r.status === 'rejected');
 
   // Filter items by category
   const driverItems = allItems.filter((i) => i.category === 'driver');
@@ -248,6 +256,79 @@ export default async function CompliancePage() {
           );
         })}
       </div>
+
+      {/* Partner Compliance Requests */}
+      {pendingPartnerRequests.length > 0 && (
+        <Card className="border-orange-500/30 bg-orange-500/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Upload className="h-5 w-5 text-orange-500" />
+              Partner Document Requests
+            </CardTitle>
+            <CardDescription>
+              Companies need these documents from you to complete your partnership
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Group by company */}
+            {Object.values(
+              pendingPartnerRequests.reduce(
+                (acc, req) => {
+                  const companyId = req.requesting_company?.id || '';
+                  if (!acc[companyId]) {
+                    acc[companyId] = {
+                      company: req.requesting_company,
+                      requests: [],
+                    };
+                  }
+                  acc[companyId].requests.push(req);
+                  return acc;
+                },
+                {} as Record<string, { company: { id: string; name: string } | null; requests: typeof pendingPartnerRequests }>
+              )
+            ).map(({ company, requests }) => (
+              <div key={company?.id || 'unknown'} className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">{company?.name || 'Unknown Company'}</span>
+                  <Badge variant="outline">{requests.length} needed</Badge>
+                </div>
+                <div className="space-y-2">
+                  {requests.map((request) => (
+                    <div
+                      key={request.id}
+                      className="flex items-center justify-between p-3 bg-background rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium text-sm">{request.document_type?.name}</p>
+                          {request.due_date && (
+                            <p className="text-xs text-muted-foreground">
+                              Due: {new Date(request.due_date).toLocaleDateString()}
+                            </p>
+                          )}
+                          {request.status === 'rejected' && request.rejection_reason && (
+                            <p className="text-xs text-red-500">
+                              Rejected: {request.rejection_reason}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <Button size="sm" asChild>
+                        <Link href={`/dashboard/compliance/${request.id}/upload`}>
+                          <Upload className="h-4 w-4 mr-1" />
+                          Upload
+                        </Link>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Alerts Section */}
       {(alerts.expired.length > 0 || alerts.expiringSoon.length > 0) && (

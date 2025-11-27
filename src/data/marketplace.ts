@@ -6,6 +6,7 @@ import {
   notifyLoadConfirmed,
   notifyDriverAssigned,
 } from './notifications';
+import { createComplianceRequestsForPartnership } from './compliance';
 
 export interface MarketplaceLoad {
   id: string;
@@ -430,16 +431,30 @@ export async function acceptLoadRequest(
     .eq('status', 'pending')
     .neq('id', requestId);
 
-  // If new partnership, create it
+  // If new partnership, create it and request compliance docs
   if (!request.is_partner) {
-    await supabase.from('company_partnerships').insert({
-      owner_id: loadData.owner_id as string,
-      company_a_id: loadData.company_id as string,
-      company_b_id: request.carrier_id,
-      relationship_type: 'gives_loads',
-      status: 'active',
-      payment_terms: 'net_30',
-    });
+    const { data: newPartnership } = await supabase
+      .from('company_partnerships')
+      .insert({
+        owner_id: loadData.owner_id as string,
+        company_a_id: loadData.company_id as string,
+        company_b_id: request.carrier_id,
+        relationship_type: 'gives_loads',
+        status: 'active',
+        payment_terms: 'net_30',
+      })
+      .select('id')
+      .single();
+
+    // Create compliance document requests for new partnership
+    if (newPartnership) {
+      await createComplianceRequestsForPartnership(
+        newPartnership.id,
+        loadData.company_id as string,
+        responderId,
+        request.carrier_id
+      );
+    }
   }
 
   // Increment stats

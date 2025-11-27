@@ -35,6 +35,9 @@ const notificationIcons: Record<string, { icon: React.ElementType; color: string
   carrier_canceled: { icon: X, color: 'text-red-600' },
   partner_load_posted: { icon: Star, color: 'text-yellow-500' },
   rating_received: { icon: Star, color: 'text-yellow-500' },
+  compliance_docs_requested: { icon: Package, color: 'text-orange-500' },
+  compliance_doc_approved: { icon: CheckCircle, color: 'text-green-500' },
+  compliance_doc_rejected: { icon: X, color: 'text-red-500' },
 };
 
 function timeAgo(dateString: string) {
