@@ -42,6 +42,9 @@ export function SignupForm() {
 
     const supabase = createClient();
 
+    // Use NEXT_PUBLIC_SITE_URL if set, otherwise fall back to current origin
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+
     const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
@@ -49,7 +52,7 @@ export function SignupForm() {
         data: {
           full_name: fullName,
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${siteUrl}/auth/callback`,
       },
     });
 
@@ -66,11 +69,12 @@ export function SignupForm() {
   const handleGoogleSignUp = async () => {
     setIsLoading(true);
     const supabase = createClient();
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${siteUrl}/auth/callback`,
       },
     });
 
