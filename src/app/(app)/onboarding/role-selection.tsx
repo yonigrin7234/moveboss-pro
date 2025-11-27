@@ -17,6 +17,7 @@ import {
   UserCircle,
   ArrowRight,
   Check,
+  Loader2,
 } from 'lucide-react';
 import { setRoleAction } from './actions';
 import type { UserRole } from '@/data/onboarding';
@@ -100,17 +101,16 @@ export function RoleSelection({ userId, currentRole }: RoleSelectionProps) {
   // but the actual user id is handled by the server action
   void userId;
 
-  const handleContinue = async () => {
-    if (!selectedRole) return;
-
+  const handleSelectRole = async (role: UserRole) => {
+    setSelectedRole(role);
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const result = await setRoleAction(selectedRole);
+      const result = await setRoleAction(role);
 
       if (result.success) {
-        router.push(`/onboarding/${selectedRole}`);
+        router.push(`/onboarding/${role}`);
       } else {
         setError(result.error || 'Failed to set role. Please try again.');
         setIsSubmitting(false);
@@ -120,6 +120,11 @@ export function RoleSelection({ userId, currentRole }: RoleSelectionProps) {
       setError('An unexpected error occurred. Please try again.');
       setIsSubmitting(false);
     }
+  };
+
+  const handleContinue = async () => {
+    if (!selectedRole) return;
+    await handleSelectRole(selectedRole);
   };
 
   return (
@@ -140,38 +145,38 @@ export function RoleSelection({ userId, currentRole }: RoleSelectionProps) {
             const isSelected = selectedRole === role.id;
 
             return (
-              <div
+              <button
                 key={role.id}
-                role="button"
-                tabIndex={0}
-                className="text-left w-full"
-                onClick={() => setSelectedRole(role.id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setSelectedRole(role.id);
-                  }
-                }}
+                type="button"
+                disabled={isSubmitting}
+                className="text-left w-full focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg"
+                onClick={() => handleSelectRole(role.id)}
               >
                 <Card
                   className={`h-full cursor-pointer transition-all ${
                     isSelected
                       ? `${role.color} border-2`
                       : 'hover:border-muted-foreground/50'
-                  }`}
+                  } ${isSubmitting && selectedRole === role.id ? 'opacity-70' : ''}`}
                 >
                   <CardHeader>
                     <div className="flex items-start justify-between">
-                      <Icon
-                        className={`h-10 w-10 ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}
-                      />
-                      {isSelected && (
+                      {isSubmitting && isSelected ? (
+                        <Loader2 className="h-10 w-10 text-primary animate-spin" />
+                      ) : (
+                        <Icon
+                          className={`h-10 w-10 ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}
+                        />
+                      )}
+                      {isSelected && !isSubmitting && (
                         <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
                           <Check className="h-4 w-4 text-primary-foreground" />
                         </div>
                       )}
                     </div>
-                    <CardTitle className="mt-4">{role.title}</CardTitle>
+                    <CardTitle className="mt-4">
+                      {isSubmitting && isSelected ? 'Setting up...' : role.title}
+                    </CardTitle>
                     <CardDescription>{role.description}</CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -185,7 +190,7 @@ export function RoleSelection({ userId, currentRole }: RoleSelectionProps) {
                     </ul>
                   </CardContent>
                 </Card>
-              </div>
+              </button>
             );
           })}
         </div>
