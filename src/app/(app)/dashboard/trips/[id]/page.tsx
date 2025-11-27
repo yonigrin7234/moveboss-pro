@@ -13,6 +13,7 @@ import {
   newTripExpenseInputSchema,
   deleteTripExpense,
   deleteTrip,
+  updateTripDriverSharing,
 } from '@/data/trips';
 import { getLoadsForUser } from '@/data/loads';
 import { createTripSettlement, recalculateTripSettlement } from '@/data/settlements';
@@ -261,6 +262,26 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     revalidatePath('/dashboard/trips');
   }
 
+  async function updateDriverSharingAction(
+    formData: FormData
+  ): Promise<{ errors?: Record<string, string>; success?: boolean } | null> {
+    'use server';
+    const currentUser = await getCurrentUser();
+    if (!currentUser) return { errors: { _form: 'Not authenticated' } };
+
+    const shareValue = formData.get('share_driver_with_companies');
+    const shareWithCompanies = shareValue === 'true';
+
+    try {
+      await updateTripDriverSharing(id, shareWithCompanies, currentUser.id);
+      revalidatePath(`/dashboard/trips/${id}`);
+      revalidatePath('/dashboard/trips');
+      return { success: true };
+    } catch (error) {
+      return { errors: { _form: error instanceof Error ? error.message : 'Failed to update driver sharing' } };
+    }
+  }
+
   async function recalculateSettlementAction(
     formData: FormData
   ): Promise<{ errors?: Record<string, string>; success?: boolean } | null> {
@@ -298,6 +319,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
         settleTrip: settleTripAction,
         deleteTrip: deleteTripAction,
         recalculateSettlement: recalculateSettlementAction,
+        updateDriverSharing: updateDriverSharingAction,
       }}
     />
   );

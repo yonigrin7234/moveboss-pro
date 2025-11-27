@@ -303,7 +303,9 @@ export default async function CompanyLoadDetailPage({
                       <User className="h-4 w-4" />
                       <span>Assigned Driver</span>
                     </div>
-                    {load.assigned_driver_name ? (
+                    {load.assigned_driver_id && !load.assigned_driver_name ? (
+                      <p className="text-muted-foreground">Contact carrier</p>
+                    ) : load.assigned_driver_name ? (
                       <div>
                         <p className="font-medium">{load.assigned_driver_name}</p>
                         {load.assigned_driver_phone && (

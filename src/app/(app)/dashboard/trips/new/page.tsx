@@ -55,13 +55,17 @@ export default async function NewTripPage() {
       }
     });
 
-    const cleanedData: Record<string, string> = {};
+    const cleanedData: Record<string, string | boolean> = {};
     for (const [key, value] of Object.entries(rawData)) {
       const trimmed = value.trim();
       if (trimmed) {
         cleanedData[key] = trimmed;
       }
     }
+
+    // Parse share_driver_with_companies from form
+    const shareDriverValue = formData.get('share_driver_with_companies');
+    cleanedData.share_driver_with_companies = shareDriverValue === 'true';
 
     try {
       const validated = newTripInputSchema.parse(cleanedData);

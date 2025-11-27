@@ -49,6 +49,7 @@ export const newTripInputSchema = z.object({
   odometer_end: z.coerce.number().nonnegative().optional(),
   odometer_end_photo_url: optionalTrimmedString(1000),
   notes: optionalTrimmedString(5000),
+  share_driver_with_companies: z.boolean().optional().default(true),
 });
 
 export const updateTripInputSchema = newTripInputSchema.partial();
@@ -108,7 +109,7 @@ export interface Trip {
   other_expenses_total: number;
   profit_total: number;
   notes: string | null;
-  driver?: { id: string; first_name: string; last_name: string } | null;
+  driver?: { id: string; first_name: string; last_name: string; phone?: string | null } | null;
   truck?: { id: string; unit_number: string } | null;
   trailer?: { id: string; unit_number: string } | null;
   // Driver pay calculation fields
@@ -120,6 +121,8 @@ export interface Trip {
   trip_rate_per_cuft: number | null;
   trip_percent_of_revenue: number | null;
   trip_flat_daily_rate: number | null;
+  // Driver sharing with companies
+  share_driver_with_companies?: boolean;
 }
 
 export interface TripLoad {
@@ -601,6 +604,7 @@ export async function createTrip(input: NewTripInput, userId: string): Promise<T
     end_date: normalizeDate(input.end_date),
     total_miles: input.total_miles ?? null,
     notes: nullable(input.notes),
+    share_driver_with_companies: input.share_driver_with_companies ?? true,
   };
 
   const { data, error } = await supabase
@@ -761,6 +765,13 @@ export async function addLoadToTrip(
     assertOwnership(supabase, 'loads', input.load_id, userId, 'Load'),
   ]);
 
+  // Get trip info to check for driver
+  const { data: trip } = await supabase
+    .from('trips')
+    .select('driver_id, share_driver_with_companies')
+    .eq('id', tripId)
+    .single();
+
   const payload = {
     owner_id: userId,
     trip_id: tripId,
@@ -788,6 +799,41 @@ export async function addLoadToTrip(
       throw new Error('This load is already attached to the trip');
     }
     throw new Error(`Failed to add load to trip: ${error.message}`);
+  }
+
+  // If trip has driver, sync to this newly added load
+  if (trip?.driver_id) {
+    const { data: driver } = await supabase
+      .from('drivers')
+      .select('id, first_name, last_name, phone')
+      .eq('id', trip.driver_id)
+      .single();
+
+    if (driver) {
+      const shareWithCompanies = trip.share_driver_with_companies !== false;
+      if (shareWithCompanies) {
+        await supabase
+          .from('loads')
+          .update({
+            assigned_driver_id: driver.id,
+            assigned_driver_name: `${driver.first_name} ${driver.last_name}`,
+            assigned_driver_phone: driver.phone,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', input.load_id);
+      } else {
+        // Driver exists but not sharing
+        await supabase
+          .from('loads')
+          .update({
+            assigned_driver_id: driver.id,
+            assigned_driver_name: null,
+            assigned_driver_phone: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', input.load_id);
+      }
+    }
   }
 
   await computeTripFinancialSummary(supabase, tripId, userId);
@@ -987,4 +1033,155 @@ export async function getTripsForLoadAssignment(userId: string): Promise<Trip[]>
   }
 
   return (data || []) as Trip[];
+}
+
+/**
+ * Sync driver info from trip to all loads on that trip
+ */
+export async function syncTripDriverToLoads(
+  tripId: string,
+  driverId: string,
+  shareWithCompanies: boolean = true
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  // Get driver info
+  const { data: driver } = await supabase
+    .from('drivers')
+    .select('id, first_name, last_name, phone')
+    .eq('id', driverId)
+    .single();
+
+  if (!driver) {
+    return { success: false, error: 'Driver not found' };
+  }
+
+  const driverName = `${driver.first_name} ${driver.last_name}`;
+  const driverPhone = driver.phone || null;
+
+  // Get all loads on this trip
+  const { data: tripLoads } = await supabase
+    .from('trip_loads')
+    .select('load_id')
+    .eq('trip_id', tripId);
+
+  if (!tripLoads || tripLoads.length === 0) {
+    return { success: true }; // No loads to update
+  }
+
+  const loadIds = tripLoads.map((tl) => tl.load_id);
+
+  // Update all loads with driver info (only if sharing enabled)
+  if (shareWithCompanies) {
+    const { error } = await supabase
+      .from('loads')
+      .update({
+        assigned_driver_id: driver.id,
+        assigned_driver_name: driverName,
+        assigned_driver_phone: driverPhone,
+        updated_at: new Date().toISOString(),
+      })
+      .in('id', loadIds);
+
+    if (error) {
+      console.error('Error syncing driver to loads:', error);
+      return { success: false, error: error.message };
+    }
+  } else {
+    // If not sharing, clear driver info from loads (company sees "Contact carrier")
+    const { error } = await supabase
+      .from('loads')
+      .update({
+        assigned_driver_id: driver.id, // Keep internal reference
+        assigned_driver_name: null, // But don't share name
+        assigned_driver_phone: null, // Or phone
+        updated_at: new Date().toISOString(),
+      })
+      .in('id', loadIds);
+
+    if (error) {
+      console.error('Error clearing driver from loads:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  return { success: true };
+}
+
+/**
+ * Update trip driver and sync to loads
+ */
+export async function updateTripDriver(
+  tripId: string,
+  driverId: string,
+  shareWithCompanies: boolean = true,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  // Update trip with driver and sharing preference
+  const { error: tripError } = await supabase
+    .from('trips')
+    .update({
+      driver_id: driverId,
+      share_driver_with_companies: shareWithCompanies,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', tripId)
+    .eq('owner_id', userId);
+
+  if (tripError) {
+    console.error('Error updating trip driver:', tripError);
+    return { success: false, error: tripError.message };
+  }
+
+  // Snapshot driver compensation rates
+  await snapshotDriverCompensation(supabase, tripId, driverId, userId);
+
+  // Sync to loads
+  return syncTripDriverToLoads(tripId, driverId, shareWithCompanies);
+}
+
+/**
+ * Update driver sharing preference and re-sync loads
+ */
+export async function updateTripDriverSharing(
+  tripId: string,
+  shareWithCompanies: boolean,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  // Get trip's current driver
+  const { data: trip } = await supabase
+    .from('trips')
+    .select('driver_id')
+    .eq('id', tripId)
+    .eq('owner_id', userId)
+    .single();
+
+  if (!trip) {
+    return { success: false, error: 'Trip not found' };
+  }
+
+  // Update sharing preference
+  const { error: updateError } = await supabase
+    .from('trips')
+    .update({
+      share_driver_with_companies: shareWithCompanies,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', tripId)
+    .eq('owner_id', userId);
+
+  if (updateError) {
+    return { success: false, error: updateError.message };
+  }
+
+  // If trip has a driver, re-sync loads with new sharing preference
+  if (trip.driver_id) {
+    return syncTripDriverToLoads(tripId, trip.driver_id, shareWithCompanies);
+  }
+
+  return { success: true };
 }

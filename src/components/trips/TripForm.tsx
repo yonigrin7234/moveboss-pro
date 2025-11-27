@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -56,7 +57,7 @@ function SelectWithHiddenInput({
 }
 
 interface TripFormProps {
-  initialData?: Partial<NewTripInput>;
+  initialData?: Partial<NewTripInput> & { share_driver_with_companies?: boolean };
   drivers: Driver[];
   trucks: Truck[];
   trailers: Trailer[];
@@ -119,6 +120,9 @@ export function TripForm({
     startDate: initialData?.start_date || '',
     endDate: initialData?.end_date || '',
   });
+  const [shareDriverWithCompanies, setShareDriverWithCompanies] = useState(
+    initialData?.share_driver_with_companies ?? true
+  );
   const sectionRefs = {
     basics: useRef<HTMLDivElement>(null),
     routing: useRef<HTMLDivElement>(null),
@@ -362,6 +366,26 @@ export function TripForm({
                   </SelectWithHiddenInput>
                 </div>
               </div>
+              {snapshot.driverId && (
+                <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+                  <Checkbox
+                    id="share_driver_with_companies"
+                    checked={shareDriverWithCompanies}
+                    onCheckedChange={(checked) => setShareDriverWithCompanies(checked === true)}
+                  />
+                  <Label
+                    htmlFor="share_driver_with_companies"
+                    className="text-sm font-normal text-muted-foreground cursor-pointer"
+                  >
+                    Share driver info with companies on loads
+                  </Label>
+                  <input
+                    type="hidden"
+                    name="share_driver_with_companies"
+                    value={shareDriverWithCompanies ? 'true' : 'false'}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
 

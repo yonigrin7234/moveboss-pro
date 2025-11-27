@@ -8,6 +8,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -39,6 +41,7 @@ interface TripDetailClientProps {
     settleTrip: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean; settlementId?: string } | null>;
     deleteTrip: () => Promise<void>;
     recalculateSettlement: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
+    updateDriverSharing: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
   };
 }
 
@@ -89,6 +92,9 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
   const [showDeleteTripConfirm, setShowDeleteTripConfirm] = useState(false);
   const [loadToRemove, setLoadToRemove] = useState<string | null>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
+  const [shareDriverWithCompanies, setShareDriverWithCompanies] = useState(
+    trip.share_driver_with_companies ?? true
+  );
 
   const tripDriver = Array.isArray(trip.driver) ? trip.driver[0] : trip.driver;
   const tripTruck = Array.isArray(trip.truck) ? trip.truck[0] : trip.truck;
@@ -221,6 +227,29 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                   <p className="text-sm font-medium">{trailerNumber}</p>
                 </div>
               </div>
+              {tripDriver && (
+                <div className="mt-3 pt-3 border-t border-border">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="share_driver_toggle"
+                      checked={shareDriverWithCompanies}
+                      onCheckedChange={async (checked) => {
+                        const newValue = checked === true;
+                        setShareDriverWithCompanies(newValue);
+                        const formData = new FormData();
+                        formData.append('share_driver_with_companies', newValue.toString());
+                        await actions.updateDriverSharing(formData);
+                      }}
+                    />
+                    <Label
+                      htmlFor="share_driver_toggle"
+                      className="text-sm font-normal text-muted-foreground cursor-pointer"
+                    >
+                      Share driver info with companies
+                    </Label>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
