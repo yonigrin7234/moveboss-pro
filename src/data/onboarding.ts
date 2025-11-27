@@ -128,12 +128,19 @@ export async function createCompanyForUser(
 ): Promise<{ success: boolean; companyId?: string; error?: string }> {
   const supabase = await createClient();
 
-  // Determine company_type based on is_carrier/is_broker flags
+  // Determine company_type and relationship_role based on is_carrier/is_broker flags
   let companyType: 'customer' | 'carrier' | 'both' = 'customer';
+  let relationshipRole: 'takes_loads_from' | 'gives_loads_to' | 'both' = 'both';
+
   if (data.is_carrier && data.is_broker) {
     companyType = 'both';
+    relationshipRole = 'both';
   } else if (data.is_carrier) {
     companyType = 'carrier';
+    relationshipRole = 'takes_loads_from'; // Carriers take loads from companies
+  } else {
+    companyType = 'customer';
+    relationshipRole = 'gives_loads_to'; // Companies/brokers give loads to carriers
   }
 
   const { data: company, error } = await supabase
@@ -142,6 +149,7 @@ export async function createCompanyForUser(
       owner_id: userId,
       name: data.name,
       company_type: companyType,
+      relationship_role: relationshipRole,
       dot_number: data.dot_number || null,
       mc_number: data.mc_number || null,
       phone: data.phone || null,
