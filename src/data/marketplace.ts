@@ -1,4 +1,11 @@
 import { createClient } from '@/lib/supabase-server';
+import {
+  notifyLoadRequested,
+  notifyRequestAccepted,
+  notifyRequestDeclined,
+  notifyLoadConfirmed,
+  notifyDriverAssigned,
+} from './notifications';
 
 export interface MarketplaceLoad {
   id: string;
@@ -274,7 +281,7 @@ export async function createLoadRequest(
   // Get load to find company_id
   const { data: load } = await supabase
     .from('loads')
-    .select('company_id, owner_id')
+    .select('company_id, owner_id, load_number, origin_city, origin_state, destination_city, destination_state')
     .eq('id', data.load_id)
     .single();
 
@@ -314,6 +321,25 @@ export async function createLoadRequest(
     return { success: false, error: error.message };
   }
 
+  // Get carrier name for notification
+  const { data: carrier } = await supabase
+    .from('companies')
+    .select('name')
+    .eq('id', carrierId)
+    .single();
+
+  // Notify company
+  const route = `${load.origin_city}, ${load.origin_state} → ${load.destination_city}, ${load.destination_state}`;
+  await notifyLoadRequested(
+    load.owner_id,
+    load.company_id,
+    data.load_id,
+    result.id,
+    carrier?.name || 'A carrier',
+    load.load_number,
+    route
+  );
+
   return { success: true, id: result.id };
 }
 
@@ -328,7 +354,13 @@ export async function acceptLoadRequest(
   // Get the request details
   const { data: request } = await supabase
     .from('load_requests')
-    .select('*, load:loads(*)')
+    .select(`
+      *,
+      load:loads(
+        *,
+        company:companies!loads_company_id_fkey(id, name)
+      )
+    `)
     .eq('id', requestId)
     .single();
 
@@ -410,6 +442,23 @@ export async function acceptLoadRequest(
     });
   }
 
+  // Increment stats
+  await supabase.rpc('increment_loads_accepted', { p_company_id: request.carrier_id });
+  await supabase.rpc('increment_loads_assigned', { p_company_id: loadData.company_id as string });
+
+  // Notify carrier
+  const companyObj = loadData.company as { id: string; name: string } | null;
+  const route = `${loadData.origin_city}, ${loadData.origin_state} → ${loadData.destination_city}, ${loadData.destination_state}`;
+  await notifyRequestAccepted(
+    request.carrier_owner_id,
+    request.carrier_id,
+    request.load_id,
+    requestId,
+    companyObj?.name || 'Company',
+    loadData.load_number as string,
+    route
+  );
+
   return { success: true };
 }
 
@@ -420,6 +469,23 @@ export async function declineLoadRequest(
   responseMessage?: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
+
+  // Get request details for notification
+  const { data: request } = await supabase
+    .from('load_requests')
+    .select(`
+      *,
+      load:loads(
+        id, load_number,
+        company:companies!loads_company_id_fkey(id, name)
+      )
+    `)
+    .eq('id', requestId)
+    .single();
+
+  if (!request) {
+    return { success: false, error: 'Request not found' };
+  }
 
   const { error } = await supabase
     .from('load_requests')
@@ -436,6 +502,17 @@ export async function declineLoadRequest(
     console.error('Error declining request:', error);
     return { success: false, error: error.message };
   }
+
+  // Notify carrier
+  const loadObj = request.load as { id: string; load_number: string; company: { id: string; name: string } | null };
+  await notifyRequestDeclined(
+    request.carrier_owner_id,
+    request.carrier_id,
+    request.load_id,
+    requestId,
+    loadObj?.company?.name || 'Company',
+    loadObj?.load_number || 'Load'
+  );
 
   return { success: true };
 }
@@ -492,6 +569,31 @@ export async function confirmLoadAssignment(
     return { success: false, error: error.message };
   }
 
+  // Get load details for notification
+  const { data: loadDetails } = await supabase
+    .from('loads')
+    .select(`
+      owner_id,
+      company_id,
+      load_number,
+      carrier:companies!loads_assigned_carrier_id_fkey(name)
+    `)
+    .eq('id', loadId)
+    .single();
+
+  if (loadDetails) {
+    const carrierObj = Array.isArray(loadDetails.carrier) ? loadDetails.carrier[0] : loadDetails.carrier;
+    await notifyLoadConfirmed(
+      loadDetails.owner_id,
+      loadDetails.company_id,
+      loadId,
+      carrierObj?.name || 'Carrier',
+      loadDetails.load_number,
+      new Date(data.expected_load_date).toLocaleDateString(),
+      data.assigned_driver_name
+    );
+  }
+
   return { success: true };
 }
 
@@ -519,6 +621,31 @@ export async function updateLoadDriver(
   if (error) {
     console.error('Error updating driver:', error);
     return { success: false, error: error.message };
+  }
+
+  // Get load details for notification
+  const { data: loadDetails } = await supabase
+    .from('loads')
+    .select(`
+      owner_id,
+      company_id,
+      load_number,
+      carrier:companies!loads_assigned_carrier_id_fkey(name)
+    `)
+    .eq('id', loadId)
+    .single();
+
+  if (loadDetails && data.assigned_driver_name) {
+    const carrierObj = Array.isArray(loadDetails.carrier) ? loadDetails.carrier[0] : loadDetails.carrier;
+    await notifyDriverAssigned(
+      loadDetails.owner_id,
+      loadDetails.company_id,
+      loadId,
+      carrierObj?.name || 'Carrier',
+      loadDetails.load_number,
+      data.assigned_driver_name,
+      data.assigned_driver_phone
+    );
   }
 
   return { success: true };

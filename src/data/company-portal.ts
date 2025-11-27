@@ -625,6 +625,8 @@ export async function getLoadRequestsForCompany(loadId: string): Promise<
       platform_loads_completed: number;
       platform_rating: number | null;
       platform_member_since: string | null;
+      loads_given_back: number | null;
+      loads_accepted_total: number | null;
     } | null;
   }>
 > {
@@ -646,7 +648,9 @@ export async function getLoadRequestsForCompany(loadId: string): Promise<
         email,
         platform_loads_completed,
         platform_rating,
-        platform_member_since
+        platform_member_since,
+        loads_given_back,
+        loads_accepted_total
       )
     `
     )
@@ -691,6 +695,8 @@ export async function getLoadRequestsForCompany(loadId: string): Promise<
       platform_loads_completed: number;
       platform_rating: number | null;
       platform_member_since: string | null;
+      loads_given_back: number | null;
+      loads_accepted_total: number | null;
     } | null;
   }>;
 }

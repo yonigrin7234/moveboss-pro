@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/supabase-server';
 import { getCarrierRequests } from '@/data/marketplace';
+import { withdrawLoadRequest } from '@/data/cancellations';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +18,7 @@ import {
   ArrowRight,
   Search,
   DollarSign,
+  X,
 } from 'lucide-react';
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -71,20 +74,26 @@ interface CarrierRequest {
   };
 }
 
-function RequestCard({ request }: { request: CarrierRequest }) {
+interface RequestCardProps {
+  request: CarrierRequest;
+  withdrawAction?: (formData: FormData) => Promise<void>;
+}
+
+function RequestCard({ request, withdrawAction }: RequestCardProps) {
   const status = statusConfig[request.status] || statusConfig.pending;
   const StatusIcon = status.icon;
   const load = request.load;
   const company = Array.isArray(load.company) ? load.company[0] : load.company;
+  const isPending = request.status === 'pending';
 
   const displayRate = request.accepted_company_rate
     ? formatRate(load.company_rate, load.company_rate_type)
     : formatRate(request.offered_rate, 'per_cuft');
 
   return (
-    <Link href={`/dashboard/load-board/${load.id}`}>
-      <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-        <CardContent className="p-4">
+    <Card className="hover:bg-muted/50 transition-colors">
+      <CardContent className="p-4">
+        <Link href={`/dashboard/load-board/${load.id}`} className="block">
           <div className="flex items-start justify-between mb-3">
             {/* Route */}
             <div className="flex items-center gap-2 font-semibold">
@@ -117,7 +126,7 @@ function RequestCard({ request }: { request: CarrierRequest }) {
           </div>
 
           {/* Rate and Time */}
-          <div className="flex items-center justify-between text-sm pt-3 border-t">
+          <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-1">
               <DollarSign className="h-4 w-4 text-muted-foreground" />
               <span>
@@ -129,9 +138,22 @@ function RequestCard({ request }: { request: CarrierRequest }) {
               Requested {timeAgo(request.created_at)}
             </span>
           </div>
-        </CardContent>
-      </Card>
-    </Link>
+        </Link>
+
+        {/* Cancel button for pending requests */}
+        {isPending && withdrawAction && (
+          <div className="flex justify-end pt-3 mt-3 border-t">
+            <form action={withdrawAction}>
+              <input type="hidden" name="request_id" value={request.id} />
+              <Button type="submit" variant="outline" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                <X className="h-4 w-4 mr-1" />
+                Cancel Request
+              </Button>
+            </form>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -145,6 +167,23 @@ export default async function MyRequestsPage() {
   const pendingRequests = requests.filter((r) => r.status === 'pending');
   const acceptedRequests = requests.filter((r) => r.status === 'accepted');
   const declinedRequests = requests.filter((r) => r.status === 'declined' || r.status === 'withdrawn' || r.status === 'expired');
+
+  async function handleWithdraw(formData: FormData): Promise<void> {
+    'use server';
+    const currentUser = await getCurrentUser();
+    if (!currentUser) throw new Error('Not authenticated');
+
+    const requestId = formData.get('request_id') as string;
+    if (!requestId) throw new Error('Missing request ID');
+
+    const result = await withdrawLoadRequest(requestId, currentUser.id);
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to withdraw request');
+    }
+
+    revalidatePath('/dashboard/my-requests');
+    revalidatePath('/dashboard/load-board');
+  }
 
   return (
     <div className="space-y-6">
@@ -236,7 +275,7 @@ export default async function MyRequestsPage() {
           ) : (
             <div className="space-y-3">
               {pendingRequests.map((request) => (
-                <RequestCard key={request.id} request={request} />
+                <RequestCard key={request.id} request={request} withdrawAction={handleWithdraw} />
               ))}
             </div>
           )}

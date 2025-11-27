@@ -16,9 +16,10 @@ interface DashboardShellProps {
     dbaName?: string | null
     status?: string | null
   }
+  unreadNotifications?: number
 }
 
-export function DashboardShell({ children, user, company }: DashboardShellProps) {
+export function DashboardShell({ children, user, company, unreadNotifications }: DashboardShellProps) {
   const companyName = company?.dbaName || company?.name
   const userName = user?.fullName || user?.email
 
@@ -26,7 +27,7 @@ export function DashboardShell({ children, user, company }: DashboardShellProps)
     <div className="flex min-h-screen bg-background text-foreground">
       <Sidebar companyName={companyName} userName={userName} />
       <div className="flex flex-1 flex-col min-w-0 pb-16 sm:pb-0">
-        <TopNav user={user} company={company} />
+        <TopNav user={user} company={company} unreadNotifications={unreadNotifications} />
         <main className="flex-1 space-y-6 px-4 py-6 sm:px-6 lg:px-10 min-w-0">
           {children}
         </main>

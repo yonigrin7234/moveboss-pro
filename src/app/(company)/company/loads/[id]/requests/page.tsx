@@ -23,6 +23,7 @@ import {
   Calendar,
   Shield,
 } from 'lucide-react';
+import { ReliabilityBadge } from '@/components/reliability-badge';
 
 async function getCompanySession() {
   const cookieStore = await cookies();
@@ -192,7 +193,7 @@ export default async function LoadRequestsPage({ params }: PageProps) {
                         <Truck className="h-6 w-6 text-muted-foreground" />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-lg">
                             {request.carrier?.name}
                           </p>
@@ -204,6 +205,10 @@ export default async function LoadRequestsPage({ params }: PageProps) {
                           ) : (
                             <Badge variant="outline">New</Badge>
                           )}
+                          <ReliabilityBadge
+                            loadsGivenBack={request.carrier?.loads_given_back ?? null}
+                            loadsAcceptedTotal={request.carrier?.loads_accepted_total ?? null}
+                          />
                         </div>
                         <p className="text-sm text-muted-foreground">
                           {request.carrier?.city}, {request.carrier?.state}

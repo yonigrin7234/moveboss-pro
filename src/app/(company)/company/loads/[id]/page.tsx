@@ -9,6 +9,7 @@ import {
   assignLoadToCarrier,
   unassignCarrierFromLoad,
 } from '@/data/company-portal';
+import { cancelCarrierAssignment } from '@/data/cancellations';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -37,7 +38,16 @@ import {
   Users,
   User,
   Phone,
+  XCircle,
 } from 'lucide-react';
+
+const cancelReasonOptions = [
+  { value: 'customer_canceled', label: 'Customer canceled move' },
+  { value: 'load_rescheduled', label: 'Load rescheduled' },
+  { value: 'carrier_performance', label: 'Carrier performance issue' },
+  { value: 'reassigning', label: 'Reassigning to another carrier' },
+  { value: 'other', label: 'Other' },
+];
 
 async function getCompanySession() {
   const cookieStore = await cookies();
@@ -110,6 +120,10 @@ export default async function CompanyLoadDetailPage({
   const deliveryPhotos = (load.delivery_photos as string[]) || [];
   const canAssignCarrier = load.load_status === 'pending';
   const canUnassign = load.load_status === 'pending' && load.assigned_carrier_id;
+  // Can cancel carrier if load is confirmed but not yet in transit or delivered
+  const canCancelCarrier = load.assigned_carrier_id &&
+    load.carrier_confirmed_at &&
+    ['accepted', 'loading'].includes(load.load_status as string);
 
   async function assignCarrierAction(formData: FormData) {
     'use server';
@@ -133,6 +147,38 @@ export default async function CompanyLoadDetailPage({
 
     const loadId = formData.get('load_id') as string;
     await unassignCarrierFromLoad(loadId);
+    revalidatePath(`/company/loads/${loadId}`);
+    revalidatePath('/company/dashboard');
+  }
+
+  async function cancelCarrierAction(formData: FormData) {
+    'use server';
+
+    const currentSession = await getCompanySession();
+    if (!currentSession) throw new Error('Not authenticated');
+
+    const loadId = formData.get('load_id') as string;
+    const reasonCode = formData.get('reason_code') as string;
+    const repostValue = formData.get('repost_to_marketplace') as string;
+    const repostToMarketplace = repostValue === 'true';
+
+    if (!loadId || !reasonCode) {
+      throw new Error('Missing required fields');
+    }
+
+    const result = await cancelCarrierAssignment(
+      loadId,
+      currentSession.owner_id,
+      currentSession.company_id,
+      reasonCode,
+      undefined,
+      repostToMarketplace
+    );
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to cancel carrier');
+    }
+
     revalidatePath(`/company/loads/${loadId}`);
     revalidatePath('/company/dashboard');
   }
@@ -341,6 +387,50 @@ export default async function CompanyLoadDetailPage({
                       Remove Carrier Assignment
                     </Button>
                   </form>
+                )}
+
+                {/* Cancel Carrier form - for confirmed loads */}
+                {canCancelCarrier && (
+                  <div className="mt-4 pt-4 border-t">
+                    <p className="text-sm font-medium mb-3 flex items-center gap-2">
+                      <XCircle className="h-4 w-4 text-red-500" />
+                      Cancel Carrier Assignment
+                    </p>
+                    <form action={cancelCarrierAction} className="space-y-3">
+                      <input type="hidden" name="load_id" value={id} />
+                      <select
+                        name="reason_code"
+                        className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                        required
+                      >
+                        <option value="">Select reason...</option>
+                        {cancelReasonOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          name="repost_to_marketplace"
+                          value="true"
+                          defaultChecked
+                          className="rounded border-input"
+                        />
+                        <span>Repost to marketplace after canceling</span>
+                      </label>
+                      <Button
+                        type="submit"
+                        variant="destructive"
+                        size="sm"
+                        className="w-full"
+                      >
+                        <XCircle className="h-4 w-4 mr-1" />
+                        Cancel Carrier
+                      </Button>
+                    </form>
+                  </div>
                 )}
               </div>
             ) : canAssignCarrier ? (

@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { NotificationBell } from "@/components/notification-bell"
 import { createClient } from "@/lib/supabase-client"
 import { cn } from "@/lib/utils"
 
@@ -27,6 +28,7 @@ interface TopNavProps {
     dbaName?: string | null
     status?: string | null
   }
+  unreadNotifications?: number
 }
 
 const routeLabels: Record<string, string> = {
@@ -51,7 +53,7 @@ function getPageLabel(pathname: string) {
     .join(" ")
 }
 
-export function TopNav({ user, company }: TopNavProps) {
+export function TopNav({ user, company, unreadNotifications = 0 }: TopNavProps) {
   const pathname = usePathname() ?? "/dashboard"
   const router = useRouter()
   const [isSigningOut, setIsSigningOut] = useState(false)
@@ -122,6 +124,7 @@ export function TopNav({ user, company }: TopNavProps) {
         </div>
 
         <div className="flex items-center gap-3">
+          <NotificationBell unreadCount={unreadNotifications} />
           <ThemeToggle />
           <div className="flex items-center gap-3 rounded-full border border-border/70 bg-card/60 px-3 py-1.5">
             <div className="hidden text-right sm:flex sm:flex-col">
