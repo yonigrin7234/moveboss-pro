@@ -6,6 +6,7 @@ import {
   getLoadRequestsForCompany,
 } from '@/data/company-portal';
 import { acceptLoadRequest, declineLoadRequest } from '@/data/marketplace';
+import { checkCarrierCompliance } from '@/data/compliance-alerts';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { ReliabilityBadge } from '@/components/reliability-badge';
+import { LoadRequestActions } from '@/components/load-request-actions';
 
 async function getCompanySession() {
   const cookieStore = await cookies();
@@ -57,6 +59,20 @@ export default async function LoadRequestsPage({ params }: PageProps) {
   const requests = await getLoadRequestsForCompany(id);
   const pendingRequests = requests.filter((r) => r.status === 'pending');
   const respondedRequests = requests.filter((r) => r.status !== 'pending');
+
+  // Fetch compliance issues for each pending request's carrier
+  const pendingRequestsWithCompliance = await Promise.all(
+    pendingRequests.map(async (request) => {
+      if (!request.carrier?.id) {
+        return { ...request, complianceIssues: [] };
+      }
+      const { issues } = await checkCarrierCompliance(
+        session.company_id,
+        request.carrier.id
+      );
+      return { ...request, complianceIssues: issues };
+    })
+  );
 
   async function acceptAction(formData: FormData) {
     'use server';
@@ -177,13 +193,13 @@ export default async function LoadRequestsPage({ params }: PageProps) {
         )}
 
         {/* Pending Requests */}
-        {pendingRequests.length > 0 && (
+        {pendingRequestsWithCompliance.length > 0 && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">
-              Pending Requests ({pendingRequests.length})
+              Pending Requests ({pendingRequestsWithCompliance.length})
             </h2>
 
-            {pendingRequests.map((request) => (
+            {pendingRequestsWithCompliance.map((request) => (
               <Card key={request.id} className="border-yellow-500/20">
                 <CardContent className="p-4 space-y-4">
                   {/* Carrier Info */}
@@ -307,35 +323,16 @@ export default async function LoadRequestsPage({ params }: PageProps) {
                     </div>
                   )}
 
-                  {/* Actions */}
-                  <Separator />
-                  <div className="flex gap-2">
-                    <form action={acceptAction} className="flex-1">
-                      <input
-                        type="hidden"
-                        name="request_id"
-                        value={request.id}
-                      />
-                      <Button type="submit" className="w-full">
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Accept
-                        {!request.accepted_company_rate &&
-                          ` at $${request.offered_rate}/cf`}
-                      </Button>
-                    </form>
-                    <form action={declineAction}>
-                      <input
-                        type="hidden"
-                        name="request_id"
-                        value={request.id}
-                      />
-                      <input type="hidden" name="reason" value="" />
-                      <Button type="submit" variant="outline">
-                        <XCircle className="h-4 w-4 mr-2" />
-                        Decline
-                      </Button>
-                    </form>
-                  </div>
+                  {/* Actions with Compliance Check */}
+                  <LoadRequestActions
+                    requestId={request.id}
+                    acceptedCompanyRate={request.accepted_company_rate}
+                    offeredRate={request.offered_rate}
+                    complianceIssues={request.complianceIssues}
+                    blockOnExpired={false}
+                    acceptAction={acceptAction}
+                    declineAction={declineAction}
+                  />
 
                   <p className="text-xs text-muted-foreground text-center">
                     Requested {new Date(request.created_at).toLocaleString()}
@@ -347,7 +344,7 @@ export default async function LoadRequestsPage({ params }: PageProps) {
         )}
 
         {/* No Pending Requests */}
-        {pendingRequests.length === 0 && !assignedCarrierId && (
+        {pendingRequestsWithCompliance.length === 0 && !assignedCarrierId && (
           <Card>
             <CardContent className="p-8 text-center">
               <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />

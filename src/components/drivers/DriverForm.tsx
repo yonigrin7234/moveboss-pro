@@ -706,6 +706,40 @@ export function DriverForm({
                         </div>
                         <p className="text-xs text-muted-foreground">Mark whether this is a CDL license for compliance.</p>
                       </div>
+                      {/* CDL-specific fields */}
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="cdl_class" className="text-sm">CDL Class</Label>
+                          <Input
+                            id="cdl_class"
+                            name="cdl_class"
+                            placeholder="A, B, C"
+                            maxLength={1}
+                            defaultValue={(initialData as any)?.cdl_class || ''}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="cdl_endorsements" className="text-sm">Endorsements</Label>
+                          <Input
+                            id="cdl_endorsements"
+                            name="cdl_endorsements"
+                            placeholder="H, N, P, S, T, X"
+                            defaultValue={(initialData as any)?.cdl_endorsements || ''}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="cdl_restrictions" className="text-sm">Restrictions</Label>
+                          <Input
+                            id="cdl_restrictions"
+                            name="cdl_restrictions"
+                            placeholder="Any restrictions"
+                            defaultValue={(initialData as any)?.cdl_restrictions || ''}
+                            className="h-9"
+                          />
+                        </div>
+                      </div>
                       <div className="space-y-1.5">
                       <Label htmlFor="license_file" className="text-sm">
                         Driver&apos;s license copy
@@ -799,6 +833,43 @@ export function DriverForm({
                             <p className="text-xs text-muted-foreground">Added: {drugTestFile.name}</p>
                           )}
                         </div>
+                      </div>
+                      {/* TWIC Card */}
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="twic_card_number" className="text-sm">TWIC Card #</Label>
+                          <Input
+                            id="twic_card_number"
+                            name="twic_card_number"
+                            placeholder="Card number (optional)"
+                            defaultValue={(initialData as any)?.twic_card_number || ''}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="twic_card_expiry" className="text-sm">TWIC Expiry</Label>
+                          <Input
+                            id="twic_card_expiry"
+                            name="twic_card_expiry"
+                            type="date"
+                            defaultValue={(initialData as any)?.twic_card_expiry || ''}
+                            onClick={handleDateClick}
+                            className="h-9"
+                          />
+                        </div>
+                      </div>
+                      {/* MVR Date */}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="mvr_date" className="text-sm">Last MVR Date</Label>
+                        <Input
+                          id="mvr_date"
+                          name="mvr_date"
+                          type="date"
+                          defaultValue={(initialData as any)?.mvr_date || ''}
+                          onClick={handleDateClick}
+                          className="h-9"
+                        />
+                        <p className="text-xs text-muted-foreground">Date of most recent Motor Vehicle Record check</p>
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="tax_form_file" className="text-sm">

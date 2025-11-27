@@ -598,12 +598,38 @@ export function TruckForm({
         return (
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Documents</CardTitle>
+              <CardTitle className="text-sm font-medium">Documents & Insurance</CardTitle>
               <p className="text-xs text-muted-foreground">
-                Registration, IFTA, insurance, and maintenance records for quick access.
+                Track insurance expiration and upload important documents.
               </p>
             </CardHeader>
-            <CardContent className="space-y-2.5">
+            <CardContent className="space-y-4">
+              {/* Insurance Details */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="insurance_policy_number" className="text-sm">Insurance Policy #</Label>
+                  <Input
+                    type="text"
+                    id="insurance_policy_number"
+                    name="insurance_policy_number"
+                    defaultValue={(initialData as any)?.insurance_policy_number || ''}
+                    className="h-9"
+                    placeholder="Policy number"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="insurance_expiry" className="text-sm">Insurance Expiry</Label>
+                  <Input
+                    type="date"
+                    id="insurance_expiry"
+                    name="insurance_expiry"
+                    defaultValue={(initialData as any)?.insurance_expiry || ''}
+                    className="h-9"
+                    onClick={handleDateClick}
+                  />
+                </div>
+              </div>
+
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="registration_file" className="text-sm">Registration</Label>

@@ -33,7 +33,13 @@ export async function createDriverAction(
   const license_number = (formData.get('license_number') as string) || 'Pending';
   const license_state = (formData.get('license_state') as string) || 'NA';
   const license_expiry = (formData.get('license_expiry') as string) || new Date().toISOString().split('T')[0];
+  const cdl_class = formData.get('cdl_class') as string | null;
+  const cdl_endorsements = formData.get('cdl_endorsements') as string | null;
+  const cdl_restrictions = formData.get('cdl_restrictions') as string | null;
   const medical_card_expiry = (formData.get('medical_card_expiry') as string) || new Date().toISOString().split('T')[0];
+  const twic_card_number = formData.get('twic_card_number') as string | null;
+  const twic_card_expiry = formData.get('twic_card_expiry') as string | null;
+  const mvr_date = formData.get('mvr_date') as string | null;
   const assigned_truck_id = formData.get('assigned_truck_id') as string | null;
   const assigned_trailer_id = formData.get('assigned_trailer_id') as string | null;
   const rate_per_mile_raw = formData.get('rate_per_mile') as string | null;
@@ -83,6 +89,26 @@ export async function createDriverAction(
     has_login: requestedHasLogin && hasServiceRoleKey,
     login_method,
   };
+
+  // Handle optional compliance fields
+  if (cdl_class?.trim()) {
+    insertPayload.cdl_class = cdl_class.trim();
+  }
+  if (cdl_endorsements?.trim()) {
+    insertPayload.cdl_endorsements = cdl_endorsements.trim();
+  }
+  if (cdl_restrictions?.trim()) {
+    insertPayload.cdl_restrictions = cdl_restrictions.trim();
+  }
+  if (twic_card_number?.trim()) {
+    insertPayload.twic_card_number = twic_card_number.trim();
+  }
+  if (twic_card_expiry) {
+    insertPayload.twic_card_expiry = twic_card_expiry;
+  }
+  if (mvr_date) {
+    insertPayload.mvr_date = mvr_date;
+  }
 
   // Handle optional fields
   if (assigned_truck_id && assigned_truck_id !== '' && assigned_truck_id !== 'unassigned') {

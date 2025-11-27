@@ -32,6 +32,8 @@ export default async function NewTruckPage() {
       'current_odometer',
       'registration_expiry',
       'inspection_expiry',
+      'insurance_policy_number',
+      'insurance_expiry',
       'assigned_driver_id',
       'status',
       'vehicle_type',

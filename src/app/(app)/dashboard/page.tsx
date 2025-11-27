@@ -16,6 +16,8 @@ import {
   getCompaniesCountForUser,
   type Company,
 } from '@/data/companies';
+import { getComplianceAlertCounts } from '@/data/compliance-alerts';
+import { ComplianceStatusWidget } from '@/components/compliance-status-widget';
 import { getDriversForUser, getDriverStatsForUser, type Driver } from '@/data/drivers';
 import { getRecentActivities, type ActivityType, type ActivityLogEntry } from '@/data/activity-log';
 import { getCurrentUser } from '@/lib/supabase-server';
@@ -108,15 +110,17 @@ export default async function DashboardPage() {
   let drivers: Driver[] = [];
   let driverStats = { totalDrivers: 0, activeDrivers: 0, suspendedDrivers: 0 };
   let recentActivities: ActivityLogEntry[] = [];
+  let complianceCounts = { warning: 0, urgent: 0, critical: 0, expired: 0 };
   let error: string | null = null;
 
   try {
-    [companies, totalCompanies, drivers, driverStats, recentActivities] = await Promise.all([
+    [companies, totalCompanies, drivers, driverStats, recentActivities, complianceCounts] = await Promise.all([
       getCompaniesForUser(user.id).then((cs) => cs.slice(0, 5)),
       getCompaniesCountForUser(user.id),
       getDriversForUser(user.id).then((ds) => ds.slice(0, 5)),
       getDriverStatsForUser(user.id),
       getRecentActivities(user.id, { limit: 5 }),
+      getComplianceAlertCounts(user.id),
     ]);
   } catch (err) {
     error = err instanceof Error ? err.message : 'Failed to load companies';
@@ -179,6 +183,9 @@ export default async function DashboardPage() {
           </Card>
         ))}
       </div>
+
+      {/* Compliance Status Widget */}
+      <ComplianceStatusWidget counts={complianceCounts} href="/dashboard/compliance/alerts" />
 
       <div className="flex flex-col gap-4 lg:flex-row">
         <Card className="lg:flex-[3]">
