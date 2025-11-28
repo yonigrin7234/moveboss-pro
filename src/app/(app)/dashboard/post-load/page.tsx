@@ -20,6 +20,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, PackagePlus, ArrowLeft, Truck, Warehouse, Plus, AlertTriangle, Ban, Building2 } from 'lucide-react';
+import { DatePicker } from '@/components/ui/date-picker';
 import Link from 'next/link';
 
 interface StorageOption {
@@ -350,12 +351,10 @@ export default function PostLoadPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="ll_pickup_date">Pickup Date *</Label>
-                  <Input
-                    id="ll_pickup_date"
-                    type="date"
-                    value={liveLoadData.pickup_date}
-                    onChange={(e) => handleLiveLoadChange('pickup_date', e.target.value)}
-                    required
+                  <DatePicker
+                    name="ll_pickup_date"
+                    placeholder="Select pickup date"
+                    onChange={(value) => handleLiveLoadChange('pickup_date', value)}
                   />
                 </div>
               </CardContent>
@@ -803,12 +802,10 @@ export default function PostLoadPage() {
                   {rfdData.rfd_ready_type === 'ready_on_date' && (
                     <div className="ml-6 space-y-2">
                       <Label htmlFor="rfd_date">Available Date *</Label>
-                      <Input
-                        id="rfd_date"
-                        type="date"
-                        value={rfdData.rfd_date}
-                        onChange={(e) => setRfdData((prev) => ({ ...prev, rfd_date: e.target.value }))}
-                        required
+                      <DatePicker
+                        name="rfd_date"
+                        placeholder="Select available date"
+                        onChange={(value) => setRfdData((prev) => ({ ...prev, rfd_date: value }))}
                       />
                       <p className="text-xs text-muted-foreground">
                         Carriers cannot request this load before this date
