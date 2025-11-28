@@ -5,7 +5,6 @@ import { format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import {
   Popover,
@@ -40,18 +39,17 @@ export function DatePicker({ name, defaultValue, placeholder = "Pick a date", cl
       <input type="hidden" name={name} value={formattedValue} />
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button
+          <button
             type="button"
-            variant="outline"
             className={cn(
-              "w-full justify-start text-left font-normal",
+              "flex w-full items-center rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               !date && "text-muted-foreground",
               className
             )}
           >
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            {date ? format(date, "MMM d, yyyy") : <span>{placeholder}</span>}
-          </Button>
+            <CalendarIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+            <span className="truncate">{date ? format(date, "MMM d, yyyy") : placeholder}</span>
+          </button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
           <Calendar
