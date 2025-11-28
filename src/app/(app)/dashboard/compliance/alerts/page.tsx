@@ -155,7 +155,7 @@ export default async function ComplianceAlertsPage() {
                       {alert.vehicle_id ? (
                         <Link href={`/dashboard/fleet/trucks/${alert.vehicle_id}`}>Update</Link>
                       ) : alert.driver_id ? (
-                        <Link href={`/dashboard/drivers/${alert.driver_id}`}>Update</Link>
+                        <Link href={`/dashboard/people/drivers/${alert.driver_id}`}>Update</Link>
                       ) : (
                         <Link href="/dashboard/compliance">View</Link>
                       )}
