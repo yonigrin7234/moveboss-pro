@@ -106,6 +106,8 @@ export default async function CompanyProfilePage() {
         totalDrivers: company.fmcsa_total_drivers ?? null,
         totalPowerUnits: company.fmcsa_total_power_units ?? null,
         operationType: company.fmcsa_operation_type ?? null,
+        hhgAuthorized: company.fmcsa_hhg_authorized ?? false,
+        cargoCarried: company.fmcsa_cargo_carried ?? [],
       }
     : null;
 

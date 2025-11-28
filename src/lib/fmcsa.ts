@@ -22,6 +22,23 @@ export interface FMCSACensusType {
   censusTypeId: number;
 }
 
+export interface FMCSACargoCarried {
+  cargoCarriedId: number;
+  cargoCarriedDesc: string;
+}
+
+// Known cargo type IDs for HHG (Household Goods)
+export const HHG_CARGO_IDS = [
+  7,  // Household Goods
+  17, // Household Goods - Unspecified
+];
+
+// Cargo type descriptions that indicate HHG authorization
+export const HHG_CARGO_DESCRIPTIONS = [
+  'Household Goods',
+  'HHG',
+];
+
 export interface FMCSACarrier {
   // Core identification
   dotNumber: number;
@@ -107,6 +124,8 @@ export interface FMCSAVerificationResult {
   found: boolean;
   verified: boolean;
   carrier: FMCSACarrier | null;
+  cargoCarried: FMCSACargoCarried[];
+  hhgAuthorized: boolean;
   verificationDetails: {
     dotValid: boolean;
     allowedToOperate: boolean;
@@ -114,6 +133,7 @@ export interface FMCSAVerificationResult {
     hasAuthority: boolean;
     insuranceMeetsRequirements: boolean;
     authorityTypes: string[];
+    hhgAuthorized: boolean;
   } | null;
   error?: string;
 }
@@ -186,6 +206,52 @@ export async function searchCarriersByName(
 }
 
 /**
+ * Get cargo types carried by a carrier
+ */
+export async function getCargoCarried(dotNumber: string | number): Promise<FMCSACargoCarried[]> {
+  const apiKey = getApiKey();
+  const url = `${FMCSA_BASE_URL}/carriers/${dotNumber}/cargo-carried?webKey=${apiKey}`;
+
+  try {
+    const response = await fetch(url, {
+      headers: { 'Accept': 'application/json' },
+      next: { revalidate: 3600 },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) return [];
+      console.error(`FMCSA cargo API error: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    // The API returns { content: { carrier: { cargoCarried: [...] } } }
+    const cargoList = data?.content?.carrier?.cargoCarried;
+    if (!Array.isArray(cargoList)) return [];
+
+    return cargoList.map((item: any) => ({
+      cargoCarriedId: item.cargoClassId || item.cargoCarriedId,
+      cargoCarriedDesc: item.cargoClassDesc || item.cargoCarriedDesc,
+    }));
+  } catch (error) {
+    console.error('FMCSA cargo API error:', error);
+    return [];
+  }
+}
+
+/**
+ * Check if carrier is authorized for Household Goods (HHG)
+ */
+export function isHHGAuthorized(cargoCarried: FMCSACargoCarried[]): boolean {
+  return cargoCarried.some(cargo =>
+    HHG_CARGO_IDS.includes(cargo.cargoCarriedId) ||
+    HHG_CARGO_DESCRIPTIONS.some(desc =>
+      cargo.cargoCarriedDesc?.toLowerCase().includes(desc.toLowerCase())
+    )
+  );
+}
+
+/**
  * Lookup a carrier by MC/MX/FF docket number
  */
 export async function getCarrierByMC(mcNumber: string | number): Promise<FMCSACarrier | null> {
@@ -215,17 +281,23 @@ export async function getCarrierByMC(mcNumber: string | number): Promise<FMCSACa
 
 /**
  * Verify a carrier's operating status and authority
- * Returns comprehensive verification result
+ * Returns comprehensive verification result including HHG authorization
  */
 export async function verifyCarrier(dotNumber: string | number): Promise<FMCSAVerificationResult> {
   try {
-    const carrier = await getCarrierByDOT(dotNumber);
+    // Fetch carrier data and cargo types in parallel
+    const [carrier, cargoCarried] = await Promise.all([
+      getCarrierByDOT(dotNumber),
+      getCargoCarried(dotNumber),
+    ]);
 
     if (!carrier) {
       return {
         found: false,
         verified: false,
         carrier: null,
+        cargoCarried: [],
+        hhgAuthorized: false,
         verificationDetails: null,
         error: 'DOT number not found in FMCSA database',
       };
@@ -242,6 +314,9 @@ export async function verifyCarrier(dotNumber: string | number): Promise<FMCSAVe
     if (carrier.brokerAuthorityStatus === 'A') authorityTypes.push('Broker');
 
     const hasAuthority = authorityTypes.length > 0;
+
+    // Check HHG authorization
+    const hhgAuthorized = isHHGAuthorized(cargoCarried);
 
     // Check insurance
     const insuranceOnFile = parseInt(carrier.bipdInsuranceOnFile || '0', 10);
@@ -265,6 +340,8 @@ export async function verifyCarrier(dotNumber: string | number): Promise<FMCSAVe
       found: true,
       verified,
       carrier,
+      cargoCarried,
+      hhgAuthorized,
       verificationDetails: {
         dotValid: true,
         allowedToOperate,
@@ -272,6 +349,7 @@ export async function verifyCarrier(dotNumber: string | number): Promise<FMCSAVe
         hasAuthority,
         insuranceMeetsRequirements,
         authorityTypes,
+        hhgAuthorized,
       },
     };
   } catch (error) {
@@ -279,6 +357,8 @@ export async function verifyCarrier(dotNumber: string | number): Promise<FMCSAVe
       found: false,
       verified: false,
       carrier: null,
+      cargoCarried: [],
+      hhgAuthorized: false,
       verificationDetails: null,
       error: error instanceof Error ? error.message : 'Failed to verify carrier',
     };

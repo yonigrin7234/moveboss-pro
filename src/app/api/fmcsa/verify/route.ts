@@ -7,6 +7,7 @@ import {
   formatInsuranceAmount,
   getVerificationMessage,
   type FMCSAVerificationResult,
+  type FMCSACargoCarried,
 } from '@/lib/fmcsa';
 
 export async function GET(request: Request) {
@@ -86,7 +87,7 @@ export async function POST(request: Request) {
     const supabase = await createClient();
     const { data: company, error: companyError } = await supabase
       .from('companies')
-      .select('id, owner_id')
+      .select('id, owner_id, is_workspace_company')
       .eq('id', companyId)
       .single();
 
@@ -96,6 +97,25 @@ export async function POST(request: Request) {
 
     if (company.owner_id !== user.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    // Check if this DOT is already claimed by another verified workspace company
+    const { data: existingClaim } = await supabase
+      .from('companies')
+      .select('id, name, fmcsa_legal_name')
+      .eq('dot_number', dotNumber)
+      .eq('fmcsa_verified', true)
+      .eq('is_workspace_company', true)
+      .neq('id', companyId)
+      .single();
+
+    if (existingClaim) {
+      return NextResponse.json({
+        success: false,
+        error: 'This DOT number is already verified by another company on MoveBoss. If you believe this is an error, please contact support.',
+        alreadyClaimed: true,
+        claimedByName: existingClaim.fmcsa_legal_name || existingClaim.name,
+      }, { status: 409 });
     }
 
     // Verify with FMCSA
@@ -111,7 +131,7 @@ export async function POST(request: Request) {
 
     const carrier = result.carrier;
 
-    // Update company with FMCSA data
+    // Update company with FMCSA data including HHG authorization
     const { error: updateError } = await supabase
       .from('companies')
       .update({
@@ -142,6 +162,8 @@ export async function POST(request: Request) {
         fmcsa_fatal_crash: carrier.fatalCrash,
         fmcsa_safety_rating: carrier.safetyRating,
         fmcsa_operation_type: carrier.carrierOperation?.carrierOperationDesc,
+        fmcsa_hhg_authorized: result.hhgAuthorized,
+        fmcsa_cargo_carried: result.cargoCarried,
         fmcsa_raw_data: carrier,
       })
       .eq('id', companyId);
@@ -158,6 +180,8 @@ export async function POST(request: Request) {
       success: true,
       verified: result.verified,
       message: getVerificationMessage(result),
+      hhgAuthorized: result.hhgAuthorized,
+      cargoTypes: result.cargoCarried.map(c => c.cargoCarriedDesc),
       carrier: {
         legalName: carrier.legalName,
         dbaName: carrier.dbaName,
@@ -170,6 +194,7 @@ export async function POST(request: Request) {
         insurance: formatInsuranceAmount(carrier.bipdInsuranceOnFile),
         totalDrivers: carrier.totalDrivers,
         totalPowerUnits: carrier.totalPowerUnits,
+        hhgAuthorized: result.hhgAuthorized,
       },
     });
   } catch (error) {

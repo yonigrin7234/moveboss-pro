@@ -12,6 +12,8 @@ import {
   Building2,
   RefreshCw,
   ExternalLink,
+  Home,
+  Package,
 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,6 +37,8 @@ interface FMCSAVerificationData {
   totalDrivers: number | null;
   totalPowerUnits: number | null;
   operationType: string | null;
+  hhgAuthorized?: boolean;
+  cargoCarried?: Array<{ cargoCarriedId: number; cargoCarriedDesc: string }>;
 }
 
 interface DOTVerificationCardProps {
@@ -49,6 +53,10 @@ interface VerifyResponse {
   verified?: boolean;
   message?: string;
   error?: string;
+  alreadyClaimed?: boolean;
+  claimedByName?: string;
+  hhgAuthorized?: boolean;
+  cargoTypes?: string[];
   carrier?: {
     legalName: string;
     dbaName: string | null;
@@ -61,6 +69,7 @@ interface VerifyResponse {
     insurance: string;
     totalDrivers: number | null;
     totalPowerUnits: number | null;
+    hhgAuthorized?: boolean;
   };
 }
 
@@ -206,6 +215,31 @@ export function DOTVerificationCard({
                     </p>
                   );
                 })}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Cargo Authorization</p>
+              <div className="space-y-0.5 text-sm">
+                <p className="flex items-center gap-1.5">
+                  {fmcsaData.hhgAuthorized ? (
+                    <>
+                      <Home className="h-3 w-3 text-green-500" />
+                      <span className="text-green-600 dark:text-green-400 font-medium">HHG Authorized</span>
+                    </>
+                  ) : (
+                    <>
+                      <Home className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-muted-foreground">No HHG Authority</span>
+                    </>
+                  )}
+                </p>
+                {fmcsaData.cargoCarried && fmcsaData.cargoCarried.length > 0 && (
+                  <p className="flex items-center gap-1.5 text-muted-foreground">
+                    <Package className="h-3 w-3" />
+                    {fmcsaData.cargoCarried.length} cargo type{fmcsaData.cargoCarried.length !== 1 ? 's' : ''}
+                  </p>
+                )}
               </div>
             </div>
 
