@@ -140,6 +140,12 @@ function SortableLoadCard({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  // Get destination info (try both naming conventions)
+  const destCity = load?.delivery_city || load?.destination_city;
+  const destState = load?.delivery_state || load?.destination_state;
+  const destZip = load?.delivery_postal_code || load?.destination_zip;
+  const cubicFeet = load?.cubic_feet || load?.estimated_cuft;
+
   return (
     <Card ref={setNodeRef} style={style} className={isDragging ? 'z-50' : ''}>
       <CardContent className="p-4">
@@ -156,6 +162,18 @@ function SortableLoadCard({
               <p className="font-medium">{load?.load_number || 'Load'}</p>
               <p className="text-sm text-muted-foreground">{company?.name || 'No company'}</p>
               <p className="text-sm font-medium mt-1">{formatCurrency(load?.total_rate)}</p>
+              {(destCity || cubicFeet) && (
+                <div className="mt-2 text-sm text-muted-foreground">
+                  {destCity && (
+                    <p>
+                      → {destCity}{destState ? `, ${destState}` : ''} {destZip || ''}
+                    </p>
+                  )}
+                  {cubicFeet && (
+                    <p>{cubicFeet.toLocaleString()} cubic feet</p>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-xs">
