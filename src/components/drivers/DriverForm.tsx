@@ -23,6 +23,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { DatePicker } from '@/components/ui/date-picker';
 import { AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -224,15 +225,6 @@ export function DriverForm({
     if (days <= 30) return { label: `Due in ${days}d`, className: 'bg-amber-500/10 text-amber-600' };
     return { label: 'Valid', className: 'bg-emerald-500/10 text-emerald-600' };
   };
-  const handleDateClick = (event: React.MouseEvent<HTMLInputElement>) => {
-    if (event.currentTarget?.showPicker) {
-      try {
-        event.currentTarget.showPicker();
-      } catch {
-        // ignore if browser blocks programmatic open
-      }
-    }
-  };
   const quickNav = [
     { id: 'profile', label: 'Profile', description: 'Name, contact, start date', target: 0 },
     { id: 'access', label: 'Access', description: 'Portal access setup', target: 1 },
@@ -404,27 +396,23 @@ export function DriverForm({
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="date_of_birth" className="text-sm">Date of Birth</Label>
-                  <Input
-                    id="date_of_birth"
-                    name="date_of_birth"
-                    type="date"
-                    defaultValue={initialData?.date_of_birth || ''}
-                    onClick={handleDateClick}
-                    className="h-9"
-                  />
+                    <DatePicker
+                      name="date_of_birth"
+                      defaultValue={initialData?.date_of_birth || ''}
+                      placeholder="Select date"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="start_date" className="text-sm">Start Date</Label>
+                    <DatePicker
+                      name="start_date"
+                      defaultValue={initialData?.start_date || ''}
+                      placeholder="Select date"
+                      className="h-9"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="start_date" className="text-sm">Start Date</Label>
-                  <Input
-                    id="start_date"
-                    name="start_date"
-                    type="date"
-                    defaultValue={initialData?.start_date || ''}
-                    onClick={handleDateClick}
-                    className="h-9"
-                  />
-                </div>
-              </div>
               </CardContent>
             </Card>
           </div>
@@ -538,12 +526,12 @@ export function DriverForm({
                             type="password"
                             name="driver_password"
                             required={hasLogin}
-                            minLength={10}
-                            placeholder="Strong password"
+                            minLength={6}
+                            placeholder="Password"
                             className="h-9"
                           />
                           <p className="text-xs text-muted-foreground">
-                            Must include upper, lower, digit, symbol, min 10 chars.
+                            Min 6 characters.
                           </p>
                         </div>
                         <div className="space-y-1.5">
@@ -555,7 +543,7 @@ export function DriverForm({
                             type="password"
                             name="driver_password_confirm"
                             required={hasLogin}
-                            minLength={10}
+                            minLength={6}
                             placeholder="Repeat password"
                             className="h-9"
                           />
@@ -587,8 +575,8 @@ export function DriverForm({
                                 type="password"
                                 name="driver_password"
                                 required
-                                minLength={10}
-                                placeholder="Strong password"
+                                minLength={6}
+                                placeholder="Password"
                                 className="h-9"
                               />
                             </div>
@@ -601,7 +589,7 @@ export function DriverForm({
                                 type="password"
                                 name="driver_password_confirm"
                                 required
-                                minLength={10}
+                                minLength={6}
                                 placeholder="Repeat password"
                                 className="h-9"
                               />
@@ -666,13 +654,10 @@ export function DriverForm({
                           <Label htmlFor="license_expiry" className="text-sm">
                             Expiry <span className="text-destructive">*</span>
                           </Label>
-                          <Input
-                            id="license_expiry"
+                          <DatePicker
                             name="license_expiry"
-                            type="date"
-                            required
                             defaultValue={initialData?.license_expiry || ''}
-                            onClick={handleDateClick}
+                            placeholder="Select date"
                             className="h-9"
                           />
                           {state?.errors?.license_expiry && (
@@ -772,13 +757,10 @@ export function DriverForm({
                           <Label htmlFor="medical_card_expiry" className="text-sm">
                             Medical card expiry <span className="text-destructive">*</span>
                           </Label>
-                          <Input
-                            id="medical_card_expiry"
+                          <DatePicker
                             name="medical_card_expiry"
-                            type="date"
-                            required
                             defaultValue={initialData?.medical_card_expiry || ''}
-                            onClick={handleDateClick}
+                            placeholder="Select date"
                             className="h-9"
                           />
                         </div>
@@ -786,12 +768,10 @@ export function DriverForm({
                           <Label htmlFor="medical_card_issue_date" className="text-sm">
                             Issue date (optional)
                           </Label>
-                          <Input
-                            id="medical_card_issue_date"
+                          <DatePicker
                             name="medical_card_issue_date"
-                            type="date"
                             defaultValue={(initialData as any)?.medical_card_issue_date ?? ''}
-                            onClick={handleDateClick}
+                            placeholder="Select date"
                             className="h-9"
                           />
                         </div>
@@ -848,12 +828,10 @@ export function DriverForm({
                         </div>
                         <div className="space-y-1.5">
                           <Label htmlFor="twic_card_expiry" className="text-sm">TWIC Expiry</Label>
-                          <Input
-                            id="twic_card_expiry"
+                          <DatePicker
                             name="twic_card_expiry"
-                            type="date"
                             defaultValue={(initialData as any)?.twic_card_expiry || ''}
-                            onClick={handleDateClick}
+                            placeholder="Select date"
                             className="h-9"
                           />
                         </div>
@@ -861,12 +839,10 @@ export function DriverForm({
                       {/* MVR Date */}
                       <div className="space-y-1.5">
                         <Label htmlFor="mvr_date" className="text-sm">Last MVR Date</Label>
-                        <Input
-                          id="mvr_date"
+                        <DatePicker
                           name="mvr_date"
-                          type="date"
                           defaultValue={(initialData as any)?.mvr_date || ''}
-                          onClick={handleDateClick}
+                          placeholder="Select date"
                           className="h-9"
                         />
                         <p className="text-xs text-muted-foreground">Date of most recent Motor Vehicle Record check</p>

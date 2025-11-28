@@ -29,14 +29,8 @@ async function getDbClient() {
 }
 
 function validatePasswordStrength(password: string) {
-  const errors: string[] = [];
-  if (password.length < 10) errors.push('Password must be at least 10 characters.');
-  if (!/[A-Z]/.test(password)) errors.push('Password must include an uppercase letter.');
-  if (!/[a-z]/.test(password)) errors.push('Password must include a lowercase letter.');
-  if (!/[0-9]/.test(password)) errors.push('Password must include a digit.');
-  if (!/[^A-Za-z0-9]/.test(password)) errors.push('Password must include a symbol.');
-  if (errors.length) {
-    throw new Error(errors[0]);
+  if (password.length < 6) {
+    throw new Error('Password must be at least 6 characters.');
   }
 }
 
