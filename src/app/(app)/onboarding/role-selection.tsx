@@ -4,22 +4,19 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import {
+  Briefcase,
   Building2,
   Truck,
-  User,
   UserCircle,
+  User,
   ArrowRight,
   Check,
-  Send,
   Loader2,
 } from 'lucide-react';
 import { setRoleAction, updateCapabilitiesAction } from './actions';
@@ -30,16 +27,123 @@ interface RoleSelectionProps {
   currentRole?: UserRole | null;
 }
 
-type UserType = 'company' | 'driver';
+type RoleOption = {
+  id: string;
+  title: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+  iconColor: string;
+  role: UserRole;
+  canPostLoads: boolean;
+  canHaulLoads: boolean;
+  isOwnerOperator: boolean;
+  setupPath: string;
+  features: string[];
+};
+
+const roleOptions: RoleOption[] = [
+  {
+    id: 'broker',
+    title: 'Broker',
+    description: 'I book moves and coordinate with carriers',
+    icon: Briefcase,
+    iconColor: 'text-blue-500',
+    role: 'company',
+    canPostLoads: true,
+    canHaulLoads: false,
+    isOwnerOperator: false,
+    setupPath: '/onboarding/company',
+    features: [
+      'Post pickups to marketplace',
+      'Review carrier requests',
+      'Manage carrier partnerships',
+      'Track job financials',
+    ],
+  },
+  {
+    id: 'moving_company',
+    title: 'Moving Company',
+    description: 'I have a crew and warehouse',
+    icon: Building2,
+    iconColor: 'text-emerald-500',
+    role: 'company',
+    canPostLoads: true,
+    canHaulLoads: true,
+    isOwnerOperator: false,
+    setupPath: '/onboarding/company',
+    features: [
+      'Post pickups & loads to marketplace',
+      'Manage your own fleet & drivers',
+      'Track trips & financials',
+      'Storage & warehouse management',
+    ],
+  },
+  {
+    id: 'carrier',
+    title: 'Carrier',
+    description: 'I have trucks and drivers for hauling',
+    icon: Truck,
+    iconColor: 'text-orange-500',
+    role: 'carrier',
+    canPostLoads: false,
+    canHaulLoads: true,
+    isOwnerOperator: false,
+    setupPath: '/onboarding/carrier',
+    features: [
+      'Find & accept loads from brokers',
+      'Manage drivers & vehicles',
+      'Track trips & settlements',
+      'Compliance & documents',
+    ],
+  },
+  {
+    id: 'owner_operator',
+    title: 'Owner-Operator',
+    description: 'I own and drive my own truck',
+    icon: UserCircle,
+    iconColor: 'text-purple-500',
+    role: 'owner_operator',
+    canPostLoads: false,
+    canHaulLoads: true,
+    isOwnerOperator: true,
+    setupPath: '/onboarding/owner_operator',
+    features: [
+      'Find & accept loads',
+      'Simplified one-person setup',
+      'Track your earnings',
+      'Manage your truck & compliance',
+    ],
+  },
+  {
+    id: 'driver',
+    title: 'Driver',
+    description: 'I work for a company',
+    icon: User,
+    iconColor: 'text-slate-500',
+    role: 'driver',
+    canPostLoads: false,
+    canHaulLoads: false,
+    isOwnerOperator: false,
+    setupPath: '/onboarding/driver',
+    features: [
+      'Driver mobile app access',
+      'View assigned loads & trips',
+      'Update status & submit photos',
+      'Track your hours & earnings',
+    ],
+  },
+];
 
 export function RoleSelection({ userId, currentRole }: RoleSelectionProps) {
   const router = useRouter();
-  const [userType, setUserType] = useState<UserType | null>(
-    currentRole === 'driver' ? 'driver' : currentRole ? 'company' : null
-  );
-  const [canPostLoads, setCanPostLoads] = useState(false);
-  const [canHaulLoads, setCanHaulLoads] = useState(false);
-  const [isOwnerOperator, setIsOwnerOperator] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<string | null>(() => {
+    // Try to match current role to an option
+    if (currentRole === 'driver') return 'driver';
+    if (currentRole === 'owner_operator') return 'owner_operator';
+    if (currentRole === 'carrier') return 'carrier';
+    if (currentRole === 'company') return null; // Could be broker or moving_company
+    return null;
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,39 +151,17 @@ export function RoleSelection({ userId, currentRole }: RoleSelectionProps) {
   // but the actual user id is handled by the server action
   void userId;
 
-  const handleContinue = async () => {
-    if (!userType) return;
+  const selectedOption = roleOptions.find((opt) => opt.id === selectedRole);
 
-    if (userType === 'company' && !canPostLoads && !canHaulLoads) {
-      setError('Please select at least one capability');
-      return;
-    }
+  const handleContinue = async () => {
+    if (!selectedOption) return;
 
     setIsSubmitting(true);
     setError(null);
 
     try {
-      // Determine the role and setup path
-      let role: UserRole;
-      let setupPath: string;
-
-      if (userType === 'driver') {
-        role = 'driver';
-        setupPath = '/onboarding/driver';
-      } else if (canHaulLoads && !canPostLoads && isOwnerOperator) {
-        role = 'owner_operator';
-        setupPath = '/onboarding/owner_operator';
-      } else if (canHaulLoads && !canPostLoads) {
-        role = 'carrier';
-        setupPath = '/onboarding/carrier';
-      } else {
-        // Company (broker, or both broker and carrier)
-        role = 'company';
-        setupPath = '/onboarding/company';
-      }
-
       // Save role
-      const roleResult = await setRoleAction(role);
+      const roleResult = await setRoleAction(selectedOption.role);
       if (!roleResult.success) {
         setError(roleResult.error || 'Failed to save role. Please try again.');
         setIsSubmitting(false);
@@ -88,9 +170,9 @@ export function RoleSelection({ userId, currentRole }: RoleSelectionProps) {
 
       // Save capabilities
       const capResult = await updateCapabilitiesAction({
-        canPostLoads,
-        canHaulLoads,
-        isOwnerOperator,
+        canPostLoads: selectedOption.canPostLoads,
+        canHaulLoads: selectedOption.canHaulLoads,
+        isOwnerOperator: selectedOption.isOwnerOperator,
       });
 
       if (!capResult.success) {
@@ -99,7 +181,7 @@ export function RoleSelection({ userId, currentRole }: RoleSelectionProps) {
         return;
       }
 
-      router.push(setupPath);
+      router.push(selectedOption.setupPath);
     } catch (err) {
       console.error('Error during onboarding:', err);
       setError('An unexpected error occurred. Please try again.');
@@ -109,229 +191,103 @@ export function RoleSelection({ userId, currentRole }: RoleSelectionProps) {
 
   return (
     <div className="min-h-[calc(100vh-5rem)] flex flex-col items-center justify-center px-4 py-8">
-      <div className="w-full max-w-2xl space-y-8">
+      <div className="w-full max-w-3xl space-y-8">
         {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold">Welcome to MoveBoss Pro</h1>
           <p className="text-lg text-muted-foreground">
-            Let&apos;s set up your account
+            What best describes you?
           </p>
         </div>
 
-        {/* Step 1: Company or Driver? */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">What best describes you?</h2>
+        {/* Role Options */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {roleOptions.slice(0, 3).map((option) => {
+            const Icon = option.icon;
+            const isSelected = selectedRole === option.id;
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card
-              className={`cursor-pointer transition-all ${
-                userType === 'company'
-                  ? 'border-primary border-2 bg-primary/5'
-                  : 'hover:border-muted-foreground/50'
-              }`}
-              onClick={() => {
-                setUserType('company');
-                setIsOwnerOperator(false);
-              }}
-            >
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <Building2 className="h-10 w-10 text-primary" />
-                  {userType === 'company' && (
-                    <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
-                      <Check className="h-4 w-4 text-primary-foreground" />
-                    </div>
-                  )}
-                </div>
-                <CardTitle className="mt-4">I run a moving company</CardTitle>
-                <CardDescription>
-                  Moving company, broker, or carrier
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card
-              className={`cursor-pointer transition-all ${
-                userType === 'driver'
-                  ? 'border-primary border-2 bg-primary/5'
-                  : 'hover:border-muted-foreground/50'
-              }`}
-              onClick={() => {
-                setUserType('driver');
-                setCanPostLoads(false);
-                setCanHaulLoads(false);
-                setIsOwnerOperator(false);
-              }}
-            >
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <User className="h-10 w-10 text-orange-500" />
-                  {userType === 'driver' && (
-                    <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
-                      <Check className="h-4 w-4 text-primary-foreground" />
-                    </div>
-                  )}
-                </div>
-                <CardTitle className="mt-4">I&apos;m a driver</CardTitle>
-                <CardDescription>
-                  I drive for a carrier or moving company
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          </div>
+            return (
+              <Card
+                key={option.id}
+                className={`cursor-pointer transition-all ${
+                  isSelected
+                    ? 'border-primary border-2 bg-primary/5 shadow-md'
+                    : 'hover:border-muted-foreground/50 hover:shadow-sm'
+                }`}
+                onClick={() => setSelectedRole(option.id)}
+              >
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <Icon className={`h-8 w-8 ${option.iconColor}`} />
+                    {isSelected && (
+                      <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
+                        <Check className="h-4 w-4 text-primary-foreground" />
+                      </div>
+                    )}
+                  </div>
+                  <CardTitle className="text-lg">{option.title}</CardTitle>
+                  <CardDescription className="text-sm">
+                    {option.description}
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            );
+          })}
         </div>
 
-        {/* Step 2: Company capabilities */}
-        {userType === 'company' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>What does your company do?</CardTitle>
-              <CardDescription>Select all that apply</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div
-                className={`flex items-start space-x-4 p-4 rounded-lg border cursor-pointer transition-colors ${
-                  canPostLoads ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
-                }`}
-                onClick={() => setCanPostLoads(!canPostLoads)}
-              >
-                <Checkbox
-                  id="postLoads"
-                  checked={canPostLoads}
-                  onCheckedChange={(checked) => setCanPostLoads(checked as boolean)}
-                />
-                <div className="flex-1">
-                  <Label
-                    htmlFor="postLoads"
-                    className="text-base font-medium cursor-pointer"
-                  >
-                    <Send className="h-4 w-4 inline mr-2" />
-                    We post loads &amp; hire carriers
-                  </Label>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Post pickups, live loads, or overflow work for carriers to claim
-                  </p>
-                </div>
-              </div>
+        {/* Second row - 2 options centered */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl mx-auto">
+          {roleOptions.slice(3).map((option) => {
+            const Icon = option.icon;
+            const isSelected = selectedRole === option.id;
 
-              <div
-                className={`flex items-start space-x-4 p-4 rounded-lg border cursor-pointer transition-colors ${
-                  canHaulLoads ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+            return (
+              <Card
+                key={option.id}
+                className={`cursor-pointer transition-all ${
+                  isSelected
+                    ? 'border-primary border-2 bg-primary/5 shadow-md'
+                    : 'hover:border-muted-foreground/50 hover:shadow-sm'
                 }`}
-                onClick={() => setCanHaulLoads(!canHaulLoads)}
+                onClick={() => setSelectedRole(option.id)}
               >
-                <Checkbox
-                  id="haulLoads"
-                  checked={canHaulLoads}
-                  onCheckedChange={(checked) => setCanHaulLoads(checked as boolean)}
-                />
-                <div className="flex-1">
-                  <Label
-                    htmlFor="haulLoads"
-                    className="text-base font-medium cursor-pointer"
-                  >
-                    <Truck className="h-4 w-4 inline mr-2" />
-                    We haul loads with our own trucks
-                  </Label>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Find loads, manage drivers &amp; vehicles, track trips &amp;
-                    finances
-                  </p>
-                </div>
-              </div>
-
-              {canHaulLoads && !canPostLoads && (
-                <div
-                  className={`flex items-start space-x-4 p-4 rounded-lg border cursor-pointer transition-colors ${
-                    isOwnerOperator
-                      ? 'border-purple-500 bg-purple-500/5'
-                      : 'hover:bg-muted/50'
-                  }`}
-                  onClick={() => setIsOwnerOperator(!isOwnerOperator)}
-                >
-                  <Checkbox
-                    id="ownerOp"
-                    checked={isOwnerOperator}
-                    onCheckedChange={(checked) =>
-                      setIsOwnerOperator(checked as boolean)
-                    }
-                  />
-                  <div className="flex-1">
-                    <Label
-                      htmlFor="ownerOp"
-                      className="text-base font-medium cursor-pointer"
-                    >
-                      <UserCircle className="h-4 w-4 inline mr-2" />
-                      I&apos;m an owner-operator
-                    </Label>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      I drive my own truck - one-person operation
-                    </p>
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <Icon className={`h-8 w-8 ${option.iconColor}`} />
+                    {isSelected && (
+                      <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
+                        <Check className="h-4 w-4 text-primary-foreground" />
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+                  <CardTitle className="text-lg">{option.title}</CardTitle>
+                  <CardDescription className="text-sm">
+                    {option.description}
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            );
+          })}
+        </div>
 
-        {/* Summary */}
-        {userType && (
+        {/* Features Summary */}
+        {selectedOption && (
           <Card className="bg-muted/50">
-            <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground mb-2">
-                You&apos;ll get access to:
-              </p>
-              <ul className="space-y-1">
-                {userType === 'driver' && (
-                  <>
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-500" />
-                      Driver mobile app
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-500" />
-                      View assigned loads &amp; trips
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-500" />
-                      Update status &amp; submit photos
-                    </li>
-                  </>
-                )}
-                {canPostLoads && (
-                  <>
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-500" />
-                      Post pickups &amp; loads to marketplace
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-500" />
-                      Review carrier requests
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-500" />
-                      Manage carrier partnerships
-                    </li>
-                  </>
-                )}
-                {canHaulLoads && (
-                  <>
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-500" />
-                      Find &amp; accept loads
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-500" />
-                      Manage drivers &amp; vehicles
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-500" />
-                      Track trips &amp; financials
-                    </li>
-                  </>
-                )}
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base">
+                As a {selectedOption.title}, you&apos;ll get:
+              </CardTitle>
+            </CardHeader>
+            <div className="px-6 pb-6">
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {selectedOption.features.map((feature, index) => (
+                  <li key={index} className="flex items-center gap-2 text-sm">
+                    <Check className="h-4 w-4 text-green-500 shrink-0" />
+                    {feature}
+                  </li>
+                ))}
               </ul>
-            </CardContent>
+            </div>
           </Card>
         )}
 
@@ -349,7 +305,7 @@ export function RoleSelection({ userId, currentRole }: RoleSelectionProps) {
           <Button
             size="lg"
             onClick={handleContinue}
-            disabled={!userType || isSubmitting}
+            disabled={!selectedRole || isSubmitting}
             className="min-w-[200px]"
           >
             {isSubmitting ? (
