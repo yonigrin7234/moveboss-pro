@@ -710,79 +710,84 @@ export function TripPlannerMap({
         </CardContent>
       </Card>
 
-      {/* Route Segments */}
-      {routeSegments.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Route Segments ({routeSegments.length})</CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <div className="space-y-2">
-              {routeSegments.map((segment, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
-                >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className="text-xs text-muted-foreground w-4">{index + 1}.</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs truncate">{segment.from}</p>
-                      <p className="text-xs text-muted-foreground">↓</p>
-                      <p className="text-xs truncate">{segment.to}</p>
-                    </div>
-                  </div>
-                  <div className="text-right ml-2">
-                    <p className="text-sm font-semibold">{segment.distance.toLocaleString()} mi</p>
-                  </div>
-                </div>
-              ))}
-              <div className="flex justify-between pt-2 border-t border-border">
-                <span className="text-sm font-medium">Total Distance</span>
-                <span className="text-sm font-semibold">{routeDistance.toLocaleString()} mi</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Assigned Loads Summary */}
-      {orderedAssignedLoads.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm">Assigned Loads ({orderedAssignedLoads.length})</CardTitle>
-              {onReorderLoads && (
-                <span className="text-xs text-muted-foreground">Drag to reorder</span>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={orderedAssignedLoads.map((load) => load.id)}
-                strategy={verticalListSortingStrategy}
-              >
+      {/* Route Segments and Assigned Loads - side by side on larger screens */}
+      {(routeSegments.length > 0 || orderedAssignedLoads.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Route Segments */}
+          {routeSegments.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Route Segments ({routeSegments.length})</CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 pt-0">
                 <div className="space-y-2">
-                  {orderedAssignedLoads.map((load, index) => (
-                    <SortableLoadItem
-                      key={load.id}
-                      load={load}
-                      index={index}
-                      onSelect={() => {
-                        setSelectedLoad(load);
-                        onLoadClick?.(load);
-                      }}
-                    />
+                  {routeSegments.map((segment, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="text-xs text-muted-foreground w-4">{index + 1}.</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs truncate">{segment.from}</p>
+                          <p className="text-xs text-muted-foreground">↓</p>
+                          <p className="text-xs truncate">{segment.to}</p>
+                        </div>
+                      </div>
+                      <div className="text-right ml-2">
+                        <p className="text-sm font-semibold">{segment.distance.toLocaleString()} mi</p>
+                      </div>
+                    </div>
                   ))}
+                  <div className="flex justify-between pt-2 border-t border-border">
+                    <span className="text-sm font-medium">Total Distance</span>
+                    <span className="text-sm font-semibold">{routeDistance.toLocaleString()} mi</span>
+                  </div>
                 </div>
-              </SortableContext>
-            </DndContext>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Assigned Loads Summary */}
+          {orderedAssignedLoads.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm">Assigned Loads ({orderedAssignedLoads.length})</CardTitle>
+                  {onReorderLoads && (
+                    <span className="text-xs text-muted-foreground">Drag to reorder</span>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="p-3 pt-0">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={orderedAssignedLoads.map((load) => load.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-2">
+                      {orderedAssignedLoads.map((load, index) => (
+                        <SortableLoadItem
+                          key={load.id}
+                          load={load}
+                          index={index}
+                          onSelect={() => {
+                            setSelectedLoad(load);
+                            onLoadClick?.(load);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
     </div>
   );
