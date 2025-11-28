@@ -88,6 +88,7 @@ export default function PostLoadPage() {
 
   // Live Load form data
   const [liveLoadData, setLiveLoadData] = useState({
+    internal_reference: '',
     customer_name: '',
     customer_phone: '',
     pickup_date: '',
@@ -110,6 +111,7 @@ export default function PostLoadPage() {
 
   // RFD form data
   const [rfdData, setRfdData] = useState({
+    internal_reference: '',
     storage_location_id: '',
     storage_location_name: '',
     storage_address: '',
@@ -219,6 +221,7 @@ export default function PostLoadPage() {
         company_id: membership.company_id,
         posted_by_company_id: membership.company_id,
         job_number: jobNumber,
+        internal_reference: data.internal_reference || null,
         load_type: loadType,
         load_subtype: loadType === 'rfd' ? 'rfd' : 'live',
         posting_type: 'load',
@@ -323,40 +326,52 @@ export default function PostLoadPage() {
             {/* Customer Info + Pickup Date */}
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Customer & Pickup</CardTitle>
+                <CardTitle className="text-base">Reference & Customer</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-3 sm:grid-cols-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="ll_customer_name" className="text-sm">Customer Name *</Label>
-                  <Input
-                    id="ll_customer_name"
-                    value={liveLoadData.customer_name}
-                    onChange={(e) => handleLiveLoadChange('customer_name', e.target.value)}
-                    placeholder="John Smith"
-                    required
-                    className="h-9"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="ll_customer_phone" className="text-sm">Customer Phone *</Label>
-                  <Input
-                    id="ll_customer_phone"
-                    type="tel"
-                    value={liveLoadData.customer_phone}
-                    onChange={(e) => handleLiveLoadChange('customer_phone', e.target.value)}
-                    placeholder="(555) 123-4567"
-                    required
-                    className="h-9"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="ll_pickup_date" className="text-sm">Pickup Date *</Label>
-                  <DatePicker
-                    name="ll_pickup_date"
-                    placeholder="Select date"
-                    onChange={(value) => handleLiveLoadChange('pickup_date', value)}
-                    className="h-9"
-                  />
+              <CardContent className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ll_internal_reference" className="text-sm">Internal Ref / Job #</Label>
+                    <Input
+                      id="ll_internal_reference"
+                      value={liveLoadData.internal_reference}
+                      onChange={(e) => handleLiveLoadChange('internal_reference', e.target.value)}
+                      placeholder="Your CRM #"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ll_customer_name" className="text-sm">Customer Name *</Label>
+                    <Input
+                      id="ll_customer_name"
+                      value={liveLoadData.customer_name}
+                      onChange={(e) => handleLiveLoadChange('customer_name', e.target.value)}
+                      placeholder="John Smith"
+                      required
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ll_customer_phone" className="text-sm">Customer Phone *</Label>
+                    <Input
+                      id="ll_customer_phone"
+                      type="tel"
+                      value={liveLoadData.customer_phone}
+                      onChange={(e) => handleLiveLoadChange('customer_phone', e.target.value)}
+                      placeholder="(555) 123-4567"
+                      required
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ll_pickup_date" className="text-sm">Pickup Date *</Label>
+                    <DatePicker
+                      name="ll_pickup_date"
+                      placeholder="Select date"
+                      onChange={(value) => handleLiveLoadChange('pickup_date', value)}
+                      className="h-9"
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -617,6 +632,25 @@ export default function PostLoadPage() {
         {/* RFD Form */}
         <TabsContent value="rfd">
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Internal Reference */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Reference</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1.5 max-w-xs">
+                  <Label htmlFor="rfd_internal_reference" className="text-sm">Internal Ref / Job #</Label>
+                  <Input
+                    id="rfd_internal_reference"
+                    value={rfdData.internal_reference}
+                    onChange={(e) => handleRfdChange('internal_reference', e.target.value)}
+                    placeholder="Your CRM job number (optional)"
+                    className="h-9"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Storage Location</CardTitle>

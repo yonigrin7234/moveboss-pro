@@ -38,6 +38,8 @@ export default function PostPickupPage() {
   const { lookup } = useZipLookup();
 
   const [formData, setFormData] = useState({
+    // Reference
+    internal_reference: '',
     // Customer info
     customer_name: '',
     customer_phone: '',
@@ -125,6 +127,7 @@ export default function PostPickupPage() {
         company_id: membership.company_id,
         posted_by_company_id: membership.company_id,
         job_number: jobNumber,
+        internal_reference: formData.internal_reference || null,
         load_type: 'pickup',
         posting_type: 'pickup',
         posting_status: 'posted',
@@ -198,30 +201,42 @@ export default function PostPickupPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Customer Information</CardTitle>
-              <CardDescription className="text-xs">Optional - shared with carrier once matched</CardDescription>
+              <CardTitle className="text-base">Reference & Customer</CardTitle>
+              <CardDescription className="text-xs">Your internal reference + optional customer info</CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2">
+            <CardContent className="space-y-3">
               <div className="space-y-1.5">
-                <Label htmlFor="customer_name" className="text-sm">Customer Name</Label>
+                <Label htmlFor="internal_reference" className="text-sm">Internal Reference / Job #</Label>
                 <Input
-                  id="customer_name"
-                  value={formData.customer_name}
-                  onChange={(e) => handleChange('customer_name', e.target.value)}
-                  placeholder="John Smith"
+                  id="internal_reference"
+                  value={formData.internal_reference}
+                  onChange={(e) => handleChange('internal_reference', e.target.value)}
+                  placeholder="Your CRM job number (optional)"
                   className="h-9"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="customer_phone" className="text-sm">Customer Phone</Label>
-                <Input
-                  id="customer_phone"
-                  type="tel"
-                  value={formData.customer_phone}
-                  onChange={(e) => handleChange('customer_phone', e.target.value)}
-                  placeholder="(555) 123-4567"
-                  className="h-9"
-                />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="customer_name" className="text-sm">Customer Name</Label>
+                  <Input
+                    id="customer_name"
+                    value={formData.customer_name}
+                    onChange={(e) => handleChange('customer_name', e.target.value)}
+                    placeholder="John Smith"
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="customer_phone" className="text-sm">Customer Phone</Label>
+                  <Input
+                    id="customer_phone"
+                    type="tel"
+                    value={formData.customer_phone}
+                    onChange={(e) => handleChange('customer_phone', e.target.value)}
+                    placeholder="(555) 123-4567"
+                    className="h-9"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
