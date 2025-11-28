@@ -269,18 +269,52 @@ export function TripPlannerMap({
     return points;
   }, [tripOrigin, tripDestination, loadMarkers]);
 
+  // Calculate route segments with labels and distances
+  const routeSegments = useMemo(() => {
+    if (!tripOrigin || !tripDestination) return [];
+
+    const segments: { from: string; to: string; distance: number }[] = [];
+    const assignedMarkers = loadMarkers.filter(m => !m.isMarketplace);
+
+    // Build list of stops with names
+    const stops: { name: string; coords: { lat: number; lng: number } }[] = [
+      { name: `${originCity}, ${originState}`, coords: tripOrigin },
+    ];
+
+    for (const marker of assignedMarkers) {
+      if (marker.originCoords) {
+        stops.push({
+          name: `Pickup: ${marker.load.originCity}, ${marker.load.originState}`,
+          coords: marker.originCoords,
+        });
+      }
+      if (marker.destinationCoords) {
+        stops.push({
+          name: `Delivery: ${marker.load.destinationCity}, ${marker.load.destinationState}`,
+          coords: marker.destinationCoords,
+        });
+      }
+    }
+
+    stops.push({ name: `${destinationCity}, ${destinationState}`, coords: tripDestination });
+
+    // Calculate distance between each stop
+    for (let i = 0; i < stops.length - 1; i++) {
+      const distance = calculateDistance(stops[i].coords, stops[i + 1].coords);
+      segments.push({
+        from: stops[i].name,
+        to: stops[i + 1].name,
+        distance: Math.round(distance),
+      });
+    }
+
+    return segments;
+  }, [tripOrigin, tripDestination, loadMarkers, originCity, originState, destinationCity, destinationState]);
+
   // Calculate route distance - sum of all segments
   const routeDistance = useMemo(() => {
-    if (!routeLine || routeLine.length < 2) return 0;
-
-    let totalDistance = 0;
-    for (let i = 0; i < routeLine.length - 1; i++) {
-      const from = { lat: routeLine[i][0], lng: routeLine[i][1] };
-      const to = { lat: routeLine[i + 1][0], lng: routeLine[i + 1][1] };
-      totalDistance += calculateDistance(from, to);
-    }
-    return totalDistance;
-  }, [routeLine]);
+    return routeSegments.reduce((sum, seg) => sum + seg.distance, 0);
+  }, [routeSegments]);
 
   if (!leafletLoaded || isLoading) {
     return (
@@ -467,6 +501,12 @@ export function TripPlannerMap({
                             <p className="text-muted-foreground">
                               {marker.load.destinationCity}, {marker.load.destinationState}
                             </p>
+                            {marker.load.cubicFeet && (
+                              <p className="flex items-center gap-1 mt-1">
+                                <Package className="h-3 w-3" />
+                                {marker.load.cubicFeet.toLocaleString()} cf
+                              </p>
+                            )}
                           </div>
                         </Popup>
                       </Marker>
@@ -506,6 +546,41 @@ export function TripPlannerMap({
           </div>
         </CardContent>
       </Card>
+
+      {/* Route Segments */}
+      {routeSegments.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Route Segments ({routeSegments.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 pt-0">
+            <div className="space-y-2">
+              {routeSegments.map((segment, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
+                >
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="text-xs text-muted-foreground w-4">{index + 1}.</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs truncate">{segment.from}</p>
+                      <p className="text-xs text-muted-foreground">↓</p>
+                      <p className="text-xs truncate">{segment.to}</p>
+                    </div>
+                  </div>
+                  <div className="text-right ml-2">
+                    <p className="text-sm font-semibold">{segment.distance.toLocaleString()} mi</p>
+                  </div>
+                </div>
+              ))}
+              <div className="flex justify-between pt-2 border-t border-border">
+                <span className="text-sm font-medium">Total Distance</span>
+                <span className="text-sm font-semibold">{routeDistance.toLocaleString()} mi</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Assigned Loads Summary */}
       {assignedLoads.length > 0 && (
