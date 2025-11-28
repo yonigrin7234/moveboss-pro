@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -17,6 +18,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Upload, ArrowLeft } from 'lucide-react';
 import { DatePicker } from '@/components/ui/date-picker';
+import { useZipLookup } from '@/hooks/useZipLookup';
 import Link from 'next/link';
 
 const SERVICE_TYPES = [
@@ -33,6 +35,7 @@ export default function PostPickupPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { lookup } = useZipLookup();
 
   const [formData, setFormData] = useState({
     // Customer info
@@ -46,6 +49,7 @@ export default function PostPickupPage() {
     origin_city: '',
     origin_state: '',
     origin_zip: '',
+    share_origin_address: true, // Share full address once matched
     // Destination
     destination_address: '',
     destination_city: '',
@@ -59,9 +63,35 @@ export default function PostPickupPage() {
     notes: '',
   });
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  const handleOriginZipBlur = useCallback(async () => {
+    if (formData.origin_zip.length === 5) {
+      const result = await lookup(formData.origin_zip);
+      if (result) {
+        setFormData((prev) => ({
+          ...prev,
+          origin_city: prev.origin_city || result.city,
+          origin_state: prev.origin_state || result.stateAbbr,
+        }));
+      }
+    }
+  }, [formData.origin_zip, lookup]);
+
+  const handleDestinationZipBlur = useCallback(async () => {
+    if (formData.destination_zip.length === 5) {
+      const result = await lookup(formData.destination_zip);
+      if (result) {
+        setFormData((prev) => ({
+          ...prev,
+          destination_city: prev.destination_city || result.city,
+          destination_state: prev.destination_state || result.stateAbbr,
+        }));
+      }
+    }
+  }, [formData.destination_zip, lookup]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,20 +131,21 @@ export default function PostPickupPage() {
         posted_at: new Date().toISOString(),
         service_type: formData.service_type,
         status: 'pending',
-        // Customer info stored in pickup contact
-        pickup_contact_name: formData.customer_name,
-        pickup_contact_phone: formData.customer_phone,
+        // Customer info stored in pickup contact (optional)
+        pickup_contact_name: formData.customer_name || null,
+        pickup_contact_phone: formData.customer_phone || null,
         // Pickup date range
         pickup_date_start: formData.pickup_date_start || null,
         pickup_date_end: formData.pickup_date_end || null,
         pickup_date: formData.pickup_date_start || null,
-        // Origin
-        pickup_address_line1: formData.origin_address,
+        // Origin (address optional, city/state/zip required)
+        pickup_address_line1: formData.origin_address || null,
         pickup_city: formData.origin_city,
         pickup_state: formData.origin_state,
         pickup_postal_code: formData.origin_zip,
-        // Destination
-        dropoff_address_line1: formData.destination_address,
+        share_origin_address: formData.share_origin_address,
+        // Destination (address optional, city/state/zip required)
+        dropoff_address_line1: formData.destination_address || null,
         dropoff_city: formData.destination_city,
         dropoff_state: formData.destination_state,
         dropoff_postal_code: formData.destination_zip,
@@ -168,28 +199,27 @@ export default function PostPickupPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Customer Information</CardTitle>
+              <CardDescription className="text-xs">Optional - shared with carrier once matched</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="customer_name" className="text-sm">Customer Name *</Label>
+                <Label htmlFor="customer_name" className="text-sm">Customer Name</Label>
                 <Input
                   id="customer_name"
                   value={formData.customer_name}
                   onChange={(e) => handleChange('customer_name', e.target.value)}
                   placeholder="John Smith"
-                  required
                   className="h-9"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="customer_phone" className="text-sm">Customer Phone *</Label>
+                <Label htmlFor="customer_phone" className="text-sm">Customer Phone</Label>
                 <Input
                   id="customer_phone"
                   type="tel"
                   value={formData.customer_phone}
                   onChange={(e) => handleChange('customer_phone', e.target.value)}
                   placeholder="(555) 123-4567"
-                  required
                   className="h-9"
                 />
               </div>
@@ -230,18 +260,19 @@ export default function PostPickupPage() {
               <CardTitle className="text-base">Origin (Pickup)</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="origin_address" className="text-sm">Address *</Label>
-                <Input
-                  id="origin_address"
-                  value={formData.origin_address}
-                  onChange={(e) => handleChange('origin_address', e.target.value)}
-                  placeholder="123 Main St"
-                  required
-                  className="h-9"
-                />
-              </div>
               <div className="grid gap-2 grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="origin_zip" className="text-sm">ZIP *</Label>
+                  <Input
+                    id="origin_zip"
+                    value={formData.origin_zip}
+                    onChange={(e) => handleChange('origin_zip', e.target.value)}
+                    onBlur={handleOriginZipBlur}
+                    placeholder="10001"
+                    required
+                    className="h-9"
+                  />
+                </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="origin_city" className="text-sm">City *</Label>
                   <Input
@@ -265,18 +296,29 @@ export default function PostPickupPage() {
                     className="h-9"
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="origin_zip" className="text-sm">ZIP *</Label>
-                  <Input
-                    id="origin_zip"
-                    value={formData.origin_zip}
-                    onChange={(e) => handleChange('origin_zip', e.target.value)}
-                    placeholder="10001"
-                    required
-                    className="h-9"
-                  />
-                </div>
               </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="origin_address" className="text-sm">Address</Label>
+                <Input
+                  id="origin_address"
+                  value={formData.origin_address}
+                  onChange={(e) => handleChange('origin_address', e.target.value)}
+                  placeholder="123 Main St (optional)"
+                  className="h-9"
+                />
+              </div>
+              {formData.origin_address && (
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="share_origin_address"
+                    checked={formData.share_origin_address}
+                    onCheckedChange={(checked) => handleChange('share_origin_address', !!checked)}
+                  />
+                  <Label htmlFor="share_origin_address" className="text-sm font-normal text-muted-foreground">
+                    Share full address with carrier once matched
+                  </Label>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -285,18 +327,19 @@ export default function PostPickupPage() {
               <CardTitle className="text-base">Destination (Delivery)</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="destination_address" className="text-sm">Address *</Label>
-                <Input
-                  id="destination_address"
-                  value={formData.destination_address}
-                  onChange={(e) => handleChange('destination_address', e.target.value)}
-                  placeholder="456 Oak Ave"
-                  required
-                  className="h-9"
-                />
-              </div>
               <div className="grid gap-2 grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="destination_zip" className="text-sm">ZIP *</Label>
+                  <Input
+                    id="destination_zip"
+                    value={formData.destination_zip}
+                    onChange={(e) => handleChange('destination_zip', e.target.value)}
+                    onBlur={handleDestinationZipBlur}
+                    placeholder="90001"
+                    required
+                    className="h-9"
+                  />
+                </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="destination_city" className="text-sm">City *</Label>
                   <Input
@@ -320,17 +363,16 @@ export default function PostPickupPage() {
                     className="h-9"
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="destination_zip" className="text-sm">ZIP *</Label>
-                  <Input
-                    id="destination_zip"
-                    value={formData.destination_zip}
-                    onChange={(e) => handleChange('destination_zip', e.target.value)}
-                    placeholder="90001"
-                    required
-                    className="h-9"
-                  />
-                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="destination_address" className="text-sm">Address</Label>
+                <Input
+                  id="destination_address"
+                  value={formData.destination_address}
+                  onChange={(e) => handleChange('destination_address', e.target.value)}
+                  placeholder="456 Oak Ave (optional)"
+                  className="h-9"
+                />
               </div>
             </CardContent>
           </Card>

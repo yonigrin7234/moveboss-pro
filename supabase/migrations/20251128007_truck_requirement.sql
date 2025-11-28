@@ -4,7 +4,8 @@
 
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS truck_requirement TEXT DEFAULT 'any';
 
--- Add a check constraint to ensure valid values
+-- Add a check constraint to ensure valid values (drop first to be idempotent)
+ALTER TABLE loads DROP CONSTRAINT IF EXISTS loads_truck_requirement_check;
 ALTER TABLE loads ADD CONSTRAINT loads_truck_requirement_check
   CHECK (truck_requirement IN ('any', 'semi_only', 'box_truck_only'));
 

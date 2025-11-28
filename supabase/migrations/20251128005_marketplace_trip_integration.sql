@@ -92,7 +92,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Enable RLS on new table
 ALTER TABLE load_status_updates ENABLE ROW LEVEL SECURITY;
 
--- RLS policies for load_status_updates
+-- RLS policies for load_status_updates (drop first to be idempotent)
+DROP POLICY IF EXISTS "Users can view status updates for their company loads" ON load_status_updates;
 CREATE POLICY "Users can view status updates for their company loads"
 ON load_status_updates FOR SELECT
 USING (
@@ -105,6 +106,7 @@ USING (
   )
 );
 
+DROP POLICY IF EXISTS "Users can insert status updates for their loads" ON load_status_updates;
 CREATE POLICY "Users can insert status updates for their loads"
 ON load_status_updates FOR INSERT
 WITH CHECK (
