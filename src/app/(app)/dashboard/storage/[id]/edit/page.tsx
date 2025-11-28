@@ -97,7 +97,7 @@ export default async function EditStorageLocationPage({
     : 'Update public storage details';
 
   return (
-    <div className="container max-w-5xl py-6">
+    <div className="container max-w-3xl py-6">
       <div className="mb-6">
         <Button variant="ghost" size="sm" asChild>
           <Link href={`/dashboard/storage/${id}`}>

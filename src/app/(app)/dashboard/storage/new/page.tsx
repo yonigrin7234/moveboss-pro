@@ -86,7 +86,7 @@ export default async function NewStorageLocationPage({
     : 'Add a third-party public storage location (CubeSmart, Public Storage, etc.)';
 
   return (
-    <div className="container max-w-5xl py-6">
+    <div className="container max-w-3xl py-6">
       <div className="mb-6">
         <Button variant="ghost" size="sm" asChild>
           <Link href="/dashboard/storage">
