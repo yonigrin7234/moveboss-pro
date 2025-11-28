@@ -1,12 +1,14 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { getCurrentUser } from '@/lib/supabase-server';
+import { getCurrentUser, createClient } from '@/lib/supabase-server';
 import { getLoadById, updateLoad, deleteLoad, type Load } from '@/data/loads';
 import { getCompaniesForUser } from '@/data/companies';
 import { getDriversForUser } from '@/data/drivers';
 import { getTrucksForUser, getTrailersForUser } from '@/data/fleet';
+import { getTripsForLoadAssignment, addLoadToTrip } from '@/data/trips';
 import { LoadForm } from '@/components/loads/LoadForm';
 import { DeleteLoadButton } from './delete-load-button';
+import { LoadActions } from './load-actions';
 import { cleanFormValues, extractFormValues } from '@/lib/form-data';
 
 function formatStatus(status: Load['status']): string {
@@ -57,12 +59,16 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
   }
 
   // Fetch related entities for dropdowns
-  const [companies, drivers, trucks, trailers] = await Promise.all([
+  const [companies, drivers, trucks, trailers, trips] = await Promise.all([
     getCompaniesForUser(user.id),
     getDriversForUser(user.id),
     getTrucksForUser(user.id),
     getTrailersForUser(user.id),
+    getTripsForLoadAssignment(user.id),
   ]);
+
+  // Filter out trips that already have this load assigned
+  const availableTrips = trips.filter((trip) => trip.id !== load.trip_id);
 
   async function updateLoadAction(
     prevState: { errors?: Record<string, string> } | null,
@@ -150,6 +156,59 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
     redirect('/dashboard/loads');
   }
 
+  async function postToMarketplaceAction(): Promise<{ success: boolean; error?: string }> {
+    'use server';
+    const currentUser = await getCurrentUser();
+    if (!currentUser) return { success: false, error: 'Not authenticated' };
+
+    try {
+      const supabase = await createClient();
+
+      // Update the load's posting status
+      const { error } = await supabase
+        .from('loads')
+        .update({
+          posting_status: 'posted',
+          posted_at: new Date().toISOString(),
+          posting_type: 'live_load', // Default to live_load for now
+        })
+        .eq('id', id)
+        .eq('owner_id', currentUser.id);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to post to marketplace',
+      };
+    }
+  }
+
+  async function assignToTripAction(tripId: string): Promise<{ success: boolean; error?: string }> {
+    'use server';
+    const currentUser = await getCurrentUser();
+    if (!currentUser) return { success: false, error: 'Not authenticated' };
+
+    try {
+      await addLoadToTrip(
+        tripId,
+        {
+          load_id: id,
+          sequence_index: 0,
+          role: 'primary',
+        },
+        currentUser.id
+      );
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to assign to trip',
+      };
+    }
+  }
+
   const initialData = {
     load_number: load.load_number ?? undefined,
     service_type: load.service_type,
@@ -220,24 +279,53 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
         </div>
       </div>
 
-      {/* Badge */}
-      <div className="flex gap-2 mb-6">
-        <span
-          className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
-            load.status === 'delivered'
-              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-              : load.status === 'canceled'
-                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                : load.status === 'in_transit'
-                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                  : load.status === 'assigned'
-                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                    : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-          }`}
-        >
-          {formatStatus(load.status)}
-        </span>
+      {/* Status Badge and Actions */}
+      <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-2">
+          <span
+            className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
+              load.status === 'delivered'
+                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                : load.status === 'canceled'
+                  ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                  : load.status === 'in_transit'
+                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                    : load.status === 'assigned'
+                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                      : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+            }`}
+          >
+            {formatStatus(load.status)}
+          </span>
+        </div>
+
+        {/* Load Actions: Post to Marketplace, Assign to Trip */}
+        <LoadActions
+          loadId={id}
+          postingStatus={load.posting_status ?? null}
+          trips={availableTrips.map((t) => ({
+            id: t.id,
+            trip_number: t.trip_number,
+            origin_city: t.origin_city,
+            destination_city: t.destination_city,
+            driver: t.driver as { first_name?: string; last_name?: string } | null,
+          }))}
+          onPostToMarketplace={postToMarketplaceAction}
+          onAssignToTrip={assignToTripAction}
+        />
       </div>
+
+      {/* Trip Assignment Info */}
+      {load.trip_id && (
+        <div className="mb-6 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <p className="text-sm text-blue-800 dark:text-blue-200">
+            This load is assigned to a trip.{' '}
+            <Link href={`/dashboard/trips/${load.trip_id}`} className="font-medium underline hover:no-underline">
+              View trip details
+            </Link>
+          </p>
+        </div>
+      )}
 
       {/* Edit Form */}
       <LoadForm

@@ -347,6 +347,12 @@ export interface Load {
   // Customer signature
   customer_signature?: string | null;
   customer_name_printed?: string | null;
+  // Marketplace posting
+  posting_status?: 'draft' | 'posted' | 'assigned' | 'in_progress' | 'completed' | 'cancelled' | null;
+  posted_at?: string | null;
+  posting_type?: 'live_load' | 'rfd' | 'pickup' | null;
+  // Trip assignment
+  trip_id?: string | null;
 }
 
 // Filter interface
