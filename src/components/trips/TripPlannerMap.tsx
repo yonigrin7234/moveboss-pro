@@ -242,20 +242,45 @@ export function TripPlannerMap({
     ] as [[number, number], [number, number]];
   }, [tripOrigin, tripDestination, loadMarkers]);
 
-  // Route line coordinates
+  // Route line coordinates - includes all stops in sequence
   const routeLine = useMemo(() => {
     if (!tripOrigin || !tripDestination) return null;
-    return [
-      [tripOrigin.lat, tripOrigin.lng],
-      [tripDestination.lat, tripDestination.lng],
-    ] as [number, number][];
-  }, [tripOrigin, tripDestination]);
 
-  // Calculate route distance
+    const points: [number, number][] = [[tripOrigin.lat, tripOrigin.lng]];
+
+    // Add assigned load stops (pickup then delivery for each load)
+    // Filter to only assigned loads (not marketplace)
+    const assignedMarkers = loadMarkers.filter(m => !m.isMarketplace);
+
+    for (const marker of assignedMarkers) {
+      // Add pickup location
+      if (marker.originCoords) {
+        points.push([marker.originCoords.lat, marker.originCoords.lng]);
+      }
+      // Add delivery location
+      if (marker.destinationCoords) {
+        points.push([marker.destinationCoords.lat, marker.destinationCoords.lng]);
+      }
+    }
+
+    // Add trip destination
+    points.push([tripDestination.lat, tripDestination.lng]);
+
+    return points;
+  }, [tripOrigin, tripDestination, loadMarkers]);
+
+  // Calculate route distance - sum of all segments
   const routeDistance = useMemo(() => {
-    if (!tripOrigin || !tripDestination) return 0;
-    return calculateDistance(tripOrigin, tripDestination);
-  }, [tripOrigin, tripDestination]);
+    if (!routeLine || routeLine.length < 2) return 0;
+
+    let totalDistance = 0;
+    for (let i = 0; i < routeLine.length - 1; i++) {
+      const from = { lat: routeLine[i][0], lng: routeLine[i][1] };
+      const to = { lat: routeLine[i + 1][0], lng: routeLine[i + 1][1] };
+      totalDistance += calculateDistance(from, to);
+    }
+    return totalDistance;
+  }, [routeLine]);
 
   if (!leafletLoaded || isLoading) {
     return (
