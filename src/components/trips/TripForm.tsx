@@ -26,6 +26,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { DatePicker } from '@/components/ui/date-picker';
 
 // Helper component for Select with hidden input
 function SelectWithHiddenInput({
@@ -150,16 +151,6 @@ export function TripForm({
       const stateInput = document.getElementById('destination_state') as HTMLInputElement;
       if (cityInput && city) cityInput.value = city;
       if (stateInput && state) stateInput.value = state;
-    }
-  };
-
-  const handleDateClick = (event: React.MouseEvent<HTMLInputElement>) => {
-    if (event.currentTarget?.showPicker) {
-      try {
-        event.currentTarget.showPicker();
-      } catch {
-        // ignore if browser blocks programmatic open
-      }
     }
   };
 
@@ -478,24 +469,20 @@ export function TripForm({
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="start_date" className="text-sm">Start Date</Label>
-                  <Input
-                    id="start_date"
+                  <DatePicker
                     name="start_date"
-                    type="date"
+                    placeholder="Select start date"
                     defaultValue={initialData?.start_date || ''}
                     className="h-9"
-                    onClick={handleDateClick}
                   />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="end_date" className="text-sm">End Date</Label>
-                  <Input
-                    id="end_date"
+                  <DatePicker
                     name="end_date"
-                    type="date"
+                    placeholder="Select end date"
                     defaultValue={initialData?.end_date || ''}
                     className="h-9"
-                    onClick={handleDateClick}
                   />
                 </div>
               </div>
