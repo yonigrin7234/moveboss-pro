@@ -11,7 +11,6 @@ import {
   Users,
   Truck,
   Boxes,
-  Bell,
   MapPin,
   Route,
   Warehouse,
@@ -162,7 +161,6 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
           { label: "Assigned Loads", href: "/dashboard/assigned-loads", icon: ClipboardCheck },
           { label: "Marketplace Loads", href: "/dashboard/marketplace-loads", icon: Boxes },
           { label: "Trips", href: "/dashboard/trips", icon: Route },
-          { label: "Alerts", href: "/dashboard/alerts", icon: Bell },
         ],
       })
       items.push({
