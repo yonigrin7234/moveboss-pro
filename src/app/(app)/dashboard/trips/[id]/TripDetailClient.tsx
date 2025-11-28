@@ -115,7 +115,7 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
   const trailerNumber = tripTrailer?.unit_number || '—';
 
   // Capacity: prioritize trailer capacity, then truck capacity (for box trucks)
-  const effectiveCapacity = tripTrailer?.cubic_capacity || tripTruck?.cubic_capacity || 0;
+  const effectiveCapacity = tripTrailer?.capacity_cuft || tripTruck?.cubic_capacity || 0;
 
   const totalExpenses = trip.driver_pay_total + trip.fuel_total + trip.tolls_total + trip.other_expenses_total;
   const profit = trip.revenue_total - totalExpenses;
