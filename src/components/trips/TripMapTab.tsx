@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Loader2, MapPin, AlertCircle, RefreshCw } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -111,6 +111,9 @@ export function TripMapTab({
   const [maxDetour, setMaxDetour] = useState('50');
   const [showMarketplace, setShowMarketplace] = useState(true);
 
+  // Track saved estimated miles to avoid duplicate API calls
+  const savedEstimatedMilesRef = useRef<number | null>(null);
+
   // Transform trip loads to map format
   const assignedLoads: TripLoad[] = tripLoads
     .filter((tl) => tl.load)
@@ -182,6 +185,36 @@ export function TripMapTab({
   useEffect(() => {
     fetchSuggestions();
   }, [fetchSuggestions]);
+
+  // Save estimated miles when route distance is calculated
+  const handleRouteDistanceCalculated = useCallback(async (distance: number) => {
+    // Only save if the distance has changed significantly (> 5 miles difference)
+    const roundedDistance = Math.round(distance);
+    if (
+      savedEstimatedMilesRef.current !== null &&
+      Math.abs(savedEstimatedMilesRef.current - roundedDistance) < 5
+    ) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/trips/${tripId}/estimated-miles`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estimatedMiles: roundedDistance }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.updated) {
+          savedEstimatedMilesRef.current = roundedDistance;
+        }
+      }
+    } catch (err) {
+      // Silently fail - this is a background optimization
+      console.error('Failed to save estimated miles:', err);
+    }
+  }, [tripId]);
 
   const handleRequestLoad = (load: MarketplaceLoad) => {
     if (onRequestLoad) {
@@ -293,6 +326,7 @@ export function TripMapTab({
         assignedLoads={assignedLoads}
         marketplaceLoads={marketplaceLoads}
         onRequestLoad={handleRequestLoad}
+        onRouteDistanceCalculated={handleRouteDistanceCalculated}
       />
 
       {/* Marketplace Suggestions List */}

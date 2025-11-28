@@ -213,7 +213,15 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-sm text-muted-foreground">Distance</Label>
-                      <p className="font-medium">{trip.total_miles ? `${trip.total_miles.toLocaleString()} mi` : '—'}</p>
+                      <p className="font-medium">
+                        {trip.actual_miles ? (
+                          <>{trip.actual_miles.toLocaleString()} mi <span className="text-xs text-muted-foreground">(actual)</span></>
+                        ) : trip.total_miles ? (
+                          <>{trip.total_miles.toLocaleString()} mi <span className="text-xs text-muted-foreground">(estimated)</span></>
+                        ) : (
+                          '—'
+                        )}
+                      </p>
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-sm text-muted-foreground">Dates</Label>
@@ -373,7 +381,11 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                     <div className="space-y-2 text-sm">
                       {driverPayBreakdown.breakdown.miles !== undefined && (
                         <div className="flex justify-between text-muted-foreground">
-                          <span>{driverPayBreakdown.breakdown.miles?.toLocaleString()} mi × ${driverPayBreakdown.breakdown.ratePerMile?.toFixed(2)}</span>
+                          <span>
+                            {driverPayBreakdown.breakdown.miles?.toLocaleString()} mi
+                            {!trip.actual_miles && <span className="text-xs ml-1">(est)</span>}
+                            {' × $'}{driverPayBreakdown.breakdown.ratePerMile?.toFixed(2)}
+                          </span>
                           <span>{formatCurrency(driverPayBreakdown.breakdown.milePay)}</span>
                         </div>
                       )}

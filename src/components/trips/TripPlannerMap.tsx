@@ -72,6 +72,7 @@ export interface TripPlannerMapProps {
   marketplaceLoads?: MarketplaceLoad[];
   onLoadClick?: (load: TripLoad | MarketplaceLoad) => void;
   onRequestLoad?: (load: MarketplaceLoad) => void;
+  onRouteDistanceCalculated?: (distance: number) => void;
 }
 
 interface LoadMarker {
@@ -94,6 +95,7 @@ export function TripPlannerMap({
   marketplaceLoads = [],
   onLoadClick,
   onRequestLoad,
+  onRouteDistanceCalculated,
 }: TripPlannerMapProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [tripOrigin, setTripOrigin] = useState<GeoCoordinates | null>(null);
@@ -315,6 +317,13 @@ export function TripPlannerMap({
   const routeDistance = useMemo(() => {
     return routeSegments.reduce((sum, seg) => sum + seg.distance, 0);
   }, [routeSegments]);
+
+  // Notify parent when route distance is calculated
+  useEffect(() => {
+    if (routeDistance > 0 && onRouteDistanceCalculated) {
+      onRouteDistanceCalculated(routeDistance);
+    }
+  }, [routeDistance, onRouteDistanceCalculated]);
 
   if (!leafletLoaded || isLoading) {
     return (
