@@ -24,6 +24,7 @@ import {
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Card,
   CardContent,
@@ -131,16 +132,6 @@ export function TruckForm({
     }
     const driver = drivers.find((d) => d.id === id);
     return driver ? `${driver.first_name} ${driver.last_name}` : 'Unknown';
-  };
-
-  const handleDateClick = (event: React.MouseEvent<HTMLInputElement>) => {
-    if (event.currentTarget?.showPicker) {
-      try {
-        event.currentTarget.showPicker();
-      } catch {
-        // ignore if browser blocks programmatic open
-      }
-    }
   };
 
   // Auto-fill capacity when vehicle type changes (if not manually edited)
@@ -432,24 +423,20 @@ export function TruckForm({
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="registration_expiry" className="text-sm">Registration Expiry</Label>
-                  <Input
-                    type="date"
-                    id="registration_expiry"
+                  <DatePicker
                     name="registration_expiry"
                     defaultValue={initialData?.registration_expiry || ''}
+                    placeholder="Select date"
                     className="h-9"
-                    onClick={handleDateClick}
                   />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="inspection_expiry" className="text-sm">Inspection Expiry</Label>
-                  <Input
-                    type="date"
-                    id="inspection_expiry"
+                  <DatePicker
                     name="inspection_expiry"
                     defaultValue={initialData?.inspection_expiry || ''}
+                    placeholder="Select date"
                     className="h-9"
-                    onClick={handleDateClick}
                   />
                 </div>
               </div>
@@ -619,13 +606,11 @@ export function TruckForm({
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="insurance_expiry" className="text-sm">Insurance Expiry</Label>
-                  <Input
-                    type="date"
-                    id="insurance_expiry"
+                  <DatePicker
                     name="insurance_expiry"
                     defaultValue={(initialData as any)?.insurance_expiry || ''}
+                    placeholder="Select date"
                     className="h-9"
-                    onClick={handleDateClick}
                   />
                 </div>
               </div>
