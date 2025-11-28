@@ -75,8 +75,9 @@ export default function PostLoadPage() {
     // Warehouse-specific
     truck_accessibility: 'full' as 'full' | 'limited' | 'none',
     // Public storage-specific
-    account_number: '',
     unit_numbers: '',
+    gate_code: '',
+    access_hours: '',
   });
 
   // Fetch storage locations on mount
@@ -385,8 +386,9 @@ export default function PostLoadPage() {
             storageInsertData.truck_accessibility = newStorageData.truck_accessibility;
           } else {
             // public_storage
-            storageInsertData.account_number = newStorageData.account_number || null;
             storageInsertData.unit_numbers = newStorageData.unit_numbers || null;
+            storageInsertData.gate_code = newStorageData.gate_code || null;
+            storageInsertData.access_hours = newStorageData.access_hours || null;
           }
 
           const { data: newStorage, error: storageError } = await supabase
@@ -1120,19 +1122,9 @@ export default function PostLoadPage() {
                       </div>
                     )}
 
-                    {/* Public Storage-specific: Account & Units */}
+                    {/* Public Storage-specific: Units, Gate & Hours */}
                     {newStorageData.location_type === 'public_storage' && (
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-1.5">
-                          <Label htmlFor="new_storage_account" className="text-sm">Account Number</Label>
-                          <Input
-                            id="new_storage_account"
-                            value={newStorageData.account_number}
-                            onChange={(e) => handleNewStorageChange('account_number', e.target.value)}
-                            placeholder="ACC-12345"
-                            className="h-9"
-                          />
-                        </div>
+                      <div className="grid gap-3 sm:grid-cols-3">
                         <div className="space-y-1.5">
                           <Label htmlFor="new_storage_units" className="text-sm">Unit Numbers</Label>
                           <Input
@@ -1140,6 +1132,26 @@ export default function PostLoadPage() {
                             value={newStorageData.unit_numbers}
                             onChange={(e) => handleNewStorageChange('unit_numbers', e.target.value)}
                             placeholder="101, 102, 103"
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="new_storage_gate_code" className="text-sm">Gate Code</Label>
+                          <Input
+                            id="new_storage_gate_code"
+                            value={newStorageData.gate_code}
+                            onChange={(e) => handleNewStorageChange('gate_code', e.target.value)}
+                            placeholder="1234#"
+                            className="h-9 font-mono"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="new_storage_access_hours" className="text-sm">Access Hours</Label>
+                          <Input
+                            id="new_storage_access_hours"
+                            value={newStorageData.access_hours}
+                            onChange={(e) => handleNewStorageChange('access_hours', e.target.value)}
+                            placeholder="6am-9pm"
                             className="h-9"
                           />
                         </div>
