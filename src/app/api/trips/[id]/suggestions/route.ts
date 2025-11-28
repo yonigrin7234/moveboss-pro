@@ -115,12 +115,18 @@ export async function GET(
       .select(`
         id,
         load_number,
+        company_id,
         company:companies!loads_company_id_fkey(id, name),
-        origin_city, origin_state, origin_zip,
-        destination_city, destination_state, destination_zip,
-        estimated_cuft,
-        company_rate, company_rate_type,
         posting_type,
+        origin_city,
+        origin_state,
+        origin_zip,
+        destination_city,
+        destination_state,
+        destination_zip,
+        estimated_cuft,
+        company_rate,
+        company_rate_type,
         is_ready_now,
         available_date
       `)
@@ -130,7 +136,7 @@ export async function GET(
 
     if (loadsError) {
       console.error('Error fetching marketplace loads:', loadsError);
-      return NextResponse.json({ error: 'Failed to fetch loads' }, { status: 500 });
+      return NextResponse.json({ error: `Failed to fetch loads: ${loadsError.message}` }, { status: 500 });
     }
 
     // Filter and calculate distances for each load
