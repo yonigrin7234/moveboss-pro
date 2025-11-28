@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { TripFilters } from '@/data/trips';
 import type { Driver } from '@/data/drivers';
+import { DatePicker } from '@/components/ui/date-picker';
 
 type TripStatusValue = NonNullable<TripFilters['status']>;
 
@@ -90,26 +91,24 @@ export function TripListFilters({ initialFilters, drivers }: TripListFiltersProp
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label htmlFor="trip-date-from" className="block text-sm font-medium text-foreground mb-1">
-              Start From
+              From
             </label>
-            <input
-              id="trip-date-from"
-              type="date"
-              value={dateFrom}
-              onChange={(event) => setDateFrom(event.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-black text-sm"
+            <DatePicker
+              name="trip-date-from"
+              placeholder="Start date"
+              defaultValue={dateFrom}
+              onChange={(value) => setDateFrom(value)}
             />
           </div>
           <div>
             <label htmlFor="trip-date-to" className="block text-sm font-medium text-foreground mb-1">
-              Start To
+              To
             </label>
-            <input
-              id="trip-date-to"
-              type="date"
-              value={dateTo}
-              onChange={(event) => setDateTo(event.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-black text-sm"
+            <DatePicker
+              name="trip-date-to"
+              placeholder="End date"
+              defaultValue={dateTo}
+              onChange={(value) => setDateTo(value)}
             />
           </div>
         </div>
