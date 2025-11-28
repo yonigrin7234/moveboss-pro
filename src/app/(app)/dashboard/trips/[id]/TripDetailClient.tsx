@@ -5,11 +5,20 @@ import Link from 'next/link';
 import { ChevronLeft, ChevronDown, ChevronUp, MapPin, User, Truck, Package, DollarSign, AlertTriangle, Map } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -96,6 +105,7 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
   const [shareDriverWithCompanies, setShareDriverWithCompanies] = useState(
     trip.share_driver_with_companies ?? true
   );
+  const [tripStatus, setTripStatus] = useState<TripStatus>(trip.status);
 
   const tripDriver = Array.isArray(trip.driver) ? trip.driver[0] : trip.driver;
   const tripTruck = Array.isArray(trip.truck) ? trip.truck[0] : trip.truck;
@@ -115,70 +125,68 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
     : null;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-40 bg-background border-b border-border">
-        <div className="px-4 py-3">
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
           <div className="flex items-center gap-3">
-            <Link href="/dashboard/trips" className="p-1 -ml-1 hover:bg-muted rounded-md">
-              <ChevronLeft className="h-5 w-5" />
-            </Link>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-semibold truncate">{trip.trip_number}</h1>
-                <Badge className={statusBadgeClasses[trip.status]}>{formatStatus(trip.status)}</Badge>
-              </div>
-              <p className="text-xs text-muted-foreground truncate">
-                {driverName} &bull; {truckNumber}
-              </p>
-            </div>
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground">{trip.trip_number}</h1>
+            <Badge className={statusBadgeClasses[trip.status]}>{formatStatus(trip.status)}</Badge>
           </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            {driverName} &bull; Truck {truckNumber} {trailerNumber !== '—' ? `&bull; Trailer ${trailerNumber}` : ''}
+          </p>
         </div>
-
-        {/* Financial Summary Bar */}
-        <div className="grid grid-cols-3 border-t border-border bg-muted/30">
-          <div className="px-3 py-2 text-center border-r border-border">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Revenue</p>
-            <p className="text-sm font-semibold">{formatCurrency(trip.revenue_total)}</p>
-          </div>
-          <div className="px-3 py-2 text-center border-r border-border">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Expenses</p>
-            <p className="text-sm font-semibold">{formatCurrency(totalExpenses)}</p>
-          </div>
-          <div className="px-3 py-2 text-center">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Profit</p>
-            <p className={`text-sm font-semibold ${profit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-              {formatCurrency(profit)}
-            </p>
-          </div>
+        <div className="flex gap-3">
+          <Button variant="outline" asChild>
+            <Link href="/dashboard/trips">Back to Trips</Link>
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => setShowDeleteTripConfirm(true)}
+          >
+            Delete Trip
+          </Button>
         </div>
       </div>
 
+      {/* Financial Summary Card */}
+      <Card>
+        <CardContent className="p-0">
+          <div className="grid grid-cols-3 divide-x divide-border">
+            <div className="px-4 py-3 text-center">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">Revenue</p>
+              <p className="text-lg font-semibold">{formatCurrency(trip.revenue_total)}</p>
+            </div>
+            <div className="px-4 py-3 text-center">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">Expenses</p>
+              <p className="text-lg font-semibold">{formatCurrency(totalExpenses)}</p>
+            </div>
+            <div className="px-4 py-3 text-center">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">Profit</p>
+              <p className={`text-lg font-semibold ${profit >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                {formatCurrency(profit)}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Tabbed Content */}
       <Tabs defaultValue="overview" className="w-full">
-        <div className="sticky top-[89px] z-30 bg-background border-b border-border px-4">
-          <TabsList className="w-full justify-start h-12 bg-transparent p-0 gap-0">
-            <TabsTrigger value="overview" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4">
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="loads" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4">
-              Loads ({trip.loads.length})
-            </TabsTrigger>
-            <TabsTrigger value="map" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4">
-              <Map className="h-4 w-4 mr-1" />
-              Map
-            </TabsTrigger>
-            <TabsTrigger value="expenses" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4">
-              Expenses
-            </TabsTrigger>
-            <TabsTrigger value="settlement" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4">
-              Settlement
-            </TabsTrigger>
-          </TabsList>
-        </div>
+        <TabsList className="w-full justify-start mb-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="loads">Loads ({trip.loads.length})</TabsTrigger>
+          <TabsTrigger value="map">
+            <Map className="h-4 w-4 mr-1" />
+            Map
+          </TabsTrigger>
+          <TabsTrigger value="expenses">Expenses</TabsTrigger>
+          <TabsTrigger value="settlement">Settlement</TabsTrigger>
+        </TabsList>
 
         {/* Overview Tab */}
-        <TabsContent value="overview" className="p-4 space-y-4 mt-0">
+        <TabsContent value="overview" className="space-y-4 mt-0">
           {/* Route Card */}
           <Card>
             <CardContent className="p-4">
@@ -277,14 +285,14 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                 <form action={actions.updateTripStatus} className="space-y-4">
                   <input type="hidden" name="trip_id" value={trip.id} />
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs text-muted-foreground block mb-1">Start</label>
-                      <input
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">Start</Label>
+                      <Input
                         type="number"
                         name="odometer_start"
                         defaultValue={trip.odometer_start || ''}
                         placeholder="0"
-                        className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
+                        className="h-9"
                       />
                       <div className="mt-2">
                         <PhotoField
@@ -295,14 +303,14 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                         />
                       </div>
                     </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground block mb-1">End</label>
-                      <input
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">End</Label>
+                      <Input
                         type="number"
                         name="odometer_end"
                         defaultValue={trip.odometer_end || ''}
                         placeholder="0"
-                        className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
+                        className="h-9"
                       />
                       <div className="mt-2">
                         <PhotoField
@@ -368,19 +376,26 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
 
           {/* Status Actions */}
           <Card>
-            <CardContent className="p-4 space-y-3">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Trip Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
               <form action={actions.updateTripStatus}>
                 <input type="hidden" name="trip_id" value={trip.id} />
-                <label className="text-xs text-muted-foreground block mb-1">Trip Status</label>
-                <select
-                  name="status"
-                  defaultValue={trip.status}
-                  className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background mb-3"
-                >
-                  {(['planned', 'active', 'en_route', 'completed', 'settled', 'cancelled'] as const).map((s) => (
-                    <option key={s} value={s}>{formatStatus(s)}</option>
-                  ))}
-                </select>
+                <input type="hidden" name="status" value={tripStatus} />
+                <div className="space-y-1.5 mb-3">
+                  <Label className="text-sm">Trip Status</Label>
+                  <Select value={tripStatus} onValueChange={(v) => setTripStatus(v as TripStatus)}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(['planned', 'active', 'en_route', 'completed', 'settled', 'cancelled'] as const).map((s) => (
+                        <SelectItem key={s} value={s}>{formatStatus(s)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Button type="submit" className="w-full">Update Status</Button>
               </form>
               <form action={async (formData) => {
@@ -398,7 +413,7 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
         </TabsContent>
 
         {/* Loads Tab */}
-        <TabsContent value="loads" className="p-4 space-y-4 mt-0">
+        <TabsContent value="loads" className="space-y-4 mt-0">
           {trip.loads.length === 0 ? (
             <Card>
               <CardContent className="p-6 text-center text-muted-foreground">
@@ -439,21 +454,21 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                               <div className="space-y-3">
                                 <p className="text-sm font-medium text-muted-foreground">Basic</p>
                                 <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="text-xs text-muted-foreground">Actual CUFT</label>
-                                    <input name="actual_cuft_loaded" type="number" step="0.01" defaultValue={load?.actual_cuft_loaded || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm" />
+                                  <div className="space-y-1.5">
+                                    <Label className="text-sm">Actual CUFT</Label>
+                                    <Input name="actual_cuft_loaded" type="number" step="0.01" defaultValue={load?.actual_cuft_loaded || ''} className="h-9" />
                                   </div>
-                                  <div>
-                                    <label className="text-xs text-muted-foreground">Rate/CUFT</label>
-                                    <input name="contract_rate_per_cuft" type="number" step="0.01" defaultValue={load?.contract_rate_per_cuft || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm" />
+                                  <div className="space-y-1.5">
+                                    <Label className="text-sm">Rate/CUFT</Label>
+                                    <Input name="contract_rate_per_cuft" type="number" step="0.01" defaultValue={load?.contract_rate_per_cuft || ''} className="h-9" />
                                   </div>
-                                  <div>
-                                    <label className="text-xs text-muted-foreground">Balance Due</label>
-                                    <input name="balance_due_on_delivery" type="number" step="0.01" defaultValue={load?.balance_due_on_delivery || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm" />
+                                  <div className="space-y-1.5">
+                                    <Label className="text-sm">Balance Due</Label>
+                                    <Input name="balance_due_on_delivery" type="number" step="0.01" defaultValue={load?.balance_due_on_delivery || ''} className="h-9" />
                                   </div>
-                                  <div>
-                                    <label className="text-xs text-muted-foreground">Load Status</label>
-                                    <select name="load_status" defaultValue={load?.load_status || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm">
+                                  <div className="space-y-1.5">
+                                    <Label className="text-sm">Load Status</Label>
+                                    <select name="load_status" defaultValue={load?.load_status || ''} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                                       <option value="">Select</option>
                                       <option value="pending">Pending</option>
                                       <option value="loaded">Loaded</option>
@@ -467,13 +482,13 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                               <div className="space-y-3">
                                 <p className="text-sm font-medium text-muted-foreground">Collections</p>
                                 <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="text-xs text-muted-foreground">Collected on Delivery</label>
-                                    <input name="amount_collected_on_delivery" type="number" step="0.01" defaultValue={load?.amount_collected_on_delivery || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm" />
+                                  <div className="space-y-1.5">
+                                    <Label className="text-sm">Collected on Delivery</Label>
+                                    <Input name="amount_collected_on_delivery" type="number" step="0.01" defaultValue={load?.amount_collected_on_delivery || ''} className="h-9" />
                                   </div>
-                                  <div>
-                                    <label className="text-xs text-muted-foreground">Paid to Company</label>
-                                    <input name="amount_paid_directly_to_company" type="number" step="0.01" defaultValue={load?.amount_paid_directly_to_company || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm" />
+                                  <div className="space-y-1.5">
+                                    <Label className="text-sm">Paid to Company</Label>
+                                    <Input name="amount_paid_directly_to_company" type="number" step="0.01" defaultValue={load?.amount_paid_directly_to_company || ''} className="h-9" />
                                   </div>
                                 </div>
                               </div>
@@ -488,9 +503,9 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                                     ['contract_accessorials_bulky', 'Bulky'],
                                     ['contract_accessorials_other', 'Other'],
                                   ].map(([key, label]) => (
-                                    <div key={key}>
-                                      <label className="text-xs text-muted-foreground">{label}</label>
-                                      <input name={key} type="number" step="0.01" defaultValue={load?.[key] || ''} className="w-full border border-border rounded-md px-2 py-1.5 text-sm" />
+                                    <div key={key} className="space-y-1">
+                                      <Label className="text-sm">{label}</Label>
+                                      <Input name={key} type="number" step="0.01" defaultValue={load?.[key] || ''} className="h-8" />
                                     </div>
                                   ))}
                                 </div>
@@ -507,9 +522,9 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                                     ['extra_bulky', 'Bulky'],
                                     ['extra_other', 'Other'],
                                   ].map(([key, label]) => (
-                                    <div key={key}>
-                                      <label className="text-xs text-muted-foreground">{label}</label>
-                                      <input name={key} type="number" step="0.01" defaultValue={load?.[key] || ''} className="w-full border border-border rounded-md px-2 py-1.5 text-sm" />
+                                    <div key={key} className="space-y-1">
+                                      <Label className="text-sm">{label}</Label>
+                                      <Input name={key} type="number" step="0.01" defaultValue={load?.[key] || ''} className="h-8" />
                                     </div>
                                   ))}
                                 </div>
@@ -518,44 +533,47 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                               <div className="space-y-3">
                                 <p className="text-sm font-medium text-muted-foreground">Storage</p>
                                 <div className="flex gap-4 mb-2">
-                                  <label className="flex items-center gap-2 text-sm">
-                                    <input type="checkbox" name="storage_drop" defaultChecked={load?.storage_drop} className="h-4 w-4" />
-                                    Storage drop
-                                  </label>
-                                  <label className="flex items-center gap-2 text-sm">
-                                    <input type="checkbox" name="company_approved_exception_delivery" defaultChecked={load?.company_approved_exception_delivery} className="h-4 w-4" />
-                                    Exception approved
-                                  </label>
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox id={`storage_drop_${tl.load_id}`} name="storage_drop" defaultChecked={load?.storage_drop} />
+                                    <Label htmlFor={`storage_drop_${tl.load_id}`} className="text-sm font-normal">Storage drop</Label>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox id={`exception_${tl.load_id}`} name="company_approved_exception_delivery" defaultChecked={load?.company_approved_exception_delivery} />
+                                    <Label htmlFor={`exception_${tl.load_id}`} className="text-sm font-normal">Exception approved</Label>
+                                  </div>
                                 </div>
                                 <div className="grid grid-cols-3 gap-2">
-                                  <div>
-                                    <label className="text-xs text-muted-foreground">Move-In Fee</label>
-                                    <input name="storage_move_in_fee" type="number" step="0.01" defaultValue={load?.storage_move_in_fee || ''} className="w-full border border-border rounded-md px-2 py-1.5 text-sm" />
+                                  <div className="space-y-1">
+                                    <Label className="text-sm">Move-In Fee</Label>
+                                    <Input name="storage_move_in_fee" type="number" step="0.01" defaultValue={load?.storage_move_in_fee || ''} className="h-8" />
                                   </div>
-                                  <div>
-                                    <label className="text-xs text-muted-foreground">Daily Fee</label>
-                                    <input name="storage_daily_fee" type="number" step="0.01" defaultValue={load?.storage_daily_fee || ''} className="w-full border border-border rounded-md px-2 py-1.5 text-sm" />
+                                  <div className="space-y-1">
+                                    <Label className="text-sm">Daily Fee</Label>
+                                    <Input name="storage_daily_fee" type="number" step="0.01" defaultValue={load?.storage_daily_fee || ''} className="h-8" />
                                   </div>
-                                  <div>
-                                    <label className="text-xs text-muted-foreground">Days</label>
-                                    <input name="storage_days_billed" type="number" defaultValue={load?.storage_days_billed || ''} className="w-full border border-border rounded-md px-2 py-1.5 text-sm" />
+                                  <div className="space-y-1">
+                                    <Label className="text-sm">Days</Label>
+                                    <Input name="storage_days_billed" type="number" defaultValue={load?.storage_days_billed || ''} className="h-8" />
                                   </div>
                                 </div>
-                                <input name="storage_location_name" defaultValue={load?.storage_location_name || ''} placeholder="Location name" className="w-full border border-border rounded-md px-3 py-2 text-sm" />
-                                <input name="storage_location_address" defaultValue={load?.storage_location_address || ''} placeholder="Address" className="w-full border border-border rounded-md px-3 py-2 text-sm" />
-                                <textarea name="storage_notes" defaultValue={load?.storage_notes || ''} placeholder="Storage notes" className="w-full border border-border rounded-md px-3 py-2 text-sm" rows={2} />
+                                <Input name="storage_location_name" defaultValue={load?.storage_location_name || ''} placeholder="Location name" className="h-9" />
+                                <Input name="storage_location_address" defaultValue={load?.storage_location_address || ''} placeholder="Address" className="h-9" />
+                                <Textarea name="storage_notes" defaultValue={load?.storage_notes || ''} placeholder="Storage notes" rows={2} />
                               </div>
 
                               <div className="space-y-3">
                                 <p className="text-sm font-medium text-muted-foreground">Payment</p>
-                                <select name="payment_method" defaultValue={load?.payment_method || ''} className="w-full border border-border rounded-md px-3 py-2 text-sm">
-                                  <option value="">Select method</option>
-                                  <option value="cash">Cash</option>
-                                  <option value="card">Card</option>
-                                  <option value="certified_check">Certified check</option>
-                                  <option value="customer_paid_directly_to_company">Customer paid company</option>
-                                </select>
-                                <input name="payment_method_notes" defaultValue={load?.payment_method_notes || ''} placeholder="Payment notes" className="w-full border border-border rounded-md px-3 py-2 text-sm" />
+                                <div className="space-y-1.5">
+                                  <Label className="text-sm">Payment Method</Label>
+                                  <select name="payment_method" defaultValue={load?.payment_method || ''} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                                    <option value="">Select method</option>
+                                    <option value="cash">Cash</option>
+                                    <option value="card">Card</option>
+                                    <option value="certified_check">Certified check</option>
+                                    <option value="customer_paid_directly_to_company">Customer paid company</option>
+                                  </select>
+                                </div>
+                                <Input name="payment_method_notes" defaultValue={load?.payment_method_notes || ''} placeholder="Payment notes" className="h-9" />
                               </div>
 
                               <div>
@@ -590,27 +608,35 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
 
           {/* Attach Load */}
           <Card>
-            <CardContent className="p-4">
-              <p className="text-sm font-medium mb-3">Attach Load</p>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Attach Load</CardTitle>
+            </CardHeader>
+            <CardContent>
               <form action={async (formData) => {
                 await actions.addTripLoad(formData);
               }} className="space-y-3">
-                <select name="load_id" className="w-full border border-border rounded-md px-3 py-2 text-sm" required>
-                  <option value="">Select a load...</option>
-                  {availableLoads.map((load) => {
-                    const company = Array.isArray(load.company) ? load.company[0] : load.company;
-                    return (
-                      <option key={load.id} value={load.id}>
-                        {load.load_number} - {company?.name || 'No company'}
-                      </option>
-                    );
-                  })}
-                </select>
-                <select name="role" className="w-full border border-border rounded-md px-3 py-2 text-sm" defaultValue="primary">
-                  <option value="primary">Primary</option>
-                  <option value="backhaul">Backhaul</option>
-                  <option value="partial">Partial</option>
-                </select>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Select Load</Label>
+                  <select name="load_id" className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" required>
+                    <option value="">Select a load...</option>
+                    {availableLoads.map((load) => {
+                      const company = Array.isArray(load.company) ? load.company[0] : load.company;
+                      return (
+                        <option key={load.id} value={load.id}>
+                          {load.load_number} - {company?.name || 'No company'}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Role</Label>
+                  <select name="role" className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" defaultValue="primary">
+                    <option value="primary">Primary</option>
+                    <option value="backhaul">Backhaul</option>
+                    <option value="partial">Partial</option>
+                  </select>
+                </div>
                 <input type="hidden" name="sequence_index" value="0" />
                 <Button type="submit" className="w-full">Add Load</Button>
               </form>
@@ -619,7 +645,7 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
         </TabsContent>
 
         {/* Map Tab */}
-        <TabsContent value="map" className="p-4 space-y-4 mt-0">
+        <TabsContent value="map" className="space-y-4 mt-0">
           <TripMapTab
             tripId={trip.id}
             originCity={trip.origin_city}
@@ -658,30 +684,30 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
         </TabsContent>
 
         {/* Expenses Tab */}
-        <TabsContent value="expenses" className="p-4 space-y-4 mt-0">
+        <TabsContent value="expenses" className="space-y-4 mt-0">
           {/* Expense Summary */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Card>
               <CardContent className="p-3 text-center">
-                <p className="text-[10px] uppercase text-muted-foreground">Driver Pay</p>
+                <p className="text-xs uppercase text-muted-foreground">Driver Pay</p>
                 <p className="text-lg font-semibold">{formatCurrency(trip.driver_pay_total)}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-3 text-center">
-                <p className="text-[10px] uppercase text-muted-foreground">Fuel</p>
+                <p className="text-xs uppercase text-muted-foreground">Fuel</p>
                 <p className="text-lg font-semibold">{formatCurrency(trip.fuel_total)}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-3 text-center">
-                <p className="text-[10px] uppercase text-muted-foreground">Tolls</p>
+                <p className="text-xs uppercase text-muted-foreground">Tolls</p>
                 <p className="text-lg font-semibold">{formatCurrency(trip.tolls_total)}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-3 text-center">
-                <p className="text-[10px] uppercase text-muted-foreground">Other</p>
+                <p className="text-xs uppercase text-muted-foreground">Other</p>
                 <p className="text-lg font-semibold">{formatCurrency(trip.other_expenses_total)}</p>
               </CardContent>
             </Card>
@@ -700,9 +726,9 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                 await actions.createExpense(formData);
                 setAddExpenseOpen(false);
               }} className="space-y-4 mt-4">
-                <div>
-                  <label className="text-xs text-muted-foreground">Category</label>
-                  <select name="category" className="w-full border border-border rounded-md px-3 py-2 text-sm" required>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Category</Label>
+                  <select name="category" className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" required>
                     <option value="">Select...</option>
                     <option value="fuel">Fuel</option>
                     <option value="tolls">Tolls</option>
@@ -713,25 +739,25 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                     <option value="other">Other</option>
                   </select>
                 </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Amount</label>
-                  <input name="amount" type="number" step="0.01" className="w-full border border-border rounded-md px-3 py-2 text-sm" required />
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Amount</Label>
+                  <Input name="amount" type="number" step="0.01" className="h-9" required />
                 </div>
-                <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Date</label>
-                  <DatePicker name="incurred_at" placeholder="Select date" />
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Date</Label>
+                  <DatePicker name="incurred_at" placeholder="Select date" className="h-9" />
                 </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Description</label>
-                  <input name="description" className="w-full border border-border rounded-md px-3 py-2 text-sm" />
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Description</Label>
+                  <Input name="description" className="h-9" />
                 </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Expense Type</label>
-                  <input name="expense_type" className="w-full border border-border rounded-md px-3 py-2 text-sm" />
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Expense Type</Label>
+                  <Input name="expense_type" className="h-9" />
                 </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Paid By</label>
-                  <select name="paid_by" className="w-full border border-border rounded-md px-3 py-2 text-sm">
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Paid By</Label>
+                  <select name="paid_by" className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                     <option value="">Select...</option>
                     <option value="driver_personal">Driver Personal</option>
                     <option value="driver_cash">Driver Cash</option>
@@ -740,9 +766,9 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                   </select>
                 </div>
                 <PhotoField name="receipt_photo_url" label="Receipt Photo" />
-                <div>
-                  <label className="text-xs text-muted-foreground">Notes</label>
-                  <textarea name="notes" className="w-full border border-border rounded-md px-3 py-2 text-sm" rows={2} />
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Notes</Label>
+                  <Textarea name="notes" rows={2} />
                 </div>
                 <div className="sticky bottom-0 bg-background pt-4 pb-2">
                   <Button type="submit" className="w-full">Save Expense</Button>
@@ -785,16 +811,18 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
         </TabsContent>
 
         {/* Settlement Tab */}
-        <TabsContent value="settlement" className="p-4 space-y-4 mt-0">
+        <TabsContent value="settlement" className="space-y-4 mt-0">
           {/* Settlement Status */}
           <Card>
-            <CardContent className="p-4 space-y-3">
+            <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Status</span>
+                <CardTitle className="text-sm font-medium">Settlement Status</CardTitle>
                 <Badge variant="outline">
                   {settlementSnapshot.settlements[0]?.status || (trip.status === 'settled' ? 'settled' : 'Not settled')}
                 </Badge>
               </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Revenue</span>
                 <span>{formatCurrency(trip.revenue_total)}</span>
@@ -809,15 +837,17 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
               </div>
               <div className="border-t border-border pt-2 flex justify-between font-medium">
                 <span>Profit</span>
-                <span className={profit >= 0 ? 'text-green-500' : 'text-red-500'}>{formatCurrency(profit)}</span>
+                <span className={profit >= 0 ? 'text-emerald-600' : 'text-red-500'}>{formatCurrency(profit)}</span>
               </div>
             </CardContent>
           </Card>
 
           {/* Receivables */}
           <Card>
-            <CardContent className="p-4">
-              <p className="text-sm font-medium mb-3">Receivables</p>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Receivables</CardTitle>
+            </CardHeader>
+            <CardContent>
               {settlementSnapshot.receivables.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No receivables yet.</p>
               ) : (
@@ -838,8 +868,10 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
 
           {/* Payables */}
           <Card>
-            <CardContent className="p-4">
-              <p className="text-sm font-medium mb-3">Payables</p>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Payables</CardTitle>
+            </CardHeader>
+            <CardContent>
               {settlementSnapshot.payables.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No payables yet.</p>
               ) : (
@@ -894,14 +926,6 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
             </form>
           )}
 
-          {/* Delete Trip */}
-          <Button
-            variant="destructive"
-            className="w-full"
-            onClick={() => setShowDeleteTripConfirm(true)}
-          >
-            Delete Trip
-          </Button>
         </TabsContent>
       </Tabs>
 
