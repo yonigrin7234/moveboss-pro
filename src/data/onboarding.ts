@@ -195,6 +195,7 @@ export async function createCompanyForUser(
       postal_code: data.postal_code || null,
       is_carrier: data.is_carrier,
       is_broker: data.is_broker,
+      is_workspace_company: true,
       status: 'active',
     })
     .select('id')

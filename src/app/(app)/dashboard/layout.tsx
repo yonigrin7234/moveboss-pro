@@ -32,10 +32,10 @@ export default async function DashboardLayout({
     ? {
         id: workspaceCompany.id,
         name: workspaceCompany.name,
-        dbaName: (workspaceCompany as any).dba_name,
+        dbaName: workspaceCompany.dba_name,
         status: workspaceCompany.status,
-        isBroker: (workspaceCompany as any).is_broker ?? false,
-        isCarrier: (workspaceCompany as any).is_carrier ?? false,
+        isBroker: workspaceCompany.is_broker ?? false,
+        isCarrier: workspaceCompany.is_carrier ?? false,
       }
     : undefined
 
@@ -47,7 +47,7 @@ export default async function DashboardLayout({
           ? {
               id: workspaceCompany.id,
               name: workspaceCompany.name,
-              dba_name: (workspaceCompany as any).dba_name,
+              dba_name: workspaceCompany.dba_name,
               status: workspaceCompany.status,
               owner_id: workspaceCompany.owner_id,
             }

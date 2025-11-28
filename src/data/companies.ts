@@ -104,6 +104,8 @@ export interface Company {
   created_at: string;
   updated_at: string;
   is_workspace_company: boolean;
+  is_broker: boolean;
+  is_carrier: boolean;
   name: string;
   legal_name: string | null;
   dba_name: string | null;
