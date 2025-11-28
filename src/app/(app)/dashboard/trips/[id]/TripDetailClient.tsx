@@ -134,7 +134,7 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
             <Badge className={statusBadgeClasses[trip.status]}>{formatStatus(trip.status)}</Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            {driverName} &bull; Truck {truckNumber} {trailerNumber !== '—' ? `&bull; Trailer ${trailerNumber}` : ''}
+            {driverName} • Truck {truckNumber} {trailerNumber !== '—' ? `• Trailer ${trailerNumber}` : ''}
           </p>
         </div>
         <div className="flex gap-3">
