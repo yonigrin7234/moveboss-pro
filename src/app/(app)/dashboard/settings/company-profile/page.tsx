@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getCurrentUser } from '@/lib/supabase-server';
 import { CompanyProfileFormClient } from './CompanyProfileFormClient';
+import { DOTVerificationCard } from './DOTVerificationCard';
 import { loadCompanyProfile, updateCompanyProfileAction, createWorkspaceCompanyAction } from './actions';
 import { type CompanyProfileFormValues } from '@/lib/validation/companyProfileSchema';
 
@@ -88,6 +89,26 @@ export default async function CompanyProfilePage() {
 
   const readOnly = !role || !['owner', 'admin'].includes(role);
 
+  // Build FMCSA data object for the verification card
+  const fmcsaData = company.fmcsa_last_checked
+    ? {
+        verified: company.fmcsa_verified ?? false,
+        verifiedAt: company.fmcsa_verified_at ?? null,
+        lastChecked: company.fmcsa_last_checked,
+        legalName: company.fmcsa_legal_name ?? null,
+        dbaName: company.fmcsa_dba_name ?? null,
+        statusCode: company.fmcsa_status_code ?? null,
+        allowedToOperate: company.fmcsa_allowed_to_operate ?? false,
+        commonAuthority: company.fmcsa_common_authority ?? null,
+        contractAuthority: company.fmcsa_contract_authority ?? null,
+        brokerAuthority: company.fmcsa_broker_authority ?? null,
+        bipdInsurance: company.fmcsa_bipd_insurance_on_file ?? null,
+        totalDrivers: company.fmcsa_total_drivers ?? null,
+        totalPowerUnits: company.fmcsa_total_power_units ?? null,
+        operationType: company.fmcsa_operation_type ?? null,
+      }
+    : null;
+
   return (
     <div className="space-y-6">
       <div className="space-y-1">
@@ -96,6 +117,14 @@ export default async function CompanyProfilePage() {
           Manage your company identity, contact details, and operational defaults.
         </p>
       </div>
+
+      {/* FMCSA Verification Card */}
+      <DOTVerificationCard
+        companyId={company.id}
+        currentDotNumber={company.dot_number ?? null}
+        fmcsaData={fmcsaData}
+        readOnly={readOnly}
+      />
 
       <Card>
         <CardHeader>
