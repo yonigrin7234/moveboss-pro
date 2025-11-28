@@ -166,6 +166,11 @@ function SortableLoadItem({
         <div className="cursor-pointer" onClick={onSelect}>
           <p className="text-sm font-medium">{load.loadNumber}</p>
           <p className="text-xs text-muted-foreground">{load.companyName}</p>
+          {load.destinationCity && (
+            <p className="text-xs text-muted-foreground">
+              → {load.destinationCity}{load.destinationState ? `, ${load.destinationState}` : ''} {load.destinationZip || ''}
+            </p>
+          )}
         </div>
       </div>
       <div className="text-right cursor-pointer" onClick={onSelect}>
