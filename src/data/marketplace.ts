@@ -41,6 +41,8 @@ export interface MarketplaceLoad {
     state: string | null;
     platform_loads_completed: number;
     platform_rating: number | null;
+    dot_number: string | null;
+    mc_number: string | null;
   } | null;
 
   // Storage location for RFD loads
@@ -161,7 +163,8 @@ export async function getMarketplaceLoads(filters?: {
       company_id,
       company:companies!loads_company_id_fkey(
         id, name, city, state,
-        platform_loads_completed, platform_rating
+        platform_loads_completed, platform_rating,
+        dot_number, mc_number
       ),
       posting_type,
       load_subtype,
@@ -283,7 +286,8 @@ export async function getMarketplaceLoadWithRequestStatus(
       company_id,
       company:companies!loads_company_id_fkey(
         id, name, city, state,
-        platform_loads_completed, platform_rating
+        platform_loads_completed, platform_rating,
+        dot_number, mc_number
       ),
       storage_location:storage_locations(
         id, name, location_type, city, state, zip,

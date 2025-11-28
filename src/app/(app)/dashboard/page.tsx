@@ -17,7 +17,9 @@ import {
   type Company,
 } from '@/data/companies';
 import { getComplianceAlertCounts } from '@/data/compliance-alerts';
+import { getVerificationStateForUser } from '@/data/verification';
 import { ComplianceStatusWidget } from '@/components/compliance-status-widget';
+import { VerificationStatusWidget } from '@/components/verification-status-widget';
 import { getDriversForUser, getDriverStatsForUser, type Driver } from '@/data/drivers';
 import { getRecentActivities, type ActivityType, type ActivityLogEntry } from '@/data/activity-log';
 import { getCurrentUser } from '@/lib/supabase-server';
@@ -111,6 +113,7 @@ export default async function DashboardPage() {
   let driverStats = { totalDrivers: 0, activeDrivers: 0, suspendedDrivers: 0 };
   let recentActivities: ActivityLogEntry[] = [];
   let complianceCounts = { warning: 0, urgent: 0, critical: 0, expired: 0 };
+  let verificationState = await getVerificationStateForUser(user.id);
   let error: string | null = null;
 
   try {
@@ -184,8 +187,13 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* Compliance Status Widget */}
-      <ComplianceStatusWidget counts={complianceCounts} href="/dashboard/compliance/alerts" />
+      {/* Status Widgets */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {verificationState && (
+          <VerificationStatusWidget state={verificationState} />
+        )}
+        <ComplianceStatusWidget counts={complianceCounts} href="/dashboard/compliance/alerts" />
+      </div>
 
       <div className="flex flex-col gap-4 lg:flex-row">
         <Card className="lg:flex-[3]">

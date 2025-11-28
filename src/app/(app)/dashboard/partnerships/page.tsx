@@ -17,6 +17,7 @@ import {
   XCircle,
   Clock,
   Mail,
+  BadgeCheck,
 } from 'lucide-react';
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -53,7 +54,12 @@ function PartnershipCard({ partnership }: { partnership: Partnership }) {
                 )}
               </div>
               <div>
-                <p className="font-semibold">{partner?.name || 'Unknown'}</p>
+                <p className="font-semibold flex items-center gap-1">
+                  {partner?.name || 'Unknown'}
+                  {(partner?.dot_number || partner?.mc_number) && (
+                    <BadgeCheck className="h-4 w-4 text-green-500" />
+                  )}
+                </p>
                 <p className="text-sm text-muted-foreground">{partnerType}</p>
               </div>
             </div>

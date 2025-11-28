@@ -21,6 +21,7 @@ import {
   Search,
   Calendar,
   CheckCircle,
+  BadgeCheck,
 } from 'lucide-react';
 
 // US States for filtering
@@ -195,6 +196,9 @@ function LoadCard({ load }: { load: MarketplaceLoad }) {
           <div className="flex items-center gap-2 mb-3 text-sm text-muted-foreground">
             <Building2 className="h-4 w-4" />
             <span>{company?.name || 'Unknown Company'}</span>
+            {(company?.dot_number || company?.mc_number) && (
+              <BadgeCheck className="h-4 w-4 text-green-500" />
+            )}
             {company?.platform_rating && (
               <span className="flex items-center gap-1">
                 <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
