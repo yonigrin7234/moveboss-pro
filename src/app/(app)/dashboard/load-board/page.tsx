@@ -256,6 +256,16 @@ function LoadCard({ load }: { load: MarketplaceLoad }) {
                 {load.equipment_type === 'box_truck' ? 'Box Truck' : 'Semi'}
               </Badge>
             )}
+            {load.truck_requirement === 'semi_only' && (
+              <Badge className="bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
+                🚛 Semi Only
+              </Badge>
+            )}
+            {load.truck_requirement === 'box_truck_only' && (
+              <Badge className="bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                📦 Box Truck Only
+              </Badge>
+            )}
           </div>
 
           {/* Price */}

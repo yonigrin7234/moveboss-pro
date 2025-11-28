@@ -88,6 +88,7 @@ export interface MarketplaceLoad {
 
   // Equipment
   equipment_type: string | null;
+  truck_requirement: 'any' | 'semi_only' | 'box_truck_only' | null;
 
   // Notes (visible to carriers)
   special_instructions: string | null;
@@ -186,6 +187,7 @@ export async function getMarketplaceLoads(filters?: {
       pickup_date_start,
       pickup_date_end,
       equipment_type,
+      truck_requirement,
       special_instructions,
       posted_to_marketplace_at,
       created_at
@@ -317,6 +319,7 @@ export async function getMarketplaceLoadWithRequestStatus(
       pickup_date_start,
       pickup_date_end,
       equipment_type,
+      truck_requirement,
       special_instructions,
       posted_to_marketplace_at,
       created_at

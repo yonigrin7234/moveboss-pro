@@ -47,6 +47,7 @@ const SERVICE_TYPES = [
 ];
 
 type LoadType = 'live_load' | 'rfd';
+type TruckRequirement = 'any' | 'semi_only' | 'box_truck_only';
 
 export default function PostLoadPage() {
   const router = useRouter();
@@ -103,6 +104,7 @@ export default function PostLoadPage() {
     service_type: 'hhg_long_distance',
     notes: '',
     is_open_to_counter: false,
+    truck_requirement: 'any' as TruckRequirement,
   });
 
   // RFD form data
@@ -126,6 +128,7 @@ export default function PostLoadPage() {
     is_open_to_counter: false,
     rfd_ready_type: 'ready_now' as 'ready_now' | 'ready_on_date',
     rfd_date: '',
+    truck_requirement: 'any' as TruckRequirement,
   });
 
   // Handler for storage location selection
@@ -236,6 +239,7 @@ export default function PostLoadPage() {
         rate_per_cuft: parseFloat(data.rate_per_cuft) || 0,
         linehaul_amount: parseFloat(data.linehaul_amount) || 0,
         notes: data.notes,
+        truck_requirement: data.truck_requirement,
       };
 
       if (loadType === 'live_load') {
@@ -555,6 +559,38 @@ export default function PostLoadPage() {
                       Carriers can propose a different rate when requesting this load
                     </p>
                   </label>
+                </div>
+
+                <div className="space-y-3 pt-4 border-t">
+                  <Label>Truck Requirement</Label>
+                  <RadioGroup
+                    value={liveLoadData.truck_requirement}
+                    onValueChange={(value: TruckRequirement) =>
+                      setLiveLoadData((prev) => ({ ...prev, truck_requirement: value }))
+                    }
+                    className="flex flex-col gap-2"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="any" id="ll_truck_any" />
+                      <Label htmlFor="ll_truck_any" className="font-normal cursor-pointer">
+                        Any Truck
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="semi_only" id="ll_truck_semi" />
+                      <Label htmlFor="ll_truck_semi" className="font-normal cursor-pointer flex items-center gap-2">
+                        🚛 Semi Only
+                        <span className="text-xs text-muted-foreground">(53&apos; trailer required)</span>
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="box_truck_only" id="ll_truck_box" />
+                      <Label htmlFor="ll_truck_box" className="font-normal cursor-pointer flex items-center gap-2">
+                        📦 Box Truck Only
+                        <span className="text-xs text-muted-foreground">(No semi trucks)</span>
+                      </Label>
+                    </div>
+                  </RadioGroup>
                 </div>
               </CardContent>
             </Card>
@@ -930,6 +966,38 @@ export default function PostLoadPage() {
                       Carriers can propose a different rate when requesting this load
                     </p>
                   </label>
+                </div>
+
+                <div className="space-y-3 pt-4 border-t">
+                  <Label>Truck Requirement</Label>
+                  <RadioGroup
+                    value={rfdData.truck_requirement}
+                    onValueChange={(value: TruckRequirement) =>
+                      setRfdData((prev) => ({ ...prev, truck_requirement: value }))
+                    }
+                    className="flex flex-col gap-2"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="any" id="rfd_truck_any" />
+                      <Label htmlFor="rfd_truck_any" className="font-normal cursor-pointer">
+                        Any Truck
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="semi_only" id="rfd_truck_semi" />
+                      <Label htmlFor="rfd_truck_semi" className="font-normal cursor-pointer flex items-center gap-2">
+                        🚛 Semi Only
+                        <span className="text-xs text-muted-foreground">(53&apos; trailer required)</span>
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="box_truck_only" id="rfd_truck_box" />
+                      <Label htmlFor="rfd_truck_box" className="font-normal cursor-pointer flex items-center gap-2">
+                        📦 Box Truck Only
+                        <span className="text-xs text-muted-foreground">(No semi trucks)</span>
+                      </Label>
+                    </div>
+                  </RadioGroup>
                 </div>
               </CardContent>
             </Card>

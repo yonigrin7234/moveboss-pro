@@ -184,6 +184,16 @@ export default async function LoadDetailPage({ params }: PageProps) {
               {load.equipment_type === 'box_truck' ? 'Box Truck' : 'Semi Trailer'}
             </Badge>
           )}
+          {load.truck_requirement === 'semi_only' && (
+            <Badge className="bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
+              🚛 Semi Only
+            </Badge>
+          )}
+          {load.truck_requirement === 'box_truck_only' && (
+            <Badge className="bg-amber-500/20 text-amber-600 dark:text-amber-400">
+              📦 Box Truck Only
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -283,6 +293,42 @@ export default async function LoadDetailPage({ params }: PageProps) {
               )}
             </CardContent>
           </Card>
+
+          {/* Equipment Requirement Card */}
+          {load.truck_requirement && load.truck_requirement !== 'any' && (
+            <Card className={load.truck_requirement === 'semi_only' ? 'border-indigo-500/30' : 'border-amber-500/30'}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Truck className="h-5 w-5" />
+                  Equipment Requirement
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {load.truck_requirement === 'semi_only' && (
+                  <div className="flex items-start gap-3">
+                    <div className="text-3xl">🚛</div>
+                    <div>
+                      <p className="font-semibold text-lg">Semi Truck Required</p>
+                      <p className="text-sm text-muted-foreground">
+                        This load requires a 53&apos; trailer. Box trucks and smaller vehicles cannot be used.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {load.truck_requirement === 'box_truck_only' && (
+                  <div className="flex items-start gap-3">
+                    <div className="text-3xl">📦</div>
+                    <div>
+                      <p className="font-semibold text-lg">Box Truck Only</p>
+                      <p className="text-sm text-muted-foreground">
+                        This load requires a box truck. Semi trucks and trailers cannot be used due to access restrictions.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Storage Information Card (for RFD loads) */}
           {(load.load_type === 'rfd' || load.load_subtype === 'rfd' || load.storage_location) && (
