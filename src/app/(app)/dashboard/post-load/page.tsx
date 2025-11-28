@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase-client';
+import { useZipLookup } from '@/hooks/useZipLookup';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -36,6 +37,8 @@ interface StorageOption {
   gate_code: string | null;
   access_hours: string | null;
   access_instructions: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
 }
 
 const SERVICE_TYPES = [
@@ -71,7 +74,7 @@ export default function PostLoadPage() {
 
         const { data } = await supabase
           .from('storage_locations')
-          .select('id, name, location_type, city, state, zip, address_line1, unit_numbers, truck_accessibility, gate_code, access_hours, access_instructions')
+          .select('id, name, location_type, city, state, zip, address_line1, unit_numbers, truck_accessibility, gate_code, access_hours, access_instructions, contact_name, contact_phone')
           .eq('owner_id', user.id)
           .eq('is_active', true)
           .order('name');
@@ -100,6 +103,8 @@ export default function PostLoadPage() {
     destination_city: '',
     destination_state: '',
     destination_zip: '',
+    dispatch_contact_name: '',
+    dispatch_contact_phone: '',
     cubic_feet: '',
     rate_per_cuft: '',
     linehaul_amount: '',
@@ -123,6 +128,8 @@ export default function PostLoadPage() {
     destination_city: '',
     destination_state: '',
     destination_zip: '',
+    dispatch_contact_name: '',
+    dispatch_contact_phone: '',
     cubic_feet: '',
     rate_per_cuft: '',
     linehaul_amount: '',
@@ -148,6 +155,9 @@ export default function PostLoadPage() {
         storage_state: location.state,
         storage_zip: location.zip || '',
         storage_unit_numbers: location.unit_numbers || '',
+        // Auto-fill dispatch contact from storage location
+        dispatch_contact_name: location.contact_name || '',
+        dispatch_contact_phone: location.contact_phone || '',
       }));
     }
   };
@@ -185,6 +195,53 @@ export default function PostLoadPage() {
       }
     }
   };
+
+  // ZIP lookup handlers
+  const { lookup: lookupOriginZip, isLoading: isLoadingOriginZip } = useZipLookup();
+  const { lookup: lookupDestinationZip, isLoading: isLoadingDestinationZip } = useZipLookup();
+  const { lookup: lookupRfdDestinationZip, isLoading: isLoadingRfdDestinationZip } = useZipLookup();
+
+  const handleOriginZipChange = useCallback(async (zip: string) => {
+    setLiveLoadData((prev) => ({ ...prev, origin_zip: zip }));
+    if (zip.length === 5) {
+      const result = await lookupOriginZip(zip);
+      if (result) {
+        setLiveLoadData((prev) => ({
+          ...prev,
+          origin_city: result.city,
+          origin_state: result.stateAbbr,
+        }));
+      }
+    }
+  }, [lookupOriginZip]);
+
+  const handleDestinationZipChange = useCallback(async (zip: string) => {
+    setLiveLoadData((prev) => ({ ...prev, destination_zip: zip }));
+    if (zip.length === 5) {
+      const result = await lookupDestinationZip(zip);
+      if (result) {
+        setLiveLoadData((prev) => ({
+          ...prev,
+          destination_city: result.city,
+          destination_state: result.stateAbbr,
+        }));
+      }
+    }
+  }, [lookupDestinationZip]);
+
+  const handleRfdDestinationZipChange = useCallback(async (zip: string) => {
+    setRfdData((prev) => ({ ...prev, destination_zip: zip }));
+    if (zip.length === 5) {
+      const result = await lookupRfdDestinationZip(zip);
+      if (result) {
+        setRfdData((prev) => ({
+          ...prev,
+          destination_city: result.city,
+          destination_state: result.stateAbbr,
+        }));
+      }
+    }
+  }, [lookupRfdDestinationZip]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -244,6 +301,9 @@ export default function PostLoadPage() {
         linehaul_amount: parseFloat(data.linehaul_amount) || 0,
         notes: data.notes,
         truck_requirement: data.truck_requirement,
+        // Dispatch/Foreman contact
+        dispatch_contact_name: data.dispatch_contact_name || null,
+        dispatch_contact_phone: data.dispatch_contact_phone || null,
       };
 
       if (loadType === 'live_load') {
@@ -341,25 +401,23 @@ export default function PostLoadPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="ll_customer_name" className="text-sm">Customer Name *</Label>
+                    <Label htmlFor="ll_customer_name" className="text-sm">Customer Name</Label>
                     <Input
                       id="ll_customer_name"
                       value={liveLoadData.customer_name}
                       onChange={(e) => handleLiveLoadChange('customer_name', e.target.value)}
                       placeholder="John Smith"
-                      required
                       className="h-9"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="ll_customer_phone" className="text-sm">Customer Phone *</Label>
+                    <Label htmlFor="ll_customer_phone" className="text-sm">Customer Phone</Label>
                     <Input
                       id="ll_customer_phone"
                       type="tel"
                       value={liveLoadData.customer_phone}
                       onChange={(e) => handleLiveLoadChange('customer_phone', e.target.value)}
                       placeholder="(555) 123-4567"
-                      required
                       className="h-9"
                     />
                   </div>
@@ -383,25 +441,31 @@ export default function PostLoadPage() {
                   <CardTitle className="text-base">Origin</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="ll_origin_address" className="text-sm">Address *</Label>
-                    <Input
-                      id="ll_origin_address"
-                      value={liveLoadData.origin_address}
-                      onChange={(e) => handleLiveLoadChange('origin_address', e.target.value)}
-                      placeholder="123 Main St"
-                      required
-                      className="h-9"
-                    />
-                  </div>
                   <div className="grid gap-2 grid-cols-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ll_origin_zip" className="text-sm">ZIP *</Label>
+                      <div className="relative">
+                        <Input
+                          id="ll_origin_zip"
+                          value={liveLoadData.origin_zip}
+                          onChange={(e) => handleOriginZipChange(e.target.value)}
+                          placeholder="10001"
+                          maxLength={5}
+                          required
+                          className="h-9"
+                        />
+                        {isLoadingOriginZip && (
+                          <Loader2 className="absolute right-2 top-2 h-4 w-4 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
+                    </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="ll_origin_city" className="text-sm">City *</Label>
                       <Input
                         id="ll_origin_city"
                         value={liveLoadData.origin_city}
                         onChange={(e) => handleLiveLoadChange('origin_city', e.target.value)}
-                        placeholder="New York"
+                        placeholder="Auto-fills from ZIP"
                         required
                         className="h-9"
                       />
@@ -412,23 +476,22 @@ export default function PostLoadPage() {
                         id="ll_origin_state"
                         value={liveLoadData.origin_state}
                         onChange={(e) => handleLiveLoadChange('origin_state', e.target.value)}
-                        placeholder="NY"
+                        placeholder="ST"
                         maxLength={2}
                         required
                         className="h-9"
                       />
                     </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="ll_origin_zip" className="text-sm">ZIP *</Label>
-                      <Input
-                        id="ll_origin_zip"
-                        value={liveLoadData.origin_zip}
-                        onChange={(e) => handleLiveLoadChange('origin_zip', e.target.value)}
-                        placeholder="10001"
-                        required
-                        className="h-9"
-                      />
-                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ll_origin_address" className="text-sm">Address</Label>
+                    <Input
+                      id="ll_origin_address"
+                      value={liveLoadData.origin_address}
+                      onChange={(e) => handleLiveLoadChange('origin_address', e.target.value)}
+                      placeholder="123 Main St (optional)"
+                      className="h-9"
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -438,25 +501,31 @@ export default function PostLoadPage() {
                   <CardTitle className="text-base">Destination</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="ll_destination_address" className="text-sm">Address *</Label>
-                    <Input
-                      id="ll_destination_address"
-                      value={liveLoadData.destination_address}
-                      onChange={(e) => handleLiveLoadChange('destination_address', e.target.value)}
-                      placeholder="456 Oak Ave"
-                      required
-                      className="h-9"
-                    />
-                  </div>
                   <div className="grid gap-2 grid-cols-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ll_destination_zip" className="text-sm">ZIP *</Label>
+                      <div className="relative">
+                        <Input
+                          id="ll_destination_zip"
+                          value={liveLoadData.destination_zip}
+                          onChange={(e) => handleDestinationZipChange(e.target.value)}
+                          placeholder="90001"
+                          maxLength={5}
+                          required
+                          className="h-9"
+                        />
+                        {isLoadingDestinationZip && (
+                          <Loader2 className="absolute right-2 top-2 h-4 w-4 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
+                    </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="ll_destination_city" className="text-sm">City *</Label>
                       <Input
                         id="ll_destination_city"
                         value={liveLoadData.destination_city}
                         onChange={(e) => handleLiveLoadChange('destination_city', e.target.value)}
-                        placeholder="Los Angeles"
+                        placeholder="Auto-fills from ZIP"
                         required
                         className="h-9"
                       />
@@ -467,27 +536,61 @@ export default function PostLoadPage() {
                         id="ll_destination_state"
                         value={liveLoadData.destination_state}
                         onChange={(e) => handleLiveLoadChange('destination_state', e.target.value)}
-                        placeholder="CA"
+                        placeholder="ST"
                         maxLength={2}
                         required
                         className="h-9"
                       />
                     </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="ll_destination_zip" className="text-sm">ZIP *</Label>
-                      <Input
-                        id="ll_destination_zip"
-                        value={liveLoadData.destination_zip}
-                        onChange={(e) => handleLiveLoadChange('destination_zip', e.target.value)}
-                        placeholder="90001"
-                        required
-                        className="h-9"
-                      />
-                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ll_destination_address" className="text-sm">Address</Label>
+                    <Input
+                      id="ll_destination_address"
+                      value={liveLoadData.destination_address}
+                      onChange={(e) => handleLiveLoadChange('destination_address', e.target.value)}
+                      placeholder="456 Oak Ave (optional)"
+                      className="h-9"
+                    />
                   </div>
                 </CardContent>
               </Card>
             </div>
+
+            {/* Foreman / Loading Contact */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Foreman / Loading Contact</CardTitle>
+                <CardDescription className="text-xs">
+                  Contact info for the driver to coordinate loading (optional)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ll_dispatch_contact_name" className="text-sm">Contact Name</Label>
+                    <Input
+                      id="ll_dispatch_contact_name"
+                      value={liveLoadData.dispatch_contact_name}
+                      onChange={(e) => handleLiveLoadChange('dispatch_contact_name', e.target.value)}
+                      placeholder="Foreman name"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ll_dispatch_contact_phone" className="text-sm">Contact Phone</Label>
+                    <Input
+                      id="ll_dispatch_contact_phone"
+                      type="tel"
+                      value={liveLoadData.dispatch_contact_phone}
+                      onChange={(e) => handleLiveLoadChange('dispatch_contact_phone', e.target.value)}
+                      placeholder="(555) 123-4567"
+                      className="h-9"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Pricing & Options */}
             <Card>
@@ -816,25 +919,31 @@ export default function PostLoadPage() {
                 <CardTitle className="text-base">Destination</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="rfd_destination_address" className="text-sm">Address *</Label>
-                  <Input
-                    id="rfd_destination_address"
-                    value={rfdData.destination_address}
-                    onChange={(e) => handleRfdChange('destination_address', e.target.value)}
-                    placeholder="789 Pine Blvd"
-                    required
-                    className="h-9"
-                  />
-                </div>
                 <div className="grid gap-2 grid-cols-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rfd_destination_zip" className="text-sm">ZIP *</Label>
+                    <div className="relative">
+                      <Input
+                        id="rfd_destination_zip"
+                        value={rfdData.destination_zip}
+                        onChange={(e) => handleRfdDestinationZipChange(e.target.value)}
+                        placeholder="33101"
+                        maxLength={5}
+                        required
+                        className="h-9"
+                      />
+                      {isLoadingRfdDestinationZip && (
+                        <Loader2 className="absolute right-2 top-2 h-4 w-4 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
+                  </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="rfd_destination_city" className="text-sm">City *</Label>
                     <Input
                       id="rfd_destination_city"
                       value={rfdData.destination_city}
                       onChange={(e) => handleRfdChange('destination_city', e.target.value)}
-                      placeholder="Miami"
+                      placeholder="Auto-fills from ZIP"
                       required
                       className="h-9"
                     />
@@ -845,20 +954,56 @@ export default function PostLoadPage() {
                       id="rfd_destination_state"
                       value={rfdData.destination_state}
                       onChange={(e) => handleRfdChange('destination_state', e.target.value)}
-                      placeholder="FL"
+                      placeholder="ST"
                       maxLength={2}
                       required
                       className="h-9"
                     />
                   </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="rfd_destination_address" className="text-sm">Address</Label>
+                  <Input
+                    id="rfd_destination_address"
+                    value={rfdData.destination_address}
+                    onChange={(e) => handleRfdChange('destination_address', e.target.value)}
+                    placeholder="789 Pine Blvd (optional)"
+                    className="h-9"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Foreman / Loading Contact */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Foreman / Loading Contact</CardTitle>
+                <CardDescription className="text-xs">
+                  {selectedStorage?.contact_name
+                    ? 'Auto-filled from storage location. Edit to override.'
+                    : 'Contact info for the driver to coordinate loading (optional)'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label htmlFor="rfd_destination_zip" className="text-sm">ZIP *</Label>
+                    <Label htmlFor="rfd_dispatch_contact_name" className="text-sm">Contact Name</Label>
                     <Input
-                      id="rfd_destination_zip"
-                      value={rfdData.destination_zip}
-                      onChange={(e) => handleRfdChange('destination_zip', e.target.value)}
-                      placeholder="33101"
-                      required
+                      id="rfd_dispatch_contact_name"
+                      value={rfdData.dispatch_contact_name}
+                      onChange={(e) => handleRfdChange('dispatch_contact_name', e.target.value)}
+                      placeholder="Foreman name"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rfd_dispatch_contact_phone" className="text-sm">Contact Phone</Label>
+                    <Input
+                      id="rfd_dispatch_contact_phone"
+                      type="tel"
+                      value={rfdData.dispatch_contact_phone}
+                      onChange={(e) => handleRfdChange('dispatch_contact_phone', e.target.value)}
+                      placeholder="(555) 123-4567"
                       className="h-9"
                     />
                   </div>
