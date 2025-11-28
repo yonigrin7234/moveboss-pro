@@ -76,6 +76,12 @@ export default async function EditStorageLocationPage({
       // Accessibility
       truck_accessibility: (formData.get('truck_accessibility') as TruckAccessibility) || 'full',
       accessibility_notes: (formData.get('accessibility_notes') as string) || null,
+      // Payment tracking
+      track_payments: formData.get('track_payments') === 'on',
+      alert_days_before: formData.get('alert_days_before')
+        ? parseInt(formData.get('alert_days_before') as string)
+        : 7,
+      next_payment_due: (formData.get('next_payment_due') as string) || null,
     });
 
     if (result.success) {

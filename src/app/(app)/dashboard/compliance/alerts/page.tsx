@@ -20,6 +20,7 @@ import {
   Truck,
   User,
   Building2,
+  Warehouse,
   ArrowLeft,
   RefreshCw,
 } from 'lucide-react';
@@ -71,6 +72,7 @@ export default async function ComplianceAlertsPage() {
     if (alertType.startsWith('vehicle_')) return Truck;
     if (alertType.startsWith('driver_')) return User;
     if (alertType.startsWith('partner_')) return Building2;
+    if (alertType.startsWith('storage_')) return Warehouse;
     return Shield;
   };
 
@@ -156,6 +158,8 @@ export default async function ComplianceAlertsPage() {
                         <Link href={`/dashboard/fleet/trucks/${alert.vehicle_id}`}>Update</Link>
                       ) : alert.driver_id ? (
                         <Link href={`/dashboard/people/drivers/${alert.driver_id}`}>Update</Link>
+                      ) : alert.storage_location_id ? (
+                        <Link href={`/dashboard/storage/${alert.storage_location_id}`}>View</Link>
                       ) : (
                         <Link href="/dashboard/compliance">View</Link>
                       )}

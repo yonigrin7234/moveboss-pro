@@ -10,6 +10,7 @@ export interface ComplianceAlert {
   vehicle_id: string | null;
   driver_id: string | null;
   partnership_id: string | null;
+  storage_location_id: string | null;
   item_name: string;
   expiry_date: string | null;
   days_until_expiry: number | null;
@@ -276,6 +277,46 @@ export async function checkPartnershipCompliance(partnershipId: string): Promise
   return issues;
 }
 
+// Check storage location payment compliance
+export async function checkStoragePaymentCompliance(storageLocationId: string): Promise<ComplianceIssue[]> {
+  const supabase = await createClient();
+  const issues: ComplianceIssue[] = [];
+
+  const { data: location } = await supabase
+    .from('storage_locations')
+    .select('*')
+    .eq('id', storageLocationId)
+    .single();
+
+  if (!location || !location.track_payments || location.vacated_at) return issues;
+
+  const locationName = location.unit_numbers
+    ? `${location.name} (${location.unit_numbers})`
+    : location.name;
+
+  // Check next payment due
+  if (location.next_payment_due) {
+    const days = getDaysUntil(location.next_payment_due);
+    const alertDays = location.alert_days_before || 7;
+
+    if (days !== null && days <= alertDays) {
+      issues.push({
+        type: 'storage_payment',
+        item: locationName,
+        itemId: storageLocationId,
+        expiryDate: location.next_payment_due,
+        daysUntil: days,
+        severity: getSeverity(days),
+        message: days <= 0
+          ? `Payment overdue by ${Math.abs(days)} days`
+          : `Payment due in ${days} days`,
+      });
+    }
+  }
+
+  return issues;
+}
+
 // Get all compliance alerts for a user
 export async function getComplianceAlertsForUser(userId: string): Promise<ComplianceAlert[]> {
   const supabase = await createClient();
@@ -349,7 +390,16 @@ export async function generateComplianceAlerts(userId: string, companyId?: strin
   }
   const { data: partnerships } = await partnershipQuery;
 
-  const allIssues: { issue: ComplianceIssue; vehicleId?: string; driverId?: string; partnershipId?: string }[] = [];
+  // Get all storage locations with payment tracking
+  const { data: storageLocations } = await supabase
+    .from('storage_locations')
+    .select('id')
+    .eq('owner_id', userId)
+    .eq('is_active', true)
+    .eq('track_payments', true)
+    .is('vacated_at', null);
+
+  const allIssues: { issue: ComplianceIssue; vehicleId?: string; driverId?: string; partnershipId?: string; storageLocationId?: string }[] = [];
 
   // Check vehicles
   for (const vehicle of vehicles || []) {
@@ -369,6 +419,12 @@ export async function generateComplianceAlerts(userId: string, companyId?: strin
     issues.forEach(issue => allIssues.push({ issue, partnershipId: partnership.id }));
   }
 
+  // Check storage locations
+  for (const storageLocation of storageLocations || []) {
+    const issues = await checkStoragePaymentCompliance(storageLocation.id);
+    issues.forEach(issue => allIssues.push({ issue, storageLocationId: storageLocation.id }));
+  }
+
   // Mark existing alerts as resolved first (we'll recreate active ones)
   await supabase
     .from('compliance_alerts')
@@ -377,7 +433,7 @@ export async function generateComplianceAlerts(userId: string, companyId?: strin
     .eq('is_resolved', false);
 
   // Insert new alerts
-  for (const { issue, vehicleId, driverId, partnershipId } of allIssues) {
+  for (const { issue, vehicleId, driverId, partnershipId, storageLocationId } of allIssues) {
     await supabase
       .from('compliance_alerts')
       .insert({
@@ -387,6 +443,7 @@ export async function generateComplianceAlerts(userId: string, companyId?: strin
         vehicle_id: vehicleId || null,
         driver_id: driverId || null,
         partnership_id: partnershipId || null,
+        storage_location_id: storageLocationId || null,
         item_name: issue.item,
         expiry_date: issue.expiryDate,
         days_until_expiry: issue.daysUntil,
@@ -476,12 +533,18 @@ export async function resolveComplianceAlert(alertId: string): Promise<void> {
 
 // Resolve alerts for a specific item
 export async function resolveAlertsForItem(
-  type: 'vehicle' | 'driver' | 'partnership',
+  type: 'vehicle' | 'driver' | 'partnership' | 'storage',
   itemId: string
 ): Promise<void> {
   const supabase = await createClient();
 
-  const column = type === 'vehicle' ? 'vehicle_id' : type === 'driver' ? 'driver_id' : 'partnership_id';
+  const columnMap = {
+    vehicle: 'vehicle_id',
+    driver: 'driver_id',
+    partnership: 'partnership_id',
+    storage: 'storage_location_id',
+  };
+  const column = columnMap[type];
 
   await supabase
     .from('compliance_alerts')

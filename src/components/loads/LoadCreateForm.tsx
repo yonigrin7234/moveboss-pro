@@ -288,6 +288,11 @@ export function LoadCreateForm({
           // Accessibility
           truck_accessibility: 'full',
           accessibility_notes: null,
+          // Payment tracking
+          track_payments: false,
+          alert_days_before: 7,
+          next_payment_due: null,
+          vacated_at: null,
         }
         setLocalStorageLocations((prev) => [...prev, createdLocation])
         setStorageLocationId(result.id)

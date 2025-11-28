@@ -19,10 +19,17 @@ import {
   Calendar,
   FileText,
   DollarSign,
+  CheckCircle,
+  LogOut,
 } from 'lucide-react';
 
 import { getCurrentUser, createClient } from '@/lib/supabase-server';
-import { getStorageLocationById, deleteStorageLocation } from '@/data/storage-locations';
+import {
+  getStorageLocationById,
+  deleteStorageLocation,
+  markStoragePaymentPaid,
+  vacateStorageLocation,
+} from '@/data/storage-locations';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -100,6 +107,40 @@ export default async function StorageLocationDetailPage({
       redirect('/dashboard/storage');
     }
   }
+
+  async function markPaidAction() {
+    'use server';
+    const user = await getCurrentUser();
+    if (!user) redirect('/login');
+
+    const { id } = await params;
+    const result = await markStoragePaymentPaid(id, user.id);
+    if (result.success) {
+      revalidatePath(`/dashboard/storage/${id}`);
+      revalidatePath('/dashboard/compliance/alerts');
+    }
+  }
+
+  async function vacateAction() {
+    'use server';
+    const user = await getCurrentUser();
+    if (!user) redirect('/login');
+
+    const { id } = await params;
+    const result = await vacateStorageLocation(id, user.id);
+    if (result.success) {
+      revalidatePath(`/dashboard/storage/${id}`);
+      revalidatePath('/dashboard/compliance/alerts');
+    }
+  }
+
+  // Calculate days until payment due
+  const daysUntilDue = location.next_payment_due
+    ? Math.ceil(
+        (new Date(location.next_payment_due).getTime() - new Date().setHours(0, 0, 0, 0)) /
+          (1000 * 60 * 60 * 24)
+      )
+    : null;
 
   const fullAddress = [
     location.address_line1,
@@ -283,6 +324,73 @@ export default async function StorageLocationDetailPage({
                   <span className="font-medium">{location.rent_due_day}th of month</span>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Payment Tracking Card */}
+        {location.track_payments && !location.vacated_at && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Payment Tracking
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {location.next_payment_due && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Next Payment Due</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">
+                      {new Date(location.next_payment_due).toLocaleDateString()}
+                    </p>
+                    {daysUntilDue !== null && (
+                      <Badge
+                        className={
+                          daysUntilDue <= 0
+                            ? 'bg-red-500/20 text-red-600'
+                            : daysUntilDue <= 7
+                              ? 'bg-orange-500/20 text-orange-600'
+                              : 'bg-green-500/20 text-green-600'
+                        }
+                      >
+                        {daysUntilDue <= 0
+                          ? `${Math.abs(daysUntilDue)} days overdue`
+                          : `${daysUntilDue} days`}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <form action={markPaidAction} className="flex-1">
+                  <Button type="submit" variant="outline" className="w-full">
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Mark Paid
+                  </Button>
+                </form>
+                <form action={vacateAction}>
+                  <Button type="submit" variant="destructive">
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Vacate
+                  </Button>
+                </form>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Vacated Notice */}
+        {location.vacated_at && (
+          <Card className="border-yellow-500/50 bg-yellow-500/10">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
+                <LogOut className="h-5 w-5" />
+                <span className="font-medium">
+                  Vacated on {new Date(location.vacated_at).toLocaleDateString()}
+                </span>
+              </div>
             </CardContent>
           </Card>
         )}

@@ -446,6 +446,50 @@ export function StorageLocationForm({
             />
           </div>
         </div>
+
+        {/* Payment Tracking */}
+        <div className="pt-4 border-t">
+          <div className="flex items-center space-x-2 mb-4">
+            <Checkbox
+              id="track_payments"
+              name="track_payments"
+              defaultChecked={initialData?.track_payments || false}
+            />
+            <Label htmlFor="track_payments" className="font-normal">
+              Track payment due dates and show alerts
+            </Label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="next_payment_due">Next Payment Due</Label>
+              <Input
+                id="next_payment_due"
+                name="next_payment_due"
+                type="date"
+                defaultValue={initialData?.next_payment_due || ''}
+              />
+            </div>
+            <div>
+              <Label htmlFor="alert_days_before">Alert Days Before Due</Label>
+              <Select
+                name="alert_days_before"
+                defaultValue={initialData?.alert_days_before?.toString() || '7'}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select days" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="3">3 days before</SelectItem>
+                  <SelectItem value="5">5 days before</SelectItem>
+                  <SelectItem value="7">7 days before</SelectItem>
+                  <SelectItem value="14">14 days before</SelectItem>
+                  <SelectItem value="30">30 days before</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Submit */}

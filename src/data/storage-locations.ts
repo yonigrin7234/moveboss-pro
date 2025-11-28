@@ -51,6 +51,11 @@ export interface StorageLocation {
   // Accessibility
   truck_accessibility: TruckAccessibility;
   accessibility_notes: string | null;
+  // Payment tracking
+  track_payments: boolean;
+  alert_days_before: number;
+  next_payment_due: string | null;
+  vacated_at: string | null;
 }
 
 export async function getStorageLocations(ownerId: string): Promise<StorageLocation[]> {
@@ -170,6 +175,10 @@ export async function createStorageLocation(
       // Accessibility
       truck_accessibility: data.truck_accessibility || 'full',
       accessibility_notes: data.accessibility_notes,
+      // Payment tracking
+      track_payments: data.track_payments || false,
+      alert_days_before: data.alert_days_before || 7,
+      next_payment_due: data.next_payment_due,
     })
     .select('id')
     .single();
@@ -228,6 +237,11 @@ export async function updateStorageLocation(
       // Accessibility
       truck_accessibility: data.truck_accessibility,
       accessibility_notes: data.accessibility_notes,
+      // Payment tracking
+      track_payments: data.track_payments,
+      alert_days_before: data.alert_days_before,
+      next_payment_due: data.next_payment_due,
+      vacated_at: data.vacated_at,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
@@ -357,4 +371,116 @@ export async function getStorageOptions(
     state: s.state,
     unit_numbers: s.unit_numbers,
   }));
+}
+
+// Mark storage payment as paid - advances next_payment_due by 1 month
+export async function markStoragePaymentPaid(
+  id: string,
+  ownerId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  // First get the current location to calculate next due date
+  const { data: location, error: fetchError } = await supabase
+    .from('storage_locations')
+    .select('next_payment_due, rent_due_day')
+    .eq('id', id)
+    .eq('owner_id', ownerId)
+    .single();
+
+  if (fetchError || !location) {
+    return { success: false, error: 'Storage location not found' };
+  }
+
+  // Calculate next payment due date (1 month from current due date or today)
+  let nextDue: Date;
+  if (location.next_payment_due) {
+    nextDue = new Date(location.next_payment_due);
+    nextDue.setMonth(nextDue.getMonth() + 1);
+  } else {
+    // If no due date set, use rent_due_day of next month
+    nextDue = new Date();
+    nextDue.setMonth(nextDue.getMonth() + 1);
+    if (location.rent_due_day) {
+      nextDue.setDate(location.rent_due_day);
+    }
+  }
+
+  const { error } = await supabase
+    .from('storage_locations')
+    .update({
+      next_payment_due: nextDue.toISOString().split('T')[0],
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('owner_id', ownerId);
+
+  if (error) {
+    console.error('Error marking payment as paid:', error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+// Vacate a storage location - stops payment tracking
+export async function vacateStorageLocation(
+  id: string,
+  ownerId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('storage_locations')
+    .update({
+      vacated_at: new Date().toISOString(),
+      track_payments: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('owner_id', ownerId);
+
+  if (error) {
+    console.error('Error vacating storage location:', error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+// Get storage locations that need payment alerts
+export async function getStoragePaymentAlerts(
+  ownerId: string
+): Promise<Array<StorageLocation & { days_until_due: number }>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('storage_locations')
+    .select('*')
+    .eq('owner_id', ownerId)
+    .eq('is_active', true)
+    .eq('track_payments', true)
+    .is('vacated_at', null)
+    .not('next_payment_due', 'is', null);
+
+  if (error || !data) {
+    console.error('Error fetching storage payment alerts:', error);
+    return [];
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return data
+    .map((loc) => {
+      const dueDate = new Date(loc.next_payment_due);
+      dueDate.setHours(0, 0, 0, 0);
+      const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        ...loc,
+        days_until_due: daysUntilDue,
+      };
+    })
+    .filter((loc) => loc.days_until_due <= loc.alert_days_before)
+    .sort((a, b) => a.days_until_due - b.days_until_due);
 }
