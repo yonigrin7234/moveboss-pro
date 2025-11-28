@@ -61,6 +61,16 @@ export async function GET(
   try {
     const supabase = await createClient();
 
+    // Get user's workspace company to exclude their own loads from suggestions
+    const { data: workspaceCompany } = await supabase
+      .from('companies')
+      .select('id')
+      .eq('owner_id', user.id)
+      .eq('is_workspace_company', true)
+      .maybeSingle();
+
+    const userCompanyId = workspaceCompany?.id;
+
     // Get trip details
     const { data: trip, error: tripError } = await supabase
       .from('trips')
@@ -116,7 +126,8 @@ export async function GET(
 
     // Get marketplace loads
     // Note: loads table uses pickup_city/delivery_city, not origin_city/destination_city
-    const { data: marketplaceLoads, error: loadsError } = await supabase
+    // Exclude user's own company's loads - they shouldn't see their own posted jobs
+    let loadsQuery = supabase
       .from('loads')
       .select(`
         id,
@@ -137,6 +148,13 @@ export async function GET(
       .eq('is_marketplace_visible', true)
       .eq('load_status', 'pending')
       .is('assigned_carrier_id', null);
+
+    // Filter out user's own company's loads
+    if (userCompanyId) {
+      loadsQuery = loadsQuery.neq('company_id', userCompanyId);
+    }
+
+    const { data: marketplaceLoads, error: loadsError } = await loadsQuery;
 
     if (loadsError) {
       console.error('Error fetching marketplace loads:', loadsError);
