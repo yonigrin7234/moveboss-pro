@@ -289,7 +289,7 @@ export function TripMapTab({
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Max detour:</span>
                 <Select value={maxDetour} onValueChange={setMaxDetour}>
-                  <SelectTrigger className="w-24 h-8">
+                  <SelectTrigger className="w-28 h-8">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -298,6 +298,7 @@ export function TripMapTab({
                     <SelectItem value="100">100 mi</SelectItem>
                     <SelectItem value="150">150 mi</SelectItem>
                     <SelectItem value="200">200 mi</SelectItem>
+                    <SelectItem value="all">Show All</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button variant="ghost" size="sm" onClick={fetchSuggestions}>

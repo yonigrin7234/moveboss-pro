@@ -51,7 +51,9 @@ export async function GET(
 
   const { id: tripId } = await context.params;
   const { searchParams } = new URL(request.url);
-  const maxDetour = parseInt(searchParams.get('maxDetour') || '50', 10);
+  const maxDetourParam = searchParams.get('maxDetour') || '50';
+  // Handle "all" option - null means no limit
+  const maxDetour = maxDetourParam === 'all' ? null : parseInt(maxDetourParam, 10);
   const maxCuft = searchParams.get('maxCuft')
     ? parseInt(searchParams.get('maxCuft')!, 10)
     : null;
@@ -173,8 +175,8 @@ export async function GET(
         calculateDistance(tripDest, loadOrigin)
       );
 
-      // Skip if detour is too large
-      if (addedMiles > maxDetour) {
+      // Skip if detour is too large (unless "all" is selected)
+      if (maxDetour !== null && addedMiles > maxDetour) {
         continue;
       }
 
