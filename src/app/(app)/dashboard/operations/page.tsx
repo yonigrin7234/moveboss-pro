@@ -189,8 +189,8 @@ export default async function OperationsPage() {
               </Link>
             </Button>
             <Button variant="ghost" asChild>
-              <Link href="/dashboard/alerts">
-                View alerts
+              <Link href="/dashboard/activity">
+                Live Activity
                 <Bell className="ml-2 h-4 w-4" />
               </Link>
             </Button>
