@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FormAddressFields } from '@/components/ui/address-fields';
 
 export type CompanyProfileActionState = {
   errors?: Record<string, string>;
@@ -116,64 +117,22 @@ export function CompanyProfileFormClient({ defaults, action, readOnly, submitLab
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="address_line1">Address Line 1</Label>
-          <Input
-            id="address_line1"
-            name="address_line1"
-            defaultValue={defaults.address_line1}
-            disabled={readOnly}
-            readOnly={readOnly}
-          />
-          {state?.errors?.address_line1 && (
-            <p className="text-xs text-destructive">{state.errors.address_line1}</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="address_line2">Address Line 2</Label>
-          <Input
-            id="address_line2"
-            name="address_line2"
-            defaultValue={defaults.address_line2 || ''}
-            disabled={readOnly}
-            readOnly={readOnly}
-          />
-          {state?.errors?.address_line2 && (
-            <p className="text-xs text-destructive">{state.errors.address_line2}</p>
-          )}
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="space-y-2">
-          <Label htmlFor="city">City</Label>
-          <Input id="city" name="city" defaultValue={defaults.city} disabled={readOnly} readOnly={readOnly} />
-          {state?.errors?.city && <p className="text-xs text-destructive">{state.errors.city}</p>}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="state">State</Label>
-          <Input
-            id="state"
-            name="state"
-            defaultValue={defaults.state}
-            disabled={readOnly}
-            readOnly={readOnly}
-          />
-          {state?.errors?.state && <p className="text-xs text-destructive">{state.errors.state}</p>}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="zip">ZIP / Postal Code</Label>
-          <Input
-            id="zip"
-            name="zip"
-            defaultValue={defaults.zip || ''}
-            disabled={readOnly}
-            readOnly={readOnly}
-          />
-          {state?.errors?.zip && <p className="text-xs text-destructive">{state.errors.zip}</p>}
-        </div>
-      </div>
+      <FormAddressFields
+        defaultZip={defaults.zip || ''}
+        defaultCity={defaults.city}
+        defaultState={defaults.state}
+        defaultAddress={defaults.address_line1}
+        defaultAddress2={defaults.address_line2 || ''}
+        showAddress={true}
+        showAddress2={true}
+        zipRequired={false}
+        cityRequired={true}
+        stateRequired={true}
+        addressRequired={true}
+        disabled={readOnly}
+        readOnly={readOnly}
+        errors={state?.errors || {}}
+      />
 
       <div className="space-y-2">
         <Label htmlFor="notes">Notes</Label>

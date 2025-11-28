@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AddressFields } from '@/components/ui/address-fields';
 import { Building2, ArrowRight, ArrowLeft, Check, Loader2, User } from 'lucide-react';
 import { updateStepAction, setupCompanyAction } from '../actions';
 
@@ -234,46 +235,21 @@ export function CompanySetup({ currentStep, canPostLoads, canHaulLoads, userEmai
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="address">Address *</Label>
-              <Input
-                id="address"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="123 Main Street"
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="city">City *</Label>
-                <Input
-                  id="city"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="Miami"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="state">State *</Label>
-                <Input
-                  id="state"
-                  value={state}
-                  onChange={(e) => setState(e.target.value)}
-                  maxLength={2}
-                  placeholder="FL"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="zip">ZIP</Label>
-                <Input
-                  id="zip"
-                  value={zip}
-                  onChange={(e) => setZip(e.target.value)}
-                  placeholder="33101"
-                />
-              </div>
-            </div>
+            <AddressFields
+              zip={zip}
+              city={city}
+              state={state}
+              address={address}
+              onZipChange={setZip}
+              onCityChange={setCity}
+              onStateChange={setState}
+              onAddressChange={setAddress}
+              showAddress={true}
+              zipRequired={false}
+              cityRequired={true}
+              stateRequired={true}
+              addressRequired={true}
+            />
 
             {/* Owner Info Section */}
             <div className="pt-4 border-t">

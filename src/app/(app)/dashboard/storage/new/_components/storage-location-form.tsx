@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useCallback } from 'react';
 import { LocationType, StorageLocation, TruckAccessibility } from '@/data/storage-locations';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useZipLookup } from '@/hooks/useZipLookup';
 
 interface StorageLocationFormProps {
   action: (formData: FormData) => Promise<void>;
@@ -30,6 +32,33 @@ export function StorageLocationForm({
 }: StorageLocationFormProps) {
   const isWarehouse = locationType === 'warehouse';
   const isPublicStorage = locationType === 'public_storage';
+  const { lookup } = useZipLookup();
+
+  const handleZipBlur = useCallback(
+    async (e: React.FocusEvent<HTMLInputElement>) => {
+      const zipValue = e.target.value;
+      const cleanZip = zipValue.replace(/\D/g, '');
+
+      if (cleanZip.length === 5) {
+        const result = await lookup(cleanZip);
+        if (result) {
+          const form = e.target.form;
+          if (form) {
+            const cityInput = form.elements.namedItem('city') as HTMLInputElement;
+            const stateInput = form.elements.namedItem('state') as HTMLInputElement;
+
+            if (cityInput && !cityInput.value) {
+              cityInput.value = result.city;
+            }
+            if (stateInput && !stateInput.value) {
+              stateInput.value = result.stateAbbr;
+            }
+          }
+        }
+      }
+    },
+    [lookup]
+  );
 
   return (
     <form action={action} className="space-y-6">
@@ -121,9 +150,20 @@ export function StorageLocationForm({
         </div>
 
         <div className="grid grid-cols-6 gap-4">
+          <div className="col-span-2">
+            <Label htmlFor="zip">ZIP *</Label>
+            <Input
+              id="zip"
+              name="zip"
+              defaultValue={initialData?.zip}
+              onBlur={handleZipBlur}
+              placeholder="60601"
+              required
+            />
+          </div>
           <div className="col-span-3">
             <Label htmlFor="city">City *</Label>
-            <Input id="city" name="city" defaultValue={initialData?.city} required />
+            <Input id="city" name="city" defaultValue={initialData?.city} placeholder="Chicago" required />
           </div>
           <div className="col-span-1">
             <Label htmlFor="state">State *</Label>
@@ -135,10 +175,6 @@ export function StorageLocationForm({
               defaultValue={initialData?.state}
               required
             />
-          </div>
-          <div className="col-span-2">
-            <Label htmlFor="zip">ZIP *</Label>
-            <Input id="zip" name="zip" defaultValue={initialData?.zip} required />
           </div>
         </div>
       </div>
