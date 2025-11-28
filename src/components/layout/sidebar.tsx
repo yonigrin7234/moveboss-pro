@@ -45,12 +45,21 @@ type NavItem = {
   section?: "posting" | "carrier" | "general"
 }
 
+type UserPermissions = {
+  can_manage_drivers?: boolean
+  can_manage_vehicles?: boolean
+  can_manage_trips?: boolean
+  can_manage_loads?: boolean
+  can_view_financials?: boolean
+}
+
 type SidebarProps = {
   companyName?: string | null
   userName?: string | null
   canPostLoads?: boolean
   canHaulLoads?: boolean
   role?: string | null
+  permissions?: UserPermissions | null
 }
 
 function getInitials(label: string): string {
@@ -95,13 +104,21 @@ function isItemActive(pathname: string, item: NavItem): boolean {
   return false
 }
 
-export default function Sidebar({ companyName, userName, canPostLoads = false, canHaulLoads = false, role }: SidebarProps) {
+export default function Sidebar({ companyName, userName, canPostLoads = false, canHaulLoads = false, role, permissions }: SidebarProps) {
   const pathname = usePathname() ?? ""
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
   const displayCompanyName = companyName?.trim() || "MoveBoss Pro"
   const displayUserName = userName?.trim() || "Fleet Owner"
   const workspaceInitials = getInitials(displayCompanyName)
   const roleBadge = getRoleBadge(canPostLoads, canHaulLoads, role)
+
+  // If no permissions object provided, assume full access (owner/operator or admin)
+  const hasFullAccess = !permissions
+  const canManageDrivers = hasFullAccess || permissions?.can_manage_drivers
+  const canManageVehicles = hasFullAccess || permissions?.can_manage_vehicles
+  const canManageTrips = hasFullAccess || permissions?.can_manage_trips
+  const canManageLoads = hasFullAccess || permissions?.can_manage_loads
+  const canViewFinancials = hasFullAccess || permissions?.can_view_financials
 
   // Build nav items based on capabilities
   const navItems = useMemo(() => {
@@ -150,40 +167,55 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
 
     // Carrier section - only show when canHaulLoads
     if (canHaulLoads) {
+      // Build Operations children based on permissions
+      const operationsChildren: NavItem[] = [
+        { label: "Load Board", href: "/dashboard/load-board", icon: Search },
+        { label: "My Requests", href: "/dashboard/my-requests", icon: Send },
+      ]
+      if (canManageLoads) {
+        operationsChildren.push({ label: "Assigned Loads", href: "/dashboard/assigned-loads", icon: ClipboardCheck })
+        operationsChildren.push({ label: "Marketplace Loads", href: "/dashboard/marketplace-loads", icon: Boxes })
+      }
+      if (canManageTrips) {
+        operationsChildren.push({ label: "Trips", href: "/dashboard/trips", icon: Route })
+      }
+
       items.push({
         label: "Operations",
         href: "/dashboard/operations",
         icon: ClipboardList,
         section: "carrier",
-        children: [
-          { label: "Load Board", href: "/dashboard/load-board", icon: Search },
-          { label: "My Requests", href: "/dashboard/my-requests", icon: Send },
-          { label: "Assigned Loads", href: "/dashboard/assigned-loads", icon: ClipboardCheck },
-          { label: "Marketplace Loads", href: "/dashboard/marketplace-loads", icon: Boxes },
-          { label: "Trips", href: "/dashboard/trips", icon: Route },
-        ],
+        children: operationsChildren,
       })
-      items.push({
-        label: "Fleet",
-        href: "/dashboard/fleet",
-        icon: Truck,
-        section: "carrier",
-        children: [
-          { label: "Trucks", href: "/dashboard/fleet/trucks", icon: Truck },
-          { label: "Trailers", href: "/dashboard/fleet/trailers", icon: Boxes },
-          { label: "Live Fleet", href: "/dashboard/fleet/live", icon: MapPin },
-        ],
-      })
-      items.push({
-        label: "People",
-        href: "/dashboard/people",
-        icon: Users,
-        section: "carrier",
-        children: [
-          { label: "Drivers", href: "/dashboard/people/drivers", icon: User },
-          { label: "Crew & Helpers", href: "/dashboard/people/helpers", icon: UserCog },
-        ],
-      })
+
+      // Fleet - only show if user can manage vehicles
+      if (canManageVehicles) {
+        items.push({
+          label: "Fleet",
+          href: "/dashboard/fleet",
+          icon: Truck,
+          section: "carrier",
+          children: [
+            { label: "Trucks", href: "/dashboard/fleet/trucks", icon: Truck },
+            { label: "Trailers", href: "/dashboard/fleet/trailers", icon: Boxes },
+            { label: "Live Fleet", href: "/dashboard/fleet/live", icon: MapPin },
+          ],
+        })
+      }
+
+      // People - only show if user can manage drivers
+      if (canManageDrivers) {
+        items.push({
+          label: "People",
+          href: "/dashboard/people",
+          icon: Users,
+          section: "carrier",
+          children: [
+            { label: "Drivers", href: "/dashboard/people/drivers", icon: User },
+            { label: "Crew & Helpers", href: "/dashboard/people/helpers", icon: UserCog },
+          ],
+        })
+      }
     }
 
     // General section - always visible
@@ -191,18 +223,22 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
     items.push({ label: "Companies", href: "/dashboard/companies", icon: Building2, section: "general" })
     items.push({ label: "Partnerships", href: "/dashboard/partnerships", icon: Handshake, section: "general" })
     items.push({ label: "Compliance", href: "/dashboard/compliance", icon: FileCheck, section: "general" })
-    items.push({
-      label: "Finance",
-      href: "/dashboard/finance",
-      icon: Wallet,
-      section: "general",
-      children: [
-        { label: "Settlements", href: "/dashboard/finance/settlements", icon: Receipt },
-        { label: "Receivables", href: "/dashboard/finance/receivables", icon: Wallet },
-        { label: "Expenses", href: "/dashboard/finance/expenses", icon: CreditCard },
-        { label: "Reports", href: "/dashboard/finance/reports", icon: BarChart3 },
-      ],
-    })
+
+    // Finance - only show if user can view financials
+    if (canViewFinancials) {
+      items.push({
+        label: "Finance",
+        href: "/dashboard/finance",
+        icon: Wallet,
+        section: "general",
+        children: [
+          { label: "Settlements", href: "/dashboard/finance/settlements", icon: Receipt },
+          { label: "Receivables", href: "/dashboard/finance/receivables", icon: Wallet },
+          { label: "Expenses", href: "/dashboard/finance/expenses", icon: CreditCard },
+          { label: "Reports", href: "/dashboard/finance/reports", icon: BarChart3 },
+        ],
+      })
+    }
     items.push({ label: "Reports", href: "/dashboard/reports", icon: BarChart3, section: "general" })
     items.push({
       label: "Settings",
@@ -219,7 +255,7 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
     })
 
     return items
-  }, [canPostLoads, canHaulLoads])
+  }, [canPostLoads, canHaulLoads, canManageDrivers, canManageVehicles, canManageTrips, canManageLoads, canViewFinancials])
 
   useEffect(() => {
     setExpandedItems((prev) => {

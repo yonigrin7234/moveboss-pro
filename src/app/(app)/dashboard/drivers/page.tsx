@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { getCurrentUser } from '@/lib/supabase-server';
+import { getCurrentUser, getCurrentUserPermissions } from '@/lib/supabase-server';
+import { AccessDenied } from '@/components/access-denied';
 import {
   getDriversForUser,
   getDriverStatsForUser,
@@ -104,6 +105,11 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
 
   if (!user) {
     redirect('/login');
+  }
+
+  const permissions = await getCurrentUserPermissions();
+  if (!permissions?.can_manage_drivers) {
+    return <AccessDenied message="You don't have permission to manage drivers." />;
   }
 
   const params = await searchParams;

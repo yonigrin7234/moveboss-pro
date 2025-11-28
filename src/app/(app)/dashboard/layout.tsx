@@ -6,7 +6,7 @@ import { getUnreadNotificationCount } from "@/data/notifications"
 import { getOnboardingState } from "@/data/onboarding"
 import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { WorkspaceProvider } from "@/components/layout/WorkspaceContext"
-import { getCurrentUser } from "@/lib/supabase-server"
+import { getCurrentUser, getCurrentUserPermissions } from "@/lib/supabase-server"
 
 export default async function DashboardLayout({
   children,
@@ -22,11 +22,12 @@ export default async function DashboardLayout({
   const fullName =
     (user?.user_metadata?.full_name as string | undefined) ||
     (user?.user_metadata?.name as string | undefined)
-  const [workspaceCompany, memberships, unreadNotifications, onboardingState] = await Promise.all([
+  const [workspaceCompany, memberships, unreadNotifications, onboardingState, permissions] = await Promise.all([
     getWorkspaceCompanyForUser(user.id),
     getMembershipsForUser(user.id),
     getUnreadNotificationCount(user.id),
     getOnboardingState(user.id),
+    getCurrentUserPermissions(),
   ])
   const companySummary = workspaceCompany
     ? {
@@ -60,6 +61,7 @@ export default async function DashboardLayout({
         company={companySummary}
         role={onboardingState?.role}
         unreadNotifications={unreadNotifications}
+        permissions={permissions}
       >
         {children}
       </DashboardShell>

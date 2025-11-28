@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/lib/supabase-server';
+import { getCurrentUser, getCurrentUserPermissions } from '@/lib/supabase-server';
+import { AccessDenied } from '@/components/access-denied';
 import { getTrailersForUser, type Trailer } from '@/data/fleet';
 import { getDriversForUser } from '@/data/drivers';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +56,11 @@ export default async function TrailersPage() {
 
   if (!user) {
     redirect('/login');
+  }
+
+  const permissions = await getCurrentUserPermissions();
+  if (!permissions?.can_manage_vehicles) {
+    return <AccessDenied message="You don't have permission to manage vehicles." />;
   }
 
   let trailers: Trailer[] = [];

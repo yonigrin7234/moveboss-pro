@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AlertCircle, DollarSign } from 'lucide-react';
-import { getCurrentUser } from '@/lib/supabase-server';
+import { getCurrentUser, getCurrentUserPermissions } from '@/lib/supabase-server';
+import { AccessDenied } from '@/components/access-denied';
 import {
   listTripsForUser,
   type Trip,
@@ -85,6 +86,11 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
   const user = await getCurrentUser();
   if (!user) {
     redirect('/login');
+  }
+
+  const permissions = await getCurrentUserPermissions();
+  if (!permissions?.can_manage_trips) {
+    return <AccessDenied message="You don't have permission to manage trips." />;
   }
 
   const params = await searchParams;

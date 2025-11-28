@@ -11,7 +11,8 @@ import {
   Building2,
 } from 'lucide-react';
 
-import { getCurrentUser } from '@/lib/supabase-server';
+import { getCurrentUser, getCurrentUserPermissions } from '@/lib/supabase-server';
+import { AccessDenied } from '@/components/access-denied';
 import { getFinanceSummary } from '@/data/settlements';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,11 @@ export default async function FinanceOverviewPage() {
   const user = await getCurrentUser();
   if (!user) {
     redirect('/login');
+  }
+
+  const permissions = await getCurrentUserPermissions();
+  if (!permissions?.can_view_financials) {
+    return <AccessDenied message="You don't have permission to view financial data." />;
   }
 
   let summary = null;
