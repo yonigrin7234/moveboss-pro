@@ -48,6 +48,7 @@ interface TripMapTabProps {
   truckCapacity?: number | null;
   tripLoads: TripLoadData[];
   onRequestLoad?: (loadId: string) => void;
+  onReorderLoads?: (items: { load_id: string; sequence_index: number }[]) => void;
 }
 
 interface SuggestionResponse {
@@ -104,6 +105,7 @@ export function TripMapTab({
   truckCapacity,
   tripLoads,
   onRequestLoad,
+  onReorderLoads,
 }: TripMapTabProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -327,6 +329,8 @@ export function TripMapTab({
         marketplaceLoads={marketplaceLoads}
         onRequestLoad={handleRequestLoad}
         onRouteDistanceCalculated={handleRouteDistanceCalculated}
+        onReorderLoads={onReorderLoads}
+        tripLoadsRaw={tripLoads}
       />
 
       {/* Marketplace Suggestions List */}

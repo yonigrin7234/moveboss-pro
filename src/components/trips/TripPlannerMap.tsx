@@ -1,8 +1,25 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import { Truck, Package, MapPin, Navigation, Loader2 } from 'lucide-react';
+import { Truck, Package, MapPin, Navigation, Loader2, GripVertical } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +76,28 @@ export interface MarketplaceLoad extends TripLoad {
   addedMiles?: number;
 }
 
+interface TripLoadRaw {
+  id: string;
+  load_id: string;
+  sequence_index: number;
+  role: string;
+  load?: {
+    id: string;
+    load_number: string | null;
+    origin_city?: string;
+    origin_state?: string;
+    origin_zip?: string;
+    destination_city?: string;
+    destination_state?: string;
+    destination_zip?: string;
+    cubic_feet?: number | null;
+    estimated_cuft?: number | null;
+    total_rate?: number | null;
+    load_status?: string | null;
+    company?: { id: string; name: string } | null;
+  } | null;
+}
+
 export interface TripPlannerMapProps {
   tripId: string;
   originCity?: string;
@@ -73,6 +112,8 @@ export interface TripPlannerMapProps {
   onLoadClick?: (load: TripLoad | MarketplaceLoad) => void;
   onRequestLoad?: (load: MarketplaceLoad) => void;
   onRouteDistanceCalculated?: (distance: number) => void;
+  onReorderLoads?: (items: { load_id: string; sequence_index: number }[]) => void;
+  tripLoadsRaw?: TripLoadRaw[];
 }
 
 interface LoadMarker {
@@ -80,6 +121,61 @@ interface LoadMarker {
   originCoords?: GeoCoordinates;
   destinationCoords?: GeoCoordinates;
   isMarketplace: boolean;
+}
+
+// Sortable load item for drag-and-drop
+function SortableLoadItem({
+  load,
+  index,
+  onSelect,
+}: {
+  load: TripLoad;
+  index: number;
+  onSelect: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: load.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center justify-between p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors ${isDragging ? 'z-50' : ''}`}
+    >
+      <div className="flex items-center gap-2">
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
+        >
+          <GripVertical className="h-4 w-4" />
+        </div>
+        <span className="text-xs text-muted-foreground">{index + 1}.</span>
+        <div className="cursor-pointer" onClick={onSelect}>
+          <p className="text-sm font-medium">{load.loadNumber}</p>
+          <p className="text-xs text-muted-foreground">{load.companyName}</p>
+        </div>
+      </div>
+      <div className="text-right cursor-pointer" onClick={onSelect}>
+        <p className="text-sm font-medium">{load.cubicFeet?.toLocaleString() || 0} cf</p>
+        <Badge variant={load.isPickup ? 'default' : 'secondary'} className="text-xs">
+          {load.isPickup ? 'Pickup' : 'Load'}
+        </Badge>
+      </div>
+    </div>
+  );
 }
 
 export function TripPlannerMap({
@@ -96,6 +192,8 @@ export function TripPlannerMap({
   onLoadClick,
   onRequestLoad,
   onRouteDistanceCalculated,
+  onReorderLoads,
+  tripLoadsRaw = [],
 }: TripPlannerMapProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [tripOrigin, setTripOrigin] = useState<GeoCoordinates | null>(null);
@@ -110,6 +208,57 @@ export function TripPlannerMap({
     pickup?: L.DivIcon;
     marketplace?: L.DivIcon;
   }>({});
+
+  // State for orderable loads (maintains order during drag)
+  const [orderedAssignedLoads, setOrderedAssignedLoads] = useState(assignedLoads);
+
+  // Update ordered loads when assignedLoads changes from parent
+  useEffect(() => {
+    setOrderedAssignedLoads(assignedLoads);
+  }, [assignedLoads]);
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Handle drag end for reordering
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+
+      if (over && active.id !== over.id) {
+        setOrderedAssignedLoads((items) => {
+          const oldIndex = items.findIndex((item) => item.id === active.id);
+          const newIndex = items.findIndex((item) => item.id === over.id);
+          const newItems = arrayMove(items, oldIndex, newIndex);
+
+          // Call parent callback if provided
+          if (onReorderLoads && tripLoadsRaw.length > 0) {
+            // Map back to load_ids using tripLoadsRaw
+            const reorderPayload = newItems.map((item, index) => {
+              const rawLoad = tripLoadsRaw.find((tl) => tl.load?.id === item.id);
+              return {
+                load_id: rawLoad?.load_id || item.id,
+                sequence_index: index,
+              };
+            });
+            onReorderLoads(reorderPayload);
+          }
+
+          return newItems;
+        });
+      }
+    },
+    [onReorderLoads, tripLoadsRaw]
+  );
 
   // Calculate capacity
   const usedCapacity = useMemo(() => {
@@ -592,38 +741,41 @@ export function TripPlannerMap({
       )}
 
       {/* Assigned Loads Summary */}
-      {assignedLoads.length > 0 && (
+      {orderedAssignedLoads.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Assigned Loads ({assignedLoads.length})</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm">Assigned Loads ({orderedAssignedLoads.length})</CardTitle>
+              {onReorderLoads && (
+                <span className="text-xs text-muted-foreground">Drag to reorder</span>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="p-3 pt-0">
-            <div className="space-y-2">
-              {assignedLoads.map((load, index) => (
-                <div
-                  key={load.id}
-                  className="flex items-center justify-between p-2 rounded-lg bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
-                  onClick={() => {
-                    setSelectedLoad(load);
-                    onLoadClick?.(load);
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">{index + 1}.</span>
-                    <div>
-                      <p className="text-sm font-medium">{load.loadNumber}</p>
-                      <p className="text-xs text-muted-foreground">{load.companyName}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">{load.cubicFeet?.toLocaleString() || 0} cf</p>
-                    <Badge variant={load.isPickup ? 'default' : 'secondary'} className="text-xs">
-                      {load.isPickup ? 'Pickup' : 'Load'}
-                    </Badge>
-                  </div>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={orderedAssignedLoads.map((load) => load.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-2">
+                  {orderedAssignedLoads.map((load, index) => (
+                    <SortableLoadItem
+                      key={load.id}
+                      load={load}
+                      index={index}
+                      onSelect={() => {
+                        setSelectedLoad(load);
+                        onLoadClick?.(load);
+                      }}
+                    />
+                  ))}
                 </div>
-              ))}
-            </div>
+              </SortableContext>
+            </DndContext>
           </CardContent>
         </Card>
       )}

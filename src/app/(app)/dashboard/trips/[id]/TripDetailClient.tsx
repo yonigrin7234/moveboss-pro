@@ -820,6 +820,9 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                 } : null,
               };
             })}
+            onReorderLoads={async (items) => {
+              await actions.reorderLoads(items);
+            }}
           />
         </TabsContent>
 
