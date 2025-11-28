@@ -18,9 +18,10 @@ interface DatePickerProps {
   defaultValue?: string
   placeholder?: string
   className?: string
+  onChange?: (value: string) => void
 }
 
-export function DatePicker({ name, defaultValue, placeholder = "Pick a date", className }: DatePickerProps) {
+export function DatePicker({ name, defaultValue, placeholder = "Pick a date", className, onChange }: DatePickerProps) {
   const [date, setDate] = React.useState<Date | undefined>(
     defaultValue ? new Date(defaultValue + 'T00:00:00') : undefined
   )
@@ -54,6 +55,9 @@ export function DatePicker({ name, defaultValue, placeholder = "Pick a date", cl
             onSelect={(newDate) => {
               setDate(newDate)
               setOpen(false)
+              if (onChange) {
+                onChange(newDate ? format(newDate, "yyyy-MM-dd") : "")
+              }
             }}
             initialFocus
           />

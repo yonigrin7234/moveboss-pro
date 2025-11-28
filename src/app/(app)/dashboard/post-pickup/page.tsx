@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Upload, ArrowLeft } from 'lucide-react';
+import { DatePicker } from '@/components/ui/date-picker';
 import Link from 'next/link';
 
 const SERVICE_TYPES = [
@@ -202,22 +203,18 @@ export default function PostPickupPage() {
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="pickup_date_start">Earliest Pickup Date *</Label>
-              <Input
-                id="pickup_date_start"
-                type="date"
-                value={formData.pickup_date_start}
-                onChange={(e) => handleChange('pickup_date_start', e.target.value)}
-                required
+              <DatePicker
+                name="pickup_date_start"
+                placeholder="Select earliest date"
+                onChange={(value) => handleChange('pickup_date_start', value)}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="pickup_date_end">Latest Pickup Date *</Label>
-              <Input
-                id="pickup_date_end"
-                type="date"
-                value={formData.pickup_date_end}
-                onChange={(e) => handleChange('pickup_date_end', e.target.value)}
-                required
+              <DatePicker
+                name="pickup_date_end"
+                placeholder="Select latest date"
+                onChange={(value) => handleChange('pickup_date_end', value)}
               />
             </div>
           </CardContent>
