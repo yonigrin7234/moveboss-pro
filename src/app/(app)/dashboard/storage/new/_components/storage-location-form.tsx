@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { DatePicker } from '@/components/ui/date-picker';
 import { useZipLookup } from '@/hooks/useZipLookup';
 
 interface StorageLocationFormProps {
@@ -463,11 +464,11 @@ export function StorageLocationForm({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="next_payment_due">Next Payment Due</Label>
-              <Input
-                id="next_payment_due"
+              <DatePicker
                 name="next_payment_due"
-                type="date"
-                defaultValue={initialData?.next_payment_due || ''}
+                defaultValue={initialData?.next_payment_due || undefined}
+                placeholder="Select date"
+                className="h-10"
               />
             </div>
             <div>
