@@ -72,10 +72,10 @@ function getInitials(label: string): string {
 
 function getRoleBadge(canPostLoads: boolean, canHaulLoads: boolean, role?: string | null): string {
   if (role === "owner_operator") return "Owner-Operator"
-  if (canPostLoads && canHaulLoads) return "Full Service"
+  if (canPostLoads && canHaulLoads) return "Moving Company"
   if (canPostLoads) return "Broker"
   if (canHaulLoads) return "Carrier"
-  return "Business"
+  return "Company"
 }
 
 function isChildActive(pathname: string, child: NavItem): boolean {
