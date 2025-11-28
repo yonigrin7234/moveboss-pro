@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Plus, Warehouse, MapPin, Phone, Package, Building2, Truck, AlertTriangle, Ban, Clock, Key } from 'lucide-react';
+import { Plus, Warehouse, MapPin, Phone, Package, Building2, Truck, AlertTriangle, Ban, Clock, Key, DollarSign, Calendar } from 'lucide-react';
 
 import { getCurrentUser } from '@/lib/supabase-server';
 import { getStorageLocationsWithLoadCount, StorageLocation } from '@/data/storage-locations';
@@ -46,7 +46,15 @@ const AccessibilityIcon = ({ accessibility }: { accessibility: string | null }) 
   return <Truck className="h-3 w-3" />;
 };
 
-function LocationCard({ location }: { location: StorageLocation }) {
+function LocationCard({ location }: { location: StorageLocation & { days_until_due?: number } }) {
+  // Calculate days until payment due if tracking is enabled
+  const daysUntilDue = location.track_payments && location.next_payment_due && !location.vacated_at
+    ? Math.ceil(
+        (new Date(location.next_payment_due).getTime() - new Date().setHours(0, 0, 0, 0)) /
+          (1000 * 60 * 60 * 24)
+      )
+    : null;
+
   return (
     <Link href={`/dashboard/storage/${location.id}`}>
       <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
@@ -73,6 +81,22 @@ function LocationCard({ location }: { location: StorageLocation }) {
                 >
                   <AccessibilityIcon accessibility={location.truck_accessibility} />
                   <span className="ml-1">{accessibilityLabels[location.truck_accessibility] || location.truck_accessibility}</span>
+                </Badge>
+              )}
+              {daysUntilDue !== null && (
+                <Badge
+                  className={`text-xs ${
+                    daysUntilDue <= 0
+                      ? 'bg-red-500/20 text-red-600 dark:text-red-400'
+                      : daysUntilDue <= 7
+                        ? 'bg-orange-500/20 text-orange-600 dark:text-orange-400'
+                        : 'bg-green-500/20 text-green-600 dark:text-green-400'
+                  }`}
+                >
+                  <DollarSign className="h-3 w-3 mr-1" />
+                  {daysUntilDue <= 0
+                    ? `${Math.abs(daysUntilDue)}d overdue`
+                    : `Due in ${daysUntilDue}d`}
                 </Badge>
               )}
             </div>
@@ -153,7 +177,7 @@ function LocationCard({ location }: { location: StorageLocation }) {
   );
 }
 
-function LocationsGrid({ locations, emptyMessage }: { locations: StorageLocation[]; emptyMessage: string }) {
+function LocationsGrid({ locations, emptyMessage }: { locations: (StorageLocation & { days_until_due?: number })[]; emptyMessage: string }) {
   if (locations.length === 0) {
     return (
       <Card>
@@ -201,6 +225,21 @@ export default async function StorageLocationsPage() {
   const warehouses = locations.filter((l) => l.location_type === 'warehouse');
   const publicStorages = locations.filter((l) => l.location_type === 'public_storage');
 
+  // Calculate locations with payments due (within alert threshold)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const locationsWithPaymentsDue = locations
+    .filter((loc) => loc.track_payments && loc.next_payment_due && !loc.vacated_at)
+    .map((loc) => {
+      const dueDate = new Date(loc.next_payment_due!);
+      dueDate.setHours(0, 0, 0, 0);
+      const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return { ...loc, days_until_due: daysUntilDue };
+    })
+    .filter((loc) => loc.days_until_due <= (loc.alert_days_before || 7))
+    .sort((a, b) => a.days_until_due - b.days_until_due);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -228,7 +267,7 @@ export default async function StorageLocationsPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
@@ -284,6 +323,24 @@ export default async function StorageLocationsPage() {
             </div>
           </CardContent>
         </Card>
+
+        <Card className={locationsWithPaymentsDue.length > 0 ? 'border-orange-500/50' : ''}>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
+                locationsWithPaymentsDue.length > 0 ? 'bg-orange-500/10' : 'bg-gray-500/10'
+              }`}>
+                <DollarSign className={`h-6 w-6 ${
+                  locationsWithPaymentsDue.length > 0 ? 'text-orange-500' : 'text-gray-500'
+                }`} />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{locationsWithPaymentsDue.length}</p>
+                <p className="text-sm text-muted-foreground">Payments Due</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Tabs for filtering */}
@@ -297,6 +354,9 @@ export default async function StorageLocationsPage() {
           </TabsTrigger>
           <TabsTrigger value="public_storage">
             Public Storage ({publicStorages.length})
+          </TabsTrigger>
+          <TabsTrigger value="payments_due" className={locationsWithPaymentsDue.length > 0 ? 'text-orange-600 dark:text-orange-400' : ''}>
+            Payments Due ({locationsWithPaymentsDue.length})
           </TabsTrigger>
         </TabsList>
 
@@ -318,6 +378,13 @@ export default async function StorageLocationsPage() {
           <LocationsGrid
             locations={publicStorages}
             emptyMessage="No public storage locations yet"
+          />
+        </TabsContent>
+
+        <TabsContent value="payments_due" className="mt-4">
+          <LocationsGrid
+            locations={locationsWithPaymentsDue}
+            emptyMessage="No payments due - you're all caught up!"
           />
         </TabsContent>
       </Tabs>
