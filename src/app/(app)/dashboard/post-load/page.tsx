@@ -69,8 +69,14 @@ export default function PostLoadPage() {
     city: '',
     state: '',
     address: '',
+    address_line2: '',
     contact_name: '',
     contact_phone: '',
+    // Warehouse-specific
+    truck_accessibility: 'full' as 'full' | 'limited' | 'none',
+    // Public storage-specific
+    account_number: '',
+    unit_numbers: '',
   });
 
   // Fetch storage locations on mount
@@ -360,20 +366,32 @@ export default function PostLoadPage() {
             throw new Error('Please fill in all required storage location fields');
           }
 
+          const storageInsertData: Record<string, unknown> = {
+            owner_id: user.id,
+            name: newStorageData.name,
+            location_type: newStorageData.location_type,
+            address_line1: newStorageData.address || null,
+            address_line2: newStorageData.address_line2 || null,
+            city: newStorageData.city,
+            state: newStorageData.state,
+            zip: newStorageData.zip,
+            contact_name: newStorageData.contact_name || null,
+            contact_phone: newStorageData.contact_phone || null,
+            is_active: true,
+          };
+
+          // Add type-specific fields
+          if (newStorageData.location_type === 'warehouse') {
+            storageInsertData.truck_accessibility = newStorageData.truck_accessibility;
+          } else {
+            // public_storage
+            storageInsertData.account_number = newStorageData.account_number || null;
+            storageInsertData.unit_numbers = newStorageData.unit_numbers || null;
+          }
+
           const { data: newStorage, error: storageError } = await supabase
             .from('storage_locations')
-            .insert({
-              owner_id: user.id,
-              name: newStorageData.name,
-              location_type: newStorageData.location_type,
-              address_line1: newStorageData.address || null,
-              city: newStorageData.city,
-              state: newStorageData.state,
-              zip: newStorageData.zip,
-              contact_name: newStorageData.contact_name || null,
-              contact_phone: newStorageData.contact_phone || null,
-              is_active: true,
-            })
+            .insert(storageInsertData)
             .select('id, name')
             .single();
 
@@ -1043,16 +1061,91 @@ export default function PostLoadPage() {
                         />
                       </div>
                     </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="new_storage_address" className="text-sm">Address</Label>
-                      <Input
-                        id="new_storage_address"
-                        value={newStorageData.address}
-                        onChange={(e) => handleNewStorageChange('address', e.target.value)}
-                        placeholder="123 Storage Blvd (optional)"
-                        className="h-9"
-                      />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="new_storage_address" className="text-sm">Address</Label>
+                        <Input
+                          id="new_storage_address"
+                          value={newStorageData.address}
+                          onChange={(e) => handleNewStorageChange('address', e.target.value)}
+                          placeholder="123 Storage Blvd"
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="new_storage_address_line2" className="text-sm">Address Line 2</Label>
+                        <Input
+                          id="new_storage_address_line2"
+                          value={newStorageData.address_line2}
+                          onChange={(e) => handleNewStorageChange('address_line2', e.target.value)}
+                          placeholder={newStorageData.location_type === 'warehouse' ? 'Bay 12' : 'Suite 100'}
+                          className="h-9"
+                        />
+                      </div>
                     </div>
+
+                    {/* Warehouse-specific: Truck Accessibility */}
+                    {newStorageData.location_type === 'warehouse' && (
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">Truck Accessibility *</Label>
+                        <RadioGroup
+                          value={newStorageData.truck_accessibility}
+                          onValueChange={(value: 'full' | 'limited' | 'none') =>
+                            setNewStorageData((prev) => ({ ...prev, truck_accessibility: value }))
+                          }
+                          className="flex gap-4"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="full" id="truck_full" />
+                            <Label htmlFor="truck_full" className="font-normal cursor-pointer text-sm flex items-center gap-1">
+                              <Truck className="h-3 w-3 text-green-500" />
+                              Full
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="limited" id="truck_limited" />
+                            <Label htmlFor="truck_limited" className="font-normal cursor-pointer text-sm flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3 text-yellow-500" />
+                              Limited
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="none" id="truck_none" />
+                            <Label htmlFor="truck_none" className="font-normal cursor-pointer text-sm flex items-center gap-1">
+                              <Ban className="h-3 w-3 text-red-500" />
+                              None
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
+                    )}
+
+                    {/* Public Storage-specific: Account & Units */}
+                    {newStorageData.location_type === 'public_storage' && (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="new_storage_account" className="text-sm">Account Number</Label>
+                          <Input
+                            id="new_storage_account"
+                            value={newStorageData.account_number}
+                            onChange={(e) => handleNewStorageChange('account_number', e.target.value)}
+                            placeholder="ACC-12345"
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="new_storage_units" className="text-sm">Unit Numbers</Label>
+                          <Input
+                            id="new_storage_units"
+                            value={newStorageData.unit_numbers}
+                            onChange={(e) => handleNewStorageChange('unit_numbers', e.target.value)}
+                            placeholder="101, 102, 103"
+                            className="h-9"
+                          />
+                        </div>
+                      </div>
+                    )}
+
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label htmlFor="new_storage_contact_name" className="text-sm">Contact Name</Label>
