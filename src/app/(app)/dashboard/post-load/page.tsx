@@ -284,62 +284,61 @@ export default function PostLoadPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
+    <div className="space-y-4 max-w-4xl">
+      <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/dashboard/posted-jobs">
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Post a Load</h1>
-          <p className="text-muted-foreground">
-            Post a load for carriers to deliver. You pay the carrier for the delivery.
+          <h1 className="text-xl font-bold tracking-tight">Post a Load</h1>
+          <p className="text-sm text-muted-foreground">
+            You pay the carrier for the delivery.
           </p>
         </div>
       </div>
 
       {error && (
-        <div className="bg-destructive/10 text-destructive p-4 rounded-lg">
+        <div className="bg-destructive/10 text-destructive p-3 rounded-lg text-sm">
           {error}
         </div>
       )}
 
       <Tabs value={loadType} onValueChange={(v) => setLoadType(v as LoadType)}>
-        <TabsList className="grid w-full grid-cols-2 max-w-md">
-          <TabsTrigger value="live_load" className="flex items-center gap-2">
+        <TabsList className="grid w-full grid-cols-2 max-w-sm">
+          <TabsTrigger value="live_load" className="flex items-center gap-2 text-sm">
             <Truck className="h-4 w-4" />
             Live Load
           </TabsTrigger>
-          <TabsTrigger value="rfd" className="flex items-center gap-2">
+          <TabsTrigger value="rfd" className="flex items-center gap-2 text-sm">
             <Warehouse className="h-4 w-4" />
-            RFD (Ready For Delivery)
+            RFD
           </TabsTrigger>
         </TabsList>
 
         {/* Live Load Form */}
         <TabsContent value="live_load">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Customer Info + Pickup Date */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Customer Information</CardTitle>
-                <CardDescription>
-                  Carrier will pick up directly from the customer&apos;s location.
-                </CardDescription>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Customer & Pickup</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="ll_customer_name">Customer Name *</Label>
+              <CardContent className="grid gap-3 sm:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="ll_customer_name" className="text-sm">Customer Name *</Label>
                   <Input
                     id="ll_customer_name"
                     value={liveLoadData.customer_name}
                     onChange={(e) => handleLiveLoadChange('customer_name', e.target.value)}
                     placeholder="John Smith"
                     required
+                    className="h-9"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ll_customer_phone">Customer Phone *</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ll_customer_phone" className="text-sm">Customer Phone *</Label>
                   <Input
                     id="ll_customer_phone"
                     type="tel"
@@ -347,132 +346,143 @@ export default function PostLoadPage() {
                     onChange={(e) => handleLiveLoadChange('customer_phone', e.target.value)}
                     placeholder="(555) 123-4567"
                     required
+                    className="h-9"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ll_pickup_date">Pickup Date *</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ll_pickup_date" className="text-sm">Pickup Date *</Label>
                   <DatePicker
                     name="ll_pickup_date"
-                    placeholder="Select pickup date"
+                    placeholder="Select date"
                     onChange={(value) => handleLiveLoadChange('pickup_date', value)}
+                    className="h-9"
                   />
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Origin (Customer Location)</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="ll_origin_address">Address *</Label>
-                  <Input
-                    id="ll_origin_address"
-                    value={liveLoadData.origin_address}
-                    onChange={(e) => handleLiveLoadChange('origin_address', e.target.value)}
-                    placeholder="123 Main St"
-                    required
-                  />
-                </div>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="ll_origin_city">City *</Label>
+            {/* Origin & Destination side by side */}
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Origin</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ll_origin_address" className="text-sm">Address *</Label>
                     <Input
-                      id="ll_origin_city"
-                      value={liveLoadData.origin_city}
-                      onChange={(e) => handleLiveLoadChange('origin_city', e.target.value)}
-                      placeholder="New York"
+                      id="ll_origin_address"
+                      value={liveLoadData.origin_address}
+                      onChange={(e) => handleLiveLoadChange('origin_address', e.target.value)}
+                      placeholder="123 Main St"
                       required
+                      className="h-9"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ll_origin_state">State *</Label>
-                    <Input
-                      id="ll_origin_state"
-                      value={liveLoadData.origin_state}
-                      onChange={(e) => handleLiveLoadChange('origin_state', e.target.value)}
-                      placeholder="NY"
-                      maxLength={2}
-                      required
-                    />
+                  <div className="grid gap-2 grid-cols-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ll_origin_city" className="text-sm">City *</Label>
+                      <Input
+                        id="ll_origin_city"
+                        value={liveLoadData.origin_city}
+                        onChange={(e) => handleLiveLoadChange('origin_city', e.target.value)}
+                        placeholder="New York"
+                        required
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ll_origin_state" className="text-sm">State *</Label>
+                      <Input
+                        id="ll_origin_state"
+                        value={liveLoadData.origin_state}
+                        onChange={(e) => handleLiveLoadChange('origin_state', e.target.value)}
+                        placeholder="NY"
+                        maxLength={2}
+                        required
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ll_origin_zip" className="text-sm">ZIP *</Label>
+                      <Input
+                        id="ll_origin_zip"
+                        value={liveLoadData.origin_zip}
+                        onChange={(e) => handleLiveLoadChange('origin_zip', e.target.value)}
+                        placeholder="10001"
+                        required
+                        className="h-9"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ll_origin_zip">ZIP Code *</Label>
-                    <Input
-                      id="ll_origin_zip"
-                      value={liveLoadData.origin_zip}
-                      onChange={(e) => handleLiveLoadChange('origin_zip', e.target.value)}
-                      placeholder="10001"
-                      required
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Destination</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="ll_destination_address">Address *</Label>
-                  <Input
-                    id="ll_destination_address"
-                    value={liveLoadData.destination_address}
-                    onChange={(e) => handleLiveLoadChange('destination_address', e.target.value)}
-                    placeholder="456 Oak Ave"
-                    required
-                  />
-                </div>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="ll_destination_city">City *</Label>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Destination</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ll_destination_address" className="text-sm">Address *</Label>
                     <Input
-                      id="ll_destination_city"
-                      value={liveLoadData.destination_city}
-                      onChange={(e) => handleLiveLoadChange('destination_city', e.target.value)}
-                      placeholder="Los Angeles"
+                      id="ll_destination_address"
+                      value={liveLoadData.destination_address}
+                      onChange={(e) => handleLiveLoadChange('destination_address', e.target.value)}
+                      placeholder="456 Oak Ave"
                       required
+                      className="h-9"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ll_destination_state">State *</Label>
-                    <Input
-                      id="ll_destination_state"
-                      value={liveLoadData.destination_state}
-                      onChange={(e) => handleLiveLoadChange('destination_state', e.target.value)}
-                      placeholder="CA"
-                      maxLength={2}
-                      required
-                    />
+                  <div className="grid gap-2 grid-cols-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ll_destination_city" className="text-sm">City *</Label>
+                      <Input
+                        id="ll_destination_city"
+                        value={liveLoadData.destination_city}
+                        onChange={(e) => handleLiveLoadChange('destination_city', e.target.value)}
+                        placeholder="Los Angeles"
+                        required
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ll_destination_state" className="text-sm">State *</Label>
+                      <Input
+                        id="ll_destination_state"
+                        value={liveLoadData.destination_state}
+                        onChange={(e) => handleLiveLoadChange('destination_state', e.target.value)}
+                        placeholder="CA"
+                        maxLength={2}
+                        required
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ll_destination_zip" className="text-sm">ZIP *</Label>
+                      <Input
+                        id="ll_destination_zip"
+                        value={liveLoadData.destination_zip}
+                        onChange={(e) => handleLiveLoadChange('destination_zip', e.target.value)}
+                        placeholder="90001"
+                        required
+                        className="h-9"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ll_destination_zip">ZIP Code *</Label>
-                    <Input
-                      id="ll_destination_zip"
-                      value={liveLoadData.destination_zip}
-                      onChange={(e) => handleLiveLoadChange('destination_zip', e.target.value)}
-                      placeholder="90001"
-                      required
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
 
+            {/* Pricing & Options */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Load Details & Pricing</CardTitle>
-                <CardDescription>
-                  Linehaul is what you pay the carrier for delivery.
-                </CardDescription>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Pricing & Options</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-4">
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="ll_cubic_feet">CUFT *</Label>
+              <CardContent className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ll_cubic_feet" className="text-sm">CUFT *</Label>
                     <Input
                       id="ll_cubic_feet"
                       type="number"
@@ -481,10 +491,11 @@ export default function PostLoadPage() {
                       onChange={(e) => handleLiveLoadChange('cubic_feet', e.target.value)}
                       placeholder="500"
                       required
+                      className="h-9"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ll_rate_per_cuft">Rate per CUFT ($) *</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ll_rate_per_cuft" className="text-sm">Rate/CUFT ($) *</Label>
                     <Input
                       id="ll_rate_per_cuft"
                       type="number"
@@ -494,10 +505,11 @@ export default function PostLoadPage() {
                       onChange={(e) => handleLiveLoadChange('rate_per_cuft', e.target.value)}
                       placeholder="3.50"
                       required
+                      className="h-9"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ll_linehaul_amount">Linehaul ($) *</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ll_linehaul_amount" className="text-sm">Linehaul ($) *</Label>
                     <Input
                       id="ll_linehaul_amount"
                       type="number"
@@ -507,41 +519,42 @@ export default function PostLoadPage() {
                       onChange={(e) => handleLiveLoadChange('linehaul_amount', e.target.value)}
                       placeholder="1750.00"
                       required
+                      className="h-9"
                     />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ll_service_type" className="text-sm">Service Type *</Label>
+                    <Select
+                      value={liveLoadData.service_type}
+                      onValueChange={(value) => handleLiveLoadChange('service_type', value)}
+                    >
+                      <SelectTrigger id="ll_service_type" className="h-9">
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SERVICE_TYPES.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="ll_service_type">Service Type *</Label>
-                  <Select
-                    value={liveLoadData.service_type}
-                    onValueChange={(value) => handleLiveLoadChange('service_type', value)}
-                  >
-                    <SelectTrigger id="ll_service_type">
-                      <SelectValue placeholder="Select service type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SERVICE_TYPES.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="ll_notes">Notes</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ll_notes" className="text-sm">Notes</Label>
                   <Textarea
                     id="ll_notes"
                     value={liveLoadData.notes}
                     onChange={(e) => handleLiveLoadChange('notes', e.target.value)}
                     placeholder="Any special instructions"
-                    rows={3}
+                    rows={2}
+                    className="text-sm"
                   />
                 </div>
 
-                <div className="flex items-start gap-3 pt-2 border-t">
+                <div className="flex items-center gap-3 pt-2 border-t">
                   <Checkbox
                     id="ll_open_to_counter"
                     checked={liveLoadData.is_open_to_counter}
@@ -549,56 +562,42 @@ export default function PostLoadPage() {
                       setLiveLoadData((prev) => ({ ...prev, is_open_to_counter: checked === true }))
                     }
                   />
-                  <label
-                    htmlFor="ll_open_to_counter"
-                    className="cursor-pointer text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    <span className="font-medium">Open to counter offers</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Carriers can propose a different rate when requesting this load
-                    </p>
+                  <label htmlFor="ll_open_to_counter" className="cursor-pointer text-sm">
+                    Open to counter offers
                   </label>
                 </div>
 
-                <div className="space-y-3 pt-4 border-t">
-                  <Label>Truck Requirement</Label>
+                <div className="pt-2 border-t">
+                  <Label className="text-sm mb-2 block">Truck Requirement</Label>
                   <RadioGroup
                     value={liveLoadData.truck_requirement}
                     onValueChange={(value: TruckRequirement) =>
                       setLiveLoadData((prev) => ({ ...prev, truck_requirement: value }))
                     }
-                    className="flex flex-col gap-2"
+                    className="flex flex-wrap gap-4"
                   >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="any" id="ll_truck_any" />
-                      <Label htmlFor="ll_truck_any" className="font-normal cursor-pointer">
-                        Any Truck
-                      </Label>
+                      <Label htmlFor="ll_truck_any" className="font-normal cursor-pointer text-sm">Any</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="semi_only" id="ll_truck_semi" />
-                      <Label htmlFor="ll_truck_semi" className="font-normal cursor-pointer flex items-center gap-2">
-                        🚛 Semi Only
-                        <span className="text-xs text-muted-foreground">(53&apos; trailer required)</span>
-                      </Label>
+                      <Label htmlFor="ll_truck_semi" className="font-normal cursor-pointer text-sm">🚛 Semi Only</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="box_truck_only" id="ll_truck_box" />
-                      <Label htmlFor="ll_truck_box" className="font-normal cursor-pointer flex items-center gap-2">
-                        📦 Box Truck Only
-                        <span className="text-xs text-muted-foreground">(No semi trucks)</span>
-                      </Label>
+                      <Label htmlFor="ll_truck_box" className="font-normal cursor-pointer text-sm">📦 Box Truck Only</Label>
                     </div>
                   </RadioGroup>
                 </div>
               </CardContent>
             </Card>
 
-            <div className="flex justify-end gap-4">
-              <Button type="button" variant="outline" asChild>
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="outline" size="sm" asChild>
                 <Link href="/dashboard/posted-jobs">Cancel</Link>
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" size="sm" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -617,64 +616,59 @@ export default function PostLoadPage() {
 
         {/* RFD Form */}
         <TabsContent value="rfd">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Storage Location</CardTitle>
-                <CardDescription>
-                  Where the carrier will pick up the load from storage.
-                </CardDescription>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Storage Location</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-4">
+              <CardContent className="space-y-3">
                 {/* Storage Location Selector */}
-                <div className="space-y-2">
-                  <Label htmlFor="rfd_storage_location">Select Storage Location *</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="rfd_storage_location" className="text-sm">Select Storage Location *</Label>
                   {loadingStorage ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 border rounded-md">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 border rounded-md">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading storage locations...
+                      Loading...
                     </div>
                   ) : storageOptions.length === 0 ? (
-                    <div className="p-4 border rounded-lg bg-muted/50 text-center">
-                      <Warehouse className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                      <p className="text-sm text-muted-foreground mb-3">
-                        No storage locations found. Add a warehouse or public storage first.
-                      </p>
+                    <div className="p-3 border rounded-lg bg-muted/50 text-center">
+                      <Warehouse className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-xs text-muted-foreground mb-2">No storage locations found.</p>
                       <div className="flex gap-2 justify-center">
                         <Button type="button" variant="outline" size="sm" asChild>
                           <Link href="/dashboard/storage/new?type=warehouse">
-                            <Building2 className="h-4 w-4 mr-1" />
+                            <Building2 className="h-3 w-3 mr-1" />
                             Add Warehouse
                           </Link>
                         </Button>
                         <Button type="button" size="sm" asChild>
                           <Link href="/dashboard/storage/new?type=public_storage">
-                            <Warehouse className="h-4 w-4 mr-1" />
-                            Add Public Storage
+                            <Warehouse className="h-3 w-3 mr-1" />
+                            Add Storage
                           </Link>
                         </Button>
                       </div>
                     </div>
                   ) : (
-                    <>
+                    <div className="flex gap-2">
                       <Select
                         value={rfdData.storage_location_id}
                         onValueChange={handleStorageSelect}
                       >
-                        <SelectTrigger id="rfd_storage_location">
-                          <SelectValue placeholder="Select a storage location" />
+                        <SelectTrigger id="rfd_storage_location" className="h-9">
+                          <SelectValue placeholder="Select location" />
                         </SelectTrigger>
                         <SelectContent>
                           {storageOptions.map((location) => (
                             <SelectItem key={location.id} value={location.id}>
                               <div className="flex items-center gap-2">
                                 {location.location_type === 'warehouse' ? (
-                                  <Building2 className="h-4 w-4 text-blue-500" />
+                                  <Building2 className="h-3 w-3 text-blue-500" />
                                 ) : (
-                                  <Warehouse className="h-4 w-4 text-purple-500" />
+                                  <Warehouse className="h-3 w-3 text-purple-500" />
                                 )}
                                 <span>{location.name}</span>
-                                <span className="text-muted-foreground">
+                                <span className="text-muted-foreground text-xs">
                                   - {location.city}, {location.state}
                                 </span>
                               </div>
@@ -682,32 +676,29 @@ export default function PostLoadPage() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <div className="flex justify-end">
-                        <Button type="button" variant="link" size="sm" asChild className="px-0">
-                          <Link href="/dashboard/storage/new?type=warehouse">
-                            <Plus className="h-3 w-3 mr-1" />
-                            Add new location
-                          </Link>
-                        </Button>
-                      </div>
-                    </>
+                      <Button type="button" variant="outline" size="sm" asChild className="h-9">
+                        <Link href="/dashboard/storage/new?type=warehouse">
+                          <Plus className="h-3 w-3" />
+                        </Link>
+                      </Button>
+                    </div>
                   )}
                 </div>
 
                 {/* Show selected storage details */}
                 {selectedStorage && (
-                  <div className="p-4 bg-muted/50 rounded-lg space-y-3">
+                  <div className="p-3 bg-muted/50 rounded-lg space-y-2">
                     <div className="flex items-start justify-between">
                       <div>
-                        <h4 className="font-medium">{selectedStorage.name}</h4>
-                        <p className="text-sm text-muted-foreground">
+                        <h4 className="font-medium text-sm">{selectedStorage.name}</h4>
+                        <p className="text-xs text-muted-foreground">
                           {selectedStorage.address_line1 && `${selectedStorage.address_line1}, `}
                           {selectedStorage.city}, {selectedStorage.state} {selectedStorage.zip}
                         </p>
                       </div>
                       <Badge
                         variant="outline"
-                        className={
+                        className={`text-xs ${
                           selectedStorage.truck_accessibility === 'full'
                             ? 'bg-green-500/20 text-green-600'
                             : selectedStorage.truck_accessibility === 'limited'
@@ -715,135 +706,107 @@ export default function PostLoadPage() {
                               : selectedStorage.truck_accessibility === 'none'
                                 ? 'bg-red-500/20 text-red-600'
                                 : ''
-                        }
+                        }`}
                       >
-                        {selectedStorage.truck_accessibility === 'full' && (
-                          <>
-                            <Truck className="h-3 w-3 mr-1" />
-                            Full Access
-                          </>
-                        )}
-                        {selectedStorage.truck_accessibility === 'limited' && (
-                          <>
-                            <AlertTriangle className="h-3 w-3 mr-1" />
-                            Limited
-                          </>
-                        )}
-                        {selectedStorage.truck_accessibility === 'none' && (
-                          <>
-                            <Ban className="h-3 w-3 mr-1" />
-                            No Truck Access
-                          </>
-                        )}
+                        {selectedStorage.truck_accessibility === 'full' && 'Full Access'}
+                        {selectedStorage.truck_accessibility === 'limited' && 'Limited'}
+                        {selectedStorage.truck_accessibility === 'none' && 'No Truck'}
                         {!selectedStorage.truck_accessibility && 'Unknown'}
                       </Badge>
                     </div>
-                    {selectedStorage.unit_numbers && (
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Units:</span>{' '}
-                        <span className="font-mono">{selectedStorage.unit_numbers}</span>
-                      </div>
-                    )}
-                    {selectedStorage.access_hours && (
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Hours:</span>{' '}
-                        {selectedStorage.access_hours}
-                      </div>
-                    )}
-                    {selectedStorage.gate_code && (
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Gate Code:</span>{' '}
-                        <span className="font-mono bg-background px-1 rounded">
-                          {selectedStorage.gate_code}
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex flex-wrap gap-3 text-xs">
+                      {selectedStorage.unit_numbers && (
+                        <span><span className="text-muted-foreground">Units:</span> {selectedStorage.unit_numbers}</span>
+                      )}
+                      {selectedStorage.access_hours && (
+                        <span><span className="text-muted-foreground">Hours:</span> {selectedStorage.access_hours}</span>
+                      )}
+                      {selectedStorage.gate_code && (
+                        <span><span className="text-muted-foreground">Gate:</span> <span className="font-mono">{selectedStorage.gate_code}</span></span>
+                      )}
+                    </div>
                   </div>
                 )}
 
-                {/* Unit selection for public storage */}
-                {selectedStorage?.location_type === 'public_storage' && selectedStorage.unit_numbers && (
-                  <div className="space-y-2">
-                    <Label htmlFor="rfd_unit">Storage Unit *</Label>
-                    <Input
-                      id="rfd_unit"
-                      value={rfdData.storage_unit_numbers}
-                      onChange={(e) => handleRfdChange('storage_unit_numbers', e.target.value)}
-                      placeholder="Enter specific unit (e.g., 101)"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Available units: {selectedStorage.unit_numbers}
-                    </p>
-                  </div>
-                )}
-
-                <div className="space-y-3 pt-4 border-t">
-                  <Label>When is this load ready for delivery?</Label>
-                  <RadioGroup
-                    value={rfdData.rfd_ready_type}
-                    onValueChange={(value: 'ready_now' | 'ready_on_date') =>
-                      setRfdData((prev) => ({ ...prev, rfd_ready_type: value }))
-                    }
-                    className="flex flex-col gap-2"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="ready_now" id="ready_now" />
-                      <Label htmlFor="ready_now" className="font-normal cursor-pointer">
-                        Ready now
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="ready_on_date" id="ready_on_date" />
-                      <Label htmlFor="ready_on_date" className="font-normal cursor-pointer">
-                        Ready on date
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                  {rfdData.rfd_ready_type === 'ready_on_date' && (
-                    <div className="ml-6 space-y-2">
-                      <Label htmlFor="rfd_date">Available Date *</Label>
-                      <DatePicker
-                        name="rfd_date"
-                        placeholder="Select available date"
-                        onChange={(value) => setRfdData((prev) => ({ ...prev, rfd_date: value }))}
+                {/* Unit selection + Ready date */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {selectedStorage?.location_type === 'public_storage' && selectedStorage.unit_numbers && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="rfd_unit" className="text-sm">Storage Unit *</Label>
+                      <Input
+                        id="rfd_unit"
+                        value={rfdData.storage_unit_numbers}
+                        onChange={(e) => handleRfdChange('storage_unit_numbers', e.target.value)}
+                        placeholder="Enter unit (e.g., 101)"
+                        className="h-9"
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Carriers cannot request this load before this date
-                      </p>
                     </div>
                   )}
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">Ready for Delivery</Label>
+                    <RadioGroup
+                      value={rfdData.rfd_ready_type}
+                      onValueChange={(value: 'ready_now' | 'ready_on_date') =>
+                        setRfdData((prev) => ({ ...prev, rfd_ready_type: value }))
+                      }
+                      className="flex gap-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="ready_now" id="ready_now" />
+                        <Label htmlFor="ready_now" className="font-normal cursor-pointer text-sm">Now</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="ready_on_date" id="ready_on_date" />
+                        <Label htmlFor="ready_on_date" className="font-normal cursor-pointer text-sm">On date</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
                 </div>
+                {rfdData.rfd_ready_type === 'ready_on_date' && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rfd_date" className="text-sm">Available Date *</Label>
+                    <DatePicker
+                      name="rfd_date"
+                      placeholder="Select date"
+                      onChange={(value) => setRfdData((prev) => ({ ...prev, rfd_date: value }))}
+                      className="h-9"
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
 
+            {/* Destination */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Destination</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Destination</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="rfd_destination_address">Address *</Label>
+              <CardContent className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="rfd_destination_address" className="text-sm">Address *</Label>
                   <Input
                     id="rfd_destination_address"
                     value={rfdData.destination_address}
                     onChange={(e) => handleRfdChange('destination_address', e.target.value)}
                     placeholder="789 Pine Blvd"
                     required
+                    className="h-9"
                   />
                 </div>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="rfd_destination_city">City *</Label>
+                <div className="grid gap-2 grid-cols-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rfd_destination_city" className="text-sm">City *</Label>
                     <Input
                       id="rfd_destination_city"
                       value={rfdData.destination_city}
                       onChange={(e) => handleRfdChange('destination_city', e.target.value)}
                       placeholder="Miami"
                       required
+                      className="h-9"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="rfd_destination_state">State *</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rfd_destination_state" className="text-sm">State *</Label>
                     <Input
                       id="rfd_destination_state"
                       value={rfdData.destination_state}
@@ -851,33 +814,33 @@ export default function PostLoadPage() {
                       placeholder="FL"
                       maxLength={2}
                       required
+                      className="h-9"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="rfd_destination_zip">ZIP Code *</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rfd_destination_zip" className="text-sm">ZIP *</Label>
                     <Input
                       id="rfd_destination_zip"
                       value={rfdData.destination_zip}
                       onChange={(e) => handleRfdChange('destination_zip', e.target.value)}
                       placeholder="33101"
                       required
+                      className="h-9"
                     />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
+            {/* Pricing & Options */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Load Details & Pricing</CardTitle>
-                <CardDescription>
-                  Linehaul is what you pay the carrier for delivery.
-                </CardDescription>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Pricing & Options</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-4">
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="rfd_cubic_feet">CUFT *</Label>
+              <CardContent className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rfd_cubic_feet" className="text-sm">CUFT *</Label>
                     <Input
                       id="rfd_cubic_feet"
                       type="number"
@@ -886,10 +849,11 @@ export default function PostLoadPage() {
                       onChange={(e) => handleRfdChange('cubic_feet', e.target.value)}
                       placeholder="500"
                       required
+                      className="h-9"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="rfd_rate_per_cuft">Rate per CUFT ($) *</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rfd_rate_per_cuft" className="text-sm">Rate/CUFT ($) *</Label>
                     <Input
                       id="rfd_rate_per_cuft"
                       type="number"
@@ -899,10 +863,11 @@ export default function PostLoadPage() {
                       onChange={(e) => handleRfdChange('rate_per_cuft', e.target.value)}
                       placeholder="3.50"
                       required
+                      className="h-9"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="rfd_linehaul_amount">Linehaul ($) *</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rfd_linehaul_amount" className="text-sm">Linehaul ($) *</Label>
                     <Input
                       id="rfd_linehaul_amount"
                       type="number"
@@ -912,41 +877,42 @@ export default function PostLoadPage() {
                       onChange={(e) => handleRfdChange('linehaul_amount', e.target.value)}
                       placeholder="1750.00"
                       required
+                      className="h-9"
                     />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rfd_service_type" className="text-sm">Service Type *</Label>
+                    <Select
+                      value={rfdData.service_type}
+                      onValueChange={(value) => handleRfdChange('service_type', value)}
+                    >
+                      <SelectTrigger id="rfd_service_type" className="h-9">
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SERVICE_TYPES.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="rfd_service_type">Service Type *</Label>
-                  <Select
-                    value={rfdData.service_type}
-                    onValueChange={(value) => handleRfdChange('service_type', value)}
-                  >
-                    <SelectTrigger id="rfd_service_type">
-                      <SelectValue placeholder="Select service type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SERVICE_TYPES.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="rfd_notes">Notes</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="rfd_notes" className="text-sm">Notes</Label>
                   <Textarea
                     id="rfd_notes"
                     value={rfdData.notes}
                     onChange={(e) => handleRfdChange('notes', e.target.value)}
                     placeholder="Any special instructions"
-                    rows={3}
+                    rows={2}
+                    className="text-sm"
                   />
                 </div>
 
-                <div className="flex items-start gap-3 pt-2 border-t">
+                <div className="flex items-center gap-3 pt-2 border-t">
                   <Checkbox
                     id="rfd_open_to_counter"
                     checked={rfdData.is_open_to_counter}
@@ -954,56 +920,42 @@ export default function PostLoadPage() {
                       setRfdData((prev) => ({ ...prev, is_open_to_counter: checked === true }))
                     }
                   />
-                  <label
-                    htmlFor="rfd_open_to_counter"
-                    className="cursor-pointer text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    <span className="font-medium">Open to counter offers</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Carriers can propose a different rate when requesting this load
-                    </p>
+                  <label htmlFor="rfd_open_to_counter" className="cursor-pointer text-sm">
+                    Open to counter offers
                   </label>
                 </div>
 
-                <div className="space-y-3 pt-4 border-t">
-                  <Label>Truck Requirement</Label>
+                <div className="pt-2 border-t">
+                  <Label className="text-sm mb-2 block">Truck Requirement</Label>
                   <RadioGroup
                     value={rfdData.truck_requirement}
                     onValueChange={(value: TruckRequirement) =>
                       setRfdData((prev) => ({ ...prev, truck_requirement: value }))
                     }
-                    className="flex flex-col gap-2"
+                    className="flex flex-wrap gap-4"
                   >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="any" id="rfd_truck_any" />
-                      <Label htmlFor="rfd_truck_any" className="font-normal cursor-pointer">
-                        Any Truck
-                      </Label>
+                      <Label htmlFor="rfd_truck_any" className="font-normal cursor-pointer text-sm">Any</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="semi_only" id="rfd_truck_semi" />
-                      <Label htmlFor="rfd_truck_semi" className="font-normal cursor-pointer flex items-center gap-2">
-                        🚛 Semi Only
-                        <span className="text-xs text-muted-foreground">(53&apos; trailer required)</span>
-                      </Label>
+                      <Label htmlFor="rfd_truck_semi" className="font-normal cursor-pointer text-sm">🚛 Semi Only</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="box_truck_only" id="rfd_truck_box" />
-                      <Label htmlFor="rfd_truck_box" className="font-normal cursor-pointer flex items-center gap-2">
-                        📦 Box Truck Only
-                        <span className="text-xs text-muted-foreground">(No semi trucks)</span>
-                      </Label>
+                      <Label htmlFor="rfd_truck_box" className="font-normal cursor-pointer text-sm">📦 Box Truck Only</Label>
                     </div>
                   </RadioGroup>
                 </div>
               </CardContent>
             </Card>
 
-            <div className="flex justify-end gap-4">
-              <Button type="button" variant="outline" asChild>
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="outline" size="sm" asChild>
                 <Link href="/dashboard/posted-jobs">Cancel</Link>
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" size="sm" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

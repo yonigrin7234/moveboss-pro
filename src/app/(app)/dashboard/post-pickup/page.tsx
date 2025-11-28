@@ -141,203 +141,213 @@ export default function PostPickupPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
+    <div className="space-y-4 max-w-4xl">
+      <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/dashboard/posted-jobs">
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Post a Pickup</h1>
-          <p className="text-muted-foreground">
-            Post a pickup for carriers to service. The carrier will collect the balance from the customer.
+          <h1 className="text-xl font-bold tracking-tight">Post a Pickup</h1>
+          <p className="text-sm text-muted-foreground">
+            Carrier will collect the balance from the customer.
           </p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="bg-destructive/10 text-destructive p-4 rounded-lg">
+          <div className="bg-destructive/10 text-destructive p-3 rounded-lg text-sm">
             {error}
           </div>
         )}
 
-        {/* Customer Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Customer Information</CardTitle>
-            <CardDescription>Who is the customer for this pickup?</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="customer_name">Customer Name *</Label>
-              <Input
-                id="customer_name"
-                value={formData.customer_name}
-                onChange={(e) => handleChange('customer_name', e.target.value)}
-                placeholder="John Smith"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="customer_phone">Customer Phone *</Label>
-              <Input
-                id="customer_phone"
-                type="tel"
-                value={formData.customer_phone}
-                onChange={(e) => handleChange('customer_phone', e.target.value)}
-                placeholder="(555) 123-4567"
-                required
-              />
-            </div>
-          </CardContent>
-        </Card>
+        {/* Customer Information + Pickup Window in 2 columns */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Customer Information</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="customer_name" className="text-sm">Customer Name *</Label>
+                <Input
+                  id="customer_name"
+                  value={formData.customer_name}
+                  onChange={(e) => handleChange('customer_name', e.target.value)}
+                  placeholder="John Smith"
+                  required
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="customer_phone" className="text-sm">Customer Phone *</Label>
+                <Input
+                  id="customer_phone"
+                  type="tel"
+                  value={formData.customer_phone}
+                  onChange={(e) => handleChange('customer_phone', e.target.value)}
+                  placeholder="(555) 123-4567"
+                  required
+                  className="h-9"
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Pickup Date Range */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Pickup Window</CardTitle>
-            <CardDescription>When can the carrier pick up?</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="pickup_date_start">Earliest Pickup Date *</Label>
-              <DatePicker
-                name="pickup_date_start"
-                placeholder="Select earliest date"
-                onChange={(value) => handleChange('pickup_date_start', value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="pickup_date_end">Latest Pickup Date *</Label>
-              <DatePicker
-                name="pickup_date_end"
-                placeholder="Select latest date"
-                onChange={(value) => handleChange('pickup_date_end', value)}
-              />
-            </div>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Pickup Window</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="pickup_date_start" className="text-sm">Earliest Date *</Label>
+                <DatePicker
+                  name="pickup_date_start"
+                  placeholder="Select date"
+                  onChange={(value) => handleChange('pickup_date_start', value)}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pickup_date_end" className="text-sm">Latest Date *</Label>
+                <DatePicker
+                  name="pickup_date_end"
+                  placeholder="Select date"
+                  onChange={(value) => handleChange('pickup_date_end', value)}
+                  className="h-9"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Origin */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Origin (Pickup Location)</CardTitle>
-            <CardDescription>Where will the carrier pick up?</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="origin_address">Address *</Label>
-              <Input
-                id="origin_address"
-                value={formData.origin_address}
-                onChange={(e) => handleChange('origin_address', e.target.value)}
-                placeholder="123 Main St"
-                required
-              />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <Label htmlFor="origin_city">City *</Label>
+        {/* Origin & Destination in 2 columns */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Origin (Pickup)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="origin_address" className="text-sm">Address *</Label>
                 <Input
-                  id="origin_city"
-                  value={formData.origin_city}
-                  onChange={(e) => handleChange('origin_city', e.target.value)}
-                  placeholder="New York"
+                  id="origin_address"
+                  value={formData.origin_address}
+                  onChange={(e) => handleChange('origin_address', e.target.value)}
+                  placeholder="123 Main St"
                   required
+                  className="h-9"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="origin_state">State *</Label>
-                <Input
-                  id="origin_state"
-                  value={formData.origin_state}
-                  onChange={(e) => handleChange('origin_state', e.target.value)}
-                  placeholder="NY"
-                  maxLength={2}
-                  required
-                />
+              <div className="grid gap-2 grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="origin_city" className="text-sm">City *</Label>
+                  <Input
+                    id="origin_city"
+                    value={formData.origin_city}
+                    onChange={(e) => handleChange('origin_city', e.target.value)}
+                    placeholder="New York"
+                    required
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="origin_state" className="text-sm">State *</Label>
+                  <Input
+                    id="origin_state"
+                    value={formData.origin_state}
+                    onChange={(e) => handleChange('origin_state', e.target.value)}
+                    placeholder="NY"
+                    maxLength={2}
+                    required
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="origin_zip" className="text-sm">ZIP *</Label>
+                  <Input
+                    id="origin_zip"
+                    value={formData.origin_zip}
+                    onChange={(e) => handleChange('origin_zip', e.target.value)}
+                    placeholder="10001"
+                    required
+                    className="h-9"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="origin_zip">ZIP Code *</Label>
-                <Input
-                  id="origin_zip"
-                  value={formData.origin_zip}
-                  onChange={(e) => handleChange('origin_zip', e.target.value)}
-                  placeholder="10001"
-                  required
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Destination */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Destination (Delivery Location)</CardTitle>
-            <CardDescription>Where will the carrier deliver?</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="destination_address">Address *</Label>
-              <Input
-                id="destination_address"
-                value={formData.destination_address}
-                onChange={(e) => handleChange('destination_address', e.target.value)}
-                placeholder="456 Oak Ave"
-                required
-              />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <Label htmlFor="destination_city">City *</Label>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Destination (Delivery)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="destination_address" className="text-sm">Address *</Label>
                 <Input
-                  id="destination_city"
-                  value={formData.destination_city}
-                  onChange={(e) => handleChange('destination_city', e.target.value)}
-                  placeholder="Los Angeles"
+                  id="destination_address"
+                  value={formData.destination_address}
+                  onChange={(e) => handleChange('destination_address', e.target.value)}
+                  placeholder="456 Oak Ave"
                   required
+                  className="h-9"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="destination_state">State *</Label>
-                <Input
-                  id="destination_state"
-                  value={formData.destination_state}
-                  onChange={(e) => handleChange('destination_state', e.target.value)}
-                  placeholder="CA"
-                  maxLength={2}
-                  required
-                />
+              <div className="grid gap-2 grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="destination_city" className="text-sm">City *</Label>
+                  <Input
+                    id="destination_city"
+                    value={formData.destination_city}
+                    onChange={(e) => handleChange('destination_city', e.target.value)}
+                    placeholder="Los Angeles"
+                    required
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="destination_state" className="text-sm">State *</Label>
+                  <Input
+                    id="destination_state"
+                    value={formData.destination_state}
+                    onChange={(e) => handleChange('destination_state', e.target.value)}
+                    placeholder="CA"
+                    maxLength={2}
+                    required
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="destination_zip" className="text-sm">ZIP *</Label>
+                  <Input
+                    id="destination_zip"
+                    value={formData.destination_zip}
+                    onChange={(e) => handleChange('destination_zip', e.target.value)}
+                    placeholder="90001"
+                    required
+                    className="h-9"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="destination_zip">ZIP Code *</Label>
-                <Input
-                  id="destination_zip"
-                  value={formData.destination_zip}
-                  onChange={(e) => handleChange('destination_zip', e.target.value)}
-                  placeholder="90001"
-                  required
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Load Details & Pricing */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Load Details & Pricing</CardTitle>
-            <CardDescription>
-              Balance due is what the carrier will collect from the customer at delivery.
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Load Details & Pricing</CardTitle>
+            <CardDescription className="text-xs">
+              Balance due is what the carrier will collect from the customer.
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <Label htmlFor="cubic_feet">Estimated CUFT *</Label>
+          <CardContent className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="cubic_feet" className="text-sm">Est. CUFT *</Label>
                 <Input
                   id="cubic_feet"
                   type="number"
@@ -346,10 +356,11 @@ export default function PostPickupPage() {
                   onChange={(e) => handleChange('cubic_feet', e.target.value)}
                   placeholder="500"
                   required
+                  className="h-9"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="rate_per_cuft">Rate per CUFT ($) *</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="rate_per_cuft" className="text-sm">Rate/CUFT ($) *</Label>
                 <Input
                   id="rate_per_cuft"
                   type="number"
@@ -359,10 +370,11 @@ export default function PostPickupPage() {
                   onChange={(e) => handleChange('rate_per_cuft', e.target.value)}
                   placeholder="5.00"
                   required
+                  className="h-9"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="balance_due">Balance Due ($) *</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="balance_due" className="text-sm">Balance Due ($) *</Label>
                 <Input
                   id="balance_due"
                   type="number"
@@ -372,51 +384,49 @@ export default function PostPickupPage() {
                   onChange={(e) => handleChange('balance_due', e.target.value)}
                   placeholder="2500.00"
                   required
+                  className="h-9"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Amount carrier will collect from customer
-                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="service_type" className="text-sm">Service Type *</Label>
+                <Select
+                  value={formData.service_type}
+                  onValueChange={(value) => handleChange('service_type', value)}
+                >
+                  <SelectTrigger id="service_type" className="h-9">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SERVICE_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="service_type">Service Type *</Label>
-              <Select
-                value={formData.service_type}
-                onValueChange={(value) => handleChange('service_type', value)}
-              >
-                <SelectTrigger id="service_type">
-                  <SelectValue placeholder="Select service type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SERVICE_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="notes" className="text-sm">Notes</Label>
               <Textarea
                 id="notes"
                 value={formData.notes}
                 onChange={(e) => handleChange('notes', e.target.value)}
                 placeholder="Any special instructions, access issues, etc."
-                rows={3}
+                rows={2}
+                className="text-sm"
               />
             </div>
           </CardContent>
         </Card>
 
         {/* Submit */}
-        <div className="flex justify-end gap-4">
-          <Button type="button" variant="outline" asChild>
+        <div className="flex justify-end gap-3">
+          <Button type="button" variant="outline" size="sm" asChild>
             <Link href="/dashboard/posted-jobs">Cancel</Link>
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" size="sm" disabled={isSubmitting}>
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
