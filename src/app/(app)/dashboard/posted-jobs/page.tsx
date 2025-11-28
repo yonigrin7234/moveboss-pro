@@ -235,20 +235,21 @@ export default async function PostedJobsPage() {
 
   const supabase = await createClient();
 
-  // Get user's company membership
-  const { data: membership } = await supabase
-    .from('company_memberships')
-    .select('company_id')
-    .eq('user_id', user.id)
-    .single();
+  // Get user's workspace company
+  const { data: workspaceCompany } = await supabase
+    .from('companies')
+    .select('id')
+    .eq('owner_id', user.id)
+    .eq('is_workspace_company', true)
+    .maybeSingle();
 
-  if (!membership) {
+  if (!workspaceCompany) {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold tracking-tight">My Posted Jobs</h1>
         <Card>
           <CardContent className="py-10 text-center text-muted-foreground">
-            No company found. Please complete onboarding.
+            No company found. Please complete your company profile first.
           </CardContent>
         </Card>
       </div>
@@ -268,7 +269,7 @@ export default async function PostedJobsPage() {
       truck_requirement,
       assigned_carrier:assigned_carrier_id(id, name)
     `)
-    .eq('posted_by_company_id', membership.company_id)
+    .eq('posted_by_company_id', workspaceCompany.id)
     .not('posting_type', 'is', null)
     .order('posted_at', { ascending: false });
 
