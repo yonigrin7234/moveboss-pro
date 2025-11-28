@@ -138,16 +138,6 @@ export default async function NewLoadPage() {
       title="Add Load"
       subtitle="Create a load with assignment, timing, and revenue in a guided flow built for fast dispatch."
       pill="Operations"
-      meta={[
-        {
-          label: 'Companies ready',
-          value: companies.length ? `${companies.length} selectable` : 'Add a company first',
-        },
-        {
-          label: 'Assignments ready',
-          value: `${drivers.length} drivers · ${trucks.length} trucks · ${trailers.length} trailers`,
-        },
-      ]}
     >
       <LoadCreateForm
         companies={companies}

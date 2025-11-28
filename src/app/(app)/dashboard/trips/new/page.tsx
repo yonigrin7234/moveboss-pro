@@ -97,17 +97,6 @@ export default async function NewTripPage() {
       title="Create Trip"
       subtitle="Bundle one or more loads, assign equipment, and track trip-level performance in a single view."
       pill="Operations"
-      meta={[
-        { label: 'Time to complete', value: '~2 minutes' },
-        { label: 'Scope', value: 'Bundle loads + timing' },
-        { label: 'Assignment', value: 'Driver, truck, trailer' },
-      ]}
-      checklist={[
-        { label: 'Identity & status', detail: 'Trip number, status, ownership' },
-        { label: 'Routing', detail: 'Origin and destination with ZIPs' },
-        { label: 'Dates', detail: 'Start/end dates and total miles' },
-        { label: 'Notes', detail: 'Context for dispatch and finance' },
-      ]}
     >
       <TripForm
         onSubmit={createTripAction}

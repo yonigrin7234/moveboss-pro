@@ -65,17 +65,6 @@ export default async function NewTrailerPage() {
       title="Add Trailer"
       subtitle="Capture trailer identity, specs, compliance, and assignment so the fleet view stays accurate."
       pill="Fleet"
-      meta={[
-        { label: 'Time to complete', value: '~2 minutes' },
-        { label: 'Compliance', value: 'Reg + inspection dates' },
-        { label: 'Assignment', value: 'Driver optional' },
-      ]}
-      checklist={[
-        { label: 'Basics', detail: 'Unit number, type, status' },
-        { label: 'Vehicle details', detail: 'Plate, VIN, make/model/year, capacity' },
-        { label: 'Compliance & assignment', detail: 'Registration/inspection + driver link' },
-        { label: 'Notes', detail: 'Add ops context before saving' },
-      ]}
     >
       <TrailerForm drivers={drivers} onSubmit={createTrailerAction} />
     </CreationPageShell>

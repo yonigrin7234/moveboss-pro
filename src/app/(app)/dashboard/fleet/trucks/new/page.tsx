@@ -107,17 +107,6 @@ export default async function NewTruckPage() {
       title="Add Truck"
       subtitle="Onboard a truck with registration, assignment, and rental details so dispatch can use it immediately."
       pill="Fleet"
-      meta={[
-        { label: 'Time to complete', value: '~2 minutes' },
-        { label: 'Compliance', value: 'Plate, VIN, expirations' },
-        { label: 'Rental ready', value: 'Ryder / Penske / Other' },
-      ]}
-      checklist={[
-        { label: 'Vehicle & registration', detail: 'Unit number, plates, VIN, make/model/year' },
-        { label: 'Status & assignment', detail: 'Active / in shop + driver assignment' },
-        { label: 'Capacity & type', detail: 'Vehicle type with auto capacity suggestion' },
-        { label: 'Rental config', detail: 'Rental company + unit number when applicable' },
-      ]}
     >
       <TruckForm drivers={drivers} onSubmit={createTruckAction} />
     </CreationPageShell>

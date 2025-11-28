@@ -89,17 +89,6 @@ export default async function NewCompanyPage() {
       title="Add Company"
       subtitle="Create a clean profile for shippers, brokers, partner carriers, or vendors with contacts and billing ready to go."
       pill="Companies"
-      meta={[
-        { label: 'Time to complete', value: '~3 minutes' },
-        { label: 'Data quality', value: 'Primary + dispatch contacts' },
-        { label: 'Finance-ready', value: 'Billing + status set' },
-      ]}
-      checklist={[
-        { label: 'Identity', detail: 'Name, DBA, type, status, DOT/MC' },
-        { label: 'Contacts', detail: 'Primary + dispatch with phones and emails' },
-        { label: 'Addresses', detail: 'Company, contact, and billing locations' },
-        { label: 'Notes', detail: 'Dispatch + billing notes before you save' },
-      ]}
     >
       <CompanyForm onSubmit={createCompanyAction} />
     </CreationPageShell>
