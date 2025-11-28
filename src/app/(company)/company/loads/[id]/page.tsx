@@ -742,6 +742,37 @@ export default async function CompanyLoadDetailPage({
           )
         )}
 
+        {/* Equipment Requirement - Show only when not 'any' */}
+        {load.truck_requirement && load.truck_requirement !== 'any' && (
+          <Card className={load.truck_requirement === 'semi_only' ? 'border-indigo-500/30' : 'border-amber-500/30'}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Truck className="h-5 w-5" />
+                Equipment Requirement
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {load.truck_requirement === 'semi_only' ? (
+                <div className="flex items-center gap-3 p-3 bg-indigo-500/10 rounded-lg">
+                  <span className="text-3xl">🚛</span>
+                  <div>
+                    <p className="font-semibold text-indigo-600 dark:text-indigo-400">Semi Truck Only</p>
+                    <p className="text-sm text-muted-foreground">This load requires a semi truck (18-wheeler)</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 p-3 bg-amber-500/10 rounded-lg">
+                  <span className="text-3xl">📦</span>
+                  <div>
+                    <p className="font-semibold text-amber-600 dark:text-amber-400">Box Truck Only</p>
+                    <p className="text-sm text-muted-foreground">This load requires a box truck (24-26 ft)</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Notes */}
         {load.special_instructions && (
           <Card>

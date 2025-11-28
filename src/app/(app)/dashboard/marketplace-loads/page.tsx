@@ -90,6 +90,16 @@ function LoadCard({ load }: { load: CarrierMarketplaceLoad }) {
                   </Badge>
                 )}
                 {getStatusBadge(load.operational_status)}
+                {load.truck_requirement === 'semi_only' && (
+                  <Badge className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400 border-0">
+                    🚛 Semi Only
+                  </Badge>
+                )}
+                {load.truck_requirement === 'box_truck_only' && (
+                  <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-0">
+                    📦 Box Truck Only
+                  </Badge>
+                )}
               </div>
 
               {/* Route */}

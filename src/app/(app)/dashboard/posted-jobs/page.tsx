@@ -44,6 +44,7 @@ interface PostedJob {
   balance_due: number | null;
   linehaul_amount: number | null;
   assigned_carrier: { id: string; name: string } | null;
+  truck_requirement: 'any' | 'semi_only' | 'box_truck_only' | null;
 }
 
 function getStatusBadge(status: string) {
@@ -179,6 +180,16 @@ function JobCard({ job }: { job: PostedJob }) {
               <span className="font-mono font-semibold">{job.job_number}</span>
               {getTypeBadge(job.posting_type, job.load_type)}
               {getStatusBadge(job.posting_status)}
+              {job.truck_requirement === 'semi_only' && (
+                <Badge className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-0">
+                  🚛 Semi Only
+                </Badge>
+              )}
+              {job.truck_requirement === 'box_truck_only' && (
+                <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">
+                  📦 Box Truck Only
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
@@ -254,6 +265,7 @@ export default async function PostedJobsPage() {
       dropoff_city, dropoff_state, delivery_city, delivery_state,
       cubic_feet, rate_per_cuft, balance_due, linehaul_amount,
       current_storage_location, loading_city, loading_state,
+      truck_requirement,
       assigned_carrier:assigned_carrier_id(id, name)
     `)
     .eq('posted_by_company_id', membership.company_id)

@@ -152,12 +152,22 @@ export default async function CompanyLoadsPage({
                       className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors"
                     >
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium">{load.load_number}</span>
                           <Badge className={status.color}>
                             {status.icon}
                             <span className="ml-1">{status.label}</span>
                           </Badge>
+                          {(load.truck_requirement as string) === 'semi_only' && (
+                            <Badge className="bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
+                              🚛 Semi
+                            </Badge>
+                          )}
+                          {(load.truck_requirement as string) === 'box_truck_only' && (
+                            <Badge className="bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                              📦 Box
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground">
                           {load.origin_city}, {load.origin_state} → {load.destination_city},{' '}
