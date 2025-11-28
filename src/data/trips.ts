@@ -520,7 +520,7 @@ export async function getTripById(id: string, userId: string): Promise<TripWithD
       `
       *,
       driver:drivers!trips_driver_id_fkey(id, first_name, last_name),
-      truck:trucks!trips_truck_id_fkey(id, unit_number, cubic_capacity, truck_type),
+      truck:trucks!trips_truck_id_fkey(id, unit_number, cubic_capacity),
       trailer:trailers!trips_trailer_id_fkey(id, unit_number, cubic_capacity)
     `
     )
