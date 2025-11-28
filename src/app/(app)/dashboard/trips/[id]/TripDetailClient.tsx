@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronDown, ChevronUp, MapPin, User, Truck, Package, DollarSign, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronDown, ChevronUp, MapPin, User, Truck, Package, DollarSign, AlertTriangle, Map } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Card, CardContent } from '@/components/ui/card';
@@ -22,6 +22,7 @@ import { PhotoField } from '@/components/ui/photo-field';
 import { DatePicker } from '@/components/ui/date-picker';
 import type { TripStatus, TripWithDetails, TripLoad, TripExpense } from '@/data/trips';
 import type { Load } from '@/data/loads';
+import { TripMapTab } from '@/components/trips/TripMapTab';
 
 interface TripDetailClientProps {
   trip: TripWithDetails;
@@ -162,6 +163,10 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
             </TabsTrigger>
             <TabsTrigger value="loads" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4">
               Loads ({trip.loads.length})
+            </TabsTrigger>
+            <TabsTrigger value="map" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4">
+              <Map className="h-4 w-4 mr-1" />
+              Map
             </TabsTrigger>
             <TabsTrigger value="expenses" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4">
               Expenses
@@ -611,6 +616,45 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
               </form>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Map Tab */}
+        <TabsContent value="map" className="p-4 space-y-4 mt-0">
+          <TripMapTab
+            tripId={trip.id}
+            originCity={trip.origin_city}
+            originState={trip.origin_state}
+            originZip={trip.origin_postal_code}
+            destinationCity={trip.destination_city}
+            destinationState={trip.destination_state}
+            destinationZip={trip.destination_postal_code}
+            truckCapacity={tripTruck?.cubic_capacity}
+            tripLoads={trip.loads.map((tl) => {
+              const load = tl.load as any;
+              return {
+                id: tl.id,
+                load_id: tl.load_id,
+                sequence_index: tl.sequence_index,
+                role: tl.role,
+                load: load ? {
+                  id: load.id,
+                  load_number: load.load_number,
+                  // Use origin/destination fields if available, fall back to pickup/delivery
+                  origin_city: load.origin_city || load.pickup_city,
+                  origin_state: load.origin_state || load.pickup_state,
+                  origin_zip: load.origin_zip || load.pickup_postal_code,
+                  destination_city: load.destination_city || load.delivery_city,
+                  destination_state: load.destination_state || load.delivery_state,
+                  destination_zip: load.destination_zip || load.delivery_postal_code,
+                  cubic_feet: load.cubic_feet,
+                  estimated_cuft: load.estimated_cuft,
+                  total_rate: load.total_rate,
+                  load_status: load.load_status,
+                  company: load.company,
+                } : null,
+              };
+            })}
+          />
         </TabsContent>
 
         {/* Expenses Tab */}
