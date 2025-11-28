@@ -740,6 +740,38 @@ export async function updateTrip(
   // Snapshot driver compensation rates when driver is assigned/changed
   if (input.driver_id && input.driver_id !== (currentTrip as any).driver_id) {
     await snapshotDriverCompensation(supabase, id, input.driver_id, userId);
+
+    // Sync driver info to all loads on this trip
+    // Get trip's sharing preference (default to true if not set)
+    const { data: tripData } = await supabase
+      .from('trips')
+      .select('share_driver_with_companies')
+      .eq('id', id)
+      .single();
+    const shareWithCompanies = tripData?.share_driver_with_companies !== false;
+    await syncTripDriverToLoads(id, input.driver_id, shareWithCompanies);
+  }
+
+  // If driver is being removed, clear driver info from loads
+  if (input.driver_id === undefined && (currentTrip as any).driver_id) {
+    // Driver being cleared - clear from loads too
+    const { data: tripLoads } = await supabase
+      .from('trip_loads')
+      .select('load_id')
+      .eq('trip_id', id);
+
+    if (tripLoads && tripLoads.length > 0) {
+      const loadIds = tripLoads.map((tl) => tl.load_id);
+      await supabase
+        .from('loads')
+        .update({
+          assigned_driver_id: null,
+          assigned_driver_name: null,
+          assigned_driver_phone: null,
+          updated_at: new Date().toISOString(),
+        })
+        .in('id', loadIds);
+    }
   }
 
   return data as Trip;

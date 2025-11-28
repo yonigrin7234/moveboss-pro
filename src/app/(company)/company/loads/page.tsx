@@ -13,6 +13,8 @@ import {
   CheckCircle,
   Clock,
   Filter,
+  User,
+  Phone,
 } from 'lucide-react';
 
 async function getCompanySession() {
@@ -162,10 +164,29 @@ export default async function CompanyLoadsPage({
                           {load.destination_state}
                         </p>
                         {carrier && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Truck className="h-3 w-3" />
-                            {carrier.name}
-                          </p>
+                          <div className="space-y-0.5">
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Truck className="h-3 w-3" />
+                              {carrier.name}
+                            </p>
+                            {load.assigned_driver_name ? (
+                              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                {load.assigned_driver_name}
+                                {load.assigned_driver_phone && (
+                                  <span className="flex items-center gap-0.5 text-blue-500">
+                                    <Phone className="h-2.5 w-2.5" />
+                                    {load.assigned_driver_phone}
+                                  </span>
+                                )}
+                              </p>
+                            ) : load.assigned_carrier_id ? (
+                              <p className="text-xs text-yellow-500 flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                Driver TBD
+                              </p>
+                            ) : null}
+                          </div>
                         )}
                       </div>
                       <div className="text-right">
