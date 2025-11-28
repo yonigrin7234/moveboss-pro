@@ -9,6 +9,7 @@ import {
   addLoadToTrip,
   addTripLoadInputSchema,
   removeLoadFromTrip,
+  reorderTripLoads,
   createTripExpense,
   newTripExpenseInputSchema,
   deleteTripExpense,
@@ -304,6 +305,23 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     }
   }
 
+  async function reorderLoadsAction(
+    items: { load_id: string; sequence_index: number }[]
+  ): Promise<{ errors?: Record<string, string>; success?: boolean } | null> {
+    'use server';
+    const currentUser = await getCurrentUser();
+    if (!currentUser) return { errors: { _form: 'Not authenticated' } };
+
+    try {
+      await reorderTripLoads(id, items, currentUser.id);
+      revalidatePath(`/dashboard/trips/${id}`);
+      revalidatePath('/dashboard/trips');
+      return { success: true };
+    } catch (error) {
+      return { errors: { _form: error instanceof Error ? error.message : 'Failed to reorder loads' } };
+    }
+  }
+
   return (
     <TripDetailClient
       trip={trip}
@@ -320,6 +338,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
         deleteTrip: deleteTripAction,
         recalculateSettlement: recalculateSettlementAction,
         updateDriverSharing: updateDriverSharingAction,
+        reorderLoads: reorderLoadsAction,
       }}
     />
   );

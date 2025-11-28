@@ -1,8 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { DollarSign, AlertTriangle, Map } from 'lucide-react';
+import { DollarSign, AlertTriangle, Map, GripVertical } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,6 +69,7 @@ interface TripDetailClientProps {
     deleteTrip: () => Promise<void>;
     recalculateSettlement: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
     updateDriverSharing: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
+    reorderLoads: (items: { load_id: string; sequence_index: number }[]) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
   };
 }
 
@@ -92,6 +110,76 @@ function formatPayMode(payMode: string): string {
   return labels[payMode] || payMode;
 }
 
+// Sortable load card component
+function SortableLoadCard({
+  tripLoad,
+  onEdit,
+  onRemove,
+  formatCurrency,
+}: {
+  tripLoad: TripLoad;
+  onEdit: () => void;
+  onRemove: () => void;
+  formatCurrency: (amount: number | null | undefined) => string;
+}) {
+  const load = tripLoad.load as any;
+  const company = Array.isArray(load?.company) ? load.company[0] : load?.company;
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: tripLoad.load_id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <Card ref={setNodeRef} style={style} className={isDragging ? 'z-50' : ''}>
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <div
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing mt-1 text-muted-foreground hover:text-foreground"
+          >
+            <GripVertical className="h-5 w-5" />
+          </div>
+          <div className="flex-1 flex items-start justify-between">
+            <div>
+              <p className="font-medium">{load?.load_number || 'Load'}</p>
+              <p className="text-sm text-muted-foreground">{company?.name || 'No company'}</p>
+              <p className="text-sm font-medium mt-1">{formatCurrency(load?.total_rate)}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs">
+                {load?.load_status || 'pending'}
+              </Badge>
+              <Button variant="outline" size="sm" onClick={onEdit}>
+                Edit
+              </Button>
+            </div>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-red-500 hover:text-red-600 p-0 h-auto mt-2 ml-8"
+          onClick={onRemove}
+        >
+          Remove
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function TripDetailClient({ trip, availableLoads, settlementSnapshot, actions }: TripDetailClientProps) {
   const [editingLoadId, setEditingLoadId] = useState<string | null>(null);
   const [addExpenseOpen, setAddExpenseOpen] = useState(false);
@@ -105,6 +193,46 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
     trip.share_driver_with_companies ?? true
   );
   const [tripStatus, setTripStatus] = useState<TripStatus>(trip.status);
+
+  // Drag and drop for load reordering
+  const [orderedLoads, setOrderedLoads] = useState(() =>
+    [...trip.loads].sort((a, b) => a.sequence_index - b.sequence_index)
+  );
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+
+      if (over && active.id !== over.id) {
+        setOrderedLoads((items) => {
+          const oldIndex = items.findIndex((item) => item.load_id === active.id);
+          const newIndex = items.findIndex((item) => item.load_id === over.id);
+          const newItems = arrayMove(items, oldIndex, newIndex);
+
+          // Update server with new order
+          const reorderPayload = newItems.map((item, index) => ({
+            load_id: item.load_id,
+            sequence_index: index,
+          }));
+          actions.reorderLoads(reorderPayload);
+
+          return newItems;
+        });
+      }
+    },
+    [actions]
+  );
 
   const tripDriver = Array.isArray(trip.driver) ? trip.driver[0] : trip.driver;
   const tripTruck = Array.isArray(trip.truck) ? trip.truck[0] : trip.truck;
@@ -424,34 +552,46 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
           <div className="grid gap-6 lg:grid-cols-3">
             {/* Left Column - Attached Loads */}
             <div className="lg:col-span-2 space-y-4">
-              {trip.loads.length === 0 ? (
+              {orderedLoads.length === 0 ? (
                 <Card>
                   <CardContent className="p-6 text-center text-muted-foreground">
                     No loads attached to this trip yet.
                   </CardContent>
                 </Card>
               ) : (
-                trip.loads.map((tl) => {
-                  const load = tl.load as any;
-                  const company = Array.isArray(load?.company) ? load.company[0] : load?.company;
-                  return (
-                    <Card key={tl.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="font-medium">{load?.load_number || 'Load'}</p>
-                            <p className="text-sm text-muted-foreground">{company?.name || 'No company'}</p>
-                            <p className="text-sm font-medium mt-1">{formatCurrency(load?.total_rate)}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs">
-                              {load?.load_status || 'pending'}
-                            </Badge>
-                            <Sheet open={editingLoadId === tl.load_id} onOpenChange={(open) => setEditingLoadId(open ? tl.load_id : null)}>
-                              <SheetTrigger asChild>
-                                <Button variant="outline" size="sm">Edit</Button>
-                              </SheetTrigger>
-                          <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={orderedLoads.map((tl) => tl.load_id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-4">
+                      {orderedLoads.map((tl) => (
+                        <SortableLoadCard
+                          key={tl.id}
+                          tripLoad={tl}
+                          onEdit={() => setEditingLoadId(tl.load_id)}
+                          onRemove={() => setLoadToRemove(tl.load_id)}
+                          formatCurrency={formatCurrency}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              )}
+            </div>
+
+            {/* Edit Load Sheet */}
+            {editingLoadId && (() => {
+              const tl = orderedLoads.find((l) => l.load_id === editingLoadId);
+              if (!tl) return null;
+              const load = tl.load as any;
+              return (
+                <Sheet open={!!editingLoadId} onOpenChange={(open) => !open && setEditingLoadId(null)}>
+                  <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
                             <SheetHeader>
                               <SheetTitle>Edit Load: {load?.load_number}</SheetTitle>
                             </SheetHeader>
@@ -598,24 +738,10 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                                 <Button type="submit" className="w-full">Save Load</Button>
                               </div>
                             </form>
-                          </SheetContent>
-                        </Sheet>
-                      </div>
-                    </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-500 hover:text-red-600 p-0 h-auto mt-2"
-                          onClick={() => setLoadToRemove(tl.load_id)}
-                        >
-                          Remove
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  );
-                })
-              )}
-            </div>
+                  </SheetContent>
+                </Sheet>
+              );
+            })()}
 
             {/* Right Column - Attach Load */}
             <div>
