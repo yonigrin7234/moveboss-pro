@@ -295,13 +295,14 @@ export default function PostLoadPage() {
       if (!user) throw new Error('Not authenticated');
 
       // Get user's workspace company
-      const { data: membership } = await supabase
-        .from('company_memberships')
-        .select('company_id')
-        .eq('user_id', user.id)
-        .single();
+      const { data: workspaceCompany } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('owner_id', user.id)
+        .eq('is_workspace_company', true)
+        .maybeSingle();
 
-      if (!membership) throw new Error('No company found');
+      if (!workspaceCompany) throw new Error('No company found. Please complete your company profile first.');
 
       // Generate job number
       const prefix = loadType === 'live_load' ? 'LL' : 'RFD';
@@ -312,8 +313,8 @@ export default function PostLoadPage() {
       // Build the insert payload based on load type
       const payload: Record<string, unknown> = {
         owner_id: user.id,
-        company_id: membership.company_id,
-        posted_by_company_id: membership.company_id,
+        company_id: workspaceCompany.id,
+        posted_by_company_id: workspaceCompany.id,
         job_number: jobNumber,
         internal_reference: data.internal_reference || null,
         load_type: loadType,
