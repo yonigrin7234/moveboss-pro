@@ -1436,6 +1436,7 @@ export async function getCarrierMarketplaceLoadDetail(
       trip_id,
       assigned_driver_id, assigned_driver_name,
       carrier_assigned_at, carrier_confirmed_at,
+      truck_requirement,
       source_company_id, source_company_name,
       source_company:companies!loads_source_company_id_fkey(
         id, name, city, state, phone
@@ -1511,6 +1512,7 @@ export async function getCarrierMarketplaceLoadDetail(
     assigned_driver_name: data.assigned_driver_name,
     carrier_assigned_at: data.carrier_assigned_at,
     carrier_confirmed_at: data.carrier_confirmed_at,
+    truck_requirement: data.truck_requirement,
     source_company_id: data.source_company_id,
     source_company_name: data.source_company_name,
     source_company: sourceCompany,
