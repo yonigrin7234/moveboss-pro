@@ -5,7 +5,6 @@ import { ArrowLeft } from 'lucide-react';
 
 import { getCurrentUser } from '@/lib/supabase-server';
 import { createStorageLocation, LocationType, TruckAccessibility } from '@/data/storage-locations';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StorageLocationForm } from './_components/storage-location-form';
 
@@ -87,7 +86,7 @@ export default async function NewStorageLocationPage({
     : 'Add a third-party public storage location (CubeSmart, Public Storage, etc.)';
 
   return (
-    <div className="container max-w-2xl py-6">
+    <div className="container max-w-5xl py-6">
       <div className="mb-6">
         <Button variant="ghost" size="sm" asChild>
           <Link href="/dashboard/storage">
@@ -97,19 +96,16 @@ export default async function NewStorageLocationPage({
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <StorageLocationForm
-            action={createAction}
-            locationType={locationType}
-            submitLabel="Add Location"
-          />
-        </CardContent>
-      </Card>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">{title}</h1>
+        <p className="text-muted-foreground">{description}</p>
+      </div>
+
+      <StorageLocationForm
+        action={createAction}
+        locationType={locationType}
+        submitLabel="Add Location"
+      />
     </div>
   );
 }
