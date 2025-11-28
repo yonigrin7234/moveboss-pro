@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Card,
@@ -12,43 +12,92 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, ArrowRight, ArrowLeft, Check, Loader2 } from 'lucide-react';
+import { Building2, ArrowRight, ArrowLeft, Check, Loader2, User } from 'lucide-react';
 import { updateStepAction, setupCompanyAction } from '../actions';
 
 interface CompanySetupProps {
   currentStep: number;
   canPostLoads: boolean;
   canHaulLoads: boolean;
+  userEmail: string;
+  userFullName: string;
 }
 
-export function CompanySetup({ currentStep, canPostLoads, canHaulLoads }: CompanySetupProps) {
+export function CompanySetup({ currentStep, canPostLoads, canHaulLoads, userEmail, userFullName }: CompanySetupProps) {
   const router = useRouter();
   const [step, setStep] = useState(currentStep);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Form data
+  // Step 1: Company Info
   const [companyName, setCompanyName] = useState('');
-  const [dotNumber, setDotNumber] = useState('');
-  const [mcNumber, setMcNumber] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [dotNumber, setDotNumber] = useState('');
+  const [mcNumber, setMcNumber] = useState('');
+
+  // Step 2: Address + Owner Info
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [zip, setZip] = useState('');
+  const [ownerName, setOwnerName] = useState(userFullName);
+  const [ownerPhone, setOwnerPhone] = useState('');
+  const [ownerEmail, setOwnerEmail] = useState(userEmail);
+
+  // Sync owner phone with company phone if not manually changed
+  const [ownerPhoneManuallySet, setOwnerPhoneManuallySet] = useState(false);
+  useEffect(() => {
+    if (!ownerPhoneManuallySet && phone) {
+      setOwnerPhone(phone);
+    }
+  }, [phone, ownerPhoneManuallySet]);
 
   const handleNext = async () => {
     if (step === 1) {
-      // Validate company name
+      // Validate Step 1
       if (!companyName.trim()) {
         setError('Company name is required');
         return;
       }
+      if (!phone.trim()) {
+        setError('Phone number is required');
+        return;
+      }
+      if (!email.trim()) {
+        setError('Email is required');
+        return;
+      }
       setError(null);
       setStep(2);
-      await updateStepAction(2, { companyName });
+      await updateStepAction(2, { companyName, phone, email });
     } else if (step === 2) {
+      // Validate Step 2
+      if (!address.trim()) {
+        setError('Address is required');
+        return;
+      }
+      if (!city.trim()) {
+        setError('City is required');
+        return;
+      }
+      if (!state.trim()) {
+        setError('State is required');
+        return;
+      }
+      if (!ownerName.trim()) {
+        setError('Owner name is required');
+        return;
+      }
+      if (!ownerPhone.trim()) {
+        setError('Owner phone is required');
+        return;
+      }
+      if (!ownerEmail.trim()) {
+        setError('Owner email is required');
+        return;
+      }
+
       // Create company and complete
       setIsSubmitting(true);
       setError(null);
@@ -57,14 +106,17 @@ export function CompanySetup({ currentStep, canPostLoads, canHaulLoads }: Compan
         name: companyName,
         dot_number: dotNumber || undefined,
         mc_number: mcNumber || undefined,
-        phone: phone || undefined,
-        email: email || undefined,
-        street: address || undefined,
-        city: city || undefined,
-        state: state || undefined,
+        phone: phone,
+        email: email,
+        street: address,
+        city: city,
+        state: state,
         postal_code: zip || undefined,
         is_carrier: canHaulLoads,
         is_broker: canPostLoads,
+        owner_name: ownerName,
+        owner_phone: ownerPhone,
+        owner_email: ownerEmail,
       });
 
       if (!result.success) {
@@ -97,7 +149,7 @@ export function CompanySetup({ currentStep, canPostLoads, canHaulLoads }: Compan
         ))}
       </div>
 
-      {/* Step 1: Company Info */}
+      {/* Step 1: Company Info + Contact */}
       {step === 1 && (
         <Card>
           <CardHeader>
@@ -118,6 +170,29 @@ export function CompanySetup({ currentStep, canPostLoads, canHaulLoads }: Compan
                 onChange={(e) => setCompanyName(e.target.value)}
                 placeholder="Your Moving Company LLC"
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Company Phone *</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="(555) 123-4567"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Company Email *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="dispatch@company.com"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -146,44 +221,21 @@ export function CompanySetup({ currentStep, canPostLoads, canHaulLoads }: Compan
         </Card>
       )}
 
-      {/* Step 2: Contact Info */}
+      {/* Step 2: Address + Owner Info */}
       {step === 2 && (
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
               <Building2 className="h-8 w-8 text-blue-500" />
               <div>
-                <CardTitle>Contact Information</CardTitle>
-                <CardDescription>How can carriers reach you?</CardDescription>
+                <CardTitle>Address & Owner Details</CardTitle>
+                <CardDescription>Where is your business located?</CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="(555) 123-4567"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="dispatch@company.com"
-                />
-              </div>
-            </div>
-
             <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="address">Address *</Label>
               <Input
                 id="address"
                 value={address}
@@ -194,20 +246,22 @@ export function CompanySetup({ currentStep, canPostLoads, canHaulLoads }: Compan
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
+                <Label htmlFor="city">City *</Label>
                 <Input
                   id="city"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
+                  placeholder="Miami"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="state">State</Label>
+                <Label htmlFor="state">State *</Label>
                 <Input
                   id="state"
                   value={state}
                   onChange={(e) => setState(e.target.value)}
                   maxLength={2}
+                  placeholder="FL"
                 />
               </div>
               <div className="space-y-2">
@@ -216,7 +270,54 @@ export function CompanySetup({ currentStep, canPostLoads, canHaulLoads }: Compan
                   id="zip"
                   value={zip}
                   onChange={(e) => setZip(e.target.value)}
+                  placeholder="33101"
                 />
+              </div>
+            </div>
+
+            {/* Owner Info Section */}
+            <div className="pt-4 border-t">
+              <div className="flex items-center gap-2 mb-3">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Primary Contact / Owner</span>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="ownerName">Name *</Label>
+                  <Input
+                    id="ownerName"
+                    value={ownerName}
+                    onChange={(e) => setOwnerName(e.target.value)}
+                    placeholder="John Smith"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ownerPhone">Phone *</Label>
+                    <Input
+                      id="ownerPhone"
+                      type="tel"
+                      value={ownerPhone}
+                      onChange={(e) => {
+                        setOwnerPhone(e.target.value);
+                        setOwnerPhoneManuallySet(true);
+                      }}
+                      placeholder="(555) 123-4567"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ownerEmail">Email *</Label>
+                    <Input
+                      id="ownerEmail"
+                      type="email"
+                      value={ownerEmail}
+                      onChange={(e) => setOwnerEmail(e.target.value)}
+                      placeholder="owner@company.com"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 

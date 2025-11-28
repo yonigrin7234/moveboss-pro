@@ -27,11 +27,17 @@ export default async function CompanyOnboardingPage() {
     isOwnerOperator?: boolean;
   } | undefined;
 
+  // Get user info for defaults
+  const userEmail = user.email || '';
+  const userFullName = (user.user_metadata?.full_name as string) || '';
+
   return (
     <CompanySetup
       currentStep={state?.onboarding_step || 1}
       canPostLoads={capabilities?.canPostLoads ?? true}
       canHaulLoads={capabilities?.canHaulLoads ?? false}
+      userEmail={userEmail}
+      userFullName={userFullName}
     />
   );
 }

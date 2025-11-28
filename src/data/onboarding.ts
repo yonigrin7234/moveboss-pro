@@ -155,6 +155,9 @@ export interface CreateCompanyData {
   postal_code?: string;
   is_carrier: boolean;
   is_broker: boolean;
+  owner_name?: string;
+  owner_phone?: string;
+  owner_email?: string;
 }
 
 export async function createCompanyForUser(
@@ -189,20 +192,41 @@ export async function createCompanyForUser(
       mc_number: data.mc_number || null,
       phone: data.phone || null,
       email: data.email || null,
-      street: data.street || null,
+      address_line1: data.street || null,
       city: data.city || null,
       state: data.state || null,
-      postal_code: data.postal_code || null,
+      zip: data.postal_code || null,
       is_carrier: data.is_carrier,
       is_broker: data.is_broker,
       is_workspace_company: true,
       status: 'active',
+      owner_name: data.owner_name || null,
+      owner_phone: data.owner_phone || null,
+      owner_email: data.owner_email || null,
     })
     .select('id')
     .single();
 
   if (error) {
     return { success: false, error: error.message };
+  }
+
+  // Create the company membership for the owner
+  const { error: membershipError } = await supabase.from('company_memberships').upsert(
+    {
+      user_id: userId,
+      company_id: company.id,
+      role: 'owner',
+      is_primary: true,
+    },
+    {
+      onConflict: 'user_id,company_id',
+    }
+  );
+
+  if (membershipError) {
+    console.error('Failed to create company membership:', membershipError);
+    // Don't fail the whole operation, the company was created
   }
 
   return { success: true, companyId: company.id };
