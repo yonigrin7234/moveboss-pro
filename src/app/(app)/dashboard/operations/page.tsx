@@ -52,8 +52,8 @@ const tripStatusStyles: Record<TripStatus, string> = {
 const quickActions = [
   {
     label: 'Post to Marketplace',
-    href: '/dashboard/marketplace',
-    description: 'Push open capacity to find carrier matches',
+    href: '/dashboard/post-load',
+    description: 'Post a load or RFD for carriers to request',
     icon: Store,
   },
   {
@@ -183,8 +183,8 @@ export default async function OperationsPage() {
               </Link>
             </Button>
             <Button variant="outline" asChild>
-              <Link href="/dashboard/marketplace">
-                Open marketplace
+              <Link href="/dashboard/load-board">
+                Browse Load Board
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
