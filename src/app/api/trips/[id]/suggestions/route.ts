@@ -66,7 +66,8 @@ export async function GET(
         id,
         origin_city, origin_state, origin_postal_code,
         destination_city, destination_state, destination_postal_code,
-        truck:trucks(id, cubic_capacity)
+        truck:trucks(id, cubic_capacity),
+        trailer:trailers(id, cubic_capacity)
       `)
       .eq('id', tripId)
       .eq('owner_id', user.id)
@@ -106,7 +107,9 @@ export async function GET(
     }, 0);
 
     const truck = Array.isArray(trip.truck) ? trip.truck[0] : trip.truck;
-    const truckCapacity = truck?.cubic_capacity || 0;
+    const trailer = Array.isArray(trip.trailer) ? trip.trailer[0] : trip.trailer;
+    // Prioritize trailer capacity, then truck capacity (for box trucks)
+    const truckCapacity = trailer?.cubic_capacity || truck?.cubic_capacity || 0;
     const availableCapacity = truckCapacity - usedCapacity;
 
     // Get marketplace loads

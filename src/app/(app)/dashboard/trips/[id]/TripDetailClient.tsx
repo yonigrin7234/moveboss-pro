@@ -114,6 +114,9 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
   const truckNumber = tripTruck?.unit_number || '—';
   const trailerNumber = tripTrailer?.unit_number || '—';
 
+  // Capacity: prioritize trailer capacity, then truck capacity (for box trucks)
+  const effectiveCapacity = tripTrailer?.cubic_capacity || tripTruck?.cubic_capacity || 0;
+
   const totalExpenses = trip.driver_pay_total + trip.fuel_total + trip.tolls_total + trip.other_expenses_total;
   const profit = trip.revenue_total - totalExpenses;
 
@@ -653,7 +656,7 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
             destinationCity={trip.destination_city}
             destinationState={trip.destination_state}
             destinationZip={trip.destination_postal_code}
-            truckCapacity={tripTruck?.cubic_capacity}
+            truckCapacity={effectiveCapacity}
             tripLoads={trip.loads.map((tl) => {
               const load = tl.load as any;
               return {
