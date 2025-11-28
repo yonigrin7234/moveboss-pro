@@ -125,11 +125,9 @@ export async function GET(
         delivery_city,
         delivery_state,
         delivery_postal_code,
-        estimated_cuft,
-        company_rate,
-        company_rate_type,
-        is_ready_now,
-        available_date
+        cubic_feet,
+        rate_per_cuft,
+        balance_due
       `)
       .eq('is_marketplace_visible', true)
       .eq('load_status', 'pending')
@@ -145,10 +143,10 @@ export async function GET(
 
     for (const load of marketplaceLoads || []) {
       // Skip if over capacity
-      if (maxCuft !== null && load.estimated_cuft && load.estimated_cuft > maxCuft) {
+      if (maxCuft !== null && load.cubic_feet && load.cubic_feet > maxCuft) {
         continue;
       }
-      if (load.estimated_cuft && load.estimated_cuft > availableCapacity) {
+      if (load.cubic_feet && load.cubic_feet > availableCapacity) {
         continue;
       }
 
@@ -196,12 +194,12 @@ export async function GET(
         destinationCity: load.delivery_city,
         destinationState: load.delivery_state,
         destinationZip: load.delivery_postal_code,
-        cubicFeet: load.estimated_cuft,
-        rate: load.company_rate,
-        rateType: load.company_rate_type || 'per_cuft',
+        cubicFeet: load.cubic_feet,
+        rate: load.rate_per_cuft || load.balance_due,
+        rateType: load.rate_per_cuft ? 'per_cuft' : 'flat',
         postingType: load.posting_type || 'load',
-        isReadyNow: load.is_ready_now || false,
-        availableDate: load.available_date,
+        isReadyNow: true,
+        availableDate: null,
         addedMiles: Math.round(addedMiles),
         distanceFromRoute: Math.round(distanceFromRoute),
         originCoords: {
