@@ -35,17 +35,17 @@ export function Stepper({ steps, currentStep, onStepClick, className }: StepperP
                     className={cn(
                       "flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all",
                       isCompleted
-                        ? "bg-primary border-primary text-primary-foreground"
+                        ? "bg-primary border-primary text-white"
                         : isActive
-                          ? "bg-primary border-primary text-primary-foreground ring-4 ring-primary/20"
-                          : "bg-background border-muted-foreground/30 text-muted-foreground",
+                          ? "bg-primary border-primary text-white ring-4 ring-primary/20"
+                          : "bg-muted border-border text-foreground",
                       isClickable && "cursor-pointer hover:scale-105"
                     )}
                   >
                     {isCompleted ? (
                       <Check className="h-5 w-5" />
                     ) : (
-                      <span className="text-sm font-semibold">{index + 1}</span>
+                      <span className="text-sm font-bold">{index + 1}</span>
                     )}
                   </button>
                   <div className="mt-2 text-center">
