@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -254,18 +253,22 @@ export function StorageLocationForm({
 
             <div className="flex gap-6">
               <div className="flex items-center space-x-2">
-                <Checkbox
+                <input
+                  type="checkbox"
                   id="has_loading_dock"
                   name="has_loading_dock"
                   defaultChecked={initialData?.has_loading_dock || false}
+                  className="h-4 w-4 rounded border-gray-300"
                 />
                 <Label htmlFor="has_loading_dock" className="font-normal">Has Loading Dock</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <Checkbox
+                <input
+                  type="checkbox"
                   id="appointment_required"
                   name="appointment_required"
                   defaultChecked={initialData?.appointment_required || false}
+                  className="h-4 w-4 rounded border-gray-300"
                 />
                 <Label htmlFor="appointment_required" className="font-normal">Appointment Required</Label>
               </div>
@@ -474,10 +477,12 @@ export function StorageLocationForm({
         </div>
 
         <div className="flex items-center space-x-2">
-          <Checkbox
+          <input
+            type="checkbox"
             id="track_payments"
             name="track_payments"
             defaultChecked={initialData?.track_payments || false}
+            className="h-4 w-4 rounded border-gray-300"
           />
           <Label htmlFor="track_payments" className="font-normal">
             Track payment due dates and show alerts on dashboard
