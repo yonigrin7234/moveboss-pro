@@ -30,6 +30,11 @@ export function DatePicker({ name, defaultValue, placeholder = "Pick a date", cl
   // Format date as YYYY-MM-DD for form submission
   const formattedValue = date ? format(date, "yyyy-MM-dd") : ""
 
+  // Year range for dropdown (100 years back to 10 years forward)
+  const currentYear = new Date().getFullYear()
+  const startMonth = new Date(currentYear - 100, 0)
+  const endMonth = new Date(currentYear + 10, 11)
+
   return (
     <>
       <input type="hidden" name={name} value={formattedValue} />
@@ -59,6 +64,9 @@ export function DatePicker({ name, defaultValue, placeholder = "Pick a date", cl
                 onChange(newDate ? format(newDate, "yyyy-MM-dd") : "")
               }
             }}
+            captionLayout="dropdown"
+            startMonth={startMonth}
+            endMonth={endMonth}
             initialFocus
           />
         </PopoverContent>
