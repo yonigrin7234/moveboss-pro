@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from 'react';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, BadgeCheck } from 'lucide-react';
 
 import { type CompanyProfileFormValues } from '@/lib/validation/companyProfileSchema';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -21,10 +21,24 @@ type Props = {
   readOnly?: boolean;
   submitLabel?: string;
   redirectTo?: string;
+  /** FMCSA verified legal name - if set, shows disclosure about verified identity */
+  verifiedLegalName?: string | null;
+  /** FMCSA DBA name */
+  verifiedDbaName?: string | null;
 };
 
-export function CompanyProfileFormClient({ defaults, action, readOnly, submitLabel, redirectTo }: Props) {
+export function CompanyProfileFormClient({
+  defaults,
+  action,
+  readOnly,
+  submitLabel,
+  redirectTo,
+  verifiedLegalName,
+  verifiedDbaName,
+}: Props) {
   const [state, formAction, pending] = useActionState<CompanyProfileActionState, FormData>(action, {});
+
+  const isVerified = !!verifiedLegalName;
 
   return (
     <form action={formAction} className="space-y-6">
@@ -42,12 +56,39 @@ export function CompanyProfileFormClient({ defaults, action, readOnly, submitLab
         </Alert>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="name">Company Name</Label>
-          <Input id="name" name="name" defaultValue={defaults.name} required disabled={readOnly} readOnly={readOnly} />
-          {state?.errors?.name && <p className="text-xs text-destructive">{state.errors.name}</p>}
+      <div className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="name">
+              {isVerified ? 'Display Name' : 'Company Name'}
+            </Label>
+            <Input id="name" name="name" defaultValue={defaults.name} required disabled={readOnly} readOnly={readOnly} />
+            {state?.errors?.name && <p className="text-xs text-destructive">{state.errors.name}</p>}
+            {isVerified && (
+              <p className="text-xs text-muted-foreground">
+                This is how your company appears on MoveBoss. Your verified legal identity will be disclosed to partners.
+              </p>
+            )}
+          </div>
         </div>
+
+        {isVerified && (
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 border border-border/50">
+            <BadgeCheck className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Verified Legal Identity</p>
+              <p className="text-sm text-muted-foreground">
+                {verifiedLegalName}
+                {verifiedDbaName && verifiedDbaName !== verifiedLegalName && (
+                  <span className="block text-xs">DBA: {verifiedDbaName}</span>
+                )}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                This name from FMCSA records will be shown to carriers and partners when they view your verified status.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">

@@ -140,6 +140,8 @@ export default async function CompanyProfilePage() {
             defaults={defaults}
             action={updateCompanyProfileAction}
             readOnly={readOnly}
+            verifiedLegalName={company.fmcsa_verified ? company.fmcsa_legal_name : null}
+            verifiedDbaName={company.fmcsa_verified ? company.fmcsa_dba_name : null}
           />
         </CardContent>
       </Card>

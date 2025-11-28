@@ -351,6 +351,7 @@ export function DOTVerificationCard({
         <p className="text-xs text-muted-foreground">
           We&apos;ll verify your DOT number with the Federal Motor Carrier Safety Administration
           and automatically pull your company information, authority status, and insurance details.
+          Your FMCSA legal name will be disclosed to partners viewing your verified status.
         </p>
       </CardContent>
     </Card>
