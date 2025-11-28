@@ -8,6 +8,28 @@ import {
 } from './notifications';
 import { createComplianceRequestsForPartnership } from './compliance';
 
+export interface MarketplaceStorageLocation {
+  id: string;
+  name: string;
+  location_type: string;
+  city: string;
+  state: string;
+  zip: string;
+  address_line1: string | null;
+  unit_numbers: string | null;
+  gate_code: string | null;
+  access_hours: string | null;
+  access_instructions: string | null;
+  truck_accessibility: string | null;
+  accessibility_notes: string | null;
+  facility_brand: string | null;
+  operating_hours: string | null;
+  has_loading_dock: boolean;
+  dock_height: string | null;
+  appointment_required: boolean;
+  appointment_instructions: string | null;
+}
+
 export interface MarketplaceLoad {
   id: string;
   load_number: string;
@@ -21,9 +43,15 @@ export interface MarketplaceLoad {
     platform_rating: number | null;
   } | null;
 
+  // Storage location for RFD loads
+  storage_location: MarketplaceStorageLocation | null;
+
   // Type identification
   posting_type: 'pickup' | 'load';
   load_subtype: 'live' | 'rfd' | null; // Only for posting_type = 'load'
+  load_type: string | null; // live_load or rfd
+  current_storage_location: string | null;
+  storage_unit: string | null;
 
   // Origin (ZIP always visible)
   origin_city: string;
@@ -255,8 +283,18 @@ export async function getMarketplaceLoadWithRequestStatus(
         id, name, city, state,
         platform_loads_completed, platform_rating
       ),
+      storage_location:storage_locations(
+        id, name, location_type, city, state, zip,
+        address_line1, unit_numbers, gate_code, access_hours,
+        access_instructions, truck_accessibility, accessibility_notes,
+        facility_brand, operating_hours, has_loading_dock, dock_height,
+        appointment_required, appointment_instructions
+      ),
       posting_type,
       load_subtype,
+      load_type,
+      current_storage_location,
+      storage_unit,
       origin_city,
       origin_state,
       origin_zip,

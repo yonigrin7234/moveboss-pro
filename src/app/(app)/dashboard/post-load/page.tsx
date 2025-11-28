@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase-client';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -18,8 +19,23 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, PackagePlus, ArrowLeft, Truck, Warehouse } from 'lucide-react';
+import { Loader2, PackagePlus, ArrowLeft, Truck, Warehouse, Plus, AlertTriangle, Ban, Building2 } from 'lucide-react';
 import Link from 'next/link';
+
+interface StorageOption {
+  id: string;
+  name: string;
+  location_type: string;
+  city: string;
+  state: string;
+  zip: string;
+  address_line1: string | null;
+  unit_numbers: string | null;
+  truck_accessibility: string | null;
+  gate_code: string | null;
+  access_hours: string | null;
+  access_instructions: string | null;
+}
 
 const SERVICE_TYPES = [
   { value: 'hhg_local', label: 'HHG Local' },
@@ -37,6 +53,36 @@ export default function PostLoadPage() {
   const [loadType, setLoadType] = useState<LoadType>('live_load');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [storageOptions, setStorageOptions] = useState<StorageOption[]>([]);
+  const [loadingStorage, setLoadingStorage] = useState(true);
+  const [selectedStorage, setSelectedStorage] = useState<StorageOption | null>(null);
+
+  // Fetch storage locations on mount
+  useEffect(() => {
+    async function fetchStorageLocations() {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data } = await supabase
+          .from('storage_locations')
+          .select('id, name, location_type, city, state, zip, address_line1, unit_numbers, truck_accessibility, gate_code, access_hours, access_instructions')
+          .eq('owner_id', user.id)
+          .eq('is_active', true)
+          .order('name');
+
+        setStorageOptions(data || []);
+      } catch (err) {
+        console.error('Error fetching storage locations:', err);
+      } finally {
+        setLoadingStorage(false);
+      }
+    }
+    fetchStorageLocations();
+  }, []);
 
   // Live Load form data
   const [liveLoadData, setLiveLoadData] = useState({
@@ -61,10 +107,13 @@ export default function PostLoadPage() {
 
   // RFD form data
   const [rfdData, setRfdData] = useState({
+    storage_location_id: '',
     storage_location_name: '',
+    storage_address: '',
     storage_city: '',
     storage_state: '',
     storage_zip: '',
+    storage_unit_numbers: '',
     destination_address: '',
     destination_city: '',
     destination_state: '',
@@ -78,6 +127,24 @@ export default function PostLoadPage() {
     rfd_ready_type: 'ready_now' as 'ready_now' | 'ready_on_date',
     rfd_date: '',
   });
+
+  // Handler for storage location selection
+  const handleStorageSelect = (locationId: string) => {
+    const location = storageOptions.find((l) => l.id === locationId);
+    if (location) {
+      setSelectedStorage(location);
+      setRfdData((prev) => ({
+        ...prev,
+        storage_location_id: location.id,
+        storage_location_name: location.name,
+        storage_address: location.address_line1 || '',
+        storage_city: location.city,
+        storage_state: location.state,
+        storage_zip: location.zip || '',
+        storage_unit_numbers: location.unit_numbers || '',
+      }));
+    }
+  };
 
   const handleLiveLoadChange = (field: string, value: string) => {
     setLiveLoadData((prev) => ({ ...prev, [field]: value }));
@@ -182,10 +249,16 @@ export default function PostLoadPage() {
         payload.pickup_postal_code = liveLoadData.origin_zip;
       } else {
         // RFD has storage location info
+        payload.storage_location_id = rfdData.storage_location_id || null;
         payload.current_storage_location = rfdData.storage_location_name;
+        payload.pickup_address_line1 = rfdData.storage_address;
+        payload.pickup_city = rfdData.storage_city;
+        payload.pickup_state = rfdData.storage_state;
+        payload.pickup_postal_code = rfdData.storage_zip;
         payload.loading_city = rfdData.storage_city;
         payload.loading_state = rfdData.storage_state;
         payload.loading_postal_code = rfdData.storage_zip;
+        payload.storage_unit = rfdData.storage_unit_numbers || null;
         // RFD date - null means "ready now"
         payload.rfd_date = rfdData.rfd_ready_type === 'ready_on_date' && rfdData.rfd_date
           ? rfdData.rfd_date
@@ -518,49 +591,156 @@ export default function PostLoadPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4">
+                {/* Storage Location Selector */}
                 <div className="space-y-2">
-                  <Label htmlFor="rfd_storage_location_name">Storage Facility Name *</Label>
-                  <Input
-                    id="rfd_storage_location_name"
-                    value={rfdData.storage_location_name}
-                    onChange={(e) => handleRfdChange('storage_location_name', e.target.value)}
-                    placeholder="ABC Moving Storage"
-                    required
-                  />
+                  <Label htmlFor="rfd_storage_location">Select Storage Location *</Label>
+                  {loadingStorage ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 border rounded-md">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading storage locations...
+                    </div>
+                  ) : storageOptions.length === 0 ? (
+                    <div className="p-4 border rounded-lg bg-muted/50 text-center">
+                      <Warehouse className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground mb-3">
+                        No storage locations found. Add a warehouse or public storage first.
+                      </p>
+                      <div className="flex gap-2 justify-center">
+                        <Button type="button" variant="outline" size="sm" asChild>
+                          <Link href="/dashboard/storage/new?type=warehouse">
+                            <Building2 className="h-4 w-4 mr-1" />
+                            Add Warehouse
+                          </Link>
+                        </Button>
+                        <Button type="button" size="sm" asChild>
+                          <Link href="/dashboard/storage/new?type=public_storage">
+                            <Warehouse className="h-4 w-4 mr-1" />
+                            Add Public Storage
+                          </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <Select
+                        value={rfdData.storage_location_id}
+                        onValueChange={handleStorageSelect}
+                      >
+                        <SelectTrigger id="rfd_storage_location">
+                          <SelectValue placeholder="Select a storage location" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {storageOptions.map((location) => (
+                            <SelectItem key={location.id} value={location.id}>
+                              <div className="flex items-center gap-2">
+                                {location.location_type === 'warehouse' ? (
+                                  <Building2 className="h-4 w-4 text-blue-500" />
+                                ) : (
+                                  <Warehouse className="h-4 w-4 text-purple-500" />
+                                )}
+                                <span>{location.name}</span>
+                                <span className="text-muted-foreground">
+                                  - {location.city}, {location.state}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <div className="flex justify-end">
+                        <Button type="button" variant="link" size="sm" asChild className="px-0">
+                          <Link href="/dashboard/storage/new?type=warehouse">
+                            <Plus className="h-3 w-3 mr-1" />
+                            Add new location
+                          </Link>
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="rfd_storage_city">City *</Label>
-                    <Input
-                      id="rfd_storage_city"
-                      value={rfdData.storage_city}
-                      onChange={(e) => handleRfdChange('storage_city', e.target.value)}
-                      placeholder="Chicago"
-                      required
-                    />
+
+                {/* Show selected storage details */}
+                {selectedStorage && (
+                  <div className="p-4 bg-muted/50 rounded-lg space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="font-medium">{selectedStorage.name}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedStorage.address_line1 && `${selectedStorage.address_line1}, `}
+                          {selectedStorage.city}, {selectedStorage.state} {selectedStorage.zip}
+                        </p>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={
+                          selectedStorage.truck_accessibility === 'full'
+                            ? 'bg-green-500/20 text-green-600'
+                            : selectedStorage.truck_accessibility === 'limited'
+                              ? 'bg-yellow-500/20 text-yellow-600'
+                              : selectedStorage.truck_accessibility === 'none'
+                                ? 'bg-red-500/20 text-red-600'
+                                : ''
+                        }
+                      >
+                        {selectedStorage.truck_accessibility === 'full' && (
+                          <>
+                            <Truck className="h-3 w-3 mr-1" />
+                            Full Access
+                          </>
+                        )}
+                        {selectedStorage.truck_accessibility === 'limited' && (
+                          <>
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            Limited
+                          </>
+                        )}
+                        {selectedStorage.truck_accessibility === 'none' && (
+                          <>
+                            <Ban className="h-3 w-3 mr-1" />
+                            No Truck Access
+                          </>
+                        )}
+                        {!selectedStorage.truck_accessibility && 'Unknown'}
+                      </Badge>
+                    </div>
+                    {selectedStorage.unit_numbers && (
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Units:</span>{' '}
+                        <span className="font-mono">{selectedStorage.unit_numbers}</span>
+                      </div>
+                    )}
+                    {selectedStorage.access_hours && (
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Hours:</span>{' '}
+                        {selectedStorage.access_hours}
+                      </div>
+                    )}
+                    {selectedStorage.gate_code && (
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Gate Code:</span>{' '}
+                        <span className="font-mono bg-background px-1 rounded">
+                          {selectedStorage.gate_code}
+                        </span>
+                      </div>
+                    )}
                   </div>
+                )}
+
+                {/* Unit selection for public storage */}
+                {selectedStorage?.location_type === 'public_storage' && selectedStorage.unit_numbers && (
                   <div className="space-y-2">
-                    <Label htmlFor="rfd_storage_state">State *</Label>
+                    <Label htmlFor="rfd_unit">Storage Unit *</Label>
                     <Input
-                      id="rfd_storage_state"
-                      value={rfdData.storage_state}
-                      onChange={(e) => handleRfdChange('storage_state', e.target.value)}
-                      placeholder="IL"
-                      maxLength={2}
-                      required
+                      id="rfd_unit"
+                      value={rfdData.storage_unit_numbers}
+                      onChange={(e) => handleRfdChange('storage_unit_numbers', e.target.value)}
+                      placeholder="Enter specific unit (e.g., 101)"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Available units: {selectedStorage.unit_numbers}
+                    </p>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="rfd_storage_zip">ZIP Code *</Label>
-                    <Input
-                      id="rfd_storage_zip"
-                      value={rfdData.storage_zip}
-                      onChange={(e) => handleRfdChange('storage_zip', e.target.value)}
-                      placeholder="60601"
-                      required
-                    />
-                  </div>
-                </div>
+                )}
 
                 <div className="space-y-3 pt-4 border-t">
                   <Label>When is this load ready for delivery?</Label>

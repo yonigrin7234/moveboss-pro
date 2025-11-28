@@ -1,34 +1,44 @@
-import { redirect } from 'next/navigation';
+import { redirect, notFound } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
 import { getCurrentUser } from '@/lib/supabase-server';
-import { createStorageLocation, LocationType, TruckAccessibility } from '@/data/storage-locations';
+import {
+  getStorageLocationById,
+  updateStorageLocation,
+  LocationType,
+  TruckAccessibility,
+} from '@/data/storage-locations';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { StorageLocationForm } from './_components/storage-location-form';
+import { StorageLocationForm } from '../../new/_components/storage-location-form';
 
-export default async function NewStorageLocationPage({
-  searchParams,
+export default async function EditStorageLocationPage({
+  params,
 }: {
-  searchParams: Promise<{ type?: string }>;
+  params: Promise<{ id: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  const { type } = await searchParams;
-  const locationType = (type === 'public_storage' ? 'public_storage' : 'warehouse') as LocationType;
+  const { id } = await params;
+  const location = await getStorageLocationById(id, user.id);
 
-  async function createAction(formData: FormData) {
+  if (!location) {
+    notFound();
+  }
+
+  async function updateAction(formData: FormData) {
     'use server';
 
     const user = await getCurrentUser();
     if (!user) redirect('/login');
 
+    const { id } = await params;
     const locationType = formData.get('location_type') as LocationType;
 
-    const result = await createStorageLocation(user.id, {
+    const result = await updateStorageLocation(id, user.id, {
       name: formData.get('name') as string,
       code: (formData.get('code') as string) || null,
       location_type: locationType,
@@ -70,23 +80,24 @@ export default async function NewStorageLocationPage({
 
     if (result.success) {
       revalidatePath('/dashboard/storage');
-      redirect('/dashboard/storage');
+      revalidatePath(`/dashboard/storage/${id}`);
+      redirect(`/dashboard/storage/${id}`);
     }
   }
 
-  const isWarehouse = locationType === 'warehouse';
-  const title = isWarehouse ? 'Add Warehouse' : 'Add Public Storage';
+  const isWarehouse = location.location_type === 'warehouse';
+  const title = isWarehouse ? 'Edit Warehouse' : 'Edit Public Storage';
   const description = isWarehouse
-    ? 'Add a company-owned warehouse or partner facility'
-    : 'Add a third-party public storage location (CubeSmart, Public Storage, etc.)';
+    ? 'Update warehouse details'
+    : 'Update public storage details';
 
   return (
     <div className="container max-w-2xl py-6">
       <div className="mb-6">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/dashboard/storage">
+          <Link href={`/dashboard/storage/${id}`}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Storage Locations
+            Back to Location
           </Link>
         </Button>
       </div>
@@ -98,9 +109,10 @@ export default async function NewStorageLocationPage({
         </CardHeader>
         <CardContent>
           <StorageLocationForm
-            action={createAction}
-            locationType={locationType}
-            submitLabel="Add Location"
+            action={updateAction}
+            locationType={location.location_type as LocationType}
+            submitLabel="Save Changes"
+            initialData={location}
           />
         </CardContent>
       </Card>

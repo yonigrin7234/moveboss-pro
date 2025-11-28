@@ -1,12 +1,15 @@
 import { createClient } from '@/lib/supabase-server';
 
+export type LocationType = 'warehouse' | 'public_storage' | 'partner_facility' | 'container_yard' | 'vault_storage' | 'other';
+export type TruckAccessibility = 'full' | 'limited' | 'none';
+
 export interface StorageLocation {
   id: string;
   company_id: string | null;
   owner_id: string;
   name: string;
   code: string | null;
-  location_type: string;
+  location_type: LocationType;
   address_line1: string | null;
   address_line2: string | null;
   city: string;
@@ -32,6 +35,22 @@ export interface StorageLocation {
   created_at: string;
   updated_at: string;
   loads_count?: number;
+  // Warehouse-specific fields
+  operating_hours: string | null;
+  has_loading_dock: boolean;
+  dock_height: string | null;
+  appointment_required: boolean;
+  appointment_instructions: string | null;
+  // Public Storage-specific fields
+  facility_brand: string | null;
+  facility_phone: string | null;
+  unit_numbers: string | null;
+  account_name: string | null;
+  account_number: string | null;
+  authorization_notes: string | null;
+  // Accessibility
+  truck_accessibility: TruckAccessibility;
+  accessibility_notes: string | null;
 }
 
 export async function getStorageLocations(ownerId: string): Promise<StorageLocation[]> {
@@ -135,6 +154,22 @@ export async function createStorageLocation(
       rent_due_day: data.rent_due_day,
       lease_start_date: data.lease_start_date,
       lease_end_date: data.lease_end_date,
+      // Warehouse-specific fields
+      operating_hours: data.operating_hours,
+      has_loading_dock: data.has_loading_dock || false,
+      dock_height: data.dock_height,
+      appointment_required: data.appointment_required || false,
+      appointment_instructions: data.appointment_instructions,
+      // Public storage-specific fields
+      facility_brand: data.facility_brand,
+      facility_phone: data.facility_phone,
+      unit_numbers: data.unit_numbers,
+      account_name: data.account_name,
+      account_number: data.account_number,
+      authorization_notes: data.authorization_notes,
+      // Accessibility
+      truck_accessibility: data.truck_accessibility || 'full',
+      accessibility_notes: data.accessibility_notes,
     })
     .select('id')
     .single();
@@ -177,6 +212,22 @@ export async function updateStorageLocation(
       rent_due_day: data.rent_due_day,
       lease_start_date: data.lease_start_date,
       lease_end_date: data.lease_end_date,
+      // Warehouse-specific fields
+      operating_hours: data.operating_hours,
+      has_loading_dock: data.has_loading_dock,
+      dock_height: data.dock_height,
+      appointment_required: data.appointment_required,
+      appointment_instructions: data.appointment_instructions,
+      // Public storage-specific fields
+      facility_brand: data.facility_brand,
+      facility_phone: data.facility_phone,
+      unit_numbers: data.unit_numbers,
+      account_name: data.account_name,
+      account_number: data.account_number,
+      authorization_notes: data.authorization_notes,
+      // Accessibility
+      truck_accessibility: data.truck_accessibility,
+      accessibility_notes: data.accessibility_notes,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
@@ -208,4 +259,102 @@ export async function deleteStorageLocation(
   }
 
   return { success: true };
+}
+
+// Get storage locations filtered by type
+export async function getStorageLocationsByType(
+  ownerId: string,
+  locationType: LocationType
+): Promise<StorageLocation[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('storage_locations')
+    .select('*')
+    .eq('owner_id', ownerId)
+    .eq('location_type', locationType)
+    .eq('is_active', true)
+    .order('name');
+
+  if (error) {
+    console.error('Error fetching storage locations by type:', error);
+    return [];
+  }
+
+  return data as StorageLocation[] || [];
+}
+
+// Get storage location counts by type
+export async function getStorageLocationCounts(
+  ownerId: string
+): Promise<{ total: number; warehouses: number; publicStorage: number }> {
+  const supabase = await createClient();
+
+  const { count: total } = await supabase
+    .from('storage_locations')
+    .select('*', { count: 'exact', head: true })
+    .eq('owner_id', ownerId)
+    .eq('is_active', true);
+
+  const { count: warehouses } = await supabase
+    .from('storage_locations')
+    .select('*', { count: 'exact', head: true })
+    .eq('owner_id', ownerId)
+    .eq('location_type', 'warehouse')
+    .eq('is_active', true);
+
+  const { count: publicStorage } = await supabase
+    .from('storage_locations')
+    .select('*', { count: 'exact', head: true })
+    .eq('owner_id', ownerId)
+    .eq('location_type', 'public_storage')
+    .eq('is_active', true);
+
+  return {
+    total: total || 0,
+    warehouses: warehouses || 0,
+    publicStorage: publicStorage || 0,
+  };
+}
+
+// Get storage options for dropdown (minimal data)
+export async function getStorageOptions(
+  ownerId: string,
+  locationType?: LocationType
+): Promise<Array<{
+  id: string;
+  name: string;
+  location_type: LocationType;
+  city: string;
+  state: string;
+  unit_numbers: string | null;
+}>> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from('storage_locations')
+    .select('id, name, location_type, city, state, unit_numbers')
+    .eq('owner_id', ownerId)
+    .eq('is_active', true)
+    .order('name');
+
+  if (locationType) {
+    query = query.eq('location_type', locationType);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching storage options:', error);
+    return [];
+  }
+
+  return (data || []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    location_type: s.location_type as LocationType,
+    city: s.city,
+    state: s.state,
+    unit_numbers: s.unit_numbers,
+  }));
 }

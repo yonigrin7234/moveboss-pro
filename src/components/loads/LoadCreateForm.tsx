@@ -9,7 +9,7 @@ import type { Company } from '@/data/companies'
 import type { Driver } from '@/data/drivers'
 import type { Truck, Trailer } from '@/data/fleet'
 import type { Trip } from '@/data/trips'
-import type { StorageLocation } from '@/data/storage-locations'
+import type { StorageLocation, LocationType } from '@/data/storage-locations'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -151,7 +151,17 @@ export function LoadCreateForm({
   const [showAddLocationModal, setShowAddLocationModal] = useState(false)
   const [newLocationSaving, setNewLocationSaving] = useState(false)
   const [localStorageLocations, setLocalStorageLocations] = useState<StorageLocation[]>(storageLocations)
-  const [newLocation, setNewLocation] = useState({
+  const [newLocation, setNewLocation] = useState<{
+    name: string;
+    location_type: LocationType;
+    address_line1: string;
+    city: string;
+    state: string;
+    zip: string;
+    contact_name: string;
+    contact_phone: string;
+    gate_code: string;
+  }>({
     name: '',
     location_type: 'warehouse',
     address_line1: '',
@@ -262,6 +272,22 @@ export function LoadCreateForm({
           is_active: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
+          // Warehouse-specific fields
+          operating_hours: null,
+          has_loading_dock: false,
+          dock_height: null,
+          appointment_required: false,
+          appointment_instructions: null,
+          // Public Storage-specific fields
+          facility_brand: null,
+          facility_phone: null,
+          unit_numbers: null,
+          account_name: null,
+          account_number: null,
+          authorization_notes: null,
+          // Accessibility
+          truck_accessibility: 'full',
+          accessibility_notes: null,
         }
         setLocalStorageLocations((prev) => [...prev, createdLocation])
         setStorageLocationId(result.id)
@@ -893,7 +919,7 @@ export function LoadCreateForm({
               <Label>Location Type</Label>
               <Select
                 value={newLocation.location_type}
-                onValueChange={(value) => setNewLocation((prev) => ({ ...prev, location_type: value }))}
+                onValueChange={(value) => setNewLocation((prev) => ({ ...prev, location_type: value as LocationType }))}
               >
                 <SelectTrigger className="h-9">
                   <SelectValue />

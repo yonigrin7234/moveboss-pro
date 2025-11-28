@@ -24,6 +24,10 @@ import {
   XCircle,
   DollarSign,
   Calendar,
+  Warehouse,
+  Key,
+  AlertTriangle,
+  Ban,
 } from 'lucide-react';
 
 function formatRate(rate: number | null, rateType: string): string {
@@ -279,6 +283,167 @@ export default async function LoadDetailPage({ params }: PageProps) {
               )}
             </CardContent>
           </Card>
+
+          {/* Storage Information Card (for RFD loads) */}
+          {(load.load_type === 'rfd' || load.load_subtype === 'rfd' || load.storage_location) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Warehouse className="h-5 w-5" />
+                  Storage Pickup Location
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {(() => {
+                  const storage = Array.isArray(load.storage_location)
+                    ? load.storage_location[0]
+                    : load.storage_location;
+
+                  if (storage) {
+                    return (
+                      <>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-semibold text-lg">{storage.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {storage.address_line1 && `${storage.address_line1}, `}
+                              {storage.city}, {storage.state} {storage.zip}
+                            </p>
+                            {storage.facility_brand && (
+                              <Badge variant="outline" className="mt-1 capitalize">
+                                {storage.facility_brand.replace('_', ' ')}
+                              </Badge>
+                            )}
+                          </div>
+                          {storage.truck_accessibility && (
+                            <Badge
+                              variant="outline"
+                              className={
+                                storage.truck_accessibility === 'full'
+                                  ? 'bg-green-500/20 text-green-600 dark:text-green-400'
+                                  : storage.truck_accessibility === 'limited'
+                                    ? 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400'
+                                    : 'bg-red-500/20 text-red-600 dark:text-red-400'
+                              }
+                            >
+                              {storage.truck_accessibility === 'full' && (
+                                <>
+                                  <Truck className="h-3 w-3 mr-1" />
+                                  Full Truck Access
+                                </>
+                              )}
+                              {storage.truck_accessibility === 'limited' && (
+                                <>
+                                  <AlertTriangle className="h-3 w-3 mr-1" />
+                                  Limited Access
+                                </>
+                              )}
+                              {storage.truck_accessibility === 'none' && (
+                                <>
+                                  <Ban className="h-3 w-3 mr-1" />
+                                  No Truck Access
+                                </>
+                              )}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {(load.storage_unit || storage.unit_numbers) && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Key className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">Unit:</span>
+                            <span className="font-mono bg-muted px-2 py-0.5 rounded">
+                              {load.storage_unit || storage.unit_numbers}
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+                          {storage.access_hours && (
+                            <div>
+                              <p className="text-sm text-muted-foreground">Access Hours</p>
+                              <p className="text-sm font-medium">{storage.access_hours}</p>
+                            </div>
+                          )}
+                          {storage.operating_hours && (
+                            <div>
+                              <p className="text-sm text-muted-foreground">Operating Hours</p>
+                              <p className="text-sm font-medium">{storage.operating_hours}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {storage.gate_code && (
+                          <div className="p-3 bg-muted/50 rounded-lg">
+                            <p className="text-sm text-muted-foreground mb-1">Gate Code</p>
+                            <p className="font-mono text-lg">{storage.gate_code}</p>
+                          </div>
+                        )}
+
+                        {storage.access_instructions && (
+                          <div>
+                            <p className="text-sm text-muted-foreground mb-1">Access Instructions</p>
+                            <p className="text-sm">{storage.access_instructions}</p>
+                          </div>
+                        )}
+
+                        {storage.has_loading_dock && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Truck className="h-4 w-4 text-muted-foreground" />
+                            <span>Loading dock available</span>
+                            {storage.dock_height && (
+                              <span className="text-muted-foreground">({storage.dock_height})</span>
+                            )}
+                          </div>
+                        )}
+
+                        {storage.appointment_required && (
+                          <div className="p-3 border border-yellow-500/30 bg-yellow-500/5 rounded-lg">
+                            <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400 font-medium">
+                              <Clock className="h-4 w-4" />
+                              Appointment Required
+                            </div>
+                            {storage.appointment_instructions && (
+                              <p className="text-sm mt-1">{storage.appointment_instructions}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {storage.accessibility_notes && (
+                          <div>
+                            <p className="text-sm text-muted-foreground mb-1">Accessibility Notes</p>
+                            <p className="text-sm">{storage.accessibility_notes}</p>
+                          </div>
+                        )}
+                      </>
+                    );
+                  } else if (load.current_storage_location) {
+                    // Fallback for loads without linked storage location
+                    return (
+                      <div>
+                        <p className="font-medium">{load.current_storage_location}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {load.origin_city}, {load.origin_state} {load.origin_zip}
+                        </p>
+                        {load.storage_unit && (
+                          <p className="text-sm mt-2">
+                            <span className="text-muted-foreground">Unit: </span>
+                            <span className="font-mono">{load.storage_unit}</span>
+                          </p>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <p className="text-muted-foreground">
+                      Pickup from storage in {load.origin_city}, {load.origin_state}
+                    </p>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Request Sidebar */}
