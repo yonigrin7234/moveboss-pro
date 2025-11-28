@@ -130,8 +130,11 @@ export async function setupOwnerOperatorAction(
     return { success: false, error: companyResult.error };
   }
 
-  // Create driver profile (themselves)
-  const driverResult = await createDriverProfile(user.id, driverData);
+  // Create driver profile (themselves) - link to their own company
+  const driverResult = await createDriverProfile(user.id, {
+    ...driverData,
+    company_id: companyResult.companyId,
+  });
   if (!driverResult.success) {
     return { success: false, error: driverResult.error };
   }
@@ -167,8 +170,11 @@ export async function setupDriverAction(
     return { success: false, error: validation.error };
   }
 
-  // Create driver profile under the carrier
-  const driverResult = await createDriverProfile(validation.carrierId!, driverData);
+  // Create driver profile - owner is the driver user, company is the carrier
+  const driverResult = await createDriverProfile(user.id, {
+    ...driverData,
+    company_id: validation.carrierId,
+  });
   if (!driverResult.success) {
     return { success: false, error: driverResult.error };
   }

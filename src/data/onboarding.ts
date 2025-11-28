@@ -220,6 +220,7 @@ export interface CreateDriverData {
   license_number?: string;
   license_state?: string;
   license_expiration?: string;
+  company_id?: string; // The company this driver works for
 }
 
 export async function createDriverProfile(
@@ -232,6 +233,7 @@ export async function createDriverProfile(
     .from('drivers')
     .insert({
       owner_id: ownerId,
+      company_id: data.company_id || null,
       first_name: data.first_name,
       last_name: data.last_name,
       phone: data.phone || null,
