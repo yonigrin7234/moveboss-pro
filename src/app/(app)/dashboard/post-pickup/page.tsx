@@ -60,19 +60,6 @@ export default function PostPickupPage() {
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-
-    // Auto-calculate balance due when cubic feet or rate changes
-    if (field === 'cubic_feet' || field === 'rate_per_cuft') {
-      const cuft = field === 'cubic_feet' ? parseFloat(value) : parseFloat(formData.cubic_feet);
-      const rate = field === 'rate_per_cuft' ? parseFloat(value) : parseFloat(formData.rate_per_cuft);
-      if (!isNaN(cuft) && !isNaN(rate)) {
-        setFormData((prev) => ({
-          ...prev,
-          [field]: value,
-          balance_due: (cuft * rate).toFixed(2),
-        }));
-      }
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -390,7 +377,7 @@ export default function PostPickupPage() {
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Auto-calculated from CUFT × Rate
+                  Amount carrier will collect from customer
                 </p>
               </div>
             </div>
