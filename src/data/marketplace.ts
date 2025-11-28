@@ -1154,6 +1154,8 @@ export interface CarrierMarketplaceLoad {
   assigned_driver_name: string | null;
   carrier_assigned_at: string;
   carrier_confirmed_at: string | null;
+  // Equipment
+  truck_requirement: 'any' | 'semi_only' | 'box_truck_only' | null;
   // Source company
   source_company_id: string;
   source_company_name: string;
@@ -1202,6 +1204,7 @@ export async function getCarrierMarketplaceLoads(
       trip_id,
       assigned_driver_id, assigned_driver_name,
       carrier_assigned_at, carrier_confirmed_at,
+      truck_requirement,
       source_company_id, source_company_name,
       source_company:companies!loads_source_company_id_fkey(
         id, name, city, state, phone
@@ -1263,6 +1266,7 @@ export async function getCarrierMarketplaceLoads(
       assigned_driver_name: load.assigned_driver_name,
       carrier_assigned_at: load.carrier_assigned_at,
       carrier_confirmed_at: load.carrier_confirmed_at,
+      truck_requirement: load.truck_requirement,
       source_company_id: load.source_company_id,
       source_company_name: load.source_company_name,
       source_company: sourceCompany,
