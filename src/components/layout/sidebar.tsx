@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   Building2,
-  Package,
   ClipboardList,
   ClipboardCheck,
   Users,
@@ -31,7 +30,9 @@ import {
   FileCheck,
   Search,
   Send,
-  Plus,
+  Upload,
+  PackagePlus,
+  FileText,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -42,7 +43,7 @@ type NavItem = {
   href: string
   icon: React.ComponentType<{ className?: string }>
   children?: NavItem[]
-  section?: "broker" | "carrier" | "general"
+  section?: "posting" | "carrier" | "general"
 }
 
 type SidebarProps = {
@@ -110,19 +111,42 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
       { label: "Activity", href: "/dashboard/activity", icon: Radio },
     ]
 
-    // Broker section - only show when canPostLoads
+    // POSTING Section - only show when canPostLoads (is_broker = true)
     if (canPostLoads) {
+      // Post Pickup - Brokers and Moving Companies
       items.push({
-        label: "Posted Loads",
-        href: "/dashboard/loads",
-        icon: Send,
-        section: "broker",
-        children: [
-          { label: "All Loads", href: "/dashboard/loads", icon: Package },
-          { label: "Post New", href: "/dashboard/loads/new", icon: Plus },
-        ],
+        label: "Post Pickup",
+        href: "/dashboard/post-pickup",
+        icon: Upload,
+        section: "posting",
       })
-      items.push({ label: "Carrier Requests", href: "/dashboard/assigned-loads", icon: ClipboardCheck, section: "broker" })
+
+      // Post Load - Moving Companies ONLY (is_broker AND is_carrier)
+      // Brokers (is_broker only) don't see this - they never have freight
+      if (canHaulLoads) {
+        items.push({
+          label: "Post Load",
+          href: "/dashboard/post-load",
+          icon: PackagePlus,
+          section: "posting",
+        })
+      }
+
+      // My Posted Jobs - Anyone who posts (brokers + moving companies)
+      items.push({
+        label: "My Posted Jobs",
+        href: "/dashboard/posted-jobs",
+        icon: FileText,
+        section: "posting",
+      })
+
+      // Carrier Requests - Anyone who posts
+      items.push({
+        label: "Carrier Requests",
+        href: "/dashboard/carrier-requests",
+        icon: ClipboardCheck,
+        section: "posting",
+      })
     }
 
     // Carrier section - only show when canHaulLoads
@@ -222,7 +246,7 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
   }
 
   // Group items by section for visual separation
-  const brokerItems = navItems.filter((item) => item.section === "broker")
+  const postingItems = navItems.filter((item) => item.section === "posting")
   const carrierItems = navItems.filter((item) => item.section === "carrier")
   const generalItems = navItems.filter((item) => item.section === "general")
   const topItems = navItems.filter((item) => !item.section)
@@ -343,13 +367,13 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
         {/* Top items (Overview, Activity) */}
         {topItems.map(renderNavItem)}
 
-        {/* Broker Section */}
-        {brokerItems.length > 0 && (
+        {/* Posting Section */}
+        {postingItems.length > 0 && (
           <>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-3 pt-4 pb-2">
-              Broker
+              Posting
             </p>
-            {brokerItems.map(renderNavItem)}
+            {postingItems.map(renderNavItem)}
           </>
         )}
 
