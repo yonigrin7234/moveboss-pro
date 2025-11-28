@@ -507,7 +507,9 @@ export async function acceptLoadRequest(
     return { success: false, error: requestError.message };
   }
 
-  // Update the load with carrier assignment
+  const companyObj = loadData.company as { id: string; name: string } | null;
+
+  // Update the load with carrier assignment and marketplace integration fields
   const { error: loadError } = await supabase
     .from('loads')
     .update({
@@ -517,6 +519,13 @@ export async function acceptLoadRequest(
       carrier_rate_type: finalRateType,
       load_status: 'pending', // Carrier needs to confirm
       is_marketplace_visible: false, // Remove from marketplace
+      // Marketplace integration fields
+      marketplace_request_id: requestId,
+      is_from_marketplace: true,
+      source_company_id: loadData.company_id as string,
+      source_company_name: companyObj?.name || 'Company',
+      operational_status: 'unassigned',
+      last_status_update: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq('id', request.load_id);
@@ -570,7 +579,6 @@ export async function acceptLoadRequest(
   await supabase.rpc('increment_loads_assigned', { p_company_id: loadData.company_id as string });
 
   // Notify carrier
-  const companyObj = loadData.company as { id: string; name: string } | null;
   const route = `${loadData.origin_city}, ${loadData.origin_state} → ${loadData.destination_city}, ${loadData.destination_state}`;
   await notifyRequestAccepted(
     request.carrier_owner_id,
@@ -1070,4 +1078,449 @@ export async function getCarrierRequests(
       company: { id: string; name: string } | null;
     };
   }>;
+}
+
+// Marketplace load interface for carrier view
+export interface CarrierMarketplaceLoad {
+  id: string;
+  load_number: string;
+  // Type
+  posting_type: 'pickup' | 'load';
+  load_subtype: 'live' | 'rfd' | null;
+  // Route
+  origin_city: string;
+  origin_state: string;
+  origin_zip: string;
+  destination_city: string;
+  destination_state: string;
+  destination_zip: string;
+  // Size & Rate
+  estimated_cuft: number | null;
+  carrier_rate: number | null;
+  carrier_rate_type: string;
+  balance_due: number | null;
+  // Dates from request
+  proposed_load_date_start: string | null;
+  proposed_load_date_end: string | null;
+  proposed_delivery_date_start: string | null;
+  proposed_delivery_date_end: string | null;
+  // Status
+  operational_status: string;
+  load_status: string;
+  // Assignment
+  trip_id: string | null;
+  assigned_driver_id: string | null;
+  assigned_driver_name: string | null;
+  carrier_assigned_at: string;
+  carrier_confirmed_at: string | null;
+  // Source company
+  source_company_id: string;
+  source_company_name: string;
+  source_company: {
+    id: string;
+    name: string;
+    city: string | null;
+    state: string | null;
+    phone: string | null;
+  } | null;
+  // Trip info if assigned
+  trip: {
+    id: string;
+    trip_number: string;
+    driver: { id: string; first_name: string; last_name: string } | null;
+  } | null;
+}
+
+// Get marketplace loads assigned to carrier (for carrier dashboard)
+export async function getCarrierMarketplaceLoads(
+  carrierOwnerId: string
+): Promise<CarrierMarketplaceLoad[]> {
+  const supabase = await createClient();
+
+  // Get carrier's company
+  const { data: carrier } = await supabase
+    .from('companies')
+    .select('id')
+    .eq('owner_id', carrierOwnerId)
+    .single();
+
+  if (!carrier) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('loads')
+    .select(`
+      id, load_number,
+      posting_type, load_subtype,
+      origin_city, origin_state, origin_zip,
+      destination_city, destination_state, destination_zip,
+      estimated_cuft, carrier_rate, carrier_rate_type,
+      balance_due,
+      operational_status, load_status,
+      trip_id,
+      assigned_driver_id, assigned_driver_name,
+      carrier_assigned_at, carrier_confirmed_at,
+      source_company_id, source_company_name,
+      source_company:companies!loads_source_company_id_fkey(
+        id, name, city, state, phone
+      ),
+      trip:trips(
+        id, trip_number,
+        driver:drivers(id, first_name, last_name)
+      ),
+      marketplace_request:load_requests!loads_marketplace_request_id_fkey(
+        proposed_load_date_start,
+        proposed_load_date_end,
+        proposed_delivery_date_start,
+        proposed_delivery_date_end
+      )
+    `)
+    .eq('assigned_carrier_id', carrier.id)
+    .eq('is_from_marketplace', true)
+    .not('load_status', 'eq', 'cancelled')
+    .order('carrier_assigned_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching carrier marketplace loads:', error);
+    return [];
+  }
+
+  // Transform the data to flatten marketplace_request dates
+  return (data || []).map((load) => {
+    const marketplaceRequest = Array.isArray(load.marketplace_request)
+      ? load.marketplace_request[0]
+      : load.marketplace_request;
+    const trip = Array.isArray(load.trip) ? load.trip[0] : load.trip;
+    const sourceCompany = Array.isArray(load.source_company)
+      ? load.source_company[0]
+      : load.source_company;
+
+    return {
+      id: load.id,
+      load_number: load.load_number,
+      posting_type: load.posting_type || 'load',
+      load_subtype: load.load_subtype,
+      origin_city: load.origin_city,
+      origin_state: load.origin_state,
+      origin_zip: load.origin_zip,
+      destination_city: load.destination_city,
+      destination_state: load.destination_state,
+      destination_zip: load.destination_zip,
+      estimated_cuft: load.estimated_cuft,
+      carrier_rate: load.carrier_rate,
+      carrier_rate_type: load.carrier_rate_type,
+      balance_due: load.balance_due,
+      proposed_load_date_start: marketplaceRequest?.proposed_load_date_start || null,
+      proposed_load_date_end: marketplaceRequest?.proposed_load_date_end || null,
+      proposed_delivery_date_start: marketplaceRequest?.proposed_delivery_date_start || null,
+      proposed_delivery_date_end: marketplaceRequest?.proposed_delivery_date_end || null,
+      operational_status: load.operational_status || 'unassigned',
+      load_status: load.load_status,
+      trip_id: load.trip_id,
+      assigned_driver_id: load.assigned_driver_id,
+      assigned_driver_name: load.assigned_driver_name,
+      carrier_assigned_at: load.carrier_assigned_at,
+      carrier_confirmed_at: load.carrier_confirmed_at,
+      source_company_id: load.source_company_id,
+      source_company_name: load.source_company_name,
+      source_company: sourceCompany,
+      trip: trip ? {
+        id: trip.id,
+        trip_number: trip.trip_number,
+        driver: Array.isArray(trip.driver) ? trip.driver[0] : trip.driver,
+      } : null,
+    };
+  }) as CarrierMarketplaceLoad[];
+}
+
+// Get counts for carrier marketplace loads
+export async function getCarrierMarketplaceLoadCounts(
+  carrierOwnerId: string
+): Promise<{ total: number; unassigned: number; assigned: number }> {
+  const supabase = await createClient();
+
+  // Get carrier's company
+  const { data: carrier } = await supabase
+    .from('companies')
+    .select('id')
+    .eq('owner_id', carrierOwnerId)
+    .single();
+
+  if (!carrier) {
+    return { total: 0, unassigned: 0, assigned: 0 };
+  }
+
+  // Get total count
+  const { count: total } = await supabase
+    .from('loads')
+    .select('*', { count: 'exact', head: true })
+    .eq('assigned_carrier_id', carrier.id)
+    .eq('is_from_marketplace', true)
+    .not('load_status', 'in', '("cancelled","completed","delivered")');
+
+  // Get unassigned count
+  const { count: unassigned } = await supabase
+    .from('loads')
+    .select('*', { count: 'exact', head: true })
+    .eq('assigned_carrier_id', carrier.id)
+    .eq('is_from_marketplace', true)
+    .is('trip_id', null)
+    .not('load_status', 'in', '("cancelled","completed","delivered")');
+
+  return {
+    total: total || 0,
+    unassigned: unassigned || 0,
+    assigned: (total || 0) - (unassigned || 0),
+  };
+}
+
+// Update operational status for a load
+export async function updateLoadOperationalStatus(
+  loadId: string,
+  userId: string,
+  newStatus: string,
+  notes?: string,
+  location?: { lat: number; lng: number }
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  // Get current status
+  const { data: load } = await supabase
+    .from('loads')
+    .select('operational_status, marketplace_request_id')
+    .eq('id', loadId)
+    .single();
+
+  if (!load) {
+    return { success: false, error: 'Load not found' };
+  }
+
+  // Update the load
+  const { error: updateError } = await supabase
+    .from('loads')
+    .update({
+      operational_status: newStatus,
+      last_status_update: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', loadId);
+
+  if (updateError) {
+    console.error('Error updating load status:', updateError);
+    return { success: false, error: updateError.message };
+  }
+
+  // Log the status change
+  const { error: logError } = await supabase
+    .from('load_status_updates')
+    .insert({
+      load_id: loadId,
+      marketplace_request_id: load.marketplace_request_id,
+      old_status: load.operational_status,
+      new_status: newStatus,
+      updated_by_user_id: userId,
+      notes: notes || null,
+      location_lat: location?.lat || null,
+      location_lng: location?.lng || null,
+    });
+
+  if (logError) {
+    console.error('Error logging status update:', logError);
+    // Don't fail the operation, just log the error
+  }
+
+  return { success: true };
+}
+
+// Get single marketplace load detail for carrier
+export async function getCarrierMarketplaceLoadDetail(
+  loadId: string,
+  carrierOwnerId: string
+): Promise<CarrierMarketplaceLoad & {
+  // Additional details for detail view
+  origin_address: string | null;
+  origin_address2: string | null;
+  origin_contact_name: string | null;
+  origin_contact_phone: string | null;
+  origin_contact_email: string | null;
+  origin_notes: string | null;
+  destination_address: string | null;
+  destination_address2: string | null;
+  destination_contact_name: string | null;
+  destination_contact_phone: string | null;
+  destination_contact_email: string | null;
+  destination_notes: string | null;
+  estimated_weight_lbs: number | null;
+  pieces_count: number | null;
+  special_instructions: string | null;
+  last_status_update: string | null;
+} | null> {
+  const supabase = await createClient();
+
+  // Get carrier's company
+  const { data: carrier } = await supabase
+    .from('companies')
+    .select('id')
+    .eq('owner_id', carrierOwnerId)
+    .single();
+
+  if (!carrier) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from('loads')
+    .select(`
+      id, load_number,
+      posting_type, load_subtype,
+      origin_city, origin_state, origin_zip,
+      origin_address, origin_address2,
+      origin_contact_name, origin_contact_phone, origin_contact_email,
+      origin_notes,
+      destination_city, destination_state, destination_zip,
+      destination_address, destination_address2,
+      destination_contact_name, destination_contact_phone, destination_contact_email,
+      destination_notes,
+      estimated_cuft, estimated_weight_lbs, pieces_count,
+      carrier_rate, carrier_rate_type,
+      balance_due,
+      special_instructions,
+      operational_status, load_status,
+      last_status_update,
+      trip_id,
+      assigned_driver_id, assigned_driver_name,
+      carrier_assigned_at, carrier_confirmed_at,
+      source_company_id, source_company_name,
+      source_company:companies!loads_source_company_id_fkey(
+        id, name, city, state, phone
+      ),
+      trip:trips(
+        id, trip_number,
+        driver:drivers(id, first_name, last_name)
+      ),
+      marketplace_request:load_requests!loads_marketplace_request_id_fkey(
+        proposed_load_date_start,
+        proposed_load_date_end,
+        proposed_delivery_date_start,
+        proposed_delivery_date_end
+      )
+    `)
+    .eq('id', loadId)
+    .eq('assigned_carrier_id', carrier.id)
+    .eq('is_from_marketplace', true)
+    .single();
+
+  if (error || !data) {
+    console.error('Error fetching marketplace load detail:', error);
+    return null;
+  }
+
+  const marketplaceRequest = Array.isArray(data.marketplace_request)
+    ? data.marketplace_request[0]
+    : data.marketplace_request;
+  const trip = Array.isArray(data.trip) ? data.trip[0] : data.trip;
+  const sourceCompany = Array.isArray(data.source_company)
+    ? data.source_company[0]
+    : data.source_company;
+
+  return {
+    id: data.id,
+    load_number: data.load_number,
+    posting_type: data.posting_type || 'load',
+    load_subtype: data.load_subtype,
+    origin_city: data.origin_city,
+    origin_state: data.origin_state,
+    origin_zip: data.origin_zip,
+    origin_address: data.origin_address,
+    origin_address2: data.origin_address2,
+    origin_contact_name: data.origin_contact_name,
+    origin_contact_phone: data.origin_contact_phone,
+    origin_contact_email: data.origin_contact_email,
+    origin_notes: data.origin_notes,
+    destination_city: data.destination_city,
+    destination_state: data.destination_state,
+    destination_zip: data.destination_zip,
+    destination_address: data.destination_address,
+    destination_address2: data.destination_address2,
+    destination_contact_name: data.destination_contact_name,
+    destination_contact_phone: data.destination_contact_phone,
+    destination_contact_email: data.destination_contact_email,
+    destination_notes: data.destination_notes,
+    estimated_cuft: data.estimated_cuft,
+    estimated_weight_lbs: data.estimated_weight_lbs,
+    pieces_count: data.pieces_count,
+    carrier_rate: data.carrier_rate,
+    carrier_rate_type: data.carrier_rate_type,
+    balance_due: data.balance_due,
+    special_instructions: data.special_instructions,
+    proposed_load_date_start: marketplaceRequest?.proposed_load_date_start || null,
+    proposed_load_date_end: marketplaceRequest?.proposed_load_date_end || null,
+    proposed_delivery_date_start: marketplaceRequest?.proposed_delivery_date_start || null,
+    proposed_delivery_date_end: marketplaceRequest?.proposed_delivery_date_end || null,
+    operational_status: data.operational_status || 'unassigned',
+    load_status: data.load_status,
+    last_status_update: data.last_status_update,
+    trip_id: data.trip_id,
+    assigned_driver_id: data.assigned_driver_id,
+    assigned_driver_name: data.assigned_driver_name,
+    carrier_assigned_at: data.carrier_assigned_at,
+    carrier_confirmed_at: data.carrier_confirmed_at,
+    source_company_id: data.source_company_id,
+    source_company_name: data.source_company_name,
+    source_company: sourceCompany,
+    trip: trip ? {
+      id: trip.id,
+      trip_number: trip.trip_number,
+      driver: Array.isArray(trip.driver) ? trip.driver[0] : trip.driver,
+    } : null,
+  };
+}
+
+// Assign a marketplace load to a trip
+export async function assignLoadToTrip(
+  loadId: string,
+  tripId: string,
+  loadOrder: number
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  // Get trip details for driver info
+  const { data: trip } = await supabase
+    .from('trips')
+    .select(`
+      id,
+      driver:drivers(id, first_name, last_name)
+    `)
+    .eq('id', tripId)
+    .single();
+
+  if (!trip) {
+    return { success: false, error: 'Trip not found' };
+  }
+
+  const driver = Array.isArray(trip.driver) ? trip.driver[0] : trip.driver;
+  const driverName = driver ? `${driver.first_name} ${driver.last_name}` : null;
+
+  // Update the load
+  const { error } = await supabase
+    .from('loads')
+    .update({
+      trip_id: tripId,
+      trip_load_order: loadOrder,
+      assigned_driver_id: driver?.id || null,
+      assigned_driver_name: driverName,
+      marketplace_driver_name: driverName,
+      operational_status: 'assigned_to_driver',
+      last_status_update: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', loadId);
+
+  if (error) {
+    console.error('Error assigning load to trip:', error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
 }

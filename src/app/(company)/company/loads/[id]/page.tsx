@@ -100,6 +100,20 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
   },
 };
 
+// Operational status config for marketplace loads
+const operationalStatusConfig: Record<string, { label: string; color: string }> = {
+  unassigned: { label: 'Unassigned', color: 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400' },
+  assigned_to_driver: { label: 'Assigned to Driver', color: 'bg-blue-500/20 text-blue-600 dark:text-blue-400' },
+  en_route_to_pickup: { label: 'En Route to Pickup', color: 'bg-purple-500/20 text-purple-600 dark:text-purple-400' },
+  at_pickup: { label: 'At Pickup', color: 'bg-purple-500/20 text-purple-600 dark:text-purple-400' },
+  loading: { label: 'Loading', color: 'bg-purple-500/20 text-purple-600 dark:text-purple-400' },
+  loaded: { label: 'Loaded', color: 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' },
+  in_transit: { label: 'In Transit', color: 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' },
+  at_delivery: { label: 'At Delivery', color: 'bg-green-500/20 text-green-600 dark:text-green-400' },
+  delivered: { label: 'Delivered', color: 'bg-green-500/20 text-green-600 dark:text-green-400' },
+  completed: { label: 'Completed', color: 'bg-gray-500/20 text-gray-600 dark:text-gray-400' },
+};
+
 function getStatusOrder(status: string): number {
   const order: Record<string, number> = {
     pending: 0,
@@ -425,6 +439,31 @@ export default async function CompanyLoadDetailPage({
                     )}
                   </div>
                 </div>
+
+                {/* Carrier Operational Status - for marketplace loads */}
+                {load.is_from_marketplace && load.operational_status && (
+                  <div className="p-4 border rounded-lg bg-muted/30">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        <Navigation className="h-4 w-4 text-muted-foreground" />
+                        Carrier Status
+                      </p>
+                      <Badge className={operationalStatusConfig[load.operational_status as string]?.color || 'bg-gray-500/20'}>
+                        {operationalStatusConfig[load.operational_status as string]?.label || load.operational_status}
+                      </Badge>
+                    </div>
+                    {load.last_status_update && (
+                      <p className="text-xs text-muted-foreground">
+                        Last update: {new Date(load.last_status_update as string).toLocaleString()}
+                      </p>
+                    )}
+                    {load.marketplace_driver_name && (
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Driver: {load.marketplace_driver_name}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Confirmation Status */}
                 {!load.carrier_confirmed_at && (

@@ -160,6 +160,7 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
           { label: "Load Board", href: "/dashboard/load-board", icon: Search },
           { label: "My Requests", href: "/dashboard/my-requests", icon: Send },
           { label: "Assigned Loads", href: "/dashboard/assigned-loads", icon: ClipboardCheck },
+          { label: "Marketplace Loads", href: "/dashboard/marketplace-loads", icon: Boxes },
           { label: "Trips", href: "/dashboard/trips", icon: Route },
           { label: "Alerts", href: "/dashboard/alerts", icon: Bell },
         ],
@@ -213,6 +214,7 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
       children: [
         { label: "Account", href: "/dashboard/settings/account", icon: User },
         { label: "Company Profile", href: "/dashboard/settings/company", icon: Building2 },
+        { label: "Team", href: "/dashboard/settings/team", icon: Users },
         { label: "Roles & Permissions", href: "/dashboard/settings/roles", icon: ShieldCheck },
         { label: "Integrations", href: "/dashboard/settings/integrations", icon: Plug },
       ],
