@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronDown, ChevronUp, MapPin, User, Truck, Package, DollarSign, AlertTriangle, Map } from 'lucide-react';
+import { DollarSign, AlertTriangle, Map } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -93,7 +93,6 @@ function formatPayMode(payMode: string): string {
 }
 
 export function TripDetailClient({ trip, availableLoads, settlementSnapshot, actions }: TripDetailClientProps) {
-  const [odometerOpen, setOdometerOpen] = useState(false);
   const [editingLoadId, setEditingLoadId] = useState<string | null>(null);
   const [addExpenseOpen, setAddExpenseOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -186,115 +185,108 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
         </TabsList>
 
         {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-4 mt-0">
-          {/* Route Card */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex flex-col items-center">
-                  <div className="w-3 h-3 rounded-full bg-blue-500" />
-                  <div className="w-0.5 h-8 bg-border" />
-                  <div className="w-3 h-3 rounded-full bg-green-500" />
-                </div>
-                <div className="flex-1 space-y-3">
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase">Origin</p>
-                    <p className="font-medium">
-                      {trip.origin_city || '—'}{trip.origin_state ? `, ${trip.origin_state}` : ''} {trip.origin_postal_code || ''}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase">Destination</p>
-                    <p className="font-medium">
-                      {trip.destination_city || '—'}{trip.destination_state ? `, ${trip.destination_state}` : ''} {trip.destination_postal_code || ''}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-4 mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
-                <span>{trip.total_miles ? `${trip.total_miles.toLocaleString()} mi` : '— mi'}</span>
-                <span>
-                  {trip.start_date || '—'} → {trip.end_date || '—'}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Assignment Card */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div>
-                  <User className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
-                  <p className="text-xs text-muted-foreground">Driver</p>
-                  <p className="text-sm font-medium truncate">{driverName}</p>
-                </div>
-                <div>
-                  <Truck className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
-                  <p className="text-xs text-muted-foreground">Truck</p>
-                  <p className="text-sm font-medium">{truckNumber}</p>
-                </div>
-                <div>
-                  <Package className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
-                  <p className="text-xs text-muted-foreground">Trailer</p>
-                  <p className="text-sm font-medium">{trailerNumber}</p>
-                </div>
-              </div>
-              {tripDriver && (
-                <div className="mt-3 pt-3 border-t border-border">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="share_driver_toggle"
-                      checked={shareDriverWithCompanies}
-                      onCheckedChange={async (checked) => {
-                        const newValue = checked === true;
-                        setShareDriverWithCompanies(newValue);
-                        const formData = new FormData();
-                        formData.append('share_driver_with_companies', newValue.toString());
-                        await actions.updateDriverSharing(formData);
-                      }}
-                    />
-                    <Label
-                      htmlFor="share_driver_toggle"
-                      className="text-sm font-normal text-muted-foreground cursor-pointer"
-                    >
-                      Share driver info with companies
-                    </Label>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Odometer Card (Collapsible) */}
-          <Card>
-            <button
-              onClick={() => setOdometerOpen(!odometerOpen)}
-              className="w-full p-4 flex items-center justify-between text-left"
-            >
-              <div>
-                <p className="font-medium">Odometer</p>
-                <p className="text-sm text-muted-foreground">
-                  {trip.actual_miles ? `${trip.actual_miles.toLocaleString()} actual miles` : 'Not recorded'}
-                </p>
-              </div>
-              {odometerOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-            </button>
-            {odometerOpen && (
-              <CardContent className="pt-0 pb-4 px-4 border-t border-border">
-                <form action={actions.updateTripStatus} className="space-y-4">
-                  <input type="hidden" name="trip_id" value={trip.id} />
-                  <div className="grid grid-cols-2 gap-4">
+        <TabsContent value="overview" className="mt-0">
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Left Column - Trip Details */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Route & Schedule Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Route & Schedule</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-1.5">
-                      <Label className="text-sm">Start</Label>
-                      <Input
-                        type="number"
-                        name="odometer_start"
-                        defaultValue={trip.odometer_start || ''}
-                        placeholder="0"
-                        className="h-9"
-                      />
-                      <div className="mt-2">
+                      <Label className="text-sm text-muted-foreground">Origin</Label>
+                      <p className="font-medium">
+                        {trip.origin_city || '—'}{trip.origin_state ? `, ${trip.origin_state}` : ''} {trip.origin_postal_code || ''}
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm text-muted-foreground">Destination</Label>
+                      <p className="font-medium">
+                        {trip.destination_city || '—'}{trip.destination_state ? `, ${trip.destination_state}` : ''} {trip.destination_postal_code || ''}
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm text-muted-foreground">Distance</Label>
+                      <p className="font-medium">{trip.total_miles ? `${trip.total_miles.toLocaleString()} mi` : '—'}</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm text-muted-foreground">Dates</Label>
+                      <p className="font-medium">{trip.start_date || '—'} → {trip.end_date || '—'}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Assignment Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Assignment</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm text-muted-foreground">Driver</Label>
+                      <p className="font-medium">{driverName}</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm text-muted-foreground">Truck</Label>
+                      <p className="font-medium">{truckNumber}</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm text-muted-foreground">Trailer</Label>
+                      <p className="font-medium">{trailerNumber}</p>
+                    </div>
+                  </div>
+                  {tripDriver && (
+                    <div className="pt-3 border-t border-border">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="share_driver_toggle"
+                          checked={shareDriverWithCompanies}
+                          onCheckedChange={async (checked) => {
+                            const newValue = checked === true;
+                            setShareDriverWithCompanies(newValue);
+                            const formData = new FormData();
+                            formData.append('share_driver_with_companies', newValue.toString());
+                            await actions.updateDriverSharing(formData);
+                          }}
+                        />
+                        <Label
+                          htmlFor="share_driver_toggle"
+                          className="text-sm font-normal text-muted-foreground cursor-pointer"
+                        >
+                          Share driver info with companies
+                        </Label>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Odometer Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Odometer</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {trip.actual_miles ? `${trip.actual_miles.toLocaleString()} actual miles` : 'Not recorded'}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <form action={actions.updateTripStatus} className="space-y-4">
+                    <input type="hidden" name="trip_id" value={trip.id} />
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">Start Odometer</Label>
+                        <Input
+                          type="number"
+                          name="odometer_start"
+                          defaultValue={trip.odometer_start || ''}
+                          placeholder="0"
+                          className="h-9"
+                        />
                         <PhotoField
                           name="odometer_start_photo_url"
                           label=""
@@ -302,17 +294,15 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                           description="Start photo"
                         />
                       </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-sm">End</Label>
-                      <Input
-                        type="number"
-                        name="odometer_end"
-                        defaultValue={trip.odometer_end || ''}
-                        placeholder="0"
-                        className="h-9"
-                      />
-                      <div className="mt-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">End Odometer</Label>
+                        <Input
+                          type="number"
+                          name="odometer_end"
+                          defaultValue={trip.odometer_end || ''}
+                          placeholder="0"
+                          className="h-9"
+                        />
                         <PhotoField
                           name="odometer_end_photo_url"
                           label=""
@@ -321,95 +311,97 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                         />
                       </div>
                     </div>
-                  </div>
-                  <Button type="submit" size="sm" className="w-full">Save Odometer</Button>
-                </form>
-              </CardContent>
-            )}
-          </Card>
+                    <Button type="submit" size="sm">Save Odometer</Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
 
-          {/* Driver Pay Card */}
-          {driverPayBreakdown && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">Driver Pay</span>
-                  </div>
-                  <span className="font-semibold">{formatCurrency(driverPayBreakdown.totalDriverPay)}</span>
-                </div>
-                <p className="text-xs text-muted-foreground mb-2">{formatPayMode(driverPayBreakdown.payMode)}</p>
-                <div className="space-y-1 text-sm">
-                  {driverPayBreakdown.breakdown.miles !== undefined && (
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>{driverPayBreakdown.breakdown.miles?.toLocaleString()} mi × ${driverPayBreakdown.breakdown.ratePerMile?.toFixed(2)}</span>
-                      <span>{formatCurrency(driverPayBreakdown.breakdown.milePay)}</span>
+            {/* Right Column - Actions & Summary */}
+            <div className="space-y-6">
+              {/* Trip Actions */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Trip Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <form action={actions.updateTripStatus}>
+                    <input type="hidden" name="trip_id" value={trip.id} />
+                    <input type="hidden" name="status" value={tripStatus} />
+                    <div className="space-y-1.5 mb-3">
+                      <Label className="text-sm">Trip Status</Label>
+                      <Select value={tripStatus} onValueChange={(v) => setTripStatus(v as TripStatus)}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(['planned', 'active', 'en_route', 'completed', 'settled', 'cancelled'] as const).map((s) => (
+                            <SelectItem key={s} value={s}>{formatStatus(s)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
-                  {driverPayBreakdown.breakdown.cuft !== undefined && (
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>{driverPayBreakdown.breakdown.cuft?.toLocaleString()} cf × ${driverPayBreakdown.breakdown.ratePerCuft?.toFixed(2)}</span>
-                      <span>{formatCurrency(driverPayBreakdown.breakdown.cuftPay)}</span>
-                    </div>
-                  )}
-                  {driverPayBreakdown.breakdown.revenue !== undefined && (
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>{formatCurrency(driverPayBreakdown.breakdown.revenue)} × {driverPayBreakdown.breakdown.percentOfRevenue}%</span>
-                      <span>{formatCurrency(driverPayBreakdown.basePay)}</span>
-                    </div>
-                  )}
-                  {driverPayBreakdown.breakdown.days !== undefined && (
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>{driverPayBreakdown.breakdown.days} days × ${driverPayBreakdown.breakdown.flatDailyRate?.toFixed(2)}/day</span>
-                      <span>{formatCurrency(driverPayBreakdown.basePay)}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="border-t border-border mt-2 pt-2 flex justify-between font-medium">
-                  <span>Total</span>
-                  <span>{formatCurrency(driverPayBreakdown.totalDriverPay)}</span>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                    <Button type="submit" className="w-full">Update Status</Button>
+                  </form>
+                  <form action={async (formData) => {
+                    setIsSubmitting(true);
+                    await actions.settleTrip(formData);
+                    setIsSubmitting(false);
+                  }}>
+                    <input type="hidden" name="trip_id" value={trip.id} />
+                    <Button type="submit" variant="outline" className="w-full" disabled={isSubmitting}>
+                      Close & Settle Trip
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
 
-          {/* Status Actions */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Trip Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <form action={actions.updateTripStatus}>
-                <input type="hidden" name="trip_id" value={trip.id} />
-                <input type="hidden" name="status" value={tripStatus} />
-                <div className="space-y-1.5 mb-3">
-                  <Label className="text-sm">Trip Status</Label>
-                  <Select value={tripStatus} onValueChange={(v) => setTripStatus(v as TripStatus)}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(['planned', 'active', 'en_route', 'completed', 'settled', 'cancelled'] as const).map((s) => (
-                        <SelectItem key={s} value={s}>{formatStatus(s)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button type="submit" className="w-full">Update Status</Button>
-              </form>
-              <form action={async (formData) => {
-                setIsSubmitting(true);
-                await actions.settleTrip(formData);
-                setIsSubmitting(false);
-              }}>
-                <input type="hidden" name="trip_id" value={trip.id} />
-                <Button type="submit" variant="outline" className="w-full" disabled={isSubmitting}>
-                  Close & Settle Trip
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+              {/* Driver Pay Card */}
+              {driverPayBreakdown && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">Driver Pay</CardTitle>
+                      <span className="text-lg font-semibold">{formatCurrency(driverPayBreakdown.totalDriverPay)}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{formatPayMode(driverPayBreakdown.payMode)}</p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2 text-sm">
+                      {driverPayBreakdown.breakdown.miles !== undefined && (
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>{driverPayBreakdown.breakdown.miles?.toLocaleString()} mi × ${driverPayBreakdown.breakdown.ratePerMile?.toFixed(2)}</span>
+                          <span>{formatCurrency(driverPayBreakdown.breakdown.milePay)}</span>
+                        </div>
+                      )}
+                      {driverPayBreakdown.breakdown.cuft !== undefined && (
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>{driverPayBreakdown.breakdown.cuft?.toLocaleString()} cf × ${driverPayBreakdown.breakdown.ratePerCuft?.toFixed(2)}</span>
+                          <span>{formatCurrency(driverPayBreakdown.breakdown.cuftPay)}</span>
+                        </div>
+                      )}
+                      {driverPayBreakdown.breakdown.revenue !== undefined && (
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>{formatCurrency(driverPayBreakdown.breakdown.revenue)} × {driverPayBreakdown.breakdown.percentOfRevenue}%</span>
+                          <span>{formatCurrency(driverPayBreakdown.basePay)}</span>
+                        </div>
+                      )}
+                      {driverPayBreakdown.breakdown.days !== undefined && (
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>{driverPayBreakdown.breakdown.days} days × ${driverPayBreakdown.breakdown.flatDailyRate?.toFixed(2)}/day</span>
+                          <span>{formatCurrency(driverPayBreakdown.basePay)}</span>
+                        </div>
+                      )}
+                      <div className="border-t border-border pt-2 flex justify-between font-medium">
+                        <span>Total</span>
+                        <span>{formatCurrency(driverPayBreakdown.totalDriverPay)}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
         </TabsContent>
 
         {/* Loads Tab */}
