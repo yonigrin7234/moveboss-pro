@@ -61,6 +61,17 @@ export default function PostLoadPage() {
   const [storageOptions, setStorageOptions] = useState<StorageOption[]>([]);
   const [loadingStorage, setLoadingStorage] = useState(true);
   const [selectedStorage, setSelectedStorage] = useState<StorageOption | null>(null);
+  const [isAddingNewStorage, setIsAddingNewStorage] = useState(false);
+  const [newStorageData, setNewStorageData] = useState({
+    name: '',
+    location_type: 'warehouse' as 'warehouse' | 'public_storage',
+    zip: '',
+    city: '',
+    state: '',
+    address: '',
+    contact_name: '',
+    contact_phone: '',
+  });
 
   // Fetch storage locations on mount
   useEffect(() => {
@@ -200,6 +211,7 @@ export default function PostLoadPage() {
   const { lookup: lookupOriginZip, isLoading: isLoadingOriginZip } = useZipLookup();
   const { lookup: lookupDestinationZip, isLoading: isLoadingDestinationZip } = useZipLookup();
   const { lookup: lookupRfdDestinationZip, isLoading: isLoadingRfdDestinationZip } = useZipLookup();
+  const { lookup: lookupNewStorageZip, isLoading: isLoadingNewStorageZip } = useZipLookup();
 
   const handleOriginZipChange = useCallback(async (zip: string) => {
     setLiveLoadData((prev) => ({ ...prev, origin_zip: zip }));
@@ -242,6 +254,24 @@ export default function PostLoadPage() {
       }
     }
   }, [lookupRfdDestinationZip]);
+
+  const handleNewStorageZipChange = useCallback(async (zip: string) => {
+    setNewStorageData((prev) => ({ ...prev, zip }));
+    if (zip.length === 5) {
+      const result = await lookupNewStorageZip(zip);
+      if (result) {
+        setNewStorageData((prev) => ({
+          ...prev,
+          city: result.city,
+          state: result.stateAbbr,
+        }));
+      }
+    }
+  }, [lookupNewStorageZip]);
+
+  const handleNewStorageChange = (field: string, value: string) => {
+    setNewStorageData((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -317,15 +347,63 @@ export default function PostLoadPage() {
         payload.pickup_postal_code = liveLoadData.origin_zip;
       } else {
         // RFD has storage location info
-        payload.storage_location_id = rfdData.storage_location_id || null;
-        payload.current_storage_location = rfdData.storage_location_name;
-        payload.pickup_address_line1 = rfdData.storage_address;
-        payload.pickup_city = rfdData.storage_city;
-        payload.pickup_state = rfdData.storage_state;
-        payload.pickup_postal_code = rfdData.storage_zip;
-        payload.loading_city = rfdData.storage_city;
-        payload.loading_state = rfdData.storage_state;
-        payload.loading_postal_code = rfdData.storage_zip;
+        let storageLocationId = rfdData.storage_location_id || null;
+        let storageLocationName = rfdData.storage_location_name;
+        let storageAddress = rfdData.storage_address;
+        let storageCity = rfdData.storage_city;
+        let storageState = rfdData.storage_state;
+        let storageZip = rfdData.storage_zip;
+
+        // If adding a new storage location, create it first
+        if (isAddingNewStorage) {
+          if (!newStorageData.name || !newStorageData.city || !newStorageData.state || !newStorageData.zip) {
+            throw new Error('Please fill in all required storage location fields');
+          }
+
+          const { data: newStorage, error: storageError } = await supabase
+            .from('storage_locations')
+            .insert({
+              owner_id: user.id,
+              name: newStorageData.name,
+              location_type: newStorageData.location_type,
+              address_line1: newStorageData.address || null,
+              city: newStorageData.city,
+              state: newStorageData.state,
+              zip: newStorageData.zip,
+              contact_name: newStorageData.contact_name || null,
+              contact_phone: newStorageData.contact_phone || null,
+              is_active: true,
+            })
+            .select('id, name')
+            .single();
+
+          if (storageError) throw storageError;
+
+          storageLocationId = newStorage.id;
+          storageLocationName = newStorage.name;
+          storageAddress = newStorageData.address;
+          storageCity = newStorageData.city;
+          storageState = newStorageData.state;
+          storageZip = newStorageData.zip;
+
+          // Use new storage's contact info for dispatch if not overridden
+          if (!rfdData.dispatch_contact_name && newStorageData.contact_name) {
+            payload.dispatch_contact_name = newStorageData.contact_name;
+          }
+          if (!rfdData.dispatch_contact_phone && newStorageData.contact_phone) {
+            payload.dispatch_contact_phone = newStorageData.contact_phone;
+          }
+        }
+
+        payload.storage_location_id = storageLocationId;
+        payload.current_storage_location = storageLocationName;
+        payload.pickup_address_line1 = storageAddress;
+        payload.pickup_city = storageCity;
+        payload.pickup_state = storageState;
+        payload.pickup_postal_code = storageZip;
+        payload.loading_city = storageCity;
+        payload.loading_state = storageState;
+        payload.loading_postal_code = storageZip;
         payload.storage_unit = rfdData.storage_unit_numbers || null;
         // RFD date - null means "ready now"
         payload.rfd_date = rfdData.rfd_ready_type === 'ready_on_date' && rfdData.rfd_date
@@ -757,117 +835,253 @@ export default function PostLoadPage() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Storage Location</CardTitle>
+                <CardDescription className="text-xs">
+                  {isAddingNewStorage
+                    ? 'Enter new storage details - it will be saved for future use'
+                    : 'Select from your saved locations or add a new one'}
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {/* Storage Location Selector */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="rfd_storage_location" className="text-sm">Select Storage Location *</Label>
-                  {loadingStorage ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 border rounded-md">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading...
-                    </div>
-                  ) : storageOptions.length === 0 ? (
-                    <div className="p-3 border rounded-lg bg-muted/50 text-center">
-                      <Warehouse className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
-                      <p className="text-xs text-muted-foreground mb-2">No storage locations found.</p>
-                      <div className="flex gap-2 justify-center">
-                        <Button type="button" variant="outline" size="sm" asChild>
-                          <Link href="/dashboard/storage/new?type=warehouse">
-                            <Building2 className="h-3 w-3 mr-1" />
-                            Add Warehouse
-                          </Link>
-                        </Button>
-                        <Button type="button" size="sm" asChild>
-                          <Link href="/dashboard/storage/new?type=public_storage">
-                            <Warehouse className="h-3 w-3 mr-1" />
-                            Add Storage
-                          </Link>
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <Select
-                        value={rfdData.storage_location_id}
-                        onValueChange={handleStorageSelect}
-                      >
-                        <SelectTrigger id="rfd_storage_location" className="h-9">
-                          <SelectValue placeholder="Select location" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {storageOptions.map((location) => (
-                            <SelectItem key={location.id} value={location.id}>
-                              <div className="flex items-center gap-2">
-                                {location.location_type === 'warehouse' ? (
-                                  <Building2 className="h-3 w-3 text-blue-500" />
-                                ) : (
-                                  <Warehouse className="h-3 w-3 text-purple-500" />
-                                )}
-                                <span>{location.name}</span>
-                                <span className="text-muted-foreground text-xs">
-                                  - {location.city}, {location.state}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button type="button" variant="outline" size="sm" asChild className="h-9">
-                        <Link href="/dashboard/storage/new?type=warehouse">
-                          <Plus className="h-3 w-3" />
-                        </Link>
-                      </Button>
-                    </div>
-                  )}
+                {/* Toggle between existing and new */}
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={!isAddingNewStorage ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      setIsAddingNewStorage(false);
+                      setSelectedStorage(null);
+                    }}
+                    className="h-8 text-xs"
+                  >
+                    Select Existing
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={isAddingNewStorage ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      setIsAddingNewStorage(true);
+                      setSelectedStorage(null);
+                      setRfdData((prev) => ({ ...prev, storage_location_id: '' }));
+                    }}
+                    className="h-8 text-xs"
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add New
+                  </Button>
                 </div>
 
-                {/* Show selected storage details */}
-                {selectedStorage && (
-                  <div className="p-3 bg-muted/50 rounded-lg space-y-2">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h4 className="font-medium text-sm">{selectedStorage.name}</h4>
-                        <p className="text-xs text-muted-foreground">
-                          {selectedStorage.address_line1 && `${selectedStorage.address_line1}, `}
-                          {selectedStorage.city}, {selectedStorage.state} {selectedStorage.zip}
-                        </p>
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className={`text-xs ${
-                          selectedStorage.truck_accessibility === 'full'
-                            ? 'bg-green-500/20 text-green-600'
-                            : selectedStorage.truck_accessibility === 'limited'
-                              ? 'bg-yellow-500/20 text-yellow-600'
-                              : selectedStorage.truck_accessibility === 'none'
-                                ? 'bg-red-500/20 text-red-600'
-                                : ''
-                        }`}
-                      >
-                        {selectedStorage.truck_accessibility === 'full' && 'Full Access'}
-                        {selectedStorage.truck_accessibility === 'limited' && 'Limited'}
-                        {selectedStorage.truck_accessibility === 'none' && 'No Truck'}
-                        {!selectedStorage.truck_accessibility && 'Unknown'}
-                      </Badge>
+                {/* Existing Storage Selector */}
+                {!isAddingNewStorage && (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="rfd_storage_location" className="text-sm">Select Storage Location *</Label>
+                      {loadingStorage ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 border rounded-md">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading...
+                        </div>
+                      ) : storageOptions.length === 0 ? (
+                        <div className="p-3 border rounded-lg bg-muted/50 text-center">
+                          <Warehouse className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                          <p className="text-xs text-muted-foreground mb-2">No storage locations found.</p>
+                          <p className="text-xs text-muted-foreground">Click &quot;Add New&quot; above to create one.</p>
+                        </div>
+                      ) : (
+                        <Select
+                          value={rfdData.storage_location_id}
+                          onValueChange={handleStorageSelect}
+                        >
+                          <SelectTrigger id="rfd_storage_location" className="h-9">
+                            <SelectValue placeholder="Select location" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {storageOptions.map((location) => (
+                              <SelectItem key={location.id} value={location.id}>
+                                <div className="flex items-center gap-2">
+                                  {location.location_type === 'warehouse' ? (
+                                    <Building2 className="h-3 w-3 text-blue-500" />
+                                  ) : (
+                                    <Warehouse className="h-3 w-3 text-purple-500" />
+                                  )}
+                                  <span>{location.name}</span>
+                                  <span className="text-muted-foreground text-xs">
+                                    - {location.city}, {location.state}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
-                    <div className="flex flex-wrap gap-3 text-xs">
-                      {selectedStorage.unit_numbers && (
-                        <span><span className="text-muted-foreground">Units:</span> {selectedStorage.unit_numbers}</span>
-                      )}
-                      {selectedStorage.access_hours && (
-                        <span><span className="text-muted-foreground">Hours:</span> {selectedStorage.access_hours}</span>
-                      )}
-                      {selectedStorage.gate_code && (
-                        <span><span className="text-muted-foreground">Gate:</span> <span className="font-mono">{selectedStorage.gate_code}</span></span>
-                      )}
+
+                    {/* Show selected storage details */}
+                    {selectedStorage && (
+                      <div className="p-3 bg-muted/50 rounded-lg space-y-2">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h4 className="font-medium text-sm">{selectedStorage.name}</h4>
+                            <p className="text-xs text-muted-foreground">
+                              {selectedStorage.address_line1 && `${selectedStorage.address_line1}, `}
+                              {selectedStorage.city}, {selectedStorage.state} {selectedStorage.zip}
+                            </p>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${
+                              selectedStorage.truck_accessibility === 'full'
+                                ? 'bg-green-500/20 text-green-600'
+                                : selectedStorage.truck_accessibility === 'limited'
+                                  ? 'bg-yellow-500/20 text-yellow-600'
+                                  : selectedStorage.truck_accessibility === 'none'
+                                    ? 'bg-red-500/20 text-red-600'
+                                    : ''
+                            }`}
+                          >
+                            {selectedStorage.truck_accessibility === 'full' && 'Full Access'}
+                            {selectedStorage.truck_accessibility === 'limited' && 'Limited'}
+                            {selectedStorage.truck_accessibility === 'none' && 'No Truck'}
+                            {!selectedStorage.truck_accessibility && 'Unknown'}
+                          </Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-3 text-xs">
+                          {selectedStorage.unit_numbers && (
+                            <span><span className="text-muted-foreground">Units:</span> {selectedStorage.unit_numbers}</span>
+                          )}
+                          {selectedStorage.access_hours && (
+                            <span><span className="text-muted-foreground">Hours:</span> {selectedStorage.access_hours}</span>
+                          )}
+                          {selectedStorage.gate_code && (
+                            <span><span className="text-muted-foreground">Gate:</span> <span className="font-mono">{selectedStorage.gate_code}</span></span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* New Storage Form */}
+                {isAddingNewStorage && (
+                  <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="new_storage_name" className="text-sm">Location Name *</Label>
+                        <Input
+                          id="new_storage_name"
+                          value={newStorageData.name}
+                          onChange={(e) => handleNewStorageChange('name', e.target.value)}
+                          placeholder="Main Warehouse"
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="new_storage_type" className="text-sm">Type *</Label>
+                        <Select
+                          value={newStorageData.location_type}
+                          onValueChange={(value: 'warehouse' | 'public_storage') =>
+                            setNewStorageData((prev) => ({ ...prev, location_type: value }))
+                          }
+                        >
+                          <SelectTrigger id="new_storage_type" className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="warehouse">
+                              <div className="flex items-center gap-2">
+                                <Building2 className="h-3 w-3 text-blue-500" />
+                                Warehouse
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="public_storage">
+                              <div className="flex items-center gap-2">
+                                <Warehouse className="h-3 w-3 text-purple-500" />
+                                Public Storage
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid gap-2 grid-cols-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="new_storage_zip" className="text-sm">ZIP *</Label>
+                        <div className="relative">
+                          <Input
+                            id="new_storage_zip"
+                            value={newStorageData.zip}
+                            onChange={(e) => handleNewStorageZipChange(e.target.value)}
+                            placeholder="10001"
+                            maxLength={5}
+                            className="h-9"
+                          />
+                          {isLoadingNewStorageZip && (
+                            <Loader2 className="absolute right-2 top-2 h-4 w-4 animate-spin text-muted-foreground" />
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="new_storage_city" className="text-sm">City *</Label>
+                        <Input
+                          id="new_storage_city"
+                          value={newStorageData.city}
+                          onChange={(e) => handleNewStorageChange('city', e.target.value)}
+                          placeholder="Auto-fills from ZIP"
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="new_storage_state" className="text-sm">State *</Label>
+                        <Input
+                          id="new_storage_state"
+                          value={newStorageData.state}
+                          onChange={(e) => handleNewStorageChange('state', e.target.value)}
+                          placeholder="ST"
+                          maxLength={2}
+                          className="h-9"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="new_storage_address" className="text-sm">Address</Label>
+                      <Input
+                        id="new_storage_address"
+                        value={newStorageData.address}
+                        onChange={(e) => handleNewStorageChange('address', e.target.value)}
+                        placeholder="123 Storage Blvd (optional)"
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="new_storage_contact_name" className="text-sm">Contact Name</Label>
+                        <Input
+                          id="new_storage_contact_name"
+                          value={newStorageData.contact_name}
+                          onChange={(e) => handleNewStorageChange('contact_name', e.target.value)}
+                          placeholder="Foreman name"
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="new_storage_contact_phone" className="text-sm">Contact Phone</Label>
+                        <Input
+                          id="new_storage_contact_phone"
+                          type="tel"
+                          value={newStorageData.contact_phone}
+                          onChange={(e) => handleNewStorageChange('contact_phone', e.target.value)}
+                          placeholder="(555) 123-4567"
+                          className="h-9"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
 
                 {/* Unit selection + Ready date */}
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {selectedStorage?.location_type === 'public_storage' && selectedStorage.unit_numbers && (
+                  {!isAddingNewStorage && selectedStorage?.location_type === 'public_storage' && selectedStorage.unit_numbers && (
                     <div className="space-y-1.5">
                       <Label htmlFor="rfd_unit" className="text-sm">Storage Unit *</Label>
                       <Input
@@ -979,9 +1193,11 @@ export default function PostLoadPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Foreman / Loading Contact</CardTitle>
                 <CardDescription className="text-xs">
-                  {selectedStorage?.contact_name
-                    ? 'Auto-filled from storage location. Edit to override.'
-                    : 'Contact info for the driver to coordinate loading (optional)'}
+                  {isAddingNewStorage && newStorageData.contact_name
+                    ? 'Using contact from new storage. Override here if different for this load.'
+                    : selectedStorage?.contact_name
+                      ? 'Auto-filled from storage location. Edit to override.'
+                      : 'Contact info for the driver to coordinate loading (optional)'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
