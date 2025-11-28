@@ -29,7 +29,8 @@ export interface FMCSACargoCarried {
 
 // Known cargo type IDs for HHG (Household Goods)
 export const HHG_CARGO_IDS = [
-  7,  // Household Goods
+  2,  // Household Goods (primary)
+  7,  // Household Goods (alternate)
   17, // Household Goods - Unspecified
 ];
 
@@ -225,12 +226,12 @@ export async function getCargoCarried(dotNumber: string | number): Promise<FMCSA
     }
 
     const data = await response.json();
-    // The API returns { content: { carrier: { cargoCarried: [...] } } }
-    const cargoList = data?.content?.carrier?.cargoCarried;
+    // The API returns { content: [{ cargoClassDesc, id: { cargoClassId, dotNumber } }] }
+    const cargoList = data?.content;
     if (!Array.isArray(cargoList)) return [];
 
     return cargoList.map((item: any) => ({
-      cargoCarriedId: item.cargoClassId || item.cargoCarriedId,
+      cargoCarriedId: item.id?.cargoClassId || item.cargoClassId || item.cargoCarriedId,
       cargoCarriedDesc: item.cargoClassDesc || item.cargoCarriedDesc,
     }));
   } catch (error) {
