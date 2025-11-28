@@ -110,6 +110,7 @@ export async function GET(
     const availableCapacity = truckCapacity - usedCapacity;
 
     // Get marketplace loads
+    // Note: loads table uses pickup_city/delivery_city, not origin_city/destination_city
     const { data: marketplaceLoads, error: loadsError } = await supabase
       .from('loads')
       .select(`
@@ -118,12 +119,12 @@ export async function GET(
         company_id,
         company:companies!loads_company_id_fkey(id, name),
         posting_type,
-        origin_city,
-        origin_state,
-        origin_zip,
-        destination_city,
-        destination_state,
-        destination_zip,
+        pickup_city,
+        pickup_state,
+        pickup_postal_code,
+        delivery_city,
+        delivery_state,
+        delivery_postal_code,
         estimated_cuft,
         company_rate,
         company_rate_type,
@@ -151,11 +152,11 @@ export async function GET(
         continue;
       }
 
-      // Geocode load origin
+      // Geocode load origin (pickup location)
       const loadOriginResult = await geocodeAddress(
-        load.origin_city,
-        load.origin_state,
-        load.origin_zip
+        load.pickup_city,
+        load.pickup_state,
+        load.pickup_postal_code
       );
 
       if (!loadOriginResult.success || !loadOriginResult.coordinates) {
@@ -176,11 +177,11 @@ export async function GET(
         continue;
       }
 
-      // Geocode load destination for map display
+      // Geocode load destination (delivery location) for map display
       const loadDestResult = await geocodeAddress(
-        load.destination_city,
-        load.destination_state,
-        load.destination_zip
+        load.delivery_city,
+        load.delivery_state,
+        load.delivery_postal_code
       );
 
       const company = Array.isArray(load.company) ? load.company[0] : load.company;
@@ -189,12 +190,12 @@ export async function GET(
         id: load.id,
         loadNumber: load.load_number,
         companyName: company?.name || 'Unknown',
-        originCity: load.origin_city,
-        originState: load.origin_state,
-        originZip: load.origin_zip,
-        destinationCity: load.destination_city,
-        destinationState: load.destination_state,
-        destinationZip: load.destination_zip,
+        originCity: load.pickup_city,
+        originState: load.pickup_state,
+        originZip: load.pickup_postal_code,
+        destinationCity: load.delivery_city,
+        destinationState: load.delivery_state,
+        destinationZip: load.delivery_postal_code,
         cubicFeet: load.estimated_cuft,
         rate: load.company_rate,
         rateType: load.company_rate_type || 'per_cuft',
