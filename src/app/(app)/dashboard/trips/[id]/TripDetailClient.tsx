@@ -405,34 +405,37 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
         </TabsContent>
 
         {/* Loads Tab */}
-        <TabsContent value="loads" className="space-y-4 mt-0">
-          {trip.loads.length === 0 ? (
-            <Card>
-              <CardContent className="p-6 text-center text-muted-foreground">
-                No loads attached to this trip yet.
-              </CardContent>
-            </Card>
-          ) : (
-            trip.loads.map((tl) => {
-              const load = tl.load as any;
-              const company = Array.isArray(load?.company) ? load.company[0] : load?.company;
-              return (
-                <Card key={tl.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-medium">{load?.load_number || 'Load'}</p>
-                        <p className="text-sm text-muted-foreground">{company?.name || 'No company'}</p>
-                        <p className="text-sm font-medium mt-1">{formatCurrency(load?.total_rate)}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {load?.load_status || 'pending'}
-                        </Badge>
-                        <Sheet open={editingLoadId === tl.load_id} onOpenChange={(open) => setEditingLoadId(open ? tl.load_id : null)}>
-                          <SheetTrigger asChild>
-                            <Button variant="outline" size="sm">Edit</Button>
-                          </SheetTrigger>
+        <TabsContent value="loads" className="mt-0">
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Left Column - Attached Loads */}
+            <div className="lg:col-span-2 space-y-4">
+              {trip.loads.length === 0 ? (
+                <Card>
+                  <CardContent className="p-6 text-center text-muted-foreground">
+                    No loads attached to this trip yet.
+                  </CardContent>
+                </Card>
+              ) : (
+                trip.loads.map((tl) => {
+                  const load = tl.load as any;
+                  const company = Array.isArray(load?.company) ? load.company[0] : load?.company;
+                  return (
+                    <Card key={tl.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-medium">{load?.load_number || 'Load'}</p>
+                            <p className="text-sm text-muted-foreground">{company?.name || 'No company'}</p>
+                            <p className="text-sm font-medium mt-1">{formatCurrency(load?.total_rate)}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              {load?.load_status || 'pending'}
+                            </Badge>
+                            <Sheet open={editingLoadId === tl.load_id} onOpenChange={(open) => setEditingLoadId(open ? tl.load_id : null)}>
+                              <SheetTrigger asChild>
+                                <Button variant="outline" size="sm">Edit</Button>
+                              </SheetTrigger>
                           <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
                             <SheetHeader>
                               <SheetTitle>Edit Load: {load?.load_number}</SheetTitle>
@@ -584,56 +587,60 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                         </Sheet>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-500 hover:text-red-600 p-0 h-auto mt-2"
-                      onClick={() => setLoadToRemove(tl.load_id)}
-                    >
-                      Remove
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })
-          )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500 hover:text-red-600 p-0 h-auto mt-2"
+                          onClick={() => setLoadToRemove(tl.load_id)}
+                        >
+                          Remove
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
 
-          {/* Attach Load */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Attach Load</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form action={async (formData) => {
-                await actions.addTripLoad(formData);
-              }} className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label className="text-sm">Select Load</Label>
-                  <select name="load_id" className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" required>
-                    <option value="">Select a load...</option>
-                    {availableLoads.map((load) => {
-                      const company = Array.isArray(load.company) ? load.company[0] : load.company;
-                      return (
-                        <option key={load.id} value={load.id}>
-                          {load.load_number} - {company?.name || 'No company'}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-sm">Role</Label>
-                  <select name="role" className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" defaultValue="primary">
-                    <option value="primary">Primary</option>
-                    <option value="backhaul">Backhaul</option>
-                    <option value="partial">Partial</option>
-                  </select>
-                </div>
-                <input type="hidden" name="sequence_index" value="0" />
-                <Button type="submit" className="w-full">Add Load</Button>
-              </form>
-            </CardContent>
-          </Card>
+            {/* Right Column - Attach Load */}
+            <div>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Attach Load</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form action={async (formData) => {
+                    await actions.addTripLoad(formData);
+                  }} className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">Select Load</Label>
+                      <select name="load_id" className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" required>
+                        <option value="">Select a load...</option>
+                        {availableLoads.map((load) => {
+                          const company = Array.isArray(load.company) ? load.company[0] : load.company;
+                          return (
+                            <option key={load.id} value={load.id}>
+                              {load.load_number} - {company?.name || 'No company'}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">Role</Label>
+                      <select name="role" className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" defaultValue="primary">
+                        <option value="primary">Primary</option>
+                        <option value="backhaul">Backhaul</option>
+                        <option value="partial">Partial</option>
+                      </select>
+                    </div>
+                    <input type="hidden" name="sequence_index" value="0" />
+                    <Button type="submit" className="w-full">Add Load</Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </TabsContent>
 
         {/* Map Tab */}
@@ -676,9 +683,9 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
         </TabsContent>
 
         {/* Expenses Tab */}
-        <TabsContent value="expenses" className="space-y-4 mt-0">
+        <TabsContent value="expenses" className="mt-0">
           {/* Expense Summary */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-4 gap-3 mb-6">
             <Card>
               <CardContent className="p-3 text-center">
                 <p className="text-xs uppercase text-muted-foreground">Driver Pay</p>
@@ -705,11 +712,53 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
             </Card>
           </div>
 
-          {/* Add Expense Button */}
-          <Sheet open={addExpenseOpen} onOpenChange={setAddExpenseOpen}>
-            <SheetTrigger asChild>
-              <Button className="w-full">+ Add Expense</Button>
-            </SheetTrigger>
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Left Column - Expense List */}
+            <div className="lg:col-span-2 space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Expense List</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {trip.expenses.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-4">No expenses recorded yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {trip.expenses.map((expense) => (
+                        <div key={expense.id} className="flex items-center justify-between p-3 rounded-md border border-border">
+                          <div>
+                            <p className="text-sm font-medium">{formatCurrency(expense.amount)}</p>
+                            <p className="text-xs text-muted-foreground capitalize">
+                              {expense.category} • {expense.incurred_at}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-500 hover:text-red-600"
+                            onClick={() => setExpenseToDelete(expense.id)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Right Column - Add Expense */}
+            <div>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Add Expense</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Sheet open={addExpenseOpen} onOpenChange={setAddExpenseOpen}>
+                    <SheetTrigger asChild>
+                      <Button className="w-full">+ Add Expense</Button>
+                    </SheetTrigger>
             <SheetContent side="bottom" className="h-[80vh] overflow-y-auto">
               <SheetHeader>
                 <SheetTitle>Add Expense</SheetTitle>
@@ -762,162 +811,150 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                   <Label className="text-sm">Notes</Label>
                   <Textarea name="notes" rows={2} />
                 </div>
-                <div className="sticky bottom-0 bg-background pt-4 pb-2">
-                  <Button type="submit" className="w-full">Save Expense</Button>
-                </div>
-              </form>
-            </SheetContent>
-          </Sheet>
-
-          {/* Expense List */}
-          {trip.expenses.length === 0 ? (
-            <Card>
-              <CardContent className="p-6 text-center text-muted-foreground">
-                No expenses recorded yet.
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-2">
-              {trip.expenses.map((expense) => (
-                <Card key={expense.id}>
-                  <CardContent className="p-3 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">{formatCurrency(expense.amount)}</p>
-                      <p className="text-xs text-muted-foreground capitalize">
-                        {expense.category} &bull; {expense.incurred_at}
-                      </p>
+                    <div className="sticky bottom-0 bg-background pt-4 pb-2">
+                      <Button type="submit" className="w-full">Save Expense</Button>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-500 hover:text-red-600"
-                      onClick={() => setExpenseToDelete(expense.id)}
-                    >
-                      Delete
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+                  </form>
+                </SheetContent>
+              </Sheet>
+                </CardContent>
+              </Card>
             </div>
-          )}
+          </div>
         </TabsContent>
 
         {/* Settlement Tab */}
-        <TabsContent value="settlement" className="space-y-4 mt-0">
-          {/* Settlement Status */}
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">Settlement Status</CardTitle>
-                <Badge variant="outline">
-                  {settlementSnapshot.settlements[0]?.status || (trip.status === 'settled' ? 'settled' : 'Not settled')}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Revenue</span>
-                <span>{formatCurrency(trip.revenue_total)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Driver Pay</span>
-                <span>{formatCurrency(trip.driver_pay_total)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Expenses</span>
-                <span>{formatCurrency(trip.fuel_total + trip.tolls_total + trip.other_expenses_total)}</span>
-              </div>
-              <div className="border-t border-border pt-2 flex justify-between font-medium">
-                <span>Profit</span>
-                <span className={profit >= 0 ? 'text-emerald-600' : 'text-red-500'}>{formatCurrency(profit)}</span>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="settlement" className="mt-0">
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Left Column - Settlement Details */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Settlement Status */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">Settlement Status</CardTitle>
+                    <Badge variant="outline">
+                      {settlementSnapshot.settlements[0]?.status || (trip.status === 'settled' ? 'settled' : 'Not settled')}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Revenue</span>
+                    <span>{formatCurrency(trip.revenue_total)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Driver Pay</span>
+                    <span>{formatCurrency(trip.driver_pay_total)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Expenses</span>
+                    <span>{formatCurrency(trip.fuel_total + trip.tolls_total + trip.other_expenses_total)}</span>
+                  </div>
+                  <div className="border-t border-border pt-2 flex justify-between font-medium">
+                    <span>Profit</span>
+                    <span className={profit >= 0 ? 'text-emerald-600' : 'text-red-500'}>{formatCurrency(profit)}</span>
+                  </div>
+                </CardContent>
+              </Card>
 
-          {/* Receivables */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Receivables</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {settlementSnapshot.receivables.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No receivables yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {settlementSnapshot.receivables.map((r: any) => {
-                    const company = Array.isArray(r.company) ? r.company[0] : r.company;
-                    return (
-                      <div key={r.id} className="flex justify-between text-sm">
-                        <span>{company?.name || 'Unknown'}</span>
-                        <span>{formatCurrency(r.amount)}</span>
+              <div className="grid gap-6 md:grid-cols-2">
+                {/* Receivables */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Receivables</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {settlementSnapshot.receivables.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No receivables yet.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {settlementSnapshot.receivables.map((r: any) => {
+                          const company = Array.isArray(r.company) ? r.company[0] : r.company;
+                          return (
+                            <div key={r.id} className="flex justify-between text-sm">
+                              <span>{company?.name || 'Unknown'}</span>
+                              <span>{formatCurrency(r.amount)}</span>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    )}
+                  </CardContent>
+                </Card>
 
-          {/* Payables */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Payables</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {settlementSnapshot.payables.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No payables yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {settlementSnapshot.payables.map((p: any) => {
-                    const driver = Array.isArray(p.driver) ? p.driver[0] : p.driver;
-                    return (
-                      <div key={p.id} className="flex justify-between text-sm">
-                        <span>{driver ? `${driver.first_name} ${driver.last_name}` : 'Unknown'}</span>
-                        <span>{formatCurrency(p.amount)}</span>
+                {/* Payables */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Payables</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {settlementSnapshot.payables.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No payables yet.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {settlementSnapshot.payables.map((p: any) => {
+                          const driver = Array.isArray(p.driver) ? p.driver[0] : p.driver;
+                          return (
+                            <div key={p.id} className="flex justify-between text-sm">
+                              <span>{driver ? `${driver.first_name} ${driver.last_name}` : 'Unknown'}</span>
+                              <span>{formatCurrency(p.amount)}</span>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
 
-          {/* View Settlement Button - show for completed/settled trips */}
-          {(trip.status === 'completed' || trip.status === 'settled') && (
-            <Button asChild className="w-full" size="lg" variant="default">
-              <Link href={`/dashboard/trips/${trip.id}/settlement`}>
-                <DollarSign className="h-4 w-4 mr-2" />
-                View Settlement
-              </Link>
-            </Button>
-          )}
+            {/* Right Column - Actions */}
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Settlement Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* View Settlement Button - show for completed/settled trips */}
+                  {(trip.status === 'completed' || trip.status === 'settled') && (
+                    <Button asChild className="w-full" variant="default">
+                      <Link href={`/dashboard/trips/${trip.id}/settlement`}>
+                        <DollarSign className="h-4 w-4 mr-2" />
+                        View Settlement
+                      </Link>
+                    </Button>
+                  )}
 
-          {/* Settle Button */}
-          <form action={async (formData) => {
-            setIsSubmitting(true);
-            await actions.settleTrip(formData);
-            setIsSubmitting(false);
-          }}>
-            <input type="hidden" name="trip_id" value={trip.id} />
-            <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
-              Close & Settle Trip
-            </Button>
-          </form>
+                  {/* Settle Button */}
+                  <form action={async (formData) => {
+                    setIsSubmitting(true);
+                    await actions.settleTrip(formData);
+                    setIsSubmitting(false);
+                  }}>
+                    <input type="hidden" name="trip_id" value={trip.id} />
+                    <Button type="submit" className="w-full" disabled={isSubmitting}>
+                      Close & Settle Trip
+                    </Button>
+                  </form>
 
-          {/* Recalculate Settlement Button - only show if settlement exists */}
-          {settlementSnapshot.settlements.length > 0 && (
-            <form action={async (formData) => {
-              setIsSubmitting(true);
-              await actions.recalculateSettlement(formData);
-              setIsSubmitting(false);
-            }}>
-              <input type="hidden" name="trip_id" value={trip.id} />
-              <Button type="submit" variant="outline" className="w-full" disabled={isSubmitting}>
-                Recalculate Settlement
-              </Button>
-            </form>
-          )}
-
+                  {/* Recalculate Settlement Button - only show if settlement exists */}
+                  {settlementSnapshot.settlements.length > 0 && (
+                    <form action={async (formData) => {
+                      setIsSubmitting(true);
+                      await actions.recalculateSettlement(formData);
+                      setIsSubmitting(false);
+                    }}>
+                      <input type="hidden" name="trip_id" value={trip.id} />
+                      <Button type="submit" variant="outline" className="w-full" disabled={isSubmitting}>
+                        Recalculate Settlement
+                      </Button>
+                    </form>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
 
