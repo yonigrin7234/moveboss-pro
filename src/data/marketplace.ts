@@ -21,6 +21,10 @@ export interface MarketplaceLoad {
     platform_rating: number | null;
   } | null;
 
+  // Type identification
+  posting_type: 'pickup' | 'load';
+  load_subtype: 'live' | 'rfd' | null; // Only for posting_type = 'load'
+
   // Origin (ZIP always visible)
   origin_city: string;
   origin_state: string;
@@ -41,11 +45,18 @@ export interface MarketplaceLoad {
   company_rate: number | null;
   company_rate_type: string;
   rate_is_fixed: boolean;
+  is_open_to_counter: boolean;
 
   // Availability
   is_ready_now: boolean;
   available_date: string | null;
   delivery_urgency: string;
+  rfd_date: string | null; // For RFD loads: when ready for pickup
+
+  // For Pickups
+  balance_due: number | null;
+  pickup_date_start: string | null;
+  pickup_date_end: string | null;
 
   // Equipment
   equipment_type: string | null;
@@ -90,6 +101,16 @@ export interface LoadRequest {
   final_rate_type: string | null;
   creates_partnership: boolean;
   created_at: string;
+
+  // Counter offer fields
+  request_type: 'accept_listed' | 'counter_offer';
+  counter_offer_rate: number | null;
+
+  // Proposed dates
+  proposed_load_date_start: string | null;
+  proposed_load_date_end: string | null;
+  proposed_delivery_date_start: string | null;
+  proposed_delivery_date_end: string | null;
 }
 
 // Get marketplace loads (all visible loads)
@@ -99,6 +120,7 @@ export async function getMarketplaceLoads(filters?: {
   equipment_type?: string;
   min_cuft?: number;
   max_cuft?: number;
+  posting_type?: 'pickup' | 'load'; // Filter by type
 }): Promise<MarketplaceLoad[]> {
   const supabase = await createClient();
 
@@ -112,6 +134,8 @@ export async function getMarketplaceLoads(filters?: {
         id, name, city, state,
         platform_loads_completed, platform_rating
       ),
+      posting_type,
+      load_subtype,
       origin_city,
       origin_state,
       origin_zip,
@@ -125,9 +149,14 @@ export async function getMarketplaceLoads(filters?: {
       company_rate,
       company_rate_type,
       rate_is_fixed,
+      is_open_to_counter,
       is_ready_now,
       available_date,
       delivery_urgency,
+      rfd_date,
+      balance_due,
+      pickup_date_start,
+      pickup_date_end,
       equipment_type,
       special_instructions,
       posted_to_marketplace_at,
@@ -139,6 +168,9 @@ export async function getMarketplaceLoads(filters?: {
     .order('posted_to_marketplace_at', { ascending: false });
 
   // Apply filters
+  if (filters?.posting_type) {
+    query = query.eq('posting_type', filters.posting_type);
+  }
   if (filters?.origin_state) {
     query = query.eq('origin_state', filters.origin_state);
   }
@@ -165,6 +197,47 @@ export async function getMarketplaceLoads(filters?: {
   return (data || []) as unknown as MarketplaceLoad[];
 }
 
+// Get counts for load board tabs
+export async function getMarketplaceLoadCounts(): Promise<{
+  all: number;
+  pickups: number;
+  loads: number;
+}> {
+  const supabase = await createClient();
+
+  // Get total count
+  const { count: allCount } = await supabase
+    .from('loads')
+    .select('*', { count: 'exact', head: true })
+    .eq('is_marketplace_visible', true)
+    .eq('load_status', 'pending')
+    .is('assigned_carrier_id', null);
+
+  // Get pickup count
+  const { count: pickupCount } = await supabase
+    .from('loads')
+    .select('*', { count: 'exact', head: true })
+    .eq('is_marketplace_visible', true)
+    .eq('load_status', 'pending')
+    .is('assigned_carrier_id', null)
+    .eq('posting_type', 'pickup');
+
+  // Get load count
+  const { count: loadCount } = await supabase
+    .from('loads')
+    .select('*', { count: 'exact', head: true })
+    .eq('is_marketplace_visible', true)
+    .eq('load_status', 'pending')
+    .is('assigned_carrier_id', null)
+    .eq('posting_type', 'load');
+
+  return {
+    all: allCount || 0,
+    pickups: pickupCount || 0,
+    loads: loadCount || 0,
+  };
+}
+
 // Get marketplace load with carrier's request status
 export async function getMarketplaceLoadWithRequestStatus(
   loadId: string,
@@ -182,6 +255,8 @@ export async function getMarketplaceLoadWithRequestStatus(
         id, name, city, state,
         platform_loads_completed, platform_rating
       ),
+      posting_type,
+      load_subtype,
       origin_city,
       origin_state,
       origin_zip,
@@ -195,9 +270,14 @@ export async function getMarketplaceLoadWithRequestStatus(
       company_rate,
       company_rate_type,
       rate_is_fixed,
+      is_open_to_counter,
       is_ready_now,
       available_date,
       delivery_urgency,
+      rfd_date,
+      balance_due,
+      pickup_date_start,
+      pickup_date_end,
       equipment_type,
       special_instructions,
       posted_to_marketplace_at,
@@ -262,6 +342,13 @@ export async function createLoadRequest(
     offered_rate_type?: string;
     accepted_company_rate: boolean;
     message?: string;
+    // New fields for counter offers and dates
+    request_type?: 'accept_listed' | 'counter_offer';
+    counter_offer_rate?: number;
+    proposed_load_date_start?: string;
+    proposed_load_date_end?: string;
+    proposed_delivery_date_start?: string;
+    proposed_delivery_date_end?: string;
   }
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   const supabase = await createClient();
@@ -279,15 +366,29 @@ export async function createLoadRequest(
     return { success: false, error: 'You already have a pending request for this load' };
   }
 
-  // Get load to find company_id
+  // Get load to find company_id and check RFD date
   const { data: load } = await supabase
     .from('loads')
-    .select('company_id, owner_id, load_number, origin_city, origin_state, destination_city, destination_state')
+    .select('company_id, owner_id, load_number, origin_city, origin_state, destination_city, destination_state, rfd_date, is_open_to_counter')
     .eq('id', data.load_id)
     .single();
 
   if (!load) {
     return { success: false, error: 'Load not found' };
+  }
+
+  // Validate counter offer is allowed
+  if (data.request_type === 'counter_offer' && !load.is_open_to_counter) {
+    return { success: false, error: 'This load does not accept counter offers' };
+  }
+
+  // Validate proposed load date is not before RFD date
+  if (load.rfd_date && data.proposed_load_date_start) {
+    const rfdDate = new Date(load.rfd_date);
+    const proposedDate = new Date(data.proposed_load_date_start);
+    if (proposedDate < rfdDate) {
+      return { success: false, error: `Load date cannot be before the RFD date (${load.rfd_date})` };
+    }
   }
 
   // Check if carrier is a partner
@@ -313,6 +414,13 @@ export async function createLoadRequest(
       accepted_company_rate: data.accepted_company_rate,
       message: data.message,
       status: 'pending',
+      // New fields
+      request_type: data.request_type || 'accept_listed',
+      counter_offer_rate: data.counter_offer_rate || null,
+      proposed_load_date_start: data.proposed_load_date_start || null,
+      proposed_load_date_end: data.proposed_load_date_end || null,
+      proposed_delivery_date_start: data.proposed_delivery_date_start || null,
+      proposed_delivery_date_end: data.proposed_delivery_date_end || null,
     })
     .select('id')
     .single();

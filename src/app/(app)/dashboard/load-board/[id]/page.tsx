@@ -80,15 +80,27 @@ export default async function LoadDetailPage({ params }: PageProps) {
     const workspaceCompany = await getWorkspaceCompanyForUser(user.id);
     if (!workspaceCompany) redirect('/onboarding/workspace');
 
-    const acceptCompanyRate = formData.get('accept_rate') === 'true';
-    const offeredRate = acceptCompanyRate ? undefined : parseFloat(formData.get('offered_rate') as string);
+    const requestType = formData.get('request_type') as 'accept_listed' | 'counter_offer';
+    const counterOfferRate = requestType === 'counter_offer'
+      ? parseFloat(formData.get('counter_offer_rate') as string)
+      : undefined;
     const message = formData.get('message') as string;
+
+    // Get date values
+    const proposedLoadDateStart = formData.get('proposed_load_date_start') as string || undefined;
+    const proposedLoadDateEnd = formData.get('proposed_load_date_end') as string || undefined;
+    const proposedDeliveryDateStart = formData.get('proposed_delivery_date_start') as string || undefined;
+    const proposedDeliveryDateEnd = formData.get('proposed_delivery_date_end') as string || undefined;
 
     const result = await createLoadRequest(user.id, workspaceCompany.id, {
       load_id: id,
-      offered_rate: offeredRate,
-      offered_rate_type: 'per_cuft',
-      accepted_company_rate: acceptCompanyRate,
+      request_type: requestType,
+      counter_offer_rate: counterOfferRate,
+      accepted_company_rate: requestType === 'accept_listed',
+      proposed_load_date_start: proposedLoadDateStart,
+      proposed_load_date_end: proposedLoadDateEnd,
+      proposed_delivery_date_start: proposedDeliveryDateStart,
+      proposed_delivery_date_end: proposedDeliveryDateEnd,
       message: message || undefined,
     });
 
@@ -339,16 +351,17 @@ export default async function LoadDetailPage({ params }: PageProps) {
               </CardHeader>
               <CardContent>
                 <form action={submitRequest} className="space-y-4">
-                  {load.rate_is_fixed ? (
+                  {/* Rate Section */}
+                  {!load.is_open_to_counter ? (
                     <div className="p-4 rounded-lg bg-muted">
                       <p className="text-sm font-medium mb-1">Rate</p>
                       <p className="text-2xl font-bold">
                         {formatRate(load.company_rate, load.company_rate_type)}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        This is a fixed rate
+                        This is a fixed rate - no counter offers
                       </p>
-                      <input type="hidden" name="accept_rate" value="true" />
+                      <input type="hidden" name="request_type" value="accept_listed" />
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -356,8 +369,8 @@ export default async function LoadDetailPage({ params }: PageProps) {
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input
                             type="radio"
-                            name="accept_rate"
-                            value="true"
+                            name="request_type"
+                            value="accept_listed"
                             className="h-4 w-4"
                             defaultChecked
                           />
@@ -376,19 +389,19 @@ export default async function LoadDetailPage({ params }: PageProps) {
                         <label className="flex items-start gap-2 cursor-pointer">
                           <input
                             type="radio"
-                            name="accept_rate"
-                            value="false"
+                            name="request_type"
+                            value="counter_offer"
                             className="h-4 w-4 mt-1"
                           />
                           <div className="flex-1">
                             <p className="font-medium">Make a counter-offer</p>
                             <div className="mt-2">
-                              <Label htmlFor="offered_rate" className="text-xs">
+                              <Label htmlFor="counter_offer_rate" className="text-xs">
                                 Your Rate ($/cuft)
                               </Label>
                               <Input
-                                id="offered_rate"
-                                name="offered_rate"
+                                id="counter_offer_rate"
+                                name="counter_offer_rate"
                                 type="number"
                                 step="0.01"
                                 min="0"
@@ -401,6 +414,69 @@ export default async function LoadDetailPage({ params }: PageProps) {
                       </div>
                     </div>
                   )}
+
+                  {/* Proposed Dates Section */}
+                  <div className="space-y-4 pt-4 border-t">
+                    <div>
+                      <Label className="text-sm font-medium">When can you load?</Label>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <div>
+                          <Label htmlFor="proposed_load_date_start" className="text-xs text-muted-foreground">
+                            From
+                          </Label>
+                          <Input
+                            id="proposed_load_date_start"
+                            name="proposed_load_date_start"
+                            type="date"
+                            className="mt-1"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="proposed_load_date_end" className="text-xs text-muted-foreground">
+                            To
+                          </Label>
+                          <Input
+                            id="proposed_load_date_end"
+                            name="proposed_load_date_end"
+                            type="date"
+                            className="mt-1"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-medium">When can you deliver?</Label>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <div>
+                          <Label htmlFor="proposed_delivery_date_start" className="text-xs text-muted-foreground">
+                            From
+                          </Label>
+                          <Input
+                            id="proposed_delivery_date_start"
+                            name="proposed_delivery_date_start"
+                            type="date"
+                            className="mt-1"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="proposed_delivery_date_end" className="text-xs text-muted-foreground">
+                            To
+                          </Label>
+                          <Input
+                            id="proposed_delivery_date_end"
+                            name="proposed_delivery_date_end"
+                            type="date"
+                            className="mt-1"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
                   <div>
                     <Label htmlFor="message">Message (Optional)</Label>

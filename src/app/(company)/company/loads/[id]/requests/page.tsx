@@ -119,7 +119,7 @@ export default async function LoadRequestsPage({ params }: PageProps) {
   const destZip = load.destination_zip as string;
   const companyRate = load.company_rate as number | null;
   const estimatedCuft = load.estimated_cuft as number | null;
-  const rateIsFixed = load.rate_is_fixed as boolean;
+  const isOpenToCounter = load.is_open_to_counter as boolean;
   const assignedCarrierId = load.assigned_carrier_id as string | null;
   const totalValue =
     companyRate && estimatedCuft ? companyRate * estimatedCuft : null;
@@ -163,7 +163,7 @@ export default async function LoadRequestsPage({ params }: PageProps) {
                   {estimatedCuft} CUFT
                   {companyRate && ` • $${companyRate}/cf`}
                   {totalValue && ` = $${totalValue.toLocaleString()}`}
-                  {rateIsFixed ? ' (Fixed)' : ' (Open to Offers)'}
+                  {isOpenToCounter ? ' (Open to Counter Offers)' : ' (Fixed Rate)'}
                 </p>
               </div>
               <Button variant="outline" size="sm" asChild>
@@ -236,7 +236,28 @@ export default async function LoadRequestsPage({ params }: PageProps) {
 
                     {/* Rate Offered */}
                     <div className="text-right">
-                      {request.accepted_company_rate ? (
+                      {request.request_type === 'counter_offer' ? (
+                        <div>
+                          <p className="text-sm text-muted-foreground">
+                            Counter offer
+                          </p>
+                          <p className="text-xl font-bold text-purple-500">
+                            ${request.counter_offer_rate?.toFixed(2)}/cf
+                          </p>
+                          {companyRate &&
+                            request.counter_offer_rate &&
+                            request.counter_offer_rate > companyRate && (
+                              <p className="text-xs text-red-400">
+                                +$
+                                {(
+                                  (request.counter_offer_rate - companyRate) *
+                                  (estimatedCuft || 0)
+                                ).toFixed(0)}{' '}
+                                more
+                              </p>
+                            )}
+                        </div>
+                      ) : (
                         <div>
                           <p className="text-sm text-muted-foreground">
                             Accepted your rate
@@ -245,30 +266,55 @@ export default async function LoadRequestsPage({ params }: PageProps) {
                             ${companyRate?.toFixed(2)}/cf
                           </p>
                         </div>
-                      ) : (
-                        <div>
-                          <p className="text-sm text-muted-foreground">
-                            Their offer
-                          </p>
-                          <p className="text-xl font-bold text-purple-500">
-                            ${request.offered_rate?.toFixed(2)}/cf
-                          </p>
-                          {companyRate &&
-                            request.offered_rate &&
-                            request.offered_rate > companyRate && (
-                              <p className="text-xs text-red-400">
-                                +$
-                                {(
-                                  (request.offered_rate - companyRate) *
-                                  (estimatedCuft || 0)
-                                ).toFixed(0)}{' '}
-                                more
-                              </p>
-                            )}
-                        </div>
                       )}
                     </div>
                   </div>
+
+                  {/* Proposed Dates */}
+                  {(request.proposed_load_date_start || request.proposed_delivery_date_start) && (
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/50 rounded-lg">
+                      {request.proposed_load_date_start && (
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            Can Load
+                          </p>
+                          <p className="text-sm font-medium">
+                            {new Date(request.proposed_load_date_start).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                            {request.proposed_load_date_end && request.proposed_load_date_end !== request.proposed_load_date_start && (
+                              <> - {new Date(request.proposed_load_date_end).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                              })}</>
+                            )}
+                          </p>
+                        </div>
+                      )}
+                      {request.proposed_delivery_date_start && (
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            Can Deliver
+                          </p>
+                          <p className="text-sm font-medium">
+                            {new Date(request.proposed_delivery_date_start).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                            {request.proposed_delivery_date_end && request.proposed_delivery_date_end !== request.proposed_delivery_date_start && (
+                              <> - {new Date(request.proposed_delivery_date_end).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                              })}</>
+                            )}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Platform Stats */}
                   <div className="flex items-center gap-4 text-sm">

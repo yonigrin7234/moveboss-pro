@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Select,
   SelectContent,
@@ -54,6 +56,7 @@ export default function PostLoadPage() {
     linehaul_amount: '',
     service_type: 'hhg_long_distance',
     notes: '',
+    is_open_to_counter: false,
   });
 
   // RFD form data
@@ -71,6 +74,9 @@ export default function PostLoadPage() {
     linehaul_amount: '',
     service_type: 'storage_out',
     notes: '',
+    is_open_to_counter: false,
+    rfd_ready_type: 'ready_now' as 'ready_now' | 'ready_on_date',
+    rfd_date: '',
   });
 
   const handleLiveLoadChange = (field: string, value: string) => {
@@ -143,11 +149,13 @@ export default function PostLoadPage() {
         posted_by_company_id: membership.company_id,
         job_number: jobNumber,
         load_type: loadType,
+        load_subtype: loadType === 'rfd' ? 'rfd' : 'live',
         posting_type: 'load',
         posting_status: 'posted',
         posted_at: new Date().toISOString(),
         service_type: data.service_type,
         status: 'pending',
+        is_open_to_counter: data.is_open_to_counter,
         // Destination (same for both types)
         dropoff_address_line1: data.destination_address,
         dropoff_city: data.destination_city,
@@ -178,6 +186,10 @@ export default function PostLoadPage() {
         payload.loading_city = rfdData.storage_city;
         payload.loading_state = rfdData.storage_state;
         payload.loading_postal_code = rfdData.storage_zip;
+        // RFD date - null means "ready now"
+        payload.rfd_date = rfdData.rfd_ready_type === 'ready_on_date' && rfdData.rfd_date
+          ? rfdData.rfd_date
+          : null;
       }
 
       const { error: insertError } = await supabase.from('loads').insert(payload);
@@ -452,6 +464,25 @@ export default function PostLoadPage() {
                     rows={3}
                   />
                 </div>
+
+                <div className="flex items-start gap-3 pt-2 border-t">
+                  <Checkbox
+                    id="ll_open_to_counter"
+                    checked={liveLoadData.is_open_to_counter}
+                    onCheckedChange={(checked) =>
+                      setLiveLoadData((prev) => ({ ...prev, is_open_to_counter: checked === true }))
+                    }
+                  />
+                  <label
+                    htmlFor="ll_open_to_counter"
+                    className="cursor-pointer text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    <span className="font-medium">Open to counter offers</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Carriers can propose a different rate when requesting this load
+                    </p>
+                  </label>
+                </div>
               </CardContent>
             </Card>
 
@@ -529,6 +560,45 @@ export default function PostLoadPage() {
                       required
                     />
                   </div>
+                </div>
+
+                <div className="space-y-3 pt-4 border-t">
+                  <Label>When is this load ready for delivery?</Label>
+                  <RadioGroup
+                    value={rfdData.rfd_ready_type}
+                    onValueChange={(value: 'ready_now' | 'ready_on_date') =>
+                      setRfdData((prev) => ({ ...prev, rfd_ready_type: value }))
+                    }
+                    className="flex flex-col gap-2"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="ready_now" id="ready_now" />
+                      <Label htmlFor="ready_now" className="font-normal cursor-pointer">
+                        Ready now
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="ready_on_date" id="ready_on_date" />
+                      <Label htmlFor="ready_on_date" className="font-normal cursor-pointer">
+                        Ready on date
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                  {rfdData.rfd_ready_type === 'ready_on_date' && (
+                    <div className="ml-6 space-y-2">
+                      <Label htmlFor="rfd_date">Available Date *</Label>
+                      <Input
+                        id="rfd_date"
+                        type="date"
+                        value={rfdData.rfd_date}
+                        onChange={(e) => setRfdData((prev) => ({ ...prev, rfd_date: e.target.value }))}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Carriers cannot request this load before this date
+                      </p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -661,6 +731,25 @@ export default function PostLoadPage() {
                     placeholder="Any special instructions"
                     rows={3}
                   />
+                </div>
+
+                <div className="flex items-start gap-3 pt-2 border-t">
+                  <Checkbox
+                    id="rfd_open_to_counter"
+                    checked={rfdData.is_open_to_counter}
+                    onCheckedChange={(checked) =>
+                      setRfdData((prev) => ({ ...prev, is_open_to_counter: checked === true }))
+                    }
+                  />
+                  <label
+                    htmlFor="rfd_open_to_counter"
+                    className="cursor-pointer text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    <span className="font-medium">Open to counter offers</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Carriers can propose a different rate when requesting this load
+                    </p>
+                  </label>
                 </div>
               </CardContent>
             </Card>

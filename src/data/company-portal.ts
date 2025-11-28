@@ -613,6 +613,14 @@ export async function getLoadRequestsForCompany(loadId: string): Promise<
     final_rate: number | null;
     final_rate_type: string | null;
     created_at: string;
+    // Counter offer fields
+    request_type: 'accept_listed' | 'counter_offer';
+    counter_offer_rate: number | null;
+    // Proposed dates
+    proposed_load_date_start: string | null;
+    proposed_load_date_end: string | null;
+    proposed_delivery_date_start: string | null;
+    proposed_delivery_date_end: string | null;
     carrier: {
       id: string;
       name: string;
@@ -683,6 +691,12 @@ export async function getLoadRequestsForCompany(loadId: string): Promise<
     final_rate: number | null;
     final_rate_type: string | null;
     created_at: string;
+    request_type: 'accept_listed' | 'counter_offer';
+    counter_offer_rate: number | null;
+    proposed_load_date_start: string | null;
+    proposed_load_date_end: string | null;
+    proposed_delivery_date_start: string | null;
+    proposed_delivery_date_end: string | null;
     carrier: {
       id: string;
       name: string;
