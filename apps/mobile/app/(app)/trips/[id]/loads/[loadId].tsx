@@ -81,6 +81,12 @@ export default function LoadDetailScreen() {
     }
   };
 
+  const handleText = (phone: string | null) => {
+    if (phone) {
+      Linking.openURL(`sms:${phone}`);
+    }
+  };
+
   const formatCurrency = (amount: number | null) => {
     if (amount === null || amount === undefined) return '$0.00';
     return `$${amount.toFixed(2)}`;
@@ -134,7 +140,33 @@ export default function LoadDetailScreen() {
               loadStatus={load.load_status}
               actions={actions}
               balanceDue={load.balance_due_on_delivery}
+              company={load.companies}
             />
+
+            {/* Contact Company Card - quick access to dispatcher */}
+            {load.companies?.phone && (
+              <View style={styles.contactCard}>
+                <View style={styles.contactInfo}>
+                  <Text style={styles.contactLabel}>Contact Dispatcher</Text>
+                  <Text style={styles.contactName}>{load.companies.name}</Text>
+                  <Text style={styles.contactPhone}>{load.companies.phone}</Text>
+                </View>
+                <View style={styles.contactActions}>
+                  <TouchableOpacity
+                    style={styles.contactButton}
+                    onPress={() => handleCall(load.companies?.phone || null)}
+                  >
+                    <Text style={styles.contactButtonText}>📞 Call</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.contactButton}
+                    onPress={() => handleText(load.companies?.phone || null)}
+                  >
+                    <Text style={styles.contactButtonText}>💬 Text</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
 
             {/* Pickup Section */}
             <View style={styles.card}>
@@ -278,18 +310,36 @@ export default function LoadDetailScreen() {
   );
 }
 
+// Trust Level Badge Component
+function TrustLevelBadge({ trustLevel }: { trustLevel: 'trusted' | 'cod_required' }) {
+  const isTrusted = trustLevel === 'trusted';
+  return (
+    <View style={[
+      styles.trustBadge,
+      isTrusted ? styles.trustBadgeTrusted : styles.trustBadgeCod
+    ]}>
+      <Text style={styles.trustBadgeText}>
+        {isTrusted ? '✓ Trusted Company' : '⚠ Verify Before Unload'}
+      </Text>
+    </View>
+  );
+}
+
 // Workflow Action Card
 function WorkflowActionCard({
   loadId,
   loadStatus,
   actions,
   balanceDue,
+  company,
 }: {
   loadId: string;
   loadStatus: LoadStatus;
   actions: ReturnType<typeof useLoadActions>;
   balanceDue: number | null;
+  company?: { name: string; phone: string | null; trust_level?: 'trusted' | 'cod_required' } | null;
 }) {
+  const trustLevel = company?.trust_level || 'cod_required';
   const [cuftInput, setCuftInput] = useState('');
   const [amountInput, setAmountInput] = useState(balanceDue?.toString() || '');
   const [photo, setPhoto] = useState<string | null>(null);
@@ -465,15 +515,34 @@ function WorkflowActionCard({
 
   // Loaded → Start Delivery
   if (loadStatus === 'loaded') {
+    const handleStartDelivery = () => {
+      if (trustLevel === 'cod_required') {
+        Alert.alert(
+          'Verify Before Unloading',
+          `${company?.name || 'This company'} is not a trusted company.\n\nIf there's a shortfall between the rate and customer payment, call the owner to verify the company has settled before unloading.${balanceDue ? `\n\nBalance to collect from customer: $${balanceDue.toFixed(2)}` : ''}`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Start Delivery', onPress: () => handleAction(actions.startDelivery) },
+          ]
+        );
+      } else {
+        // Trusted company - proceed without verification
+        handleAction(actions.startDelivery);
+      }
+    };
+
     return (
       <View style={styles.actionCard}>
         <Text style={styles.actionTitle}>Ready for Delivery</Text>
+        <TrustLevelBadge trustLevel={trustLevel} />
         <Text style={styles.actionDescription}>
-          Mark as in transit when you depart
+          {balanceDue
+            ? `Collect $${balanceDue.toFixed(2)} from customer`
+            : 'Mark as in transit when you depart'}
         </Text>
         <TouchableOpacity
           style={[styles.primaryButton, actions.loading && styles.buttonDisabled]}
-          onPress={() => handleAction(actions.startDelivery)}
+          onPress={handleStartDelivery}
           disabled={actions.loading}
         >
           <Text style={styles.primaryButtonText}>
@@ -821,6 +890,50 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 16,
   },
+  // Contact Company Card Styles
+  contactCard: {
+    backgroundColor: '#2a2a3e',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  contactInfo: {
+    flex: 1,
+  },
+  contactLabel: {
+    fontSize: 12,
+    color: '#888',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  contactName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 2,
+  },
+  contactPhone: {
+    fontSize: 14,
+    color: '#ccc',
+  },
+  contactActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  contactButton: {
+    backgroundColor: '#0066CC',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  contactButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -912,6 +1025,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
     marginBottom: 4,
+  },
+  // Trust Badge Styles
+  trustBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginBottom: 12,
+  },
+  trustBadgeTrusted: {
+    backgroundColor: 'rgba(16, 185, 129, 0.9)',
+  },
+  trustBadgeCod: {
+    backgroundColor: 'rgba(245, 158, 11, 0.9)',
+  },
+  trustBadgeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
   },
   actionDescription: {
     fontSize: 14,

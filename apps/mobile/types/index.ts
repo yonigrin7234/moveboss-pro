@@ -112,6 +112,7 @@ export interface Load {
   companies?: {
     name: string;
     phone: string | null;
+    trust_level?: 'trusted' | 'cod_required';
   } | null;
 }
 

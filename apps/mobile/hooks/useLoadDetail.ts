@@ -31,7 +31,7 @@ export function useLoadDetail(loadId: string | null) {
         return;
       }
 
-      // Fetch load with company info
+      // Fetch load with company info (including trust_level for delivery workflow)
       const { data: loadData, error: loadError } = await supabase
         .from('loads')
         .select(`
@@ -39,7 +39,8 @@ export function useLoadDetail(loadId: string | null) {
           companies (
             name,
             phone,
-            email
+            email,
+            trust_level
           )
         `)
         .eq('id', loadId)
