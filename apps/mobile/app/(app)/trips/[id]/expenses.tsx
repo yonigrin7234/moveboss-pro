@@ -15,6 +15,7 @@ import {
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useTripExpenses, useExpenseActions, CreateExpenseInput } from '../../../../hooks/useExpenseActions';
+import { useImageUpload } from '../../../../hooks/useImageUpload';
 import { ExpenseCategory, ExpensePaidBy, TripExpense } from '../../../../types';
 
 const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string }[] = [
@@ -37,6 +38,7 @@ export default function ExpensesScreen() {
   const { id: tripId } = useLocalSearchParams<{ id: string }>();
   const { expenses, loading, error, refetch } = useTripExpenses(tripId);
   const actions = useExpenseActions(tripId, refetch);
+  const { uploading, progress, uploadReceiptPhoto } = useImageUpload();
   const router = useRouter();
 
   const [showForm, setShowForm] = useState(false);
@@ -45,6 +47,7 @@ export default function ExpensesScreen() {
   const [description, setDescription] = useState('');
   const [paidBy, setPaidBy] = useState<ExpensePaidBy>('driver_personal');
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const resetForm = () => {
     setCategory('fuel');
@@ -80,20 +83,38 @@ export default function ExpensesScreen() {
       return;
     }
 
-    const input: CreateExpenseInput = {
-      category,
-      amount: parseFloat(amount),
-      description: description || undefined,
-      paidBy,
-      // Note: In production, you'd upload the image to storage first
-      // and pass the URL here. For now, we'll skip the photo upload.
-    };
+    setSubmitting(true);
 
-    const result = await actions.createExpense(input);
-    if (result.success) {
-      resetForm();
-    } else {
-      Alert.alert('Error', result.error || 'Failed to add expense');
+    try {
+      let receiptUrl: string | undefined;
+
+      // Upload receipt photo if one was taken
+      if (receiptImage) {
+        const uploadResult = await uploadReceiptPhoto(receiptImage, tripId);
+        if (!uploadResult.success) {
+          Alert.alert('Upload Error', uploadResult.error || 'Failed to upload receipt');
+          setSubmitting(false);
+          return;
+        }
+        receiptUrl = uploadResult.url;
+      }
+
+      const input: CreateExpenseInput = {
+        category,
+        amount: parseFloat(amount),
+        description: description || undefined,
+        paidBy,
+        receiptPhotoUrl: receiptUrl,
+      };
+
+      const result = await actions.createExpense(input);
+      if (result.success) {
+        resetForm();
+      } else {
+        Alert.alert('Error', result.error || 'Failed to add expense');
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -266,26 +287,51 @@ export default function ExpensesScreen() {
 
               {/* Receipt Photo */}
               <Text style={styles.inputLabel}>Receipt (optional)</Text>
-              <TouchableOpacity style={styles.photoButton} onPress={pickImage}>
+              <TouchableOpacity
+                style={styles.photoButton}
+                onPress={pickImage}
+                disabled={submitting}
+              >
                 {receiptImage ? (
-                  <Image source={{ uri: receiptImage }} style={styles.receiptPreview} />
+                  <View style={styles.receiptContainer}>
+                    <Image source={{ uri: receiptImage }} style={styles.receiptPreview} />
+                    {uploading && (
+                      <View style={styles.uploadOverlay}>
+                        <Text style={styles.uploadText}>Uploading... {progress}%</Text>
+                      </View>
+                    )}
+                  </View>
                 ) : (
                   <Text style={styles.photoButtonText}>Take Photo</Text>
                 )}
               </TouchableOpacity>
+              {receiptImage && !submitting && (
+                <TouchableOpacity
+                  style={styles.removePhotoButton}
+                  onPress={() => setReceiptImage(null)}
+                >
+                  <Text style={styles.removePhotoText}>Remove Photo</Text>
+                </TouchableOpacity>
+              )}
 
               {/* Form Actions */}
               <View style={styles.formActions}>
-                <TouchableOpacity style={styles.cancelButton} onPress={resetForm}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={resetForm}
+                  disabled={submitting}
+                >
                   <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.submitButton, actions.loading && styles.buttonDisabled]}
+                  style={[styles.submitButton, submitting && styles.buttonDisabled]}
                   onPress={handleSubmit}
-                  disabled={actions.loading}
+                  disabled={submitting}
                 >
                   <Text style={styles.submitButtonText}>
-                    {actions.loading ? 'Adding...' : 'Add Expense'}
+                    {submitting
+                      ? (uploading ? `Uploading... ${progress}%` : 'Saving...')
+                      : 'Add Expense'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -496,10 +542,39 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
+  receiptContainer: {
+    width: '100%',
+    position: 'relative',
+  },
   receiptPreview: {
     width: '100%',
     height: 150,
     borderRadius: 8,
+  },
+  uploadOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  removePhotoButton: {
+    marginTop: 8,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  removePhotoText: {
+    color: '#ff6b6b',
+    fontSize: 14,
   },
   formActions: {
     flexDirection: 'row',

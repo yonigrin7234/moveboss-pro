@@ -9,10 +9,13 @@ import {
   Linking,
   Alert,
   TextInput,
+  Image,
 } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useLoadDetail } from '../../../../../hooks/useLoadDetail';
 import { useLoadActions } from '../../../../../hooks/useLoadActions';
+import { useImageUpload } from '../../../../../hooks/useImageUpload';
 import { StatusBadge } from '../../../../../components/StatusBadge';
 import { LoadStatus } from '../../../../../types';
 
@@ -125,6 +128,7 @@ export default function LoadDetailScreen() {
 
             {/* Action Card - shows next action based on status */}
             <WorkflowActionCard
+              loadId={loadId}
               loadStatus={load.load_status}
               actions={actions}
               balanceDue={load.balance_due_on_delivery}
@@ -271,16 +275,69 @@ export default function LoadDetailScreen() {
 
 // Workflow Action Card
 function WorkflowActionCard({
+  loadId,
   loadStatus,
   actions,
   balanceDue,
 }: {
+  loadId: string;
   loadStatus: LoadStatus;
   actions: ReturnType<typeof useLoadActions>;
   balanceDue: number | null;
 }) {
   const [cuftInput, setCuftInput] = useState('');
   const [amountInput, setAmountInput] = useState(balanceDue?.toString() || '');
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const { uploading, progress, uploadLoadPhoto } = useImageUpload();
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Camera permission is needed to take photos');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setPhoto(result.assets[0].uri);
+    }
+  };
+
+  const handleActionWithPhoto = async (
+    action: (photoUrl?: string) => Promise<{ success: boolean; error?: string }>,
+    photoType: 'loading-start' | 'loading-end' | 'delivery' | 'document'
+  ) => {
+    setSubmitting(true);
+    try {
+      let photoUrl: string | undefined;
+
+      if (photo) {
+        const uploadResult = await uploadLoadPhoto(photo, loadId, photoType);
+        if (!uploadResult.success) {
+          Alert.alert('Upload Error', uploadResult.error || 'Failed to upload photo');
+          return;
+        }
+        photoUrl = uploadResult.url;
+      }
+
+      const result = await action(photoUrl);
+      if (!result.success) {
+        Alert.alert('Error', result.error || 'Action failed');
+      } else {
+        setPhoto(null);
+        setCuftInput('');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleAction = async (action: () => Promise<{ success: boolean; error?: string }>) => {
     const result = await action();
@@ -288,6 +345,9 @@ function WorkflowActionCard({
       Alert.alert('Error', result.error || 'Action failed');
     }
   };
+
+  const isLoading = actions.loading || submitting || uploading;
+  const buttonText = uploading ? `Uploading... ${progress}%` : submitting ? 'Saving...' : null;
 
   // Pending → Accept
   if (loadStatus === 'pending') {
@@ -316,7 +376,7 @@ function WorkflowActionCard({
       <View style={styles.actionCard}>
         <Text style={styles.actionTitle}>Start Loading</Text>
         <Text style={styles.actionDescription}>
-          Enter starting CUFT reading (optional)
+          Enter starting CUFT and take a photo (optional)
         </Text>
         <TextInput
           style={styles.input}
@@ -326,13 +386,28 @@ function WorkflowActionCard({
           onChangeText={setCuftInput}
           keyboardType="numeric"
         />
+        <TouchableOpacity style={styles.photoButton} onPress={takePhoto} disabled={isLoading}>
+          {photo ? (
+            <Image source={{ uri: photo }} style={styles.photoPreview} />
+          ) : (
+            <Text style={styles.photoButtonText}>Take Photo</Text>
+          )}
+        </TouchableOpacity>
+        {photo && (
+          <TouchableOpacity onPress={() => setPhoto(null)} disabled={isLoading}>
+            <Text style={styles.removePhotoText}>Remove Photo</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
-          style={[styles.primaryButton, actions.loading && styles.buttonDisabled]}
-          onPress={() => handleAction(() => actions.startLoading(cuftInput ? parseFloat(cuftInput) : undefined))}
-          disabled={actions.loading}
+          style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
+          onPress={() => handleActionWithPhoto(
+            (url) => actions.startLoading(cuftInput ? parseFloat(cuftInput) : undefined, url),
+            'loading-start'
+          )}
+          disabled={isLoading}
         >
           <Text style={styles.primaryButtonText}>
-            {actions.loading ? 'Starting...' : 'Start Loading'}
+            {buttonText || 'Start Loading'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -345,7 +420,7 @@ function WorkflowActionCard({
       <View style={styles.actionCard}>
         <Text style={styles.actionTitle}>Finish Loading</Text>
         <Text style={styles.actionDescription}>
-          Enter ending CUFT reading (optional)
+          Enter ending CUFT and take a photo (optional)
         </Text>
         <TextInput
           style={styles.input}
@@ -355,13 +430,28 @@ function WorkflowActionCard({
           onChangeText={setCuftInput}
           keyboardType="numeric"
         />
+        <TouchableOpacity style={styles.photoButton} onPress={takePhoto} disabled={isLoading}>
+          {photo ? (
+            <Image source={{ uri: photo }} style={styles.photoPreview} />
+          ) : (
+            <Text style={styles.photoButtonText}>Take Photo</Text>
+          )}
+        </TouchableOpacity>
+        {photo && (
+          <TouchableOpacity onPress={() => setPhoto(null)} disabled={isLoading}>
+            <Text style={styles.removePhotoText}>Remove Photo</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
-          style={[styles.primaryButton, actions.loading && styles.buttonDisabled]}
-          onPress={() => handleAction(() => actions.finishLoading(cuftInput ? parseFloat(cuftInput) : undefined))}
-          disabled={actions.loading}
+          style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
+          onPress={() => handleActionWithPhoto(
+            (url) => actions.finishLoading(cuftInput ? parseFloat(cuftInput) : undefined, url),
+            'loading-end'
+          )}
+          disabled={isLoading}
         >
           <Text style={styles.primaryButtonText}>
-            {actions.loading ? 'Finishing...' : 'Finish Loading'}
+            {buttonText || 'Finish Loading'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -595,6 +685,31 @@ const styles = StyleSheet.create({
     padding: 14,
     fontSize: 16,
     color: '#fff',
+    marginBottom: 16,
+  },
+  photoButton: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    minHeight: 80,
+  },
+  photoButtonText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  photoPreview: {
+    width: '100%',
+    height: 120,
+    borderRadius: 8,
+  },
+  removePhotoText: {
+    color: '#ff6b6b',
+    fontSize: 14,
+    textAlign: 'center',
     marginBottom: 16,
   },
   primaryButton: {
