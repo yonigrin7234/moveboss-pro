@@ -107,11 +107,20 @@ export function useImageUpload() {
     return uploadImage(localUri, 'load-photos', `${loadId}/${type}`);
   };
 
+  const uploadOdometerPhoto = async (
+    localUri: string,
+    tripId: string,
+    type: 'start' | 'end'
+  ) => {
+    return uploadImage(localUri, 'load-photos', `trips/${tripId}/odometer-${type}`);
+  };
+
   return {
     uploading,
     progress,
     uploadImage,
     uploadReceiptPhoto,
     uploadLoadPhoto,
+    uploadOdometerPhoto,
   };
 }

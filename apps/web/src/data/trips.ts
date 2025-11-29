@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase-server';
 import type { Load } from '@/data/loads';
 import { computeTripFinancialsWithDriverPay, snapshotDriverCompensation, type TripFinancialResult } from '@/data/trip-financials';
+import { notifyDriverTripAssigned } from '@/lib/push-notifications';
 
 export const tripStatusSchema = z.enum(['planned', 'active', 'en_route', 'completed', 'settled', 'cancelled']);
 export const tripExpenseCategorySchema = z.enum([
@@ -751,6 +752,16 @@ export async function updateTrip(
       .single();
     const shareWithCompanies = tripData?.share_driver_with_companies !== false;
     await syncTripDriverToLoads(id, input.driver_id, shareWithCompanies);
+
+    // Send push notification to the newly assigned driver
+    const route = [data.origin_city, data.origin_state].filter(Boolean).join(', ') +
+      (data.destination_city ? ' → ' + [data.destination_city, data.destination_state].filter(Boolean).join(', ') : '');
+    const startDate = data.start_date
+      ? new Date(data.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : 'TBD';
+    notifyDriverTripAssigned(input.driver_id, data.trip_number, id, route || 'Route TBD', startDate).catch((err) => {
+      console.error('Failed to send trip assignment notification:', err);
+    });
   }
 
   // If driver is being removed (key exists but value is undefined/null), clear driver info from loads
@@ -1172,6 +1183,14 @@ export async function updateTripDriver(
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
 
+  // Get trip info for notification
+  const { data: tripData } = await supabase
+    .from('trips')
+    .select('trip_number, origin_city, origin_state, destination_city, destination_state, start_date, driver_id')
+    .eq('id', tripId)
+    .eq('owner_id', userId)
+    .single();
+
   // Update trip with driver and sharing preference
   const { error: tripError } = await supabase
     .from('trips')
@@ -1190,6 +1209,18 @@ export async function updateTripDriver(
 
   // Snapshot driver compensation rates
   await snapshotDriverCompensation(supabase, tripId, driverId, userId);
+
+  // Send push notification if driver is newly assigned or changed
+  if (tripData && tripData.driver_id !== driverId) {
+    const route = [tripData.origin_city, tripData.origin_state].filter(Boolean).join(', ') +
+      (tripData.destination_city ? ' → ' + [tripData.destination_city, tripData.destination_state].filter(Boolean).join(', ') : '');
+    const startDate = tripData.start_date
+      ? new Date(tripData.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : 'TBD';
+    notifyDriverTripAssigned(driverId, tripData.trip_number, tripId, route || 'Route TBD', startDate).catch((err) => {
+      console.error('Failed to send trip assignment notification:', err);
+    });
+  }
 
   // Sync to loads
   return syncTripDriverToLoads(tripId, driverId, shareWithCompanies);

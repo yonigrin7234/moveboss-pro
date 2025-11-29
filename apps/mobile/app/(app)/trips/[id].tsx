@@ -1,7 +1,10 @@
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Linking, Alert } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Linking, Alert, TextInput, Image } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useDriverTripDetail } from '../../../hooks/useDriverTrips';
-import { useTripActions } from '../../../hooks/useTripActions';
+import { useTripActions, StartTripData } from '../../../hooks/useTripActions';
+import { useImageUpload } from '../../../hooks/useImageUpload';
 import { StatusBadge } from '../../../components/StatusBadge';
 import { TripLoad, TripStatus, LoadStatus } from '../../../types';
 
@@ -376,46 +379,118 @@ function TripActionCard({
   tripId: string;
 }) {
   const router = useRouter();
+  const { uploading, uploadOdometerPhoto } = useImageUpload();
+  const [odometerInput, setOdometerInput] = useState('');
+  const [odometerPhoto, setOdometerPhoto] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Planned → Start Trip
-  if (status === 'planned') {
-    const handleStartTrip = () => {
-      if (loadsCount === 0) {
-        Alert.alert(
-          'No Loads Assigned',
-          'This trip has no loads assigned. Are you sure you want to start it?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Start Anyway', onPress: actions.startTrip },
-          ]
-        );
-      } else {
-        Alert.alert(
-          'Start Trip',
-          `Ready to start this trip with ${loadsCount} load${loadsCount > 1 ? 's' : ''}?`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Start Trip', onPress: actions.startTrip },
-          ]
-        );
+  const takeOdometerPhoto = async () => {
+    const { status: permStatus } = await ImagePicker.requestCameraPermissionsAsync();
+    if (permStatus !== 'granted') {
+      Alert.alert('Permission Required', 'Camera permission is needed to take odometer photos');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setOdometerPhoto(result.assets[0].uri);
+    }
+  };
+
+  const handleStartTrip = async () => {
+    const odometerValue = parseFloat(odometerInput);
+    if (!odometerInput || isNaN(odometerValue) || odometerValue <= 0) {
+      Alert.alert('Error', 'Please enter a valid odometer reading');
+      return;
+    }
+
+    if (!odometerPhoto) {
+      Alert.alert('Error', 'Please take a photo of the odometer');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Upload the photo first
+      const uploadResult = await uploadOdometerPhoto(odometerPhoto, tripId, 'start');
+      if (!uploadResult.success) {
+        Alert.alert('Upload Error', uploadResult.error || 'Failed to upload odometer photo');
+        return;
       }
-    };
+
+      // Start the trip with odometer data
+      const result = await actions.startTrip({
+        odometerStart: odometerValue,
+        odometerStartPhotoUrl: uploadResult.url!,
+      });
+
+      if (!result.success) {
+        Alert.alert('Error', result.error || 'Failed to start trip');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Planned → Start Trip (with odometer capture)
+  if (status === 'planned') {
+    const isReady = odometerInput && odometerPhoto && parseFloat(odometerInput) > 0;
 
     return (
       <View style={styles.actionCard}>
-        <Text style={styles.actionTitle}>Ready to Start</Text>
+        <Text style={styles.actionTitle}>Start Trip</Text>
         <Text style={styles.actionDescription}>
           {loadsCount > 0
-            ? `${loadsCount} load${loadsCount > 1 ? 's' : ''} assigned to this trip`
+            ? `${loadsCount} load${loadsCount > 1 ? 's' : ''} assigned`
             : 'No loads assigned yet'}
         </Text>
+
+        {/* Odometer Input */}
+        <View style={styles.odometerSection}>
+          <Text style={styles.odometerLabel}>Starting Odometer</Text>
+          <TextInput
+            style={styles.odometerInput}
+            placeholder="Enter current mileage"
+            placeholderTextColor="#666"
+            value={odometerInput}
+            onChangeText={setOdometerInput}
+            keyboardType="numeric"
+          />
+        </View>
+
+        {/* Photo Capture */}
+        <View style={styles.photoSection}>
+          {odometerPhoto ? (
+            <View style={styles.photoPreviewContainer}>
+              <Image source={{ uri: odometerPhoto }} style={styles.photoPreview} />
+              <TouchableOpacity style={styles.retakeButton} onPress={takeOdometerPhoto}>
+                <Text style={styles.retakeButtonText}>Retake</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.photoButton} onPress={takeOdometerPhoto}>
+              <Text style={styles.photoButtonIcon}>📷</Text>
+              <Text style={styles.photoButtonText}>Take Odometer Photo</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         <TouchableOpacity
-          style={[styles.primaryButton, actions.loading && styles.buttonDisabled]}
+          style={[
+            styles.primaryButton,
+            (!isReady || actions.loading || submitting || uploading) && styles.buttonDisabled
+          ]}
           onPress={handleStartTrip}
-          disabled={actions.loading}
+          disabled={!isReady || actions.loading || submitting || uploading}
         >
           <Text style={styles.primaryButtonText}>
-            {actions.loading ? 'Starting...' : 'Start Trip'}
+            {submitting || uploading ? 'Starting Trip...' : 'Start Trip'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -424,15 +499,11 @@ function TripActionCard({
 
   // Active/En Route → Show next step or complete trip
   if (status === 'active' || status === 'en_route') {
-    const handleCompleteTrip = () => {
-      Alert.alert(
-        'Complete Trip',
-        'Are you sure you want to mark this trip as completed?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Complete', onPress: actions.completeTrip },
-        ]
-      );
+    const handleCompleteTrip = async () => {
+      const result = await actions.completeTrip();
+      if (!result.success) {
+        Alert.alert('Error', result.error || 'Failed to complete trip');
+      }
     };
 
     // If there's a next step, show guidance to the next load
@@ -851,5 +922,71 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  // Odometer Input Styles
+  odometerSection: {
+    marginTop: 16,
+  },
+  odometerLabel: {
+    color: '#888',
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  odometerInput: {
+    backgroundColor: '#1a1a2e',
+    borderWidth: 1,
+    borderColor: '#3a3a4e',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  // Photo Capture Styles
+  photoSection: {
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  photoButton: {
+    backgroundColor: '#1a1a2e',
+    borderWidth: 1,
+    borderColor: '#3a3a4e',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  photoButtonIcon: {
+    fontSize: 24,
+  },
+  photoButtonText: {
+    color: '#888',
+    fontSize: 16,
+  },
+  photoPreviewContainer: {
+    position: 'relative',
+  },
+  photoPreview: {
+    width: '100%',
+    height: 150,
+    borderRadius: 12,
+    backgroundColor: '#1a1a2e',
+  },
+  retakeButton: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  retakeButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
