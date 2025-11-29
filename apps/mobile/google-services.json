@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "245754663656",
+    "project_id": "moveboss-pro",
+    "storage_bucket": "moveboss-pro.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:245754663656:android:0cc852685f6e70c3122f5d",
+        "android_client_info": {
+          "package_name": "com.moveboss.driver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmk-C33-jUlWeW7gvQedInZraTON0kHp4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
