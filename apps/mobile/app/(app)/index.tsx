@@ -28,6 +28,24 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Quick Actions */}
+      <View style={styles.quickActions}>
+        <TouchableOpacity
+          style={styles.quickActionButton}
+          onPress={() => router.push('/(app)/trips')}
+        >
+          <Text style={styles.quickActionIcon}>🚛</Text>
+          <Text style={styles.quickActionLabel}>All Trips</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickActionButton}
+          onPress={() => router.push('/(app)/earnings')}
+        >
+          <Text style={styles.quickActionIcon}>💰</Text>
+          <Text style={styles.quickActionLabel}>Earnings</Text>
+        </TouchableOpacity>
+      </View>
+
       {error && (
         <View style={styles.errorCard}>
           <Text style={styles.errorText}>{error}</Text>
@@ -191,5 +209,26 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#991b1b',
     fontSize: 14,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  quickActionButton: {
+    flex: 1,
+    backgroundColor: '#2a2a3e',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  quickActionIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  quickActionLabel: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '500',
   },
 });

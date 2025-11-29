@@ -160,6 +160,9 @@ export interface Driver {
   flat_daily_rate: number | null;
 }
 
+// Settlement status
+export type SettlementStatus = 'pending' | 'review' | 'approved' | 'paid';
+
 // Settlement preview
 export interface SettlementPreview {
   grossPay: number;
@@ -170,4 +173,45 @@ export interface SettlementPreview {
     label: string;
     value: number;
   }[];
+}
+
+// Trip settlement for earnings view
+export interface TripSettlement {
+  tripId: string;
+  tripNumber: number;
+  status: TripStatus;
+  settlementStatus: SettlementStatus;
+  route: string;
+  startDate: string | null;
+  endDate: string | null;
+  // Pay calculation
+  payMode: DriverPayMode | null;
+  ratePerMile: number | null;
+  ratePerCuft: number | null;
+  percentOfRevenue: number | null;
+  flatDailyRate: number | null;
+  // Totals
+  totalMiles: number | null;
+  totalCuft: number | null;
+  totalRevenue: number | null;
+  // Calculated pay
+  grossPay: number;
+  // Expenses
+  reimbursableExpenses: number;
+  cashCollected: number;
+  // Net
+  netPay: number;
+  // Payment info
+  paidAt: string | null;
+  paidMethod: string | null;
+}
+
+// Earnings summary
+export interface EarningsSummary {
+  totalEarned: number;
+  pendingPay: number;
+  paidOut: number;
+  tripsCompleted: number;
+  totalMiles: number;
+  totalCuft: number;
 }
