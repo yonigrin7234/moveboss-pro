@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { TripStatus } from '../types';
+import {
+  notifyOwnerTripStarted,
+  notifyOwnerTripCompleted,
+} from '../lib/notify-owner';
 
 export interface StartTripData {
   odometerStart: number;
@@ -37,6 +41,9 @@ export function useTripActions(tripId: string, onSuccess?: () => void) {
         throw updateError;
       }
 
+      // Notify owner that trip started (fire-and-forget)
+      notifyOwnerTripStarted(tripId, data.odometerStart);
+
       onSuccess?.();
       return { success: true };
     } catch (err) {
@@ -72,6 +79,9 @@ export function useTripActions(tripId: string, onSuccess?: () => void) {
       if (updateError) {
         throw updateError;
       }
+
+      // Notify owner that trip completed (fire-and-forget)
+      notifyOwnerTripCompleted(tripId, data?.odometerEnd);
 
       onSuccess?.();
       return { success: true };

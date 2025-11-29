@@ -1012,11 +1012,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  contactName: {
-    fontSize: 14,
-    color: '#888',
-    marginTop: 12,
-  },
   infoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

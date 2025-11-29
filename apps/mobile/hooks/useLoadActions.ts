@@ -2,6 +2,13 @@ import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { LoadStatus } from '../types';
 import { useAuth } from '../providers/AuthProvider';
+import {
+  notifyOwnerLoadAccepted,
+  notifyOwnerLoadingStarted,
+  notifyOwnerLoadingFinished,
+  notifyOwnerDeliveryStarted,
+  notifyOwnerDeliveryCompleted,
+} from '../lib/notify-owner';
 
 type ActionResult = { success: boolean; error?: string };
 
@@ -38,6 +45,10 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
         .eq('owner_id', driver.owner_id);
 
       if (error) throw error;
+
+      // Notify owner (fire-and-forget)
+      notifyOwnerLoadAccepted(loadId);
+
       onSuccess?.();
       return { success: true };
     } catch (err) {
@@ -65,6 +76,10 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
         .eq('owner_id', driver.owner_id);
 
       if (error) throw error;
+
+      // Notify owner (fire-and-forget)
+      notifyOwnerLoadingStarted(loadId);
+
       onSuccess?.();
       return { success: true };
     } catch (err) {
@@ -104,6 +119,10 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
         .eq('owner_id', driver.owner_id);
 
       if (error) throw error;
+
+      // Notify owner (fire-and-forget)
+      notifyOwnerLoadingFinished(loadId);
+
       onSuccess?.();
       return { success: true };
     } catch (err) {
@@ -134,6 +153,10 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
         .eq('owner_id', driver.owner_id);
 
       if (error) throw error;
+
+      // Notify owner (fire-and-forget)
+      notifyOwnerDeliveryStarted(loadId);
+
       onSuccess?.();
       return { success: true };
     } catch (err) {
@@ -159,6 +182,10 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
         .eq('owner_id', driver.owner_id);
 
       if (error) throw error;
+
+      // Notify owner (fire-and-forget)
+      notifyOwnerDeliveryCompleted(loadId);
+
       onSuccess?.();
       return { success: true };
     } catch (err) {

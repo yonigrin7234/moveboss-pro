@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../providers/AuthProvider';
+import { notifyOwnerLoadPhoto } from '../lib/notify-owner';
 
 type UploadResult = {
   success: boolean;
@@ -104,7 +105,14 @@ export function useImageUpload() {
     loadId: string,
     type: 'loading-start' | 'loading-end' | 'delivery' | 'document'
   ) => {
-    return uploadImage(localUri, 'load-photos', `${loadId}/${type}`);
+    const result = await uploadImage(localUri, 'load-photos', `${loadId}/${type}`);
+
+    // Notify owner of photo upload (fire-and-forget)
+    if (result.success) {
+      notifyOwnerLoadPhoto(loadId, type);
+    }
+
+    return result;
   };
 
   const uploadOdometerPhoto = async (

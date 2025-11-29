@@ -476,3 +476,316 @@ export async function notifyDriverMessage(
     ...data,
   });
 }
+
+// ============================================
+// OWNER NOTIFICATION HELPERS
+// ============================================
+
+/**
+ * Get trip owner and driver info for notifications
+ */
+async function getTripOwnerInfo(tripId: string): Promise<{
+  ownerId: string | null;
+  tripNumber: number | null;
+  driverName: string | null;
+}> {
+  const supabase = getAdminClient();
+
+  const { data: trip } = await supabase
+    .from('trips')
+    .select(`
+      owner_id,
+      trip_number,
+      drivers:driver_id (first_name, last_name)
+    `)
+    .eq('id', tripId)
+    .single();
+
+  if (!trip) return { ownerId: null, tripNumber: null, driverName: null };
+
+  // Supabase returns relations as arrays even with .single()
+  const drivers = trip.drivers as unknown as { first_name: string; last_name: string }[] | null;
+  const driver = Array.isArray(drivers) && drivers.length > 0 ? drivers[0] : null;
+  const driverName = driver ? `${driver.first_name} ${driver.last_name}` : 'Driver';
+
+  return {
+    ownerId: trip.owner_id,
+    tripNumber: trip.trip_number,
+    driverName,
+  };
+}
+
+/**
+ * Get load owner and driver info for notifications
+ */
+async function getLoadOwnerInfo(loadId: string): Promise<{
+  ownerId: string | null;
+  loadNumber: string | null;
+  driverName: string | null;
+  tripId: string | null;
+}> {
+  const supabase = getAdminClient();
+
+  const { data: load } = await supabase
+    .from('loads')
+    .select(`
+      owner_id,
+      load_number,
+      trip_id,
+      trips:trip_id (
+        drivers:driver_id (first_name, last_name)
+      )
+    `)
+    .eq('id', loadId)
+    .single();
+
+  if (!load) return { ownerId: null, loadNumber: null, driverName: null, tripId: null };
+
+  // Supabase returns nested relations as arrays
+  const trips = load.trips as unknown as { drivers: { first_name: string; last_name: string }[] | null }[] | null;
+  const trip = Array.isArray(trips) && trips.length > 0 ? trips[0] : null;
+  const drivers = trip?.drivers;
+  const driver = Array.isArray(drivers) && drivers.length > 0 ? drivers[0] : null;
+  const driverName = driver ? `${driver.first_name} ${driver.last_name}` : 'Driver';
+
+  return {
+    ownerId: load.owner_id,
+    loadNumber: load.load_number,
+    driverName,
+    tripId: load.trip_id,
+  };
+}
+
+/**
+ * Notify owner when driver starts a trip
+ */
+export async function notifyOwnerTripStarted(
+  tripId: string,
+  odometerStart: number
+): Promise<void> {
+  const { ownerId, tripNumber, driverName } = await getTripOwnerInfo(tripId);
+
+  if (!ownerId) return;
+
+  await sendPushToUser(
+    ownerId,
+    '🚛 Trip Started',
+    `${driverName} started Trip #${tripNumber} (Odometer: ${odometerStart.toLocaleString()})`,
+    {
+      type: 'general',
+      tripId,
+    },
+    { channelId: 'activity' }
+  );
+}
+
+/**
+ * Notify owner when driver completes a trip
+ */
+export async function notifyOwnerTripCompleted(
+  tripId: string,
+  odometerEnd?: number
+): Promise<void> {
+  const { ownerId, tripNumber, driverName } = await getTripOwnerInfo(tripId);
+
+  if (!ownerId) return;
+
+  const body = odometerEnd
+    ? `${driverName} completed Trip #${tripNumber} (Odometer: ${odometerEnd.toLocaleString()})`
+    : `${driverName} completed Trip #${tripNumber}`;
+
+  await sendPushToUser(
+    ownerId,
+    '✅ Trip Completed',
+    body,
+    {
+      type: 'general',
+      tripId,
+    },
+    { channelId: 'activity' }
+  );
+}
+
+/**
+ * Notify owner when driver captures odometer photo
+ */
+export async function notifyOwnerOdometerPhoto(
+  tripId: string,
+  type: 'start' | 'end',
+  odometerValue: number
+): Promise<void> {
+  const { ownerId, tripNumber, driverName } = await getTripOwnerInfo(tripId);
+
+  if (!ownerId) return;
+
+  await sendPushToUser(
+    ownerId,
+    '📸 Odometer Photo Captured',
+    `${driverName} captured ${type} odometer photo for Trip #${tripNumber} (${odometerValue.toLocaleString()} mi)`,
+    {
+      type: 'general',
+      tripId,
+    },
+    { channelId: 'activity' }
+  );
+}
+
+/**
+ * Notify owner when driver accepts a load
+ */
+export async function notifyOwnerLoadAccepted(loadId: string): Promise<void> {
+  const { ownerId, loadNumber, driverName, tripId } = await getLoadOwnerInfo(loadId);
+
+  if (!ownerId) return;
+
+  await sendPushToUser(
+    ownerId,
+    '👍 Load Accepted',
+    `${driverName} accepted load ${loadNumber}`,
+    {
+      type: 'load_status_changed',
+      loadId,
+      tripId: tripId || undefined,
+    },
+    { channelId: 'activity' }
+  );
+}
+
+/**
+ * Notify owner when driver starts loading
+ */
+export async function notifyOwnerLoadingStarted(loadId: string): Promise<void> {
+  const { ownerId, loadNumber, driverName, tripId } = await getLoadOwnerInfo(loadId);
+
+  if (!ownerId) return;
+
+  await sendPushToUser(
+    ownerId,
+    '📦 Loading Started',
+    `${driverName} started loading ${loadNumber}`,
+    {
+      type: 'load_status_changed',
+      loadId,
+      tripId: tripId || undefined,
+    },
+    { channelId: 'activity' }
+  );
+}
+
+/**
+ * Notify owner when driver finishes loading
+ */
+export async function notifyOwnerLoadingFinished(loadId: string): Promise<void> {
+  const { ownerId, loadNumber, driverName, tripId } = await getLoadOwnerInfo(loadId);
+
+  if (!ownerId) return;
+
+  await sendPushToUser(
+    ownerId,
+    '📦 Loading Complete',
+    `${driverName} finished loading ${loadNumber}`,
+    {
+      type: 'load_status_changed',
+      loadId,
+      tripId: tripId || undefined,
+    },
+    { channelId: 'activity' }
+  );
+}
+
+/**
+ * Notify owner when driver starts delivery (in transit)
+ */
+export async function notifyOwnerDeliveryStarted(loadId: string): Promise<void> {
+  const { ownerId, loadNumber, driverName, tripId } = await getLoadOwnerInfo(loadId);
+
+  if (!ownerId) return;
+
+  await sendPushToUser(
+    ownerId,
+    '🚚 In Transit',
+    `${driverName} is now in transit with ${loadNumber}`,
+    {
+      type: 'load_status_changed',
+      loadId,
+      tripId: tripId || undefined,
+    },
+    { channelId: 'activity' }
+  );
+}
+
+/**
+ * Notify owner when driver completes delivery
+ */
+export async function notifyOwnerDeliveryCompleted(loadId: string): Promise<void> {
+  const { ownerId, loadNumber, driverName, tripId } = await getLoadOwnerInfo(loadId);
+
+  if (!ownerId) return;
+
+  await sendPushToUser(
+    ownerId,
+    '✅ Delivered',
+    `${driverName} completed delivery of ${loadNumber}`,
+    {
+      type: 'load_status_changed',
+      loadId,
+      tripId: tripId || undefined,
+    },
+    { channelId: 'activity' }
+  );
+}
+
+/**
+ * Notify owner when driver uploads load photo
+ */
+export async function notifyOwnerLoadPhoto(
+  loadId: string,
+  photoType: 'loading-start' | 'loading-end' | 'delivery' | 'document'
+): Promise<void> {
+  const { ownerId, loadNumber, driverName, tripId } = await getLoadOwnerInfo(loadId);
+
+  if (!ownerId) return;
+
+  const photoTypeLabels: Record<string, string> = {
+    'loading-start': 'pickup start',
+    'loading-end': 'pickup complete',
+    'delivery': 'delivery',
+    'document': 'document',
+  };
+
+  await sendPushToUser(
+    ownerId,
+    '📸 Photo Uploaded',
+    `${driverName} uploaded ${photoTypeLabels[photoType] || photoType} photo for ${loadNumber}`,
+    {
+      type: 'load_status_changed',
+      loadId,
+      tripId: tripId || undefined,
+    },
+    { channelId: 'activity' }
+  );
+}
+
+/**
+ * Notify owner when driver adds expense/receipt
+ */
+export async function notifyOwnerExpenseAdded(
+  tripId: string,
+  expenseType: string,
+  amount: number
+): Promise<void> {
+  const { ownerId, tripNumber, driverName } = await getTripOwnerInfo(tripId);
+
+  if (!ownerId) return;
+
+  await sendPushToUser(
+    ownerId,
+    '🧾 Expense Added',
+    `${driverName} added ${expenseType} expense: $${amount.toFixed(2)} for Trip #${tripNumber}`,
+    {
+      type: 'general',
+      tripId,
+    },
+    { channelId: 'activity' }
+  );
+}

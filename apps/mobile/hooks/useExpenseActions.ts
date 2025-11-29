@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { TripExpense, ExpenseCategory, ExpensePaidBy } from '../types';
 import { useAuth } from '../providers/AuthProvider';
+import { notifyOwnerExpenseAdded } from '../lib/notify-owner';
 
 type ActionResult = { success: boolean; error?: string };
 
@@ -51,6 +52,10 @@ export function useExpenseActions(tripId: string, onSuccess?: () => void) {
         });
 
       if (error) throw error;
+
+      // Notify owner (fire-and-forget)
+      notifyOwnerExpenseAdded(tripId, input.category, input.amount);
+
       onSuccess?.();
       return { success: true };
     } catch (err) {
