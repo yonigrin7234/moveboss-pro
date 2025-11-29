@@ -102,6 +102,40 @@ export default function TripDetailScreen() {
               loadsCount={sortedLoads.length}
             />
 
+            {/* Equipment Card - Truck & Trailer */}
+            {(trip.trucks || trip.trailers) && (
+              <View style={styles.equipmentCard}>
+                {trip.trucks && (
+                  <View style={styles.equipmentItem}>
+                    <Text style={styles.equipmentIcon}>🚛</Text>
+                    <View style={styles.equipmentInfo}>
+                      <Text style={styles.equipmentLabel}>Truck</Text>
+                      <Text style={styles.equipmentValue}>{trip.trucks.unit_number}</Text>
+                      {(trip.trucks.make || trip.trucks.model) && (
+                        <Text style={styles.equipmentDetails}>
+                          {[trip.trucks.year, trip.trucks.make, trip.trucks.model].filter(Boolean).join(' ')}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                )}
+                {trip.trailers && (
+                  <View style={styles.equipmentItem}>
+                    <Text style={styles.equipmentIcon}>📦</Text>
+                    <View style={styles.equipmentInfo}>
+                      <Text style={styles.equipmentLabel}>Trailer</Text>
+                      <Text style={styles.equipmentValue}>{trip.trailers.unit_number}</Text>
+                      {(trip.trailers.make || trip.trailers.model) && (
+                        <Text style={styles.equipmentDetails}>
+                          {[trip.trailers.year, trip.trailers.make, trip.trailers.model].filter(Boolean).join(' ')}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+
             {/* Trip Info */}
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Trip Information</Text>
@@ -191,6 +225,20 @@ function LoadCard({ tripLoad, tripId }: { tripLoad: TripLoad; tripId: string }) 
   const router = useRouter();
   const load = tripLoad.loads;
 
+  // Determine load label based on load_type
+  const getLoadLabel = () => {
+    // Pickup = picking up from customer's house
+    if (load.load_type === 'pickup') {
+      return 'Pickup';
+    }
+    // Everything else (company_load, live_load, rfd, etc.) = "Load"
+    return 'Load';
+  };
+
+  // Live load shows "Load" with a LIVE badge
+  const isLiveLoad = load.load_type === 'live_load';
+  const loadLabel = getLoadLabel();
+
   const getPickupLocation = () => {
     return [load.pickup_city, load.pickup_state].filter(Boolean).join(', ') || 'Not set';
   };
@@ -207,15 +255,29 @@ function LoadCard({ tripLoad, tripId }: { tripLoad: TripLoad; tripId: string }) 
     }
   };
 
+  // Format display: "Load #123" or "Pickup #123" with optional LIVE badge
+  const getDisplayTitle = () => {
+    const number = load.job_number || load.load_number;
+    if (number) {
+      return `${loadLabel} #${number}`;
+    }
+    return `${loadLabel} ${tripLoad.sequence_index + 1}`;
+  };
+
   return (
     <TouchableOpacity
       style={styles.loadCard}
       onPress={() => router.push(`/(app)/trips/${tripId}/loads/${load.id}`)}
     >
       <View style={styles.loadHeader}>
-        <Text style={styles.loadNumber}>
-          {load.job_number || load.load_number || `Load ${tripLoad.sequence_index + 1}`}
-        </Text>
+        <View style={styles.loadTitleRow}>
+          <Text style={styles.loadNumber}>{getDisplayTitle()}</Text>
+          {isLiveLoad && (
+            <View style={styles.liveBadge}>
+              <Text style={styles.liveBadgeText}>LIVE</Text>
+            </View>
+          )}
+        </View>
         <StatusBadge status={load.load_status} size="small" />
       </View>
 
@@ -454,6 +516,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
+  loadTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  liveBadge: {
+    backgroundColor: '#f59e0b',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  liveBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
   loadRoute: {
     marginBottom: 12,
   },
@@ -553,6 +632,43 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#991b1b',
     fontSize: 14,
+  },
+  // Trip Action Card
+  // Equipment Card Styles
+  equipmentCard: {
+    backgroundColor: '#2a2a3e',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    flexDirection: 'row',
+    gap: 16,
+  },
+  equipmentItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  equipmentIcon: {
+    fontSize: 24,
+  },
+  equipmentInfo: {
+    flex: 1,
+  },
+  equipmentLabel: {
+    fontSize: 12,
+    color: '#888',
+    marginBottom: 2,
+  },
+  equipmentValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  equipmentDetails: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
   },
   // Trip Action Card
   actionCard: {

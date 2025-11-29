@@ -91,6 +91,22 @@ export function useDriverTripDetail(tripId: string | null) {
         .from('trips')
         .select(`
           *,
+          trucks:truck_id (
+            id,
+            unit_number,
+            make,
+            model,
+            year,
+            license_plate
+          ),
+          trailers:trailer_id (
+            id,
+            unit_number,
+            make,
+            model,
+            year,
+            license_plate
+          ),
           trip_loads (
             id,
             trip_id,

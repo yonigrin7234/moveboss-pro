@@ -57,7 +57,7 @@ export interface Load {
   owner_id: string;
   job_number: string | null;
   load_number: string | null;
-  load_type: 'company_load' | 'live_load';
+  load_type: 'pickup' | 'live_load' | 'company_load' | 'rfd' | 'local' | 'long_distance' | 'intrastate' | 'interstate';
   service_type: string | null;
   company_id: string | null;
   status: string;
@@ -141,9 +141,21 @@ export interface TripExpense {
   updated_at: string;
 }
 
+// Vehicle info (for trucks and trailers)
+export interface Vehicle {
+  id: string;
+  unit_number: string;
+  make: string | null;
+  model: string | null;
+  year: number | null;
+  license_plate: string | null;
+}
+
 export interface TripWithLoads extends Trip {
   trip_loads: TripLoad[];
   trip_expenses: TripExpense[];
+  trucks?: Vehicle | null;
+  trailers?: Vehicle | null;
 }
 
 export interface Driver {
