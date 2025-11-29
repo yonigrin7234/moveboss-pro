@@ -3,7 +3,42 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useDriverTripDetail } from '../../../hooks/useDriverTrips';
 import { useTripActions } from '../../../hooks/useTripActions';
 import { StatusBadge } from '../../../components/StatusBadge';
-import { TripLoad, TripStatus } from '../../../types';
+import { TripLoad, TripStatus, LoadStatus } from '../../../types';
+
+// Helper to get the next action for a load based on its status
+const getLoadAction = (status: LoadStatus): { action: string; color: string } | null => {
+  switch (status) {
+    case 'pending':
+      return { action: 'Accept', color: '#0066CC' };
+    case 'accepted':
+      return { action: 'Start Loading', color: '#f59e0b' };
+    case 'loading':
+      return { action: 'Finish Loading', color: '#f59e0b' };
+    case 'loaded':
+      return { action: 'Collect Payment', color: '#8b5cf6' };
+    case 'in_transit':
+      return { action: 'Complete Delivery', color: '#10b981' };
+    case 'delivered':
+    case 'storage_completed':
+      return null; // No action needed
+    default:
+      return null;
+  }
+};
+
+// Find the next load that needs action
+const findNextActionableLoad = (loads: TripLoad[]): { load: TripLoad; action: string } | null => {
+  // Sort by sequence
+  const sorted = [...loads].sort((a, b) => a.sequence_index - b.sequence_index);
+
+  for (const tripLoad of sorted) {
+    const action = getLoadAction(tripLoad.loads.load_status);
+    if (action) {
+      return { load: tripLoad, action: action.action };
+    }
+  }
+  return null;
+};
 
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -41,6 +76,9 @@ export default function TripDetailScreen() {
   const sortedLoads = trip?.trip_loads
     ?.slice()
     .sort((a, b) => a.sequence_index - b.sequence_index) || [];
+
+  // Find the next actionable load
+  const nextStep = sortedLoads.length > 0 ? findNextActionableLoad(sortedLoads) : null;
 
   if (error) {
     return (
@@ -100,6 +138,8 @@ export default function TripDetailScreen() {
               status={trip.status}
               actions={tripActions}
               loadsCount={sortedLoads.length}
+              nextStep={nextStep}
+              tripId={trip.id}
             />
 
             {/* Equipment Card - Truck & Trailer */}
@@ -239,6 +279,9 @@ function LoadCard({ tripLoad, tripId }: { tripLoad: TripLoad; tripId: string }) 
   const isLiveLoad = load.load_type === 'live_load';
   const loadLabel = getLoadLabel();
 
+  // Get the action for this load
+  const loadAction = getLoadAction(load.load_status);
+
   const getPickupLocation = () => {
     return [load.pickup_city, load.pickup_state].filter(Boolean).join(', ') || 'Not set';
   };
@@ -307,6 +350,13 @@ function LoadCard({ tripLoad, tripId }: { tripLoad: TripLoad; tripId: string }) 
       {load.actual_cuft_loaded && (
         <Text style={styles.loadCuft}>{load.actual_cuft_loaded} CUFT</Text>
       )}
+
+      {/* Action indicator for incomplete loads */}
+      {loadAction && (
+        <View style={[styles.loadActionBadge, { backgroundColor: loadAction.color }]}>
+          <Text style={styles.loadActionText}>{loadAction.action} →</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -316,11 +366,17 @@ function TripActionCard({
   status,
   actions,
   loadsCount,
+  nextStep,
+  tripId,
 }: {
   status: TripStatus;
   actions: ReturnType<typeof useTripActions>;
   loadsCount: number;
+  nextStep: { load: TripLoad; action: string } | null;
+  tripId: string;
 }) {
+  const router = useRouter();
+
   // Planned → Start Trip
   if (status === 'planned') {
     const handleStartTrip = () => {
@@ -366,7 +422,7 @@ function TripActionCard({
     );
   }
 
-  // Active/En Route → Complete Trip
+  // Active/En Route → Show next step or complete trip
   if (status === 'active' || status === 'en_route') {
     const handleCompleteTrip = () => {
       Alert.alert(
@@ -379,11 +435,36 @@ function TripActionCard({
       );
     };
 
+    // If there's a next step, show guidance to the next load
+    if (nextStep) {
+      const loadLabel = nextStep.load.loads.load_type === 'pickup' ? 'Pickup' : 'Load';
+      const loadNumber = nextStep.load.loads.job_number || nextStep.load.loads.load_number || `${nextStep.load.sequence_index + 1}`;
+
+      return (
+        <View style={styles.nextStepCard}>
+          <View style={styles.nextStepHeader}>
+            <Text style={styles.nextStepLabel}>NEXT STEP</Text>
+          </View>
+          <Text style={styles.nextStepTitle}>{nextStep.action}</Text>
+          <Text style={styles.nextStepDescription}>
+            {loadLabel} #{loadNumber}
+          </Text>
+          <TouchableOpacity
+            style={styles.nextStepButton}
+            onPress={() => router.push(`/(app)/trips/${tripId}/loads/${nextStep.load.loads.id}`)}
+          >
+            <Text style={styles.nextStepButtonText}>Go to {loadLabel}</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // All loads delivered - show complete trip
     return (
       <View style={styles.actionCard}>
-        <Text style={styles.actionTitle}>Trip In Progress</Text>
+        <Text style={styles.actionTitle}>All Loads Completed!</Text>
         <Text style={styles.actionDescription}>
-          Complete all loads before marking trip as done
+          Ready to complete this trip
         </Text>
         <TouchableOpacity
           style={[styles.completeButton, actions.loading && styles.buttonDisabled]}
@@ -718,6 +799,57 @@ const styles = StyleSheet.create({
   completedText: {
     color: '#10b981',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  // Next Step Card
+  nextStepCard: {
+    backgroundColor: '#0066CC',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+  },
+  nextStepHeader: {
+    marginBottom: 8,
+  },
+  nextStepLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.7)',
+    letterSpacing: 1,
+  },
+  nextStepTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  nextStepDescription: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.85)',
+    marginBottom: 16,
+  },
+  nextStepButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  nextStepButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Load Action Badge
+  loadActionBadge: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  loadActionText: {
+    color: '#fff',
+    fontSize: 14,
     fontWeight: '600',
   },
 });

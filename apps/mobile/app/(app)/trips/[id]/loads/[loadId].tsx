@@ -525,53 +525,36 @@ function WorkflowActionCard({
     );
   }
 
-  // Loaded → Start Delivery
+  // Loaded → Start Delivery (with payment collection)
   if (loadStatus === 'loaded') {
     const handleStartDelivery = () => {
+      const paymentData = {
+        amountCollected: amountInput ? parseFloat(amountInput) : undefined,
+      };
+
       if (trustLevel === 'cod_required') {
         Alert.alert(
           'Verify Before Unloading',
           `${company?.name || 'This company'} is not a trusted company.\n\nIf there's a shortfall between the rate and customer payment, call the owner to verify the company has settled before unloading.${balanceDue ? `\n\nBalance to collect from customer: $${balanceDue.toFixed(2)}` : ''}`,
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Start Delivery', onPress: () => handleAction(actions.startDelivery) },
+            { text: 'Start Delivery', onPress: () => handleAction(() => actions.startDelivery(paymentData)) },
           ]
         );
       } else {
         // Trusted company - proceed without verification
-        handleAction(actions.startDelivery);
+        handleAction(() => actions.startDelivery(paymentData));
       }
     };
 
     return (
       <View style={styles.actionCard}>
-        <Text style={styles.actionTitle}>Ready for Delivery</Text>
+        <Text style={styles.actionTitle}>Collect Payment & Start Delivery</Text>
         <TrustLevelBadge trustLevel={trustLevel} />
         <Text style={styles.actionDescription}>
           {balanceDue
-            ? `Collect $${balanceDue.toFixed(2)} from customer`
-            : 'Mark as in transit when you depart'}
-        </Text>
-        <TouchableOpacity
-          style={[styles.primaryButton, actions.loading && styles.buttonDisabled]}
-          onPress={handleStartDelivery}
-          disabled={actions.loading}
-        >
-          <Text style={styles.primaryButtonText}>
-            {actions.loading ? 'Starting...' : 'Start Delivery'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  // In Transit → Complete Delivery
-  if (loadStatus === 'in_transit') {
-    return (
-      <View style={styles.actionCard}>
-        <Text style={styles.actionTitle}>Complete Delivery</Text>
-        <Text style={styles.actionDescription}>
-          Enter amount collected (if COD)
+            ? `Balance due: $${balanceDue.toFixed(2)}`
+            : 'Enter amount collected (if any)'}
         </Text>
         <TextInput
           style={styles.input}
@@ -583,9 +566,28 @@ function WorkflowActionCard({
         />
         <TouchableOpacity
           style={[styles.primaryButton, actions.loading && styles.buttonDisabled]}
-          onPress={() => handleAction(() => actions.completeDelivery({
-            amountCollected: amountInput ? parseFloat(amountInput) : undefined,
-          }))}
+          onPress={handleStartDelivery}
+          disabled={actions.loading}
+        >
+          <Text style={styles.primaryButtonText}>
+            {actions.loading ? 'Starting...' : 'Collect & Start Delivery'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // In Transit → Complete Delivery (simple confirmation)
+  if (loadStatus === 'in_transit') {
+    return (
+      <View style={styles.actionCard}>
+        <Text style={styles.actionTitle}>Complete Delivery</Text>
+        <Text style={styles.actionDescription}>
+          Confirm the delivery has been completed
+        </Text>
+        <TouchableOpacity
+          style={[styles.primaryButton, actions.loading && styles.buttonDisabled]}
+          onPress={() => handleAction(actions.completeDelivery)}
           disabled={actions.loading}
         >
           <Text style={styles.primaryButtonText}>

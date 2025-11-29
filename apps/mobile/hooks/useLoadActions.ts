@@ -113,8 +113,11 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
     }
   };
 
-  // Start delivery / in transit (loaded → in_transit)
-  const startDelivery = async (): Promise<ActionResult> => {
+  // Start delivery / in transit (loaded → in_transit) with payment collection
+  const startDelivery = async (data?: {
+    amountCollected?: number;
+    paymentMethod?: string;
+  }): Promise<ActionResult> => {
     try {
       setLoading(true);
       const driver = await getDriverInfo();
@@ -124,6 +127,8 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
         .update({
           load_status: 'in_transit' as LoadStatus,
           delivery_started_at: new Date().toISOString(),
+          amount_collected_on_delivery: data?.amountCollected || null,
+          payment_method: data?.paymentMethod || null,
         })
         .eq('id', loadId)
         .eq('owner_id', driver.owner_id);
@@ -138,11 +143,8 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
     }
   };
 
-  // Complete delivery (in_transit → delivered)
-  const completeDelivery = async (data: {
-    amountCollected?: number;
-    paymentMethod?: string;
-  }): Promise<ActionResult> => {
+  // Complete delivery (in_transit → delivered) - simple confirmation
+  const completeDelivery = async (): Promise<ActionResult> => {
     try {
       setLoading(true);
       const driver = await getDriverInfo();
@@ -152,8 +154,6 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
         .update({
           load_status: 'delivered' as LoadStatus,
           delivery_finished_at: new Date().toISOString(),
-          amount_collected_on_delivery: data.amountCollected || null,
-          payment_method: data.paymentMethod || null,
         })
         .eq('id', loadId)
         .eq('owner_id', driver.owner_id);

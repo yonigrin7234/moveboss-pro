@@ -920,17 +920,7 @@ export default function PostLoadPage() {
                           <SelectContent>
                             {storageOptions.map((location) => (
                               <SelectItem key={location.id} value={location.id}>
-                                <div className="flex items-center gap-2">
-                                  {location.location_type === 'warehouse' ? (
-                                    <Building2 className="h-3 w-3 text-blue-500" />
-                                  ) : (
-                                    <Warehouse className="h-3 w-3 text-purple-500" />
-                                  )}
-                                  <span>{location.name}</span>
-                                  <span className="text-muted-foreground text-xs">
-                                    - {location.city}, {location.state}
-                                  </span>
-                                </div>
+                                {location.name} - {location.city}, {location.state}
                               </SelectItem>
                             ))}
                           </SelectContent>
