@@ -1,12 +1,14 @@
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Linking, Alert } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useDriverTripDetail } from '../../../hooks/useDriverTrips';
+import { useTripActions } from '../../../hooks/useTripActions';
 import { StatusBadge } from '../../../components/StatusBadge';
-import { TripLoad } from '../../../types';
+import { TripLoad, TripStatus } from '../../../types';
 
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { trip, loading, error, refetch } = useDriverTripDetail(id);
+  const tripActions = useTripActions(id || '', refetch);
   const router = useRouter();
 
   const formatRoute = () => {
@@ -92,6 +94,13 @@ export default function TripDetailScreen() {
               </View>
               <StatusBadge status={trip.status} />
             </View>
+
+            {/* Trip Action Card */}
+            <TripActionCard
+              status={trip.status}
+              actions={tripActions}
+              loadsCount={sortedLoads.length}
+            />
 
             {/* Trip Info */}
             <View style={styles.card}>
@@ -238,6 +247,107 @@ function LoadCard({ tripLoad, tripId }: { tripLoad: TripLoad; tripId: string }) 
       )}
     </TouchableOpacity>
   );
+}
+
+// Trip Action Card Component
+function TripActionCard({
+  status,
+  actions,
+  loadsCount,
+}: {
+  status: TripStatus;
+  actions: ReturnType<typeof useTripActions>;
+  loadsCount: number;
+}) {
+  // Planned → Start Trip
+  if (status === 'planned') {
+    const handleStartTrip = () => {
+      if (loadsCount === 0) {
+        Alert.alert(
+          'No Loads Assigned',
+          'This trip has no loads assigned. Are you sure you want to start it?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Start Anyway', onPress: actions.startTrip },
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Start Trip',
+          `Ready to start this trip with ${loadsCount} load${loadsCount > 1 ? 's' : ''}?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Start Trip', onPress: actions.startTrip },
+          ]
+        );
+      }
+    };
+
+    return (
+      <View style={styles.actionCard}>
+        <Text style={styles.actionTitle}>Ready to Start</Text>
+        <Text style={styles.actionDescription}>
+          {loadsCount > 0
+            ? `${loadsCount} load${loadsCount > 1 ? 's' : ''} assigned to this trip`
+            : 'No loads assigned yet'}
+        </Text>
+        <TouchableOpacity
+          style={[styles.primaryButton, actions.loading && styles.buttonDisabled]}
+          onPress={handleStartTrip}
+          disabled={actions.loading}
+        >
+          <Text style={styles.primaryButtonText}>
+            {actions.loading ? 'Starting...' : 'Start Trip'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Active/En Route → Complete Trip
+  if (status === 'active' || status === 'en_route') {
+    const handleCompleteTrip = () => {
+      Alert.alert(
+        'Complete Trip',
+        'Are you sure you want to mark this trip as completed?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Complete', onPress: actions.completeTrip },
+        ]
+      );
+    };
+
+    return (
+      <View style={styles.actionCard}>
+        <Text style={styles.actionTitle}>Trip In Progress</Text>
+        <Text style={styles.actionDescription}>
+          Complete all loads before marking trip as done
+        </Text>
+        <TouchableOpacity
+          style={[styles.completeButton, actions.loading && styles.buttonDisabled]}
+          onPress={handleCompleteTrip}
+          disabled={actions.loading}
+        >
+          <Text style={styles.primaryButtonText}>
+            {actions.loading ? 'Completing...' : 'Complete Trip'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Completed/Settled → No action needed
+  if (status === 'completed' || status === 'settled') {
+    return (
+      <View style={styles.completedCard}>
+        <Text style={styles.completedText}>
+          {status === 'completed' ? '✓ Trip Completed' : '✓ Trip Settled'}
+        </Text>
+      </View>
+    );
+  }
+
+  return null;
 }
 
 const styles = StyleSheet.create({
@@ -443,5 +553,55 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#991b1b',
     fontSize: 14,
+  },
+  // Trip Action Card
+  actionCard: {
+    backgroundColor: '#2a2a3e',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+  },
+  actionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  actionDescription: {
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 16,
+  },
+  primaryButton: {
+    backgroundColor: '#0066CC',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  completeButton: {
+    backgroundColor: '#10b981',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  completedCard: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    alignItems: 'center',
+  },
+  completedText: {
+    color: '#10b981',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
