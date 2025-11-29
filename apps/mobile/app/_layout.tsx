@@ -12,12 +12,13 @@ function RootLayoutNav() {
     if (loading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const isResetPassword = (segments as string[]).includes('reset-password');
 
     if (!session && !inAuthGroup) {
       // Redirect to login if not authenticated
       router.replace('/(auth)/login');
-    } else if (session && inAuthGroup) {
-      // Redirect to home if authenticated but on auth screen
+    } else if (session && inAuthGroup && !isResetPassword) {
+      // Redirect to home if authenticated but on auth screen (except reset-password)
       router.replace('/(app)');
     }
   }, [session, loading, segments]);
