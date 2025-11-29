@@ -377,7 +377,7 @@ export async function getStorageOptions(
 export async function markStoragePaymentPaid(
   id: string,
   ownerId: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; newDueDate?: string }> {
   const supabase = await createClient();
 
   // First get the current location to calculate next due date
@@ -406,10 +406,12 @@ export async function markStoragePaymentPaid(
     }
   }
 
+  const newDueDate = nextDue.toISOString().split('T')[0];
+
   const { error } = await supabase
     .from('storage_locations')
     .update({
-      next_payment_due: nextDue.toISOString().split('T')[0],
+      next_payment_due: newDueDate,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
@@ -420,7 +422,7 @@ export async function markStoragePaymentPaid(
     return { success: false, error: error.message };
   }
 
-  return { success: true };
+  return { success: true, newDueDate };
 }
 
 // Vacate a storage location - stops payment tracking

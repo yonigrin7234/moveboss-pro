@@ -19,7 +19,6 @@ import {
   Calendar,
   FileText,
   DollarSign,
-  CheckCircle,
   LogOut,
 } from 'lucide-react';
 
@@ -33,6 +32,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { PaymentActions } from './_components/payment-actions';
 
 const locationTypeLabels: Record<string, string> = {
   warehouse: 'Warehouse',
@@ -108,30 +108,34 @@ export default async function StorageLocationDetailPage({
     }
   }
 
-  async function markPaidAction() {
+  async function markPaidAction(): Promise<{ success: boolean; newDueDate?: string; error?: string }> {
     'use server';
     const user = await getCurrentUser();
-    if (!user) redirect('/login');
+    if (!user) return { success: false, error: 'Not authenticated' };
 
     const { id } = await params;
     const result = await markStoragePaymentPaid(id, user.id);
     if (result.success) {
       revalidatePath(`/dashboard/storage/${id}`);
+      revalidatePath('/dashboard/storage');
       revalidatePath('/dashboard/compliance/alerts');
     }
+    return result;
   }
 
-  async function vacateAction() {
+  async function vacateAction(): Promise<{ success: boolean; error?: string }> {
     'use server';
     const user = await getCurrentUser();
-    if (!user) redirect('/login');
+    if (!user) return { success: false, error: 'Not authenticated' };
 
     const { id } = await params;
     const result = await vacateStorageLocation(id, user.id);
     if (result.success) {
       revalidatePath(`/dashboard/storage/${id}`);
+      revalidatePath('/dashboard/storage');
       revalidatePath('/dashboard/compliance/alerts');
     }
+    return result;
   }
 
   // Calculate days until payment due
@@ -363,20 +367,13 @@ export default async function StorageLocationDetailPage({
                   </div>
                 </div>
               )}
-              <div className="flex gap-2">
-                <form action={markPaidAction} className="flex-1">
-                  <Button type="submit" variant="outline" className="w-full">
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Mark Paid
-                  </Button>
-                </form>
-                <form action={vacateAction}>
-                  <Button type="submit" variant="destructive">
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Vacate
-                  </Button>
-                </form>
-              </div>
+              <PaymentActions
+                locationId={location.id}
+                locationName={location.name}
+                nextPaymentDue={location.next_payment_due}
+                markPaidAction={markPaidAction}
+                vacateAction={vacateAction}
+              />
             </CardContent>
           </Card>
         )}
