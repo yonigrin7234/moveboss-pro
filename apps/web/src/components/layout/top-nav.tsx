@@ -18,6 +18,15 @@ import { NotificationBell } from "@/components/notification-bell"
 import { createClient } from "@/lib/supabase-client"
 import { cn } from "@/lib/utils"
 
+// Convert string to Title Case (proper capitalization)
+function toTitleCase(str: string): string {
+  return str
+    .toLowerCase()
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ")
+}
+
 interface TopNavProps {
   user?: {
     email?: string | null
@@ -72,9 +81,10 @@ export function TopNav({ user, company, unreadNotifications = 0 }: TopNavProps) 
     return undefined
   }, [user?.fullName])
   const initials = derivedInitials ?? (user?.email?.[0] ?? "Y").toUpperCase()
-  const companyDisplayName =
+  const companyDisplayName = toTitleCase(
     company?.dbaName?.trim() || company?.name?.trim() || "MoveBoss Pro"
-  const userDisplayName = user?.fullName?.trim() || "Fleet Owner"
+  )
+  const userDisplayName = toTitleCase(user?.fullName?.trim() || "Fleet Owner")
   const userEmail = user?.email ?? "yoni@moveboss.dev"
   const companyStatusLabel = company?.status
     ? company.status.charAt(0).toUpperCase() + company.status.slice(1)
@@ -103,7 +113,9 @@ export function TopNav({ user, company, unreadNotifications = 0 }: TopNavProps) 
       <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
         <div className="flex min-w-0 flex-col gap-1">
           <p className="text-xs font-semibold uppercase tracking-[0.35em] text-muted-foreground">
-            Workspace
+            <span className="text-primary">MoveBoss Pro</span>
+            <span className="mx-1.5">·</span>
+            <span>Workspace</span>
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-semibold text-foreground">{companyDisplayName}</h1>
