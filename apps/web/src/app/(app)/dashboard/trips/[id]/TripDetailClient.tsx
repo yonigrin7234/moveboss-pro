@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { DollarSign, AlertTriangle, Map, GripVertical } from 'lucide-react';
 import {
@@ -238,6 +238,11 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, loadT
   const [orderedLoads, setOrderedLoads] = useState(() =>
     [...trip.loads].sort((a, b) => a.sequence_index - b.sequence_index)
   );
+
+  // Sync orderedLoads when trip.loads prop changes (e.g., after adding/removing loads)
+  useEffect(() => {
+    setOrderedLoads([...trip.loads].sort((a, b) => a.sequence_index - b.sequence_index));
+  }, [trip.loads]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
