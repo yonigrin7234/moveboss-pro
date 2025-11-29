@@ -2,10 +2,12 @@ import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } 
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../providers/AuthProvider';
 import { useActiveTrip } from '../../hooks/useDriverTrips';
+import { useDriverProfile } from '../../hooks/useDriverProfile';
 import { TripCard } from '../../components/TripCard';
 
 export default function HomeScreen() {
-  const { user, signOut } = useAuth();
+  const { signOut } = useAuth();
+  const { fullName } = useDriverProfile();
   const { activeTrip, upcomingTrips, recentTrips, loading, error, refetch } = useActiveTrip();
   const router = useRouter();
 
@@ -20,8 +22,8 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Welcome back</Text>
-          <Text style={styles.email}>{user?.email}</Text>
+          <Text style={styles.greeting}>Welcome back{fullName ? ',' : ''}</Text>
+          {fullName && <Text style={styles.driverName}>{fullName}</Text>}
         </View>
         <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
           <Text style={styles.signOutText}>Sign Out</Text>
@@ -126,14 +128,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   greeting: {
+    fontSize: 18,
+    color: '#888',
+  },
+  driverName: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 4,
-  },
-  email: {
-    fontSize: 14,
-    color: '#888',
+    marginTop: 2,
   },
   signOutButton: {
     backgroundColor: '#3a3a4e',
