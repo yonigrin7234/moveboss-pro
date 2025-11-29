@@ -10,12 +10,14 @@ import {
   Alert,
   TextInput,
   Image,
+  Modal,
 } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useLoadDetail } from '../../../../../hooks/useLoadDetail';
 import { useLoadActions } from '../../../../../hooks/useLoadActions';
 import { useImageUpload } from '../../../../../hooks/useImageUpload';
+import { useLoadDocuments, DocumentType, LoadDocument } from '../../../../../hooks/useLoadDocuments';
 import { StatusBadge } from '../../../../../components/StatusBadge';
 import { LoadStatus } from '../../../../../types';
 
@@ -266,6 +268,9 @@ export default function LoadDetailScreen() {
                 )}
               </View>
             </View>
+
+            {/* Documents Section */}
+            <DocumentsSection loadId={loadId} />
           </>
         )}
       </ScrollView>
@@ -551,6 +556,240 @@ function TimelineItem({ label, time }: { label: string; time: string | null }) {
   );
 }
 
+// Documents Section
+const DOCUMENT_TYPES: { value: DocumentType; label: string }[] = [
+  { value: 'contract', label: 'Contract' },
+  { value: 'bol', label: 'BOL' },
+  { value: 'inventory', label: 'Inventory' },
+  { value: 'loading_report', label: 'Loading Report' },
+  { value: 'delivery_report', label: 'Delivery Report' },
+  { value: 'damage', label: 'Damage' },
+  { value: 'other', label: 'Other' },
+];
+
+function DocumentsSection({ loadId }: { loadId: string }) {
+  const {
+    documents,
+    loading,
+    uploading,
+    uploadProgress,
+    uploadDocument,
+    deleteDocument,
+  } = useLoadDocuments(loadId);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [selectedType, setSelectedType] = useState<DocumentType>('other');
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [viewingDocument, setViewingDocument] = useState<LoadDocument | null>(null);
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Camera permission is needed to take photos');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setSelectedImage(result.assets[0].uri);
+      setShowUploadModal(true);
+    }
+  };
+
+  const pickFromLibrary = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Photo library permission is needed');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setSelectedImage(result.assets[0].uri);
+      setShowUploadModal(true);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!selectedImage) return;
+
+    const result = await uploadDocument(selectedImage, selectedType);
+    if (result.success) {
+      setShowUploadModal(false);
+      setSelectedImage(null);
+      setSelectedType('other');
+    } else {
+      Alert.alert('Upload Failed', result.error || 'Failed to upload document');
+    }
+  };
+
+  const handleDelete = (doc: LoadDocument) => {
+    Alert.alert(
+      'Delete Document',
+      'Are you sure you want to delete this document?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const result = await deleteDocument(doc.id);
+            if (!result.success) {
+              Alert.alert('Error', result.error || 'Failed to delete document');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const getTypeLabel = (type: DocumentType) => {
+    return DOCUMENT_TYPES.find((t) => t.value === type)?.label || type;
+  };
+
+  // Group documents by type
+  const groupedDocs = documents.reduce((acc, doc) => {
+    if (!acc[doc.type]) acc[doc.type] = [];
+    acc[doc.type].push(doc);
+    return acc;
+  }, {} as Record<DocumentType, LoadDocument[]>);
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.documentsHeader}>
+        <Text style={styles.cardTitle}>Documents</Text>
+        <View style={styles.uploadButtons}>
+          <TouchableOpacity style={styles.uploadButton} onPress={takePhoto}>
+            <Text style={styles.uploadButtonText}>Camera</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.uploadButton} onPress={pickFromLibrary}>
+            <Text style={styles.uploadButtonText}>Library</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {loading ? (
+        <Text style={styles.loadingText}>Loading documents...</Text>
+      ) : documents.length === 0 ? (
+        <Text style={styles.emptyDocsText}>No documents uploaded yet</Text>
+      ) : (
+        <View style={styles.documentsGrid}>
+          {Object.entries(groupedDocs).map(([type, docs]) => (
+            <View key={type} style={styles.docTypeGroup}>
+              <Text style={styles.docTypeLabel}>{getTypeLabel(type as DocumentType)}</Text>
+              <View style={styles.docThumbnails}>
+                {docs.map((doc) => (
+                  <TouchableOpacity
+                    key={doc.id}
+                    style={styles.docThumbnail}
+                    onPress={() => setViewingDocument(doc)}
+                    onLongPress={() => handleDelete(doc)}
+                  >
+                    <Image source={{ uri: doc.url }} style={styles.docThumbnailImage} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Upload Modal */}
+      <Modal visible={showUploadModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Upload Document</Text>
+
+            {selectedImage && (
+              <Image source={{ uri: selectedImage }} style={styles.previewImage} />
+            )}
+
+            <Text style={styles.modalLabel}>Document Type</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.typeScroller}
+            >
+              {DOCUMENT_TYPES.map((type) => (
+                <TouchableOpacity
+                  key={type.value}
+                  style={[
+                    styles.typeChip,
+                    selectedType === type.value && styles.typeChipSelected,
+                  ]}
+                  onPress={() => setSelectedType(type.value)}
+                >
+                  <Text
+                    style={[
+                      styles.typeChipText,
+                      selectedType === type.value && styles.typeChipTextSelected,
+                    ]}
+                  >
+                    {type.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => {
+                  setShowUploadModal(false);
+                  setSelectedImage(null);
+                }}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalUploadButton, uploading && styles.buttonDisabled]}
+                onPress={handleUpload}
+                disabled={uploading}
+              >
+                <Text style={styles.modalUploadText}>
+                  {uploading ? `Uploading ${uploadProgress}%` : 'Upload'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* View Document Modal */}
+      <Modal visible={!!viewingDocument} animationType="fade" transparent>
+        <TouchableOpacity
+          style={styles.viewerOverlay}
+          activeOpacity={1}
+          onPress={() => setViewingDocument(null)}
+        >
+          {viewingDocument && (
+            <Image
+              source={{ uri: viewingDocument.url }}
+              style={styles.viewerImage}
+              resizeMode="contain"
+            />
+          )}
+          <TouchableOpacity
+            style={styles.viewerClose}
+            onPress={() => setViewingDocument(null)}
+          >
+            <Text style={styles.viewerCloseText}>Close</Text>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -787,5 +1026,171 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#991b1b',
     fontSize: 14,
+  },
+  // Documents Section
+  documentsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  uploadButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  uploadButton: {
+    backgroundColor: '#3a3a4e',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  uploadButtonText: {
+    color: '#0066CC',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  loadingText: {
+    color: '#888',
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+  emptyDocsText: {
+    color: '#666',
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+  documentsGrid: {
+    gap: 16,
+  },
+  docTypeGroup: {
+    marginBottom: 8,
+  },
+  docTypeLabel: {
+    fontSize: 12,
+    color: '#888',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  docThumbnails: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  docThumbnail: {
+    width: 70,
+    height: 70,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#3a3a4e',
+  },
+  docThumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  // Upload Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#2a2a3e',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  previewImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  modalLabel: {
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 8,
+  },
+  typeScroller: {
+    marginBottom: 20,
+  },
+  typeChip: {
+    backgroundColor: '#3a3a4e',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+  },
+  typeChipSelected: {
+    backgroundColor: '#0066CC',
+  },
+  typeChipText: {
+    color: '#888',
+    fontSize: 14,
+  },
+  typeChipTextSelected: {
+    color: '#fff',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalCancelButton: {
+    flex: 1,
+    backgroundColor: '#3a3a4e',
+    borderRadius: 10,
+    padding: 14,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  modalUploadButton: {
+    flex: 1,
+    backgroundColor: '#0066CC',
+    borderRadius: 10,
+    padding: 14,
+    alignItems: 'center',
+  },
+  modalUploadText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Document Viewer
+  viewerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewerImage: {
+    width: '100%',
+    height: '80%',
+  },
+  viewerClose: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  viewerCloseText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
