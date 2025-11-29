@@ -10,29 +10,51 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../../providers/AuthProvider';
+import { supabase } from '../../lib/supabase';
 
-export default function LoginScreen() {
+export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const [sent, setSent] = useState(false);
   const router = useRouter();
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password');
+  const handleResetPassword = async () => {
+    if (!email) {
+      Alert.alert('Error', 'Please enter your email address');
       return;
     }
 
     setLoading(true);
-    const { error } = await signIn(email, password);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'moveboss://reset-password',
+    });
     setLoading(false);
 
     if (error) {
       Alert.alert('Error', error.message);
+    } else {
+      setSent(true);
     }
   };
+
+  if (sent) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.inner}>
+          <Text style={styles.title}>Check Your Email</Text>
+          <Text style={styles.message}>
+            We've sent a password reset link to {email}
+          </Text>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.buttonText}>Back to Login</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -40,8 +62,10 @@ export default function LoginScreen() {
       style={styles.container}
     >
       <View style={styles.inner}>
-        <Text style={styles.title}>MoveBoss</Text>
-        <Text style={styles.subtitle}>Driver Portal</Text>
+        <Text style={styles.title}>Reset Password</Text>
+        <Text style={styles.subtitle}>
+          Enter your email and we'll send you a reset link
+        </Text>
 
         <View style={styles.form}>
           <TextInput
@@ -55,31 +79,21 @@ export default function LoginScreen() {
             autoComplete="email"
           />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#666"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoComplete="password"
-          />
-
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleLogin}
+            onPress={handleResetPassword}
             disabled={loading}
           >
             <Text style={styles.buttonText}>
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? 'Sending...' : 'Send Reset Link'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.forgotButton}
-            onPress={() => router.push('/(auth)/forgot-password')}
+            style={styles.backButton}
+            onPress={() => router.back()}
           >
-            <Text style={styles.forgotButtonText}>Forgot Password?</Text>
+            <Text style={styles.backButtonText}>Back to Login</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -98,17 +112,24 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   title: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: 'bold',
     color: '#fff',
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#888',
     textAlign: 'center',
-    marginBottom: 48,
+    marginBottom: 32,
+  },
+  message: {
+    fontSize: 16,
+    color: '#888',
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 24,
   },
   form: {
     gap: 16,
@@ -137,11 +158,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  forgotButton: {
-    padding: 8,
+  backButton: {
+    padding: 16,
     alignItems: 'center',
   },
-  forgotButtonText: {
+  backButtonText: {
     color: '#0066CC',
     fontSize: 16,
   },
