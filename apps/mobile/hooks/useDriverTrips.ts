@@ -97,7 +97,7 @@ export function useDriverTripDetail(tripId: string | null) {
             make,
             model,
             year,
-            license_plate
+            plate_number
           ),
           trailers:trailer_id (
             id,
@@ -105,7 +105,7 @@ export function useDriverTripDetail(tripId: string | null) {
             make,
             model,
             year,
-            license_plate
+            plate_number
           ),
           trip_loads (
             id,

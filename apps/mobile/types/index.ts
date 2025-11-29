@@ -148,7 +148,7 @@ export interface Vehicle {
   make: string | null;
   model: string | null;
   year: number | null;
-  license_plate: string | null;
+  plate_number: string | null;
 }
 
 export interface TripWithLoads extends Trip {
