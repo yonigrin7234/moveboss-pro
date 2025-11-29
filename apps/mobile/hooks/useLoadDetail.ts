@@ -32,11 +32,12 @@ export function useLoadDetail(loadId: string | null) {
       }
 
       // Fetch load with company info (including trust_level for delivery workflow)
+      // Note: using companies:company_id to specify which FK to use (loads has both company_id and assigned_carrier_id)
       const { data: loadData, error: loadError } = await supabase
         .from('loads')
         .select(`
           *,
-          companies (
+          companies:company_id (
             name,
             phone,
             email,

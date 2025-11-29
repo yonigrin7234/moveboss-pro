@@ -99,7 +99,7 @@ export function useDriverTripDetail(tripId: string | null) {
             role,
             loads (
               *,
-              companies (
+              companies:company_id (
                 name,
                 phone,
                 trust_level
