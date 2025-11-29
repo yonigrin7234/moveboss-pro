@@ -123,10 +123,22 @@ export default function LoadDetailScreen() {
           <>
             {/* Header */}
             <View style={styles.header}>
-              <View>
-                <Text style={styles.loadNumber}>
-                  {load.job_number || load.load_number || 'Load'}
-                </Text>
+              <View style={styles.headerInfo}>
+                {load.job_number && (
+                  <View style={styles.jobNumberRow}>
+                    <Text style={styles.jobNumberLabel}>Job #</Text>
+                    <Text style={styles.jobNumber}>{load.job_number}</Text>
+                  </View>
+                )}
+                {load.load_number && (
+                  <View style={styles.loadNumberRow}>
+                    <Text style={styles.loadNumberLabel}>Load #</Text>
+                    <Text style={styles.loadNumberValue}>{load.load_number}</Text>
+                  </View>
+                )}
+                {!load.job_number && !load.load_number && (
+                  <Text style={styles.jobNumber}>Load</Text>
+                )}
                 {load.companies?.name && (
                   <Text style={styles.companyName}>{load.companies.name}</Text>
                 )}
@@ -874,15 +886,42 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 20,
   },
-  loadNumber: {
-    fontSize: 24,
+  headerInfo: {
+    flex: 1,
+  },
+  jobNumberRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 2,
+  },
+  jobNumberLabel: {
+    fontSize: 14,
+    color: '#888',
+    marginRight: 6,
+  },
+  jobNumber: {
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#fff',
+  },
+  loadNumberRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
     marginBottom: 4,
+  },
+  loadNumberLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginRight: 4,
+  },
+  loadNumberValue: {
+    fontSize: 14,
+    color: '#aaa',
   },
   companyName: {
     fontSize: 16,
     color: '#888',
+    marginTop: 4,
   },
   card: {
     backgroundColor: '#2a2a3e',
