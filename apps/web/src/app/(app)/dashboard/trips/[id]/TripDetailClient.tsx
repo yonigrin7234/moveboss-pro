@@ -50,9 +50,24 @@ import type { TripStatus, TripWithDetails, TripLoad, TripExpense } from '@/data/
 import type { Load } from '@/data/loads';
 import { TripMapTab } from '@/components/trips/TripMapTab';
 
+interface DriverOption {
+  id: string;
+  first_name: string;
+  last_name: string;
+}
+
+interface LoadTripAssignment {
+  tripId: string;
+  tripNumber: string;
+  tripStatus: string;
+  driverName: string | null;
+}
+
 interface TripDetailClientProps {
   trip: TripWithDetails;
   availableLoads: Load[];
+  availableDrivers: DriverOption[];
+  loadTripAssignments: Record<string, LoadTripAssignment>;
   settlementSnapshot: {
     settlements: any[];
     receivables: any[];
@@ -70,6 +85,7 @@ interface TripDetailClientProps {
     recalculateSettlement: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
     updateDriverSharing: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
     reorderLoads: (items: { load_id: string; sequence_index: number }[]) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
+    reassignDriver: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
   };
 }
 
@@ -198,7 +214,7 @@ function SortableLoadCard({
   );
 }
 
-export function TripDetailClient({ trip, availableLoads, settlementSnapshot, actions }: TripDetailClientProps) {
+export function TripDetailClient({ trip, availableLoads, availableDrivers, loadTripAssignments, settlementSnapshot, actions }: TripDetailClientProps) {
   const [editingLoadId, setEditingLoadId] = useState<string | null>(null);
   const [addExpenseOpen, setAddExpenseOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -211,6 +227,10 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
     trip.share_driver_with_companies ?? true
   );
   const [tripStatus, setTripStatus] = useState<TripStatus>(trip.status);
+  const [selectedDriverId, setSelectedDriverId] = useState<string>(
+    trip.driver_id || 'unassigned'
+  );
+  const [isReassigning, setIsReassigning] = useState(false);
 
   // Drag and drop for load reordering
   const [orderedLoads, setOrderedLoads] = useState(() =>
@@ -386,7 +406,39 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                   <div className="grid gap-4 md:grid-cols-3">
                     <div className="space-y-1.5">
                       <Label className="text-sm text-muted-foreground">Driver</Label>
-                      <p className="font-medium">{driverName}</p>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={selectedDriverId}
+                          onValueChange={setSelectedDriverId}
+                        >
+                          <SelectTrigger className="h-9 flex-1">
+                            <SelectValue placeholder="Select driver" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unassigned">Unassigned</SelectItem>
+                            {availableDrivers.map((driver) => (
+                              <SelectItem key={driver.id} value={driver.id}>
+                                {driver.first_name} {driver.last_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {selectedDriverId !== (trip.driver_id || 'unassigned') && (
+                          <Button
+                            size="sm"
+                            disabled={isReassigning}
+                            onClick={async () => {
+                              setIsReassigning(true);
+                              const formData = new FormData();
+                              formData.append('driver_id', selectedDriverId);
+                              await actions.reassignDriver(formData);
+                              setIsReassigning(false);
+                            }}
+                          >
+                            {isReassigning ? 'Saving...' : 'Save'}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-sm text-muted-foreground">Truck</Label>
@@ -397,7 +449,7 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                       <p className="font-medium">{trailerNumber}</p>
                     </div>
                   </div>
-                  {tripDriver && (
+                  {selectedDriverId !== 'unassigned' && (
                     <div className="pt-3 border-t border-border">
                       <div className="flex items-center gap-2">
                         <Checkbox
@@ -775,14 +827,46 @@ export function TripDetailClient({ trip, availableLoads, settlementSnapshot, act
                       <Label className="text-sm">Select Load</Label>
                       <select name="load_id" className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" required>
                         <option value="">Select a load...</option>
-                        {availableLoads.map((load) => {
-                          const company = Array.isArray(load.company) ? load.company[0] : load.company;
-                          return (
-                            <option key={load.id} value={load.id}>
-                              {load.load_number} - {company?.name || 'No company'}
-                            </option>
+                        {(() => {
+                          const unassignedLoads = availableLoads.filter(
+                            (load) => !loadTripAssignments[load.id]
                           );
-                        })}
+                          const assignedLoads = availableLoads.filter(
+                            (load) => loadTripAssignments[load.id]
+                          );
+                          return (
+                            <>
+                              {unassignedLoads.length > 0 && (
+                                <optgroup label="Available Loads">
+                                  {unassignedLoads.map((load) => {
+                                    const company = Array.isArray(load.company) ? load.company[0] : load.company;
+                                    return (
+                                      <option key={load.id} value={load.id}>
+                                        {load.load_number} - {company?.name || 'No company'}
+                                      </option>
+                                    );
+                                  })}
+                                </optgroup>
+                              )}
+                              {assignedLoads.length > 0 && (
+                                <optgroup label="On Other Trips (will reassign)">
+                                  {assignedLoads.map((load) => {
+                                    const company = Array.isArray(load.company) ? load.company[0] : load.company;
+                                    const assignment = loadTripAssignments[load.id];
+                                    const tripInfo = assignment
+                                      ? `Trip ${assignment.tripNumber}${assignment.driverName ? ` (${assignment.driverName})` : ''}`
+                                      : '';
+                                    return (
+                                      <option key={load.id} value={load.id}>
+                                        {load.load_number} - {company?.name || 'No company'} [{tripInfo}]
+                                      </option>
+                                    );
+                                  })}
+                                </optgroup>
+                              )}
+                            </>
+                          );
+                        })()}
                       </select>
                     </div>
                     <div className="space-y-1.5">

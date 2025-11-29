@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/supabase-server';
-import { getDriverById, updateDriver, deleteDriver, type Driver } from '@/data/drivers';
+import { getDriverById, updateDriver, deleteDriver, getDriversForUser, type Driver } from '@/data/drivers';
 import { getTrucksForUser, getTrailersForUser } from '@/data/fleet';
 import { DriverForm } from '@/components/drivers/DriverForm';
 import { DeleteDriverButton } from './delete-driver-button';
@@ -37,11 +37,18 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
   const { id } = await params;
   const primaryCompany = await getPrimaryCompanyForUser(user.id);
 
-  const [driver, trucks, trailers] = await Promise.all([
+  const [driver, trucks, trailers, allDrivers] = await Promise.all([
     getDriverById(id, user.id, primaryCompany?.id),
     getTrucksForUser(user.id),
     getTrailersForUser(user.id),
+    getDriversForUser(user.id),
   ]);
+
+  // Create driver lookup for showing which equipment is assigned to which driver
+  const driverLookup: Record<string, string> = {};
+  allDrivers.forEach((d) => {
+    driverLookup[d.id] = `${d.first_name} ${d.last_name}`;
+  });
 
   if (!driver) {
     return (
@@ -304,6 +311,8 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
         initialData={initialData}
         trucks={trucks}
         trailers={trailers}
+        driverLookup={driverLookup}
+        currentDriverId={id}
         onSubmit={updateDriverAction}
         submitLabel="Save changes"
         cancelHref={`/dashboard/drivers/${id}`}

@@ -9,6 +9,7 @@ import {
   type LoadStatus,
 } from '@/data/loads';
 import { getCompaniesForUser, type Company } from '@/data/companies';
+import { getLoadTripAssignments, type LoadTripAssignment } from '@/data/trips';
 import { LoadListFilters } from './load-list-filters';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -98,14 +99,23 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
   let loads: Load[] = [];
   let companies: Company[] = [];
   let stats = { totalLoads: 0, pending: 0, inTransit: 0, delivered: 0 };
+  let loadTripAssignments: Record<string, LoadTripAssignment> = {};
   let error: string | null = null;
 
   try {
-    [loads, companies, stats] = await Promise.all([
+    const [loadsResult, companiesResult, statsResult, tripAssignmentsMap] = await Promise.all([
       getLoadsForUser(user.id, filters),
       getCompaniesForUser(user.id),
       getLoadStatsForUser(user.id),
+      getLoadTripAssignments(user.id),
     ]);
+    loads = loadsResult;
+    companies = companiesResult;
+    stats = statsResult;
+    // Convert Map to Record for easier lookup
+    tripAssignmentsMap.forEach((value, key) => {
+      loadTripAssignments[key] = value;
+    });
   } catch (err) {
     error = err instanceof Error ? err.message : 'Failed to load loads';
   }
@@ -191,7 +201,7 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
                   <TableHead>Service Type</TableHead>
                   <TableHead>Pickup</TableHead>
                   <TableHead>Delivery</TableHead>
-                  <TableHead>Assigned</TableHead>
+                  <TableHead>Trip / Driver</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Rate</TableHead>
                   <TableHead>Actions</TableHead>
@@ -231,9 +241,25 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {load.assigned_driver
-                        ? `${load.assigned_driver.first_name} ${load.assigned_driver.last_name}`
-                        : '—'}
+                      {loadTripAssignments[load.id] ? (
+                        <div className="space-y-0.5">
+                          <Link
+                            href={`/dashboard/trips/${loadTripAssignments[load.id].tripId}`}
+                            className="text-primary hover:underline text-sm"
+                          >
+                            Trip {loadTripAssignments[load.id].tripNumber}
+                          </Link>
+                          {loadTripAssignments[load.id].driverName && (
+                            <div className="text-xs text-muted-foreground">
+                              {loadTripAssignments[load.id].driverName}
+                            </div>
+                          )}
+                        </div>
+                      ) : load.assigned_driver ? (
+                        `${load.assigned_driver.first_name} ${load.assigned_driver.last_name}`
+                      ) : (
+                        '—'
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge

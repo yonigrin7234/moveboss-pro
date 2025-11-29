@@ -15,8 +15,11 @@ import {
   deleteTripExpense,
   deleteTrip,
   updateTripDriverSharing,
+  getLoadTripAssignments,
+  type LoadTripAssignment,
 } from '@/data/trips';
 import { getLoadsForUser } from '@/data/loads';
+import { getDriversForUser } from '@/data/drivers';
 import { createTripSettlement, recalculateTripSettlement } from '@/data/settlements';
 import { updateLoad, updateLoadInputSchema } from '@/data/loads';
 import { getSettlementSnapshot } from '@/data/settlements';
@@ -67,9 +70,28 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     );
   }
 
-  const loads = await getLoadsForUser(user.id);
+  const [loads, drivers, loadTripAssignmentsMap] = await Promise.all([
+    getLoadsForUser(user.id),
+    getDriversForUser(user.id),
+    getLoadTripAssignments(user.id),
+  ]);
   const settlementSnapshot = await getSettlementSnapshot(id, user.id);
-  const availableLoads = loads.filter((load) => load.status !== 'canceled');
+
+  // Get load IDs already on this trip
+  const loadIdsOnThisTrip = new Set(trip.loads.map((tl) => tl.load_id));
+
+  // Convert Map to serializable object for client
+  const loadTripAssignments: Record<string, LoadTripAssignment> = {};
+  loadTripAssignmentsMap.forEach((value, key) => {
+    loadTripAssignments[key] = value;
+  });
+
+  // Filter loads: exclude canceled and those already on this trip
+  // Keep loads on other trips (they'll show trip info in dropdown)
+  const availableLoads = loads.filter(
+    (load) => load.status !== 'canceled' && !loadIdsOnThisTrip.has(load.id)
+  );
+  const activeDrivers = drivers.filter((d) => d.status === 'active');
 
   // Server Actions
   async function updateTripStatusAction(formData: FormData): Promise<void> {
@@ -322,10 +344,39 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     }
   }
 
+  async function reassignDriverAction(
+    formData: FormData
+  ): Promise<{ errors?: Record<string, string>; success?: boolean } | null> {
+    'use server';
+    const currentUser = await getCurrentUser();
+    if (!currentUser) return { errors: { _form: 'Not authenticated' } };
+
+    const driverId = formData.get('driver_id');
+    // Empty string or 'unassigned' means unassign driver
+    const isUnassigning = !driverId || driverId === 'unassigned';
+
+    try {
+      if (isUnassigning) {
+        // To unassign, we need to set driver_id to null directly in the database
+        // The updateTrip function expects undefined to trigger the clear logic
+        await updateTrip(id, { driver_id: undefined } as any, currentUser.id);
+      } else {
+        await updateTrip(id, { driver_id: driverId as string }, currentUser.id);
+      }
+      revalidatePath(`/dashboard/trips/${id}`);
+      revalidatePath('/dashboard/trips');
+      return { success: true };
+    } catch (error) {
+      return { errors: { _form: error instanceof Error ? error.message : 'Failed to reassign driver' } };
+    }
+  }
+
   return (
     <TripDetailClient
       trip={trip}
       availableLoads={availableLoads}
+      availableDrivers={activeDrivers}
+      loadTripAssignments={loadTripAssignments}
       settlementSnapshot={settlementSnapshot}
       actions={{
         updateTripStatus: updateTripStatusAction,
@@ -339,6 +390,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
         recalculateSettlement: recalculateSettlementAction,
         updateDriverSharing: updateDriverSharingAction,
         reorderLoads: reorderLoadsAction,
+        reassignDriver: reassignDriverAction,
       }}
     />
   );

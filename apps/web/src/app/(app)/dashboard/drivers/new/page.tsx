@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/supabase-server';
-import { createDriver, newDriverInputSchema } from '@/data/drivers';
+import { createDriver, newDriverInputSchema, getDriversForUser } from '@/data/drivers';
 import { getTrucksForUser, getTrailersForUser } from '@/data/fleet';
 import { DriverForm } from '@/components/drivers/DriverForm';
 import { CreationPageShell } from '@/components/layout/CreationPageShell';
@@ -217,10 +217,17 @@ export default async function NewDriverPage() {
     redirect('/login');
   }
 
-  const [trucks, trailers] = await Promise.all([
+  const [trucks, trailers, drivers] = await Promise.all([
     getTrucksForUser(user.id),
     getTrailersForUser(user.id),
+    getDriversForUser(user.id),
   ]);
+
+  // Create driver lookup for showing which equipment is assigned to which driver
+  const driverLookup: Record<string, string> = {};
+  drivers.forEach((driver) => {
+    driverLookup[driver.id] = `${driver.first_name} ${driver.last_name}`;
+  });
 
   // Check if service role key is configured
   const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -234,6 +241,7 @@ export default async function NewDriverPage() {
       <DriverForm
         trucks={trucks}
         trailers={trailers}
+        driverLookup={driverLookup}
         onSubmit={createDriverAction}
         hasServiceRoleKey={hasServiceRoleKey}
       />

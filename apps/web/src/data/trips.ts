@@ -693,7 +693,8 @@ export async function updateTrip(
 
   if (input.trip_number !== undefined) payload.trip_number = input.trip_number;
   if (input.status !== undefined) payload.status = input.status;
-  if (input.driver_id !== undefined) payload.driver_id = nullable(input.driver_id);
+  // Check if driver_id key exists in input (even if undefined) to allow clearing
+  if ('driver_id' in input) payload.driver_id = input.driver_id ?? null;
   if (input.truck_id !== undefined) payload.truck_id = nullable(input.truck_id);
   if (input.trailer_id !== undefined) payload.trailer_id = nullable(input.trailer_id);
   if (input.origin_city !== undefined) payload.origin_city = nullable(input.origin_city);
@@ -752,8 +753,8 @@ export async function updateTrip(
     await syncTripDriverToLoads(id, input.driver_id, shareWithCompanies);
   }
 
-  // If driver is being removed, clear driver info from loads
-  if (input.driver_id === undefined && (currentTrip as any).driver_id) {
+  // If driver is being removed (key exists but value is undefined/null), clear driver info from loads
+  if ('driver_id' in input && !input.driver_id && (currentTrip as any).driver_id) {
     // Driver being cleared - clear from loads too
     const { data: tripLoads } = await supabase
       .from('trip_loads')
@@ -796,6 +797,26 @@ export async function addLoadToTrip(
     assertOwnership(supabase, 'trips', tripId, userId, 'Trip'),
     assertOwnership(supabase, 'loads', input.load_id, userId, 'Load'),
   ]);
+
+  // Check if load is already on another trip and remove it first
+  const { data: existingAssignment } = await supabase
+    .from('trip_loads')
+    .select('id, trip_id')
+    .eq('load_id', input.load_id)
+    .eq('owner_id', userId)
+    .single();
+
+  if (existingAssignment) {
+    if (existingAssignment.trip_id === tripId) {
+      throw new Error('This load is already attached to this trip');
+    }
+    // Remove from previous trip
+    await supabase
+      .from('trip_loads')
+      .delete()
+      .eq('id', existingAssignment.id)
+      .eq('owner_id', userId);
+  }
 
   // Get trip info to check for driver
   const { data: trip } = await supabase
@@ -1216,4 +1237,57 @@ export async function updateTripDriverSharing(
   }
 
   return { success: true };
+}
+
+/**
+ * Get all load-to-trip assignments for a user.
+ * Returns a map of load_id -> { trip info with driver }
+ */
+export interface LoadTripAssignment {
+  tripId: string;
+  tripNumber: string;
+  tripStatus: TripStatus;
+  driverName: string | null;
+}
+
+export async function getLoadTripAssignments(
+  userId: string
+): Promise<Map<string, LoadTripAssignment>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('trip_loads')
+    .select(
+      `
+      load_id,
+      trip:trips!trip_loads_trip_id_fkey(
+        id,
+        trip_number,
+        status,
+        driver:drivers!trips_driver_id_fkey(first_name, last_name)
+      )
+    `
+    )
+    .eq('owner_id', userId);
+
+  if (error) {
+    throw new Error(`Failed to fetch load trip assignments: ${error.message}`);
+  }
+
+  const assignments = new Map<string, LoadTripAssignment>();
+
+  for (const row of data || []) {
+    const tripData = row.trip as any;
+    if (tripData) {
+      const driver = tripData.driver;
+      assignments.set(row.load_id, {
+        tripId: tripData.id,
+        tripNumber: tripData.trip_number,
+        tripStatus: tripData.status,
+        driverName: driver ? `${driver.first_name} ${driver.last_name}` : null,
+      });
+    }
+  }
+
+  return assignments;
 }

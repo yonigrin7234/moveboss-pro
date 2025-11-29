@@ -86,8 +86,10 @@ const STEPS = [
 
 interface DriverFormProps {
   initialData?: Partial<NewDriverInput>;
-  trucks?: Array<{ id: string; unit_number: string | null; plate_number: string | null }>;
-  trailers?: Array<{ id: string; unit_number: string }>;
+  trucks?: Array<{ id: string; unit_number: string | null; plate_number: string | null; assigned_driver_id?: string | null }>;
+  trailers?: Array<{ id: string; unit_number: string; assigned_driver_id?: string | null }>;
+  driverLookup?: Record<string, string>; // Maps driver ID to driver name
+  currentDriverId?: string; // For edit mode - the driver being edited
   onSubmit: (
     prevState: { errors?: Record<string, string>; success?: boolean; driverId?: string } | null,
     formData: FormData
@@ -101,6 +103,8 @@ export function DriverForm({
   initialData,
   trucks = [],
   trailers = [],
+  driverLookup = {},
+  currentDriverId,
   onSubmit,
   submitLabel = 'Save driver',
   cancelHref = '/dashboard/drivers',
@@ -120,6 +124,9 @@ export function DriverForm({
     (initialData?.login_method as 'email' | 'phone') || 'email'
   );
   const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const passwordMismatch = confirmPassword.length > 0 && password !== confirmPassword;
   
   // Disable portal access if service role key is missing
   useEffect(() => {
@@ -529,6 +536,8 @@ export function DriverForm({
                             minLength={6}
                             placeholder="Password"
                             className="h-9"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
                           />
                           <p className="text-xs text-muted-foreground">
                             Min 6 characters.
@@ -545,8 +554,13 @@ export function DriverForm({
                             required={hasLogin}
                             minLength={6}
                             placeholder="Repeat password"
-                            className="h-9"
+                            className={cn("h-9", passwordMismatch && "border-destructive focus-visible:ring-destructive")}
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
                           />
+                          {passwordMismatch && (
+                            <p className="text-xs text-destructive">Passwords do not match</p>
+                          )}
                         </div>
                       </div>
                     )}
@@ -911,11 +925,19 @@ export function DriverForm({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="unassigned">Unassigned</SelectItem>
-                        {trucks.map((truck) => (
-                          <SelectItem key={truck.id} value={truck.id}>
-                            {truck.unit_number || truck.plate_number || `Truck ${truck.id.slice(0, 8)}`}
-                          </SelectItem>
-                        ))}
+                        {trucks.map((truck) => {
+                          const isAssignedToOther = truck.assigned_driver_id && truck.assigned_driver_id !== currentDriverId;
+                          const assignedDriverName = isAssignedToOther ? driverLookup[truck.assigned_driver_id] : null;
+                          const truckLabel = truck.unit_number || truck.plate_number || `Truck ${truck.id.slice(0, 8)}`;
+                          return (
+                            <SelectItem key={truck.id} value={truck.id}>
+                              {truckLabel}
+                              {assignedDriverName && (
+                                <span className="text-muted-foreground"> (Assigned: {assignedDriverName})</span>
+                              )}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </SelectWithHiddenInput>
                   </div>
@@ -931,11 +953,18 @@ export function DriverForm({
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="unassigned">Unassigned</SelectItem>
-                          {trailers.map((trailer) => (
-                            <SelectItem key={trailer.id} value={trailer.id}>
-                              {trailer.unit_number}
-                            </SelectItem>
-                          ))}
+                          {trailers.map((trailer) => {
+                            const isAssignedToOther = trailer.assigned_driver_id && trailer.assigned_driver_id !== currentDriverId;
+                            const assignedDriverName = isAssignedToOther ? driverLookup[trailer.assigned_driver_id] : null;
+                            return (
+                              <SelectItem key={trailer.id} value={trailer.id}>
+                                {trailer.unit_number}
+                                {assignedDriverName && (
+                                  <span className="text-muted-foreground"> (Assigned: {assignedDriverName})</span>
+                                )}
+                              </SelectItem>
+                            );
+                          })}
                         </SelectContent>
                       </SelectWithHiddenInput>
                     </div>
