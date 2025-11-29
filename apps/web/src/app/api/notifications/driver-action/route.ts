@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase-server';
+import { createClient } from '@supabase/supabase-js';
 import {
   notifyOwnerTripStarted,
   notifyOwnerTripCompleted,
@@ -63,7 +63,25 @@ type DriverActionRequest =
     };
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
+  // Get token from Authorization header (mobile app sends Bearer token)
+  const authHeader = request.headers.get('Authorization');
+  const token = authHeader?.replace('Bearer ', '');
+
+  if (!token) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Create Supabase client with the user's token
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    }
+  );
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
