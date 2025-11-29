@@ -927,7 +927,7 @@ export function DriverForm({
                         <SelectItem value="unassigned">Unassigned</SelectItem>
                         {trucks.map((truck) => {
                           const isAssignedToOther = truck.assigned_driver_id && truck.assigned_driver_id !== currentDriverId;
-                          const assignedDriverName = isAssignedToOther ? driverLookup[truck.assigned_driver_id] : null;
+                          const assignedDriverName = isAssignedToOther && truck.assigned_driver_id ? driverLookup[truck.assigned_driver_id] : null;
                           const truckLabel = truck.unit_number || truck.plate_number || `Truck ${truck.id.slice(0, 8)}`;
                           return (
                             <SelectItem key={truck.id} value={truck.id}>
@@ -955,7 +955,7 @@ export function DriverForm({
                           <SelectItem value="unassigned">Unassigned</SelectItem>
                           {trailers.map((trailer) => {
                             const isAssignedToOther = trailer.assigned_driver_id && trailer.assigned_driver_id !== currentDriverId;
-                            const assignedDriverName = isAssignedToOther ? driverLookup[trailer.assigned_driver_id] : null;
+                            const assignedDriverName = isAssignedToOther && trailer.assigned_driver_id ? driverLookup[trailer.assigned_driver_id] : null;
                             return (
                               <SelectItem key={trailer.id} value={trailer.id}>
                                 {trailer.unit_number}

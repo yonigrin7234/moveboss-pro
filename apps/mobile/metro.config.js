@@ -1,0 +1,23 @@
+const { getDefaultConfig } = require('expo/metro-config');
+const path = require('path');
+
+const projectRoot = __dirname;
+const monorepoRoot = path.resolve(projectRoot, '../..');
+
+const config = getDefaultConfig(projectRoot);
+
+// Force React to resolve from mobile's node_modules
+config.resolver.extraNodeModules = {
+  react: path.resolve(projectRoot, 'node_modules/react'),
+  'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
+};
+
+// Watch folders for monorepo
+config.watchFolders = [monorepoRoot];
+
+// Block the root React from being used
+config.resolver.blockList = [
+  new RegExp(`^${monorepoRoot}/node_modules/react/.*$`),
+];
+
+module.exports = config;
