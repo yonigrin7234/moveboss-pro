@@ -258,18 +258,53 @@ export function TruckForm({
               <CardTitle className="text-sm font-medium">Vehicle & Registration</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2.5">
-              <div className="space-y-1.5">
-                <Label htmlFor="unit_number" className="text-sm">Truck Number</Label>
-                <Input
-                  type="text"
-                  id="unit_number"
-                  name="unit_number"
-                  defaultValue={initialData?.unit_number}
-                  className="h-9"
-                />
-                {state?.errors?.unit_number && (
-                  <p className="text-xs text-destructive">{state.errors.unit_number}</p>
-                )}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="unit_number" className="text-sm">Truck Number</Label>
+                  <Input
+                    type="text"
+                    id="unit_number"
+                    name="unit_number"
+                    defaultValue={initialData?.unit_number}
+                    className="h-9"
+                  />
+                  {state?.errors?.unit_number && (
+                    <p className="text-xs text-destructive">{state.errors.unit_number}</p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="vehicle_type" className="text-sm">Vehicle Type</Label>
+                  <Select
+                    value={vehicleType || undefined}
+                    onValueChange={(value) => {
+                      setVehicleType(value as TruckVehicleType);
+                      setCapacityManuallyEdited(false);
+                      if (value === 'tractor') {
+                        setCubicCapacity('');
+                        if (hiddenCapacityRef.current) {
+                          hiddenCapacityRef.current.value = '';
+                        }
+                      }
+                    }}
+                  >
+                    <SelectTrigger id="vehicle_type" className="h-9">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {VEHICLE_TYPE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <input
+                    type="hidden"
+                    name="vehicle_type"
+                    ref={hiddenVehicleTypeRef}
+                    value={vehicleType || ''}
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -342,70 +377,35 @@ export function TruckForm({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              {vehicleType !== 'tractor' && (
                 <div className="space-y-1.5">
-                  <Label htmlFor="vehicle_type" className="text-sm">Vehicle Type</Label>
-                  <Select
-                    value={vehicleType || undefined}
-                    onValueChange={(value) => {
-                      setVehicleType(value as TruckVehicleType);
-                      setCapacityManuallyEdited(false);
-                      if (value === 'tractor') {
-                        setCubicCapacity('');
-                        if (hiddenCapacityRef.current) {
-                          hiddenCapacityRef.current.value = '';
-                        }
-                      }
+                  <Label htmlFor="cubic_capacity" className="text-sm">Cubic Capacity (cu ft)</Label>
+                  <Input
+                    ref={capacityInputRef}
+                    type="number"
+                    id="cubic_capacity"
+                    name="cubic_capacity"
+                    min="0"
+                    step="1"
+                    value={cubicCapacity}
+                    onChange={(e) => {
+                      setCubicCapacity(e.target.value);
+                      setCapacityManuallyEdited(true);
                     }}
-                  >
-                    <SelectTrigger id="vehicle_type" className="h-9">
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {VEHICLE_TYPE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    className="h-9"
+                    placeholder="Auto-filled"
+                  />
                   <input
                     type="hidden"
-                    name="vehicle_type"
-                    ref={hiddenVehicleTypeRef}
-                    value={vehicleType || ''}
+                    name="cubic_capacity"
+                    ref={hiddenCapacityRef}
+                    value={cubicCapacity || ''}
                   />
+                  {state?.errors?.cubic_capacity && (
+                    <p className="text-xs text-destructive">{state.errors.cubic_capacity}</p>
+                  )}
                 </div>
-                {vehicleType !== 'tractor' && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="cubic_capacity" className="text-sm">Cubic Capacity (cu ft)</Label>
-                    <Input
-                      ref={capacityInputRef}
-                      type="number"
-                      id="cubic_capacity"
-                      name="cubic_capacity"
-                      min="0"
-                      step="1"
-                      value={cubicCapacity}
-                      onChange={(e) => {
-                        setCubicCapacity(e.target.value);
-                        setCapacityManuallyEdited(true);
-                      }}
-                      className="h-9"
-                      placeholder="Auto-filled"
-                    />
-                    <input
-                      type="hidden"
-                      name="cubic_capacity"
-                      ref={hiddenCapacityRef}
-                      value={cubicCapacity || ''}
-                    />
-                    {state?.errors?.cubic_capacity && (
-                      <p className="text-xs text-destructive">{state.errors.cubic_capacity}</p>
-                    )}
-                  </div>
-                )}
-              </div>
+              )}
 
               <div className="space-y-1.5">
                 <Label htmlFor="current_odometer" className="text-sm">Current Odometer (miles)</Label>
