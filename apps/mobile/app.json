@@ -17,7 +17,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.moveboss.driver",
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -42,6 +45,11 @@
     ],
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "a70d1c63-d981-4c67-9a04-e6b2e90e8a73"
+      }
     }
   }
 }
