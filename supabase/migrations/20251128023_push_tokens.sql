@@ -25,18 +25,22 @@ CREATE INDEX IF NOT EXISTS idx_push_tokens_active ON push_tokens(is_active) WHER
 ALTER TABLE push_tokens ENABLE ROW LEVEL SECURITY;
 
 -- Users can manage their own tokens
+DROP POLICY IF EXISTS "Users can view own push tokens" ON push_tokens;
 CREATE POLICY "Users can view own push tokens"
   ON push_tokens FOR SELECT
   USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can insert own push tokens" ON push_tokens;
 CREATE POLICY "Users can insert own push tokens"
   ON push_tokens FOR INSERT
   WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can update own push tokens" ON push_tokens;
 CREATE POLICY "Users can update own push tokens"
   ON push_tokens FOR UPDATE
   USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can delete own push tokens" ON push_tokens;
 CREATE POLICY "Users can delete own push tokens"
   ON push_tokens FOR DELETE
   USING (user_id = auth.uid());
@@ -64,6 +68,7 @@ CREATE INDEX IF NOT EXISTS idx_notification_log_sent ON notification_log(sent_at
 -- RLS for notification log
 ALTER TABLE notification_log ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own notifications" ON notification_log;
 CREATE POLICY "Users can view own notifications"
   ON notification_log FOR SELECT
   USING (user_id = auth.uid());
