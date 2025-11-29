@@ -49,6 +49,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import type { TripStatus, TripWithDetails, TripLoad, TripExpense } from '@/data/trips';
 import type { Load } from '@/data/loads';
 import { TripMapTab } from '@/components/trips/TripMapTab';
+import { useToast } from '@/hooks/use-toast';
 
 interface DriverOption {
   id: string;
@@ -74,7 +75,7 @@ interface TripDetailClientProps {
     payables: any[];
   };
   actions: {
-    updateTripStatus: (formData: FormData) => Promise<void>;
+    updateTripStatus: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
     addTripLoad: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
     removeTripLoad: (formData: FormData) => Promise<void>;
     updateLoad: (formData: FormData) => Promise<void>;
@@ -215,6 +216,7 @@ function SortableLoadCard({
 }
 
 export function TripDetailClient({ trip, availableLoads, availableDrivers, loadTripAssignments, settlementSnapshot, actions }: TripDetailClientProps) {
+  const { toast } = useToast();
   const [editingLoadId, setEditingLoadId] = useState<string | null>(null);
   const [addExpenseOpen, setAddExpenseOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -484,7 +486,21 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, loadT
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <form action={actions.updateTripStatus} className="space-y-4">
+                  <form action={async (formData) => {
+                    const result = await actions.updateTripStatus(formData);
+                    if (result?.errors?._form) {
+                      toast({
+                        title: 'Error saving odometer',
+                        description: result.errors._form,
+                        variant: 'destructive',
+                      });
+                    } else if (result?.success) {
+                      toast({
+                        title: 'Odometer saved',
+                        description: 'Odometer readings have been updated.',
+                      });
+                    }
+                  }} className="space-y-4">
                     <input type="hidden" name="trip_id" value={trip.id} />
                     <div className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-1.5">
@@ -534,7 +550,16 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, loadT
                   <CardTitle className="text-base">Trip Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <form action={actions.updateTripStatus}>
+                  <form action={async (formData) => {
+                    const result = await actions.updateTripStatus(formData);
+                    if (result?.errors?._form) {
+                      toast({
+                        title: 'Cannot update status',
+                        description: result.errors._form,
+                        variant: 'destructive',
+                      });
+                    }
+                  }}>
                     <input type="hidden" name="trip_id" value={trip.id} />
                     <input type="hidden" name="status" value={tripStatus} />
                     <div className="space-y-1.5 mb-3">

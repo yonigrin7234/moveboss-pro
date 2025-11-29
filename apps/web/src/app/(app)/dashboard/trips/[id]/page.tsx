@@ -94,16 +94,18 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
   const activeDrivers = drivers.filter((d) => d.status === 'active');
 
   // Server Actions
-  async function updateTripStatusAction(formData: FormData): Promise<void> {
+  async function updateTripStatusAction(
+    formData: FormData
+  ): Promise<{ errors?: Record<string, string>; success?: boolean } | null> {
     'use server';
     const currentUser = await getCurrentUser();
     if (!currentUser) {
-      throw new Error('Not authenticated');
+      return { errors: { _form: 'Not authenticated' } };
     }
 
     const tripId = formData.get('trip_id');
     if (typeof tripId !== 'string' || !tripId) {
-      throw new Error('Missing trip id');
+      return { errors: { _form: 'Missing trip id' } };
     }
 
     const payload = cleanFormValues(formData, [
@@ -119,8 +121,9 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
       await updateTrip(tripId, validated, currentUser.id);
       revalidatePath(`/dashboard/trips/${tripId}`);
       revalidatePath('/dashboard/trips');
+      return { success: true };
     } catch (error) {
-      throw error instanceof Error ? error : new Error('Failed to update trip status');
+      return { errors: { _form: error instanceof Error ? error.message : 'Failed to update trip status' } };
     }
   }
 
