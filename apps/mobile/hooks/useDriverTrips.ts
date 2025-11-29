@@ -85,6 +85,8 @@ export function useDriverTripDetail(tripId: string | null) {
       }
 
       // Fetch trip with loads and expenses
+      // Note: RLS policies should handle access control, so we only filter by trip ID
+      // The driver_id/owner_id check is redundant if RLS is working
       const { data: tripData, error: tripError } = await supabase
         .from('trips')
         .select(`
@@ -99,19 +101,25 @@ export function useDriverTripDetail(tripId: string | null) {
               *,
               companies (
                 name,
-                phone
+                phone,
+                trust_level
               )
             )
           ),
           trip_expenses (*)
         `)
         .eq('id', tripId)
-        .eq('driver_id', driver.id)
-        .eq('owner_id', driver.owner_id)
         .single();
 
       if (tripError) {
+        console.error('Trip fetch error:', tripError.message, tripError.code, tripError.details);
         throw tripError;
+      }
+
+      // Verify this trip belongs to the driver (in case RLS isn't applied yet)
+      if (tripData && tripData.driver_id !== driver.id) {
+        setError('Access denied');
+        return;
       }
 
       setTrip(tripData);
