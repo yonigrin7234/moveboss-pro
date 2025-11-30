@@ -3,12 +3,14 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../providers/AuthProvider';
 import { useActiveTrip } from '../../hooks/useDriverTrips';
 import { useDriverProfile } from '../../hooks/useDriverProfile';
+import { useVehicleDocuments } from '../../hooks/useVehicleDocuments';
 import { TripCard } from '../../components/TripCard';
 
 export default function HomeScreen() {
   const { signOut } = useAuth();
   const { fullName } = useDriverProfile();
   const { activeTrip, upcomingTrips, recentTrips, loading, error, refetch } = useActiveTrip();
+  const { hasActiveTrip, truck, trailer, expiringCount, expiredCount } = useVehicleDocuments();
   const router = useRouter();
 
   return (
@@ -41,12 +43,50 @@ export default function HomeScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.quickActionButton}
+          onPress={() => router.push('/(app)/documents')}
+        >
+          <Text style={styles.quickActionIcon}>📋</Text>
+          <Text style={styles.quickActionLabel}>Documents</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickActionButton}
           onPress={() => router.push('/(app)/earnings')}
         >
           <Text style={styles.quickActionIcon}>💰</Text>
           <Text style={styles.quickActionLabel}>Earnings</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Vehicle Documents Card - shown when has active trip */}
+      {hasActiveTrip && (truck || trailer) && (
+        <TouchableOpacity
+          style={styles.documentsCard}
+          onPress={() => router.push('/(app)/documents')}
+        >
+          <View style={styles.documentsCardContent}>
+            <View style={styles.documentsCardHeader}>
+              <Text style={styles.documentsCardIcon}>📋</Text>
+              <View style={styles.documentsCardInfo}>
+                <Text style={styles.documentsCardTitle}>Vehicle Documents</Text>
+                <Text style={styles.documentsCardSubtitle}>
+                  {truck?.unit_number}
+                  {trailer ? ` + ${trailer.unit_number}` : ''}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.documentsCardStatus}>
+              {expiredCount > 0 ? (
+                <Text style={styles.documentsCardExpired}>🔴 {expiredCount} expired</Text>
+              ) : expiringCount > 0 ? (
+                <Text style={styles.documentsCardExpiring}>⚠️ {expiringCount} expiring soon</Text>
+              ) : (
+                <Text style={styles.documentsCardValid}>✅ All current</Text>
+              )}
+              <Text style={styles.documentsCardArrow}>→</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      )}
 
       {error && (
         <View style={styles.errorCard}>
@@ -232,5 +272,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#fff',
     fontWeight: '500',
+  },
+  // Documents Card
+  documentsCard: {
+    backgroundColor: '#2a2a3e',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  documentsCardContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  documentsCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  documentsCardIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  documentsCardInfo: {},
+  documentsCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 2,
+  },
+  documentsCardSubtitle: {
+    fontSize: 13,
+    color: '#888',
+  },
+  documentsCardStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  documentsCardValid: {
+    fontSize: 13,
+    color: '#22c55e',
+  },
+  documentsCardExpiring: {
+    fontSize: 13,
+    color: '#f59e0b',
+  },
+  documentsCardExpired: {
+    fontSize: 13,
+    color: '#ef4444',
+  },
+  documentsCardArrow: {
+    fontSize: 18,
+    color: '#888',
+    marginLeft: 8,
   },
 });

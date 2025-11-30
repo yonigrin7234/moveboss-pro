@@ -280,3 +280,56 @@ export interface EarningsSummary {
   totalMiles: number;
   totalCuft: number;
 }
+
+// Vehicle document types
+export type DocumentType = 'registration' | 'insurance' | 'ifta' | 'inspection' | 'permit';
+export type DocumentStatus = 'valid' | 'expiring' | 'expired' | 'missing';
+
+export interface VehicleDocument {
+  type: DocumentType;
+  label: string;
+  url: string | null;
+  expiry: string | null;
+  status: DocumentStatus;
+}
+
+// Truck with documents
+export interface Truck {
+  id: string;
+  owner_id: string;
+  unit_number: string;
+  year: number | null;
+  make: string | null;
+  model: string | null;
+  vin: string | null;
+  plate_number: string | null;
+  plate_state: string | null;
+  status: 'active' | 'inactive' | 'maintenance' | 'suspended';
+  // Document fields
+  registration_photo_url: string | null;
+  registration_expiry: string | null;
+  insurance_photo_url: string | null;
+  insurance_expiry: string | null;
+  ifta_photo_url: string | null;
+  ifta_expiry: string | null;
+  inspection_photo_url: string | null;
+  inspection_expiry: string | null;
+  permit_photo_url: string | null;
+  permit_expiry: string | null;
+}
+
+// Trailer with documents
+export interface Trailer {
+  id: string;
+  owner_id: string;
+  unit_number: string;
+  capacity_cuft: number | null;
+  plate_number: string | null;
+  plate_state: string | null;
+  status: 'active' | 'inactive' | 'maintenance' | 'suspended';
+  // Document fields
+  registration_photo_url: string | null;
+  registration_expiry: string | null;
+  inspection_photo_url: string | null;
+  inspection_expiry: string | null;
+}
