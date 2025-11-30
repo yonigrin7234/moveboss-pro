@@ -3,35 +3,38 @@ import Link from 'next/link';
 
 export default function LoginPage() {
   return (
-    <div className="space-y-8">
-      {/* Header with visual hierarchy */}
-      <div className="text-center space-y-3">
-        <p className="text-xs font-medium tracking-widest text-zinc-500 uppercase">
-          MoveBoss Pro
-        </p>
-        <h2 className="text-2xl font-semibold text-white tracking-tight">
-          Sign in to your workspace
-        </h2>
-        <p className="text-zinc-500 text-sm">
-          Secure access for your team and operation.
-        </p>
-      </div>
+    <div className="w-full text-center">
+      <span className="inline-block text-[11px] font-semibold tracking-[0.12em] text-sky-500 mb-3.5">
+        MOVEBOSS PRO
+      </span>
+      <h2 className="text-[26px] font-semibold text-white mb-2 tracking-tight">
+        Sign in to your workspace
+      </h2>
+      <p className="text-[15px] text-white/45 mb-7">
+        Secure access for your team and operation.
+      </p>
 
       <LoginForm />
 
       {/* Trust cue */}
-      <p className="text-center text-xs text-zinc-600">
+      <p className="text-xs text-white/35 mt-5">
         Used by growing moving companies to run their daily operations.
       </p>
 
-      <div className="text-center space-y-3 pt-2">
-        <Link href="/forgot-password" className="text-sm text-zinc-400 hover:text-white transition-colors">
+      <div className="mt-6 space-y-3.5">
+        <Link
+          href="/forgot-password"
+          className="text-[13px] text-white/40 hover:text-white/60 transition-colors"
+        >
           Forgot your password?
         </Link>
 
-        <p className="text-sm text-zinc-500">
+        <p className="text-[13px] text-white/45">
           Don&apos;t have an account?{' '}
-          <Link href="/signup" className="text-white hover:text-zinc-300 transition-colors font-medium">
+          <Link
+            href="/signup"
+            className="text-sky-500 hover:underline font-medium"
+          >
             Sign up
           </Link>
         </p>
