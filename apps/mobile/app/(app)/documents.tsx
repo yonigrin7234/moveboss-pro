@@ -10,8 +10,10 @@ import {
   Image,
   Alert,
   Dimensions,
+  Linking,
 } from 'react-native';
 import { Stack } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
 import { useVehicleDocuments } from '../../hooks/useVehicleDocuments';
 import { VehicleDocument, DocumentStatus } from '../../types';
 
@@ -144,6 +146,8 @@ export default function DocumentsScreen() {
   const {
     truck,
     trailer,
+    driver,
+    company,
     isLoading,
     error,
     hasActiveTrip,
@@ -152,6 +156,16 @@ export default function DocumentsScreen() {
     expiringCount,
     expiredCount,
   } = useVehicleDocuments();
+
+  const handleCopyToClipboard = async (text: string, label: string) => {
+    await Clipboard.setStringAsync(text);
+    Alert.alert('Copied', `${label} copied to clipboard`);
+  };
+
+  const handleCall = (phone: string) => {
+    const phoneNumber = phone.replace(/[^0-9+]/g, '');
+    Linking.openURL(`tel:${phoneNumber}`);
+  };
 
   const [viewerVisible, setViewerVisible] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<VehicleDocument | null>(null);
@@ -200,6 +214,84 @@ export default function DocumentsScreen() {
         {error && (
           <View style={styles.errorCard}>
             <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
+        {/* Driver Info Section - Always shown */}
+        {driver && (
+          <View style={styles.infoCard}>
+            <View style={styles.infoCardHeader}>
+              <Text style={styles.infoCardIcon}>👤</Text>
+              <Text style={styles.infoCardTitle}>Driver Info</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Name</Text>
+              <Text style={styles.infoValue}>{driver.first_name} {driver.last_name}</Text>
+            </View>
+            {driver.cdl_number && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>CDL</Text>
+                <Text style={styles.infoValue}>
+                  {driver.cdl_number}{driver.cdl_state ? ` (${driver.cdl_state})` : ''}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Company Authority Section - Always shown */}
+        {company && (
+          <View style={styles.infoCard}>
+            <View style={styles.infoCardHeader}>
+              <Text style={styles.infoCardIcon}>🏢</Text>
+              <Text style={styles.infoCardTitle}>Company Authority</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Company</Text>
+              <Text style={styles.infoValue}>{company.name}</Text>
+            </View>
+            {company.city && company.state && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Location</Text>
+                <Text style={styles.infoValue}>{company.city}, {company.state}</Text>
+              </View>
+            )}
+            {company.dot_number && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>DOT #</Text>
+                <TouchableOpacity
+                  style={styles.copyableValue}
+                  onPress={() => handleCopyToClipboard(company.dot_number!, 'DOT #')}
+                >
+                  <Text style={styles.infoValue}>{company.dot_number}</Text>
+                  <Text style={styles.copyIcon}>📋</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {company.mc_number && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>MC #</Text>
+                <TouchableOpacity
+                  style={styles.copyableValue}
+                  onPress={() => handleCopyToClipboard(company.mc_number!, 'MC #')}
+                >
+                  <Text style={styles.infoValue}>{company.mc_number}</Text>
+                  <Text style={styles.copyIcon}>📋</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {company.phone && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Phone</Text>
+                <TouchableOpacity
+                  style={styles.callableValue}
+                  onPress={() => handleCall(company.phone!)}
+                >
+                  <Text style={styles.phoneValue}>{company.phone}</Text>
+                  <Text style={styles.callIcon}>📞</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
 
@@ -481,6 +573,76 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     marginTop: 24,
+  },
+  // Info Card styles (Driver & Company)
+  infoCard: {
+    backgroundColor: '#2a2a3e',
+    borderRadius: 16,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  infoCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#3a3a4e',
+  },
+  infoCardIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  infoCardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#3a3a4e',
+  },
+  infoLabel: {
+    fontSize: 15,
+    color: '#888',
+  },
+  infoValue: {
+    fontSize: 15,
+    color: '#fff',
+    fontWeight: '500',
+  },
+  copyableValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3a3a4e',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  copyIcon: {
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  callableValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0066CC',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  phoneValue: {
+    fontSize: 15,
+    color: '#fff',
+    fontWeight: '500',
+  },
+  callIcon: {
+    fontSize: 14,
+    marginLeft: 8,
   },
   // Modal styles
   modalOverlay: {

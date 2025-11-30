@@ -23,9 +23,29 @@ interface TrailerWithDocuments {
   documents: VehicleDocument[];
 }
 
+interface DriverInfo {
+  id: string;
+  first_name: string;
+  last_name: string;
+  cdl_number: string | null;
+  cdl_state: string | null;
+}
+
+interface CompanyInfo {
+  id: string;
+  name: string;
+  dot_number: string | null;
+  mc_number: string | null;
+  phone: string | null;
+  city: string | null;
+  state: string | null;
+}
+
 interface UseVehicleDocumentsReturn {
   truck: TruckWithDocuments | null;
   trailer: TrailerWithDocuments | null;
+  driver: DriverInfo | null;
+  company: CompanyInfo | null;
   isLoading: boolean;
   error: string | null;
   hasActiveTrip: boolean;
@@ -128,6 +148,8 @@ export function useVehicleDocuments(): UseVehicleDocumentsReturn {
   const { user } = useAuth();
   const [truck, setTruck] = useState<TruckWithDocuments | null>(null);
   const [trailer, setTrailer] = useState<TrailerWithDocuments | null>(null);
+  const [driver, setDriver] = useState<DriverInfo | null>(null);
+  const [company, setCompany] = useState<CompanyInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasActiveTrip, setHasActiveTrip] = useState(false);
@@ -143,25 +165,57 @@ export function useVehicleDocuments(): UseVehicleDocumentsReturn {
       setIsLoading(true);
       setError(null);
 
-      // First, get driver ID for current user
-      const { data: driver, error: driverError } = await supabase
+      // First, get driver info for current user
+      const { data: driverData, error: driverError } = await supabase
         .from('drivers')
-        .select('id, owner_id')
+        .select('id, owner_id, first_name, last_name, license_number, license_state')
         .eq('auth_user_id', user.id)
         .single();
 
-      if (driverError || !driver) {
+      if (driverError || !driverData) {
         setIsLoading(false);
         setHasActiveTrip(false);
+        setDriver(null);
+        setCompany(null);
         return;
+      }
+
+      // Set driver info
+      setDriver({
+        id: driverData.id,
+        first_name: driverData.first_name,
+        last_name: driverData.last_name,
+        cdl_number: driverData.license_number,
+        cdl_state: driverData.license_state,
+      });
+
+      // Fetch company (owner) info
+      const { data: companyData, error: companyError } = await supabase
+        .from('companies')
+        .select('id, name, dot_number, mc_number, phone, city, state')
+        .eq('owner_id', driverData.owner_id)
+        .single();
+
+      if (!companyError && companyData) {
+        setCompany({
+          id: companyData.id,
+          name: companyData.name,
+          dot_number: companyData.dot_number,
+          mc_number: companyData.mc_number,
+          phone: companyData.phone,
+          city: companyData.city,
+          state: companyData.state,
+        });
+      } else {
+        setCompany(null);
       }
 
       // Find active trip for this driver (assigned or in_progress)
       const { data: activeTrip, error: tripError } = await supabase
         .from('trips')
         .select('id, trip_number, truck_id, trailer_id')
-        .eq('driver_id', driver.id)
-        .eq('owner_id', driver.owner_id)
+        .eq('driver_id', driverData.id)
+        .eq('owner_id', driverData.owner_id)
         .in('status', ['assigned', 'active', 'en_route'])
         .order('created_at', { ascending: false })
         .limit(1)
@@ -278,6 +332,8 @@ export function useVehicleDocuments(): UseVehicleDocumentsReturn {
   return {
     truck,
     trailer,
+    driver,
+    company,
     isLoading,
     error,
     hasActiveTrip,
