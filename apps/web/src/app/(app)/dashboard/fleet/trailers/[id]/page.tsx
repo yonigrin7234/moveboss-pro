@@ -1,10 +1,11 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/supabase-server';
-import { getTrailerById, updateTrailer, deleteTrailer } from '@/data/fleet';
+import { getTrailerById, updateTrailer } from '@/data/fleet';
 import { getDriversForUser } from '@/data/drivers';
 import { TrailerForm } from '@/components/fleet/TrailerForm';
-import { DeleteTrailerButton } from './delete-trailer-button';
+import { StatusActions } from '@/components/fleet/status-actions';
+import { Badge } from '@/components/ui/badge';
 import { cleanFormValues, extractFormValues } from '@/lib/form-data';
 
 interface TrailerDetailPageProps {
@@ -93,13 +94,7 @@ export default async function TrailerDetailPage({ params }: TrailerDetailPagePro
     }
   }
 
-  async function deleteTrailerAction() {
-    'use server';
-    const user = await getCurrentUser();
-    if (!user) throw new Error('Not authenticated');
-    await deleteTrailer(id, user.id);
-    redirect('/dashboard/fleet');
-  }
+  const trailerDisplayName = `Trailer ${trailer.unit_number}`;
 
   const initialData = {
     unit_number: trailer.unit_number,
@@ -119,20 +114,37 @@ export default async function TrailerDetailPage({ params }: TrailerDetailPagePro
     notes: trailer.notes ?? undefined,
   };
 
+  const statusColors: Record<string, string> = {
+    active: 'bg-green-500/10 text-green-600 border-green-500/20',
+    maintenance: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
+    inactive: 'bg-gray-500/10 text-gray-600 border-gray-500/20',
+    archived: 'bg-red-500/10 text-red-600 border-red-500/20',
+  };
+
   return (
     <div>
       <div className="flex justify-between items-start mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Trailer {trailer.unit_number}</h1>
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-3xl font-bold text-foreground">{trailerDisplayName}</h1>
+            <Badge variant="outline" className={statusColors[trailer.status] || ''}>
+              {trailer.status.charAt(0).toUpperCase() + trailer.status.slice(1)}
+            </Badge>
+          </div>
         </div>
-        <div className="flex gap-4">
+        <div className="flex items-center gap-2">
           <Link
             href="/dashboard/fleet"
             className="px-4 py-2 bg-card text-foreground border border-border rounded-md hover:bg-muted"
           >
             Back to Fleet
           </Link>
-          <DeleteTrailerButton deleteAction={deleteTrailerAction} />
+          <StatusActions
+            entityType="trailer"
+            entityId={trailer.id}
+            currentStatus={trailer.status}
+            entityName={trailerDisplayName}
+          />
         </div>
       </div>
       <TrailerForm

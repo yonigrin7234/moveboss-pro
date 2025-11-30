@@ -127,6 +127,7 @@ export interface Driver {
   license_expiry: string;
   medical_card_expiry: string;
   status: DriverStatus;
+  archived_at: string | null;
   driver_type: DriverType;
   company_id: string | null;
   leased_to_company_id: string | null;
@@ -629,4 +630,161 @@ export async function deleteDriver(id: string, userId: string): Promise<void> {
   if (error) {
     throw new Error(`Failed to delete driver: ${error.message}`);
   }
+}
+
+// ===========================================
+// STATUS MANAGEMENT FUNCTIONS
+// ===========================================
+
+interface ActiveAssignment {
+  hasActiveAssignment: boolean;
+  tripId?: string;
+  tripNumber?: string;
+  loadId?: string;
+  loadNumber?: string;
+}
+
+/**
+ * Check if a driver is assigned to an active trip or load
+ */
+export async function checkDriverActiveAssignment(
+  driverId: string,
+  userId: string
+): Promise<ActiveAssignment> {
+  const supabase = await getDbClient();
+
+  // Check for active trips (status not 'completed' or 'cancelled')
+  const { data: activeTrip } = await supabase
+    .from('trips')
+    .select('id, trip_number')
+    .eq('driver_id', driverId)
+    .eq('owner_id', userId)
+    .not('status', 'in', '("completed","cancelled")')
+    .limit(1)
+    .maybeSingle();
+
+  if (activeTrip) {
+    return {
+      hasActiveAssignment: true,
+      tripId: activeTrip.id,
+      tripNumber: activeTrip.trip_number,
+    };
+  }
+
+  // Check for active loads (assigned_driver_id and load not completed)
+  const { data: activeLoad } = await supabase
+    .from('loads')
+    .select('id, load_number')
+    .eq('assigned_driver_id', driverId)
+    .eq('owner_id', userId)
+    .not('load_status', 'in', '("delivered","cancelled")')
+    .limit(1)
+    .maybeSingle();
+
+  if (activeLoad) {
+    return {
+      hasActiveAssignment: true,
+      loadId: activeLoad.id,
+      loadNumber: activeLoad.load_number,
+    };
+  }
+
+  return { hasActiveAssignment: false };
+}
+
+/**
+ * Deactivate a driver (set status to 'inactive')
+ * Fails if driver is assigned to an active trip or load
+ */
+export async function deactivateDriver(
+  id: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  // Check for active assignments
+  const assignment = await checkDriverActiveAssignment(id, userId);
+  if (assignment.hasActiveAssignment) {
+    const assignedTo = assignment.tripNumber
+      ? `trip ${assignment.tripNumber}`
+      : `load ${assignment.loadNumber || assignment.loadId}`;
+    return {
+      success: false,
+      error: `Cannot deactivate driver: assigned to active ${assignedTo}`,
+    };
+  }
+
+  const supabase = await getDbClient();
+  const { error } = await supabase
+    .from('drivers')
+    .update({ status: 'inactive' })
+    .eq('id', id)
+    .eq('owner_id', userId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Archive a driver (soft delete)
+ * Fails if driver is assigned to an active trip or load
+ */
+export async function archiveDriver(
+  id: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  // Check for active assignments
+  const assignment = await checkDriverActiveAssignment(id, userId);
+  if (assignment.hasActiveAssignment) {
+    const assignedTo = assignment.tripNumber
+      ? `trip ${assignment.tripNumber}`
+      : `load ${assignment.loadNumber || assignment.loadId}`;
+    return {
+      success: false,
+      error: `Cannot archive driver: assigned to active ${assignedTo}`,
+    };
+  }
+
+  const supabase = await getDbClient();
+  const { error } = await supabase
+    .from('drivers')
+    .update({
+      status: 'archived',
+      archived_at: new Date().toISOString(),
+      assigned_truck_id: null, // Clear equipment assignment
+      assigned_trailer_id: null,
+    })
+    .eq('id', id)
+    .eq('owner_id', userId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Reactivate a driver (set status to 'active')
+ */
+export async function reactivateDriver(
+  id: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await getDbClient();
+  const { error } = await supabase
+    .from('drivers')
+    .update({
+      status: 'active',
+      archived_at: null,
+    })
+    .eq('id', id)
+    .eq('owner_id', userId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
 }

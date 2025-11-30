@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase-server';
 
 // Enums
-export const truckStatusSchema = z.enum(['active', 'maintenance', 'inactive']);
+export const truckStatusSchema = z.enum(['active', 'maintenance', 'inactive', 'archived']);
 export const truckOwnershipTypeSchema = z.enum(['owned', 'leased', 'rented']);
 export const truckVehicleTypeSchema = z.enum([
   'tractor',
@@ -15,7 +15,7 @@ export const truckVehicleTypeSchema = z.enum([
   'cargo_van',
   'other',
 ]);
-export const trailerStatusSchema = z.enum(['active', 'maintenance', 'inactive']);
+export const trailerStatusSchema = z.enum(['active', 'maintenance', 'inactive', 'archived']);
 export const trailerTypeSchema = z.enum([
   '53_dry_van',
   '26_box_truck',
@@ -138,6 +138,7 @@ export interface Truck {
   inspection_expiry: string | null;
   assigned_driver_id: string | null;
   status: TruckStatus;
+  archived_at: string | null;
   is_rental_unit: boolean;
   rental_company: 'ryder' | 'penske' | 'other' | null;
   rental_company_other: string | null;
@@ -164,6 +165,7 @@ export interface Trailer {
   inspection_expiry: string | null;
   assigned_driver_id: string | null;
   status: TrailerStatus;
+  archived_at: string | null;
   notes: string | null;
 }
 
@@ -345,5 +347,259 @@ export async function deleteTrailer(id: string, userId: string): Promise<void> {
   if (error) {
     throw new Error(`Failed to delete trailer: ${error.message}`);
   }
+}
+
+// ===========================================
+// STATUS MANAGEMENT FUNCTIONS
+// ===========================================
+
+export type EntityType = 'driver' | 'truck' | 'trailer';
+
+interface ActiveAssignment {
+  hasActiveAssignment: boolean;
+  tripId?: string;
+  tripNumber?: string;
+  loadId?: string;
+  loadNumber?: string;
+}
+
+/**
+ * Check if a truck is assigned to an active trip or load
+ */
+export async function checkTruckActiveAssignment(
+  truckId: string,
+  userId: string
+): Promise<ActiveAssignment> {
+  const supabase = await createClient();
+
+  // Check for active trips (status not 'completed' or 'cancelled')
+  const { data: activeTrip } = await supabase
+    .from('trips')
+    .select('id, trip_number')
+    .eq('truck_id', truckId)
+    .eq('owner_id', userId)
+    .not('status', 'in', '("completed","cancelled")')
+    .limit(1)
+    .maybeSingle();
+
+  if (activeTrip) {
+    return {
+      hasActiveAssignment: true,
+      tripId: activeTrip.id,
+      tripNumber: activeTrip.trip_number,
+    };
+  }
+
+  return { hasActiveAssignment: false };
+}
+
+/**
+ * Check if a trailer is assigned to an active trip or load
+ */
+export async function checkTrailerActiveAssignment(
+  trailerId: string,
+  userId: string
+): Promise<ActiveAssignment> {
+  const supabase = await createClient();
+
+  // Check for active trips
+  const { data: activeTrip } = await supabase
+    .from('trips')
+    .select('id, trip_number')
+    .eq('trailer_id', trailerId)
+    .eq('owner_id', userId)
+    .not('status', 'in', '("completed","cancelled")')
+    .limit(1)
+    .maybeSingle();
+
+  if (activeTrip) {
+    return {
+      hasActiveAssignment: true,
+      tripId: activeTrip.id,
+      tripNumber: activeTrip.trip_number,
+    };
+  }
+
+  return { hasActiveAssignment: false };
+}
+
+/**
+ * Deactivate a truck (set status to 'inactive')
+ * Fails if truck is assigned to an active trip
+ */
+export async function deactivateTruck(
+  id: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  // Check for active assignments
+  const assignment = await checkTruckActiveAssignment(id, userId);
+  if (assignment.hasActiveAssignment) {
+    return {
+      success: false,
+      error: `Cannot deactivate truck: assigned to active trip ${assignment.tripNumber || assignment.tripId}`,
+    };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('trucks')
+    .update({ status: 'inactive' })
+    .eq('id', id)
+    .eq('owner_id', userId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Archive a truck (soft delete)
+ * Fails if truck is assigned to an active trip
+ */
+export async function archiveTruck(
+  id: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  // Check for active assignments
+  const assignment = await checkTruckActiveAssignment(id, userId);
+  if (assignment.hasActiveAssignment) {
+    return {
+      success: false,
+      error: `Cannot archive truck: assigned to active trip ${assignment.tripNumber || assignment.tripId}`,
+    };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('trucks')
+    .update({
+      status: 'archived',
+      archived_at: new Date().toISOString(),
+      assigned_driver_id: null, // Clear driver assignment
+    })
+    .eq('id', id)
+    .eq('owner_id', userId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Reactivate a truck (set status to 'active')
+ */
+export async function reactivateTruck(
+  id: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('trucks')
+    .update({
+      status: 'active',
+      archived_at: null,
+    })
+    .eq('id', id)
+    .eq('owner_id', userId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Deactivate a trailer (set status to 'inactive')
+ * Fails if trailer is assigned to an active trip
+ */
+export async function deactivateTrailer(
+  id: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  // Check for active assignments
+  const assignment = await checkTrailerActiveAssignment(id, userId);
+  if (assignment.hasActiveAssignment) {
+    return {
+      success: false,
+      error: `Cannot deactivate trailer: assigned to active trip ${assignment.tripNumber || assignment.tripId}`,
+    };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('trailers')
+    .update({ status: 'inactive' })
+    .eq('id', id)
+    .eq('owner_id', userId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Archive a trailer (soft delete)
+ * Fails if trailer is assigned to an active trip
+ */
+export async function archiveTrailer(
+  id: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  // Check for active assignments
+  const assignment = await checkTrailerActiveAssignment(id, userId);
+  if (assignment.hasActiveAssignment) {
+    return {
+      success: false,
+      error: `Cannot archive trailer: assigned to active trip ${assignment.tripNumber || assignment.tripId}`,
+    };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('trailers')
+    .update({
+      status: 'archived',
+      archived_at: new Date().toISOString(),
+      assigned_driver_id: null, // Clear driver assignment
+    })
+    .eq('id', id)
+    .eq('owner_id', userId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Reactivate a trailer (set status to 'active')
+ */
+export async function reactivateTrailer(
+  id: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('trailers')
+    .update({
+      status: 'active',
+      archived_at: null,
+    })
+    .eq('id', id)
+    .eq('owner_id', userId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
 }
 

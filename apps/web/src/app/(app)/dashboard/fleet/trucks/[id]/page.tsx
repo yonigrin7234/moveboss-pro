@@ -1,10 +1,11 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/supabase-server';
-import { getTruckById, updateTruck, deleteTruck } from '@/data/fleet';
+import { getTruckById, updateTruck } from '@/data/fleet';
 import { getDriversForUser } from '@/data/drivers';
 import { TruckForm } from '@/components/fleet/TruckForm';
-import { DeleteTruckButton } from './delete-truck-button';
+import { StatusActions } from '@/components/fleet/status-actions';
+import { Badge } from '@/components/ui/badge';
 import { cleanFormValues, extractFormValues } from '@/lib/form-data';
 
 interface TruckDetailPageProps {
@@ -130,13 +131,7 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
     }
   }
 
-  async function deleteTruckAction() {
-    'use server';
-    const user = await getCurrentUser();
-    if (!user) throw new Error('Not authenticated');
-    await deleteTruck(id, user.id);
-    redirect('/dashboard/fleet');
-  }
+  const truckDisplayName = truck.unit_number || truck.plate_number || `Truck ${truck.id.slice(0, 8)}`;
 
   const initialData = {
     unit_number: truck.unit_number ?? undefined,
@@ -162,22 +157,39 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
     notes: truck.notes ?? undefined,
   };
 
+  const statusColors: Record<string, string> = {
+    active: 'bg-green-500/10 text-green-600 border-green-500/20',
+    maintenance: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
+    inactive: 'bg-gray-500/10 text-gray-600 border-gray-500/20',
+    archived: 'bg-red-500/10 text-red-600 border-red-500/20',
+  };
+
   return (
     <div>
       <div className="flex justify-between items-start mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            Truck {truck.unit_number || truck.plate_number || truck.id.slice(0, 8)}
-          </h1>
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-3xl font-bold text-foreground">
+              {truckDisplayName}
+            </h1>
+            <Badge variant="outline" className={statusColors[truck.status] || ''}>
+              {truck.status.charAt(0).toUpperCase() + truck.status.slice(1)}
+            </Badge>
+          </div>
         </div>
-        <div className="flex gap-4">
+        <div className="flex items-center gap-2">
           <Link
             href="/dashboard/fleet"
             className="px-4 py-2 bg-card text-foreground border border-border rounded-md hover:bg-muted"
           >
             Back to Fleet
           </Link>
-          <DeleteTruckButton deleteAction={deleteTruckAction} />
+          <StatusActions
+            entityType="truck"
+            entityId={truck.id}
+            currentStatus={truck.status}
+            entityName={truckDisplayName}
+          />
         </div>
       </div>
       <TruckForm

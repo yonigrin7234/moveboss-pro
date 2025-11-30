@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/supabase-server';
-import { getDriverById, updateDriver, deleteDriver, getDriversForUser, type Driver } from '@/data/drivers';
+import { getDriverById, updateDriver, getDriversForUser, type Driver } from '@/data/drivers';
 import { getTrucksForUser, getTrailersForUser } from '@/data/fleet';
 import { DriverForm } from '@/components/drivers/DriverForm';
-import { DeleteDriverButton } from './delete-driver-button';
+import { StatusActions } from '@/components/fleet/status-actions';
 import { cleanFormValues, extractFormValues } from '@/lib/form-data';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,8 @@ function formatStatus(status: Driver['status']): string {
       return 'Inactive';
     case 'suspended':
       return 'Suspended';
+    case 'archived':
+      return 'Archived';
     default:
       return status;
   }
@@ -231,15 +233,7 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
     }
   }
 
-  async function deleteDriverAction() {
-    'use server';
-    const user = await getCurrentUser();
-    if (!user) {
-      throw new Error('Not authenticated');
-    }
-    await deleteDriver(id, user.id);
-    redirect('/dashboard/drivers');
-  }
+  const driverDisplayName = `${driver.first_name} ${driver.last_name}`;
 
   const initialData = {
     first_name: driver.first_name,
@@ -273,37 +267,41 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
     auth_user_id: driver.auth_user_id ?? undefined,
   };
 
+  const statusColors: Record<string, string> = {
+    active: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+    inactive: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20',
+    suspended: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
+    archived: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-            {driver.first_name} {driver.last_name}
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+              {driverDisplayName}
+            </h1>
+            <Badge
+              variant="outline"
+              className={statusColors[driver.status] || 'bg-muted text-muted-foreground'}
+            >
+              {formatStatus(driver.status)}
+            </Badge>
+          </div>
           <p className="text-sm text-muted-foreground mt-1">Edit driver information and compensation</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-2">
           <Button variant="outline" asChild>
             <Link href="/dashboard/drivers">Back to Drivers</Link>
           </Button>
-          <DeleteDriverButton deleteAction={deleteDriverAction} />
+          <StatusActions
+            entityType="driver"
+            entityId={driver.id}
+            currentStatus={driver.status}
+            entityName={driverDisplayName}
+          />
         </div>
-      </div>
-
-      {/* Status Badge */}
-      <div className="flex gap-2">
-        <Badge
-          variant="secondary"
-          className={
-            driver.status === 'active'
-              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-              : driver.status === 'suspended'
-                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
-                : 'bg-muted text-muted-foreground'
-          }
-        >
-          {formatStatus(driver.status)}
-        </Badge>
       </div>
 
       {/* Edit Form */}

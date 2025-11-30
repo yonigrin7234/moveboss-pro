@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { type DriverType } from '@/data/domain-types';
 
-export const driverStatusSchema = z.enum(['active', 'inactive', 'suspended']);
+export const driverStatusSchema = z.enum(['active', 'inactive', 'suspended', 'archived']);
 export const driverPayModeSchema = z.enum([
   'per_mile',
   'per_cuft',
