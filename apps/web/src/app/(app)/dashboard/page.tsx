@@ -18,8 +18,10 @@ import {
 } from '@/data/companies';
 import { getComplianceAlertCounts } from '@/data/compliance-alerts';
 import { getVerificationStateForUser } from '@/data/verification';
+import { getOnboardingState } from '@/data/onboarding';
 import { ComplianceStatusWidget } from '@/components/compliance-status-widget';
 import { VerificationStatusWidget } from '@/components/verification-status-widget';
+import { SetupChecklist } from '@/components/setup-checklist';
 import { getDriversForUser, getDriverStatsForUser, type Driver } from '@/data/drivers';
 import { getRecentActivities, type ActivityType, type ActivityLogEntry } from '@/data/activity-log';
 import { getCurrentUser } from '@/lib/supabase-server';
@@ -114,7 +116,10 @@ export default async function DashboardPage() {
   let recentActivities: ActivityLogEntry[] = [];
   let complianceCounts = { warning: 0, urgent: 0, critical: 0, expired: 0 };
   let verificationState = await getVerificationStateForUser(user.id);
+  let onboardingState = await getOnboardingState(user.id);
   let error: string | null = null;
+
+  const userRole = onboardingState?.role || 'carrier';
 
   try {
     [companies, totalCompanies, drivers, driverStats, recentActivities, complianceCounts] = await Promise.all([
@@ -170,6 +175,9 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Setup Checklist - shows at top for new users */}
+      <SetupChecklist userRole={userRole} />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {statCards.map((stat) => (
