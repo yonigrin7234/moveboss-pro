@@ -136,12 +136,14 @@ export function LoadCreateForm({
   const router = useRouter()
   const { toast } = useToast()
   const [state, formAction, pending] = useActionState(onSubmit, null)
+  const [loadSource, setLoadSource] = useState<'own_customer' | 'partner'>('own_customer')
   const [loadType, setLoadType] = useState<'company_load' | 'live_load'>('company_load')
   const [companyId, setCompanyId] = useState('')
   const [pickup, setPickup] = useState({ postalCode: '', city: '', state: '', address1: '', address2: '', contact: '', phone: '' })
   const [dropoff, setDropoff] = useState({ postalCode: '', city: '', state: '', address1: '', address2: '' })
   const [loadingContact, setLoadingContact] = useState({ name: '', phone: '', email: '', address1: '', address2: '', city: '', state: '', postalCode: '' })
-  const [pricing, setPricing] = useState({ cubicFeet: '', rate: '' })
+  const [pricing, setPricing] = useState({ cubicFeet: '', rate: '', balanceDue: '' })
+  const [customer, setCustomer] = useState({ name: '', phone: '', deliveryAddress: '' })
   const [selectedTripId, setSelectedTripId] = useState('')
   const [loadOrder, setLoadOrder] = useState('1')
 
@@ -351,38 +353,78 @@ export function LoadCreateForm({
   return (
     <form action={formAction} className="space-y-6">
       <input type="hidden" name="load_type" value={loadType} />
+      <input type="hidden" name="load_source" value={loadSource} />
       <input type="hidden" name="trip_id" value={selectedTripId} />
       <input type="hidden" name="load_order" value={loadOrder} />
 
-      <Card>
+      {/* Load Source Toggle */}
+      <Card className="border-2 border-primary/20">
         <CardHeader>
-          <CardTitle className="text-base font-semibold">Load Type</CardTitle>
+          <CardTitle className="text-base font-semibold">Load Source</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <div className="inline-flex rounded-md border border-border bg-muted/40 p-1 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
             <button
               type="button"
               className={cn(
                 'px-4 py-2 rounded-md transition',
-                loadType === 'company_load' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+                loadSource === 'own_customer' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
               )}
-              onClick={() => setLoadType('company_load')}
+              onClick={() => setLoadSource('own_customer')}
             >
-              Load from Company
+              My Customer
             </button>
             <button
               type="button"
               className={cn(
                 'px-4 py-2 rounded-md transition',
-                loadType === 'live_load' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+                loadSource === 'partner' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
               )}
-              onClick={() => setLoadType('live_load')}
+              onClick={() => setLoadSource('partner')}
             >
-              Live Load
+              From Company
             </button>
           </div>
+          <p className="text-xs text-muted-foreground">
+            {loadSource === 'own_customer'
+              ? "You have the customer's contact info and delivery address"
+              : 'Driver will enter contract details after loading'}
+          </p>
         </CardContent>
       </Card>
+
+      {/* Load Type Toggle - only for partner loads */}
+      {loadSource === 'partner' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">Load Type</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="inline-flex rounded-md border border-border bg-muted/40 p-1 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              <button
+                type="button"
+                className={cn(
+                  'px-4 py-2 rounded-md transition',
+                  loadType === 'company_load' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+                )}
+                onClick={() => setLoadType('company_load')}
+              >
+                Load from Warehouse
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  'px-4 py-2 rounded-md transition',
+                  loadType === 'live_load' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+                )}
+                onClick={() => setLoadType('live_load')}
+              >
+                Live Load
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -414,13 +456,19 @@ export function LoadCreateForm({
               )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="company_id">Company</Label>
+              <Label htmlFor="company_id">
+                {loadSource === 'partner' ? 'Partner Company' : 'Company'}
+                {loadSource === 'partner' && <span className="text-destructive"> *</span>}
+              </Label>
               <div>
-                <Select value={companyId || undefined} onValueChange={setCompanyId} required>
+                <Select value={companyId || undefined} onValueChange={setCompanyId} required={loadSource === 'partner'}>
                   <SelectTrigger id="company_id" className="h-9">
-                    <SelectValue placeholder="Select company" />
+                    <SelectValue placeholder={loadSource === 'partner' ? 'Select partner company' : 'Optional'} />
                   </SelectTrigger>
                   <SelectContent>
+                    {loadSource === 'own_customer' && (
+                      <SelectItem value="none">No company</SelectItem>
+                    )}
                     {companies.map((company) => (
                       <SelectItem key={company.id} value={company.id}>
                         {company.name}
@@ -428,7 +476,7 @@ export function LoadCreateForm({
                     ))}
                   </SelectContent>
                 </Select>
-                <input type="hidden" name="company_id" value={companyId} />
+                <input type="hidden" name="company_id" value={companyId === 'none' ? '' : companyId} />
               </div>
               {state?.errors?.company_id && (
                 <p className="text-xs text-destructive">{state.errors.company_id}</p>
@@ -471,7 +519,63 @@ export function LoadCreateForm({
         </CardContent>
       </Card>
 
-      {loadType === 'live_load' && (
+      {/* Customer Details - only for own_customer */}
+      {loadSource === 'own_customer' && (
+        <Card className="border-green-500/30">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">Customer Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Customer Name <span className="text-destructive">*</span></Label>
+                <Input
+                  name="customer_name"
+                  value={customer.name}
+                  onChange={(e) => setCustomer((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="John Smith"
+                  required={loadSource === 'own_customer'}
+                />
+                {state?.errors?.customer_name && (
+                  <p className="text-xs text-destructive">{state.errors.customer_name}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label>Customer Phone <span className="text-destructive">*</span></Label>
+                <Input
+                  name="customer_phone"
+                  value={customer.phone}
+                  onChange={(e) => setCustomer((prev) => ({ ...prev, phone: e.target.value }))}
+                  placeholder="555-123-4567"
+                  required={loadSource === 'own_customer'}
+                />
+                {state?.errors?.customer_phone && (
+                  <p className="text-xs text-destructive">{state.errors.customer_phone}</p>
+                )}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Delivery Address <span className="text-destructive">*</span></Label>
+              <Textarea
+                name="delivery_address_full"
+                value={customer.deliveryAddress}
+                onChange={(e) => setCustomer((prev) => ({ ...prev, deliveryAddress: e.target.value }))}
+                placeholder="123 Main St, Apt 4B, Chicago, IL 60601"
+                rows={2}
+                required={loadSource === 'own_customer'}
+              />
+              <p className="text-xs text-muted-foreground">
+                Full delivery address including apartment/unit if applicable
+              </p>
+              {state?.errors?.delivery_address_full && (
+                <p className="text-xs text-destructive">{state.errors.delivery_address_full}</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {loadSource === 'partner' && loadType === 'live_load' && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base font-semibold">Pickup & On-site Contact</CardTitle>
@@ -553,66 +657,54 @@ export function LoadCreateForm({
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-semibold">Dropoff</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Dropoff ZIP</Label>
-              <Input
-                name="dropoff_postal_code"
-                value={dropoff.postalCode}
-                onChange={(event) => setDropoff((prev) => ({ ...prev, postalCode: event.target.value }))}
-                onBlur={handleDropoffZip}
-                required
-              />
-              {state?.errors?.dropoff_postal_code && (
-                <p className="text-xs text-destructive">{state.errors.dropoff_postal_code}</p>
-              )}
+      {/* Destination - only for partner loads (own_customer has full address in customer details) */}
+      {loadSource === 'partner' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">Destination</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              Driver will get full address from loading report. Enter destination city/state for routing.
+            </p>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label>Destination ZIP <span className="text-destructive">*</span></Label>
+                <Input
+                  name="dropoff_postal_code"
+                  value={dropoff.postalCode}
+                  onChange={(event) => setDropoff((prev) => ({ ...prev, postalCode: event.target.value }))}
+                  onBlur={handleDropoffZip}
+                  required={loadSource === 'partner'}
+                />
+                {state?.errors?.dropoff_postal_code && (
+                  <p className="text-xs text-destructive">{state.errors.dropoff_postal_code}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label>City <span className="text-destructive">*</span></Label>
+                <Input
+                  name="dropoff_city"
+                  value={dropoff.city}
+                  onChange={(event) => setDropoff((prev) => ({ ...prev, city: event.target.value }))}
+                  required={loadSource === 'partner'}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>State <span className="text-destructive">*</span></Label>
+                <Input
+                  name="dropoff_state"
+                  value={dropoff.state}
+                  onChange={(event) => setDropoff((prev) => ({ ...prev, state: event.target.value }))}
+                  required={loadSource === 'partner'}
+                />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Address Line 1</Label>
-              <Input
-                name="dropoff_address_line1"
-                value={dropoff.address1}
-                onChange={(event) => setDropoff((prev) => ({ ...prev, address1: event.target.value }))}
-              />
-            </div>
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label>City</Label>
-              <Input
-                name="dropoff_city"
-                value={dropoff.city}
-                onChange={(event) => setDropoff((prev) => ({ ...prev, city: event.target.value }))}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>State</Label>
-              <Input
-                name="dropoff_state"
-                value={dropoff.state}
-                onChange={(event) => setDropoff((prev) => ({ ...prev, state: event.target.value }))}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Address Line 2</Label>
-              <Input
-                name="dropoff_address_line2"
-                value={dropoff.address2}
-                onChange={(event) => setDropoff((prev) => ({ ...prev, address2: event.target.value }))}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
-      {loadType === 'company_load' && (
+      {loadSource === 'partner' && loadType === 'company_load' && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base font-semibold">Warehouse Contact Snapshot</CardTitle>
@@ -706,21 +798,27 @@ export function LoadCreateForm({
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Cubic Feet</Label>
+              <Label>
+                Cubic Feet {loadSource === 'own_customer' ? '(Estimate)' : ''}
+                {loadSource === 'partner' && <span className="text-destructive"> *</span>}
+              </Label>
               <Input
                 name="cubic_feet"
                 type="number"
                 min="1"
                 value={pricing.cubicFeet}
                 onChange={(event) => setPricing((prev) => ({ ...prev, cubicFeet: event.target.value }))}
-                required
+                required={loadSource === 'partner'}
               />
               {state?.errors?.cubic_feet && (
                 <p className="text-xs text-destructive">{state.errors.cubic_feet}</p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label>Rate per CuFt</Label>
+              <Label>
+                Rate per CuFt
+                {loadSource === 'partner' && <span className="text-destructive"> *</span>}
+              </Label>
               <Input
                 name="rate_per_cuft"
                 type="number"
@@ -728,17 +826,49 @@ export function LoadCreateForm({
                 min="0"
                 value={pricing.rate}
                 onChange={(event) => setPricing((prev) => ({ ...prev, rate: event.target.value }))}
-                required
+                required={loadSource === 'partner'}
+                placeholder={loadSource === 'own_customer' ? 'Optional' : ''}
               />
+              <p className="text-xs text-muted-foreground">
+                {loadSource === 'partner' ? "Carrier's revenue rate" : 'For profitability tracking'}
+              </p>
               {state?.errors?.rate_per_cuft && (
                 <p className="text-xs text-destructive">{state.errors.rate_per_cuft}</p>
               )}
             </div>
           </div>
-          <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm">
-            <p className="text-muted-foreground">Linehaul Amount</p>
-            <p className="text-2xl font-semibold">${linehaulAmount.toFixed(2)}</p>
-          </div>
+
+          {/* Balance Due - only for own_customer */}
+          {loadSource === 'own_customer' && (
+            <div className="space-y-1.5">
+              <Label>Balance Due on Delivery <span className="text-destructive">*</span></Label>
+              <Input
+                name="balance_due"
+                type="number"
+                step="0.01"
+                min="0"
+                value={pricing.balanceDue}
+                onChange={(event) => setPricing((prev) => ({ ...prev, balanceDue: event.target.value }))}
+                placeholder="0.00"
+                required={loadSource === 'own_customer'}
+              />
+              <p className="text-xs text-muted-foreground">
+                Amount driver needs to collect from customer
+              </p>
+              {state?.errors?.balance_due && (
+                <p className="text-xs text-destructive">{state.errors.balance_due}</p>
+              )}
+            </div>
+          )}
+
+          {/* Linehaul Amount - only show if rate and cuft are entered */}
+          {pricing.cubicFeet && pricing.rate && (
+            <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm">
+              <p className="text-muted-foreground">Linehaul Amount</p>
+              <p className="text-2xl font-semibold">${linehaulAmount.toFixed(2)}</p>
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <Label htmlFor="notes">Notes</Label>
             <Textarea id="notes" name="notes" rows={3} placeholder="Driver-facing notes" />

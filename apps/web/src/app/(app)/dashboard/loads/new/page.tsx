@@ -34,6 +34,7 @@ export default async function NewLoadPage() {
 
     const fields = [
       'load_type',
+      'load_source',
       'load_number',
       'service_type',
       'company_id',
@@ -68,6 +69,10 @@ export default async function NewLoadPage() {
       'packing_rate',
       'materials_rate',
       'accessorials_rate',
+      'balance_due',
+      'customer_name',
+      'customer_phone',
+      'delivery_address_full',
       'notes',
       'storage_location_id',
       'storage_unit',
