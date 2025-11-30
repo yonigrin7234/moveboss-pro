@@ -3,15 +3,28 @@ import Link from 'next/link';
 
 export default function LoginPage() {
   return (
-    <div className="space-y-6">
-      <div className="text-center space-y-2">
-        <h2 className="text-2xl font-semibold text-white tracking-tight">Welcome back</h2>
-        <p className="text-zinc-400">Sign in to your account to continue</p>
+    <div className="space-y-8">
+      {/* Header with visual hierarchy */}
+      <div className="text-center space-y-3">
+        <p className="text-xs font-medium tracking-widest text-zinc-500 uppercase">
+          MoveBoss Pro
+        </p>
+        <h2 className="text-2xl font-semibold text-white tracking-tight">
+          Sign in to your workspace
+        </h2>
+        <p className="text-zinc-500 text-sm">
+          Secure access for your team and operation.
+        </p>
       </div>
 
       <LoginForm />
 
-      <div className="text-center space-y-4">
+      {/* Trust cue */}
+      <p className="text-center text-xs text-zinc-600">
+        Used by growing moving companies to run their daily operations.
+      </p>
+
+      <div className="text-center space-y-3 pt-2">
         <Link href="/forgot-password" className="text-sm text-zinc-400 hover:text-white transition-colors">
           Forgot your password?
         </Link>
