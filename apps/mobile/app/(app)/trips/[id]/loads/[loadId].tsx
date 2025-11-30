@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -160,6 +160,8 @@ export default function LoadDetailScreen() {
               balanceDue={load.balance_due_on_delivery}
               company={load.companies}
               router={router}
+              deliveryOrder={load.delivery_order}
+              loadUpdatedAt={load.updated_at}
             />
 
             {/* Contact Company Card - quick access to dispatcher */}
@@ -365,6 +367,8 @@ function WorkflowActionCard({
   balanceDue,
   company,
   router,
+  deliveryOrder,
+  loadUpdatedAt,
 }: {
   loadId: string;
   tripId: string;
@@ -376,6 +380,8 @@ function WorkflowActionCard({
   balanceDue: number | null;
   company?: { name: string; phone: string | null; trust_level?: 'trusted' | 'cod_required' } | null;
   router: ReturnType<typeof useRouter>;
+  deliveryOrder: number | null;
+  loadUpdatedAt: string;
 }) {
   const trustLevel = company?.trust_level || 'cod_required';
   const [cuftInput, setCuftInput] = useState('');
@@ -383,6 +389,29 @@ function WorkflowActionCard({
   const [photo, setPhoto] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { uploading, progress, uploadLoadPhoto } = useImageUpload();
+
+  // Delivery order check state
+  const [deliveryOrderCheck, setDeliveryOrderCheck] = useState<{
+    allowed: boolean;
+    reason?: string;
+    checking: boolean;
+  }>({ allowed: true, checking: true, reason: undefined });
+
+  // Check delivery order when status is 'loaded' or when load/trip is updated
+  useEffect(() => {
+    if (loadStatus === 'loaded') {
+      setDeliveryOrderCheck(prev => ({ ...prev, checking: true }));
+      actions.checkDeliveryOrder().then(result => {
+        setDeliveryOrderCheck({
+          allowed: result.allowed,
+          reason: result.reason,
+          checking: false,
+        });
+      });
+    } else {
+      setDeliveryOrderCheck({ allowed: true, checking: false, reason: undefined });
+    }
+  }, [loadStatus, loadUpdatedAt]);
 
   // Check if this load requires pickup completion (pickup from customer's home)
   const requiresPickupCompletion = postingType === 'pickup' && !pickupCompletedAt;
@@ -607,11 +636,46 @@ function WorkflowActionCard({
     const effectiveBalanceDue = balanceDue || 0;
     const hasBalanceDue = effectiveBalanceDue > 0;
 
+    // Show delivery order badge if set
+    const deliveryOrderBadge = deliveryOrder ? (
+      <View style={styles.deliveryOrderBadge}>
+        <Text style={styles.deliveryOrderBadgeText}>Delivery #{deliveryOrder}</Text>
+      </View>
+    ) : null;
+
+    // If still checking delivery order, show loading state
+    if (deliveryOrderCheck.checking) {
+      return (
+        <View style={styles.actionCard}>
+          <Text style={styles.actionTitle}>Checking delivery order...</Text>
+          {deliveryOrderBadge}
+        </View>
+      );
+    }
+
+    // If delivery order is not allowed, show blocked state
+    if (!deliveryOrderCheck.allowed) {
+      return (
+        <View style={[styles.actionCard, styles.blockedCard]}>
+          <View style={styles.blockedHeader}>
+            <Text style={styles.blockedIcon}>🔒</Text>
+            <Text style={styles.blockedTitle}>Delivery Locked</Text>
+          </View>
+          {deliveryOrderBadge}
+          <Text style={styles.blockedReason}>{deliveryOrderCheck.reason}</Text>
+          <Text style={styles.blockedHint}>
+            Loads must be delivered in order. Complete the earlier delivery first.
+          </Text>
+        </View>
+      );
+    }
+
     // If there's a balance due, redirect to collect-payment screen first
     if (hasBalanceDue) {
       return (
         <View style={styles.actionCard}>
           <Text style={styles.actionTitle}>Collect Payment & Start Delivery</Text>
+          {deliveryOrderBadge}
           <TrustLevelBadge trustLevel={trustLevel} />
           <Text style={styles.actionDescription}>
             Balance due: ${effectiveBalanceDue.toFixed(2)}
@@ -647,6 +711,7 @@ function WorkflowActionCard({
     return (
       <View style={styles.actionCard}>
         <Text style={styles.actionTitle}>Start Delivery</Text>
+        {deliveryOrderBadge}
         <TrustLevelBadge trustLevel={trustLevel} />
         <Text style={styles.actionDescription}>
           No payment to collect - ready to deliver
@@ -1239,6 +1304,49 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255,255,255,0.8)',
     marginTop: 4,
+  },
+  // Blocked Delivery Card
+  blockedCard: {
+    backgroundColor: '#4a4a5e',
+  },
+  blockedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  blockedIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  blockedTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  blockedReason: {
+    fontSize: 15,
+    color: '#fbbf24',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  blockedHint: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.6)',
+    lineHeight: 18,
+  },
+  // Delivery Order Badge
+  deliveryOrderBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  deliveryOrderBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
   },
   // Timeline
   timeline: {

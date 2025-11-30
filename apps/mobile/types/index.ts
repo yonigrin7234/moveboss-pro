@@ -64,6 +64,8 @@ export interface Trip {
   trip_rate_per_cuft: number | null;
   trip_percent_of_revenue: number | null;
   trip_flat_daily_rate: number | null;
+  // Delivery order tracking
+  current_delivery_index: number | null;
 }
 
 export type LoadSource = 'own_customer' | 'partner' | 'marketplace';
@@ -160,6 +162,8 @@ export interface Load {
   // Storage
   storage_drop: boolean;
   storage_location_name: string | null;
+  // Delivery order (1 = first, 2 = second, etc.)
+  delivery_order: number | null;
   // Company info (joined)
   companies?: {
     name: string;

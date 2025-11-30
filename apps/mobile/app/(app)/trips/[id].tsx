@@ -323,6 +323,11 @@ function LoadCard({ tripLoad, tripId }: { tripLoad: TripLoad; tripId: string }) 
               <Text style={styles.liveBadgeText}>LIVE</Text>
             </View>
           )}
+          {load.delivery_order && (
+            <View style={styles.deliveryOrderBadge}>
+              <Text style={styles.deliveryOrderBadgeText}>#{load.delivery_order}</Text>
+            </View>
+          )}
         </View>
         <StatusBadge status={load.load_status} size="small" />
       </View>
@@ -684,6 +689,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
     letterSpacing: 0.5,
+  },
+  deliveryOrderBadge: {
+    backgroundColor: '#8b5cf6',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  deliveryOrderBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
   },
   loadRoute: {
     marginBottom: 12,

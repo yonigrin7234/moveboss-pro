@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { LoadStatus, PaymentMethod, ZelleRecipient, DamageItem } from '../types';
+import { LoadStatus, PaymentMethod, ZelleRecipient, DamageItem, Load } from '../types';
 import { useAuth } from '../providers/AuthProvider';
 import {
   notifyOwnerLoadAccepted,
@@ -12,6 +12,21 @@ import {
 } from '../lib/notify-owner';
 
 type ActionResult = { success: boolean; error?: string };
+
+// Delivery order check result
+export interface DeliveryOrderCheck {
+  allowed: boolean;
+  reason?: string;
+  nextLoad?: {
+    id: string;
+    delivery_order: number;
+    customer_name: string | null;
+    delivery_city: string | null;
+    delivery_state: string | null;
+  };
+  currentDeliveryIndex: number | null;
+  thisLoadDeliveryOrder: number | null;
+}
 
 export function useLoadActions(loadId: string, onSuccess?: () => void) {
   const [loading, setLoading] = useState(false);
@@ -28,6 +43,194 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
 
     if (error || !driver) throw new Error('Driver profile not found');
     return driver;
+  };
+
+  /**
+   * Check if delivery can start based on delivery order.
+   * Returns allowed=true if:
+   * - Load has no delivery_order set (null)
+   * - Load's delivery_order matches trip's current_delivery_index
+   * - No other loads with lower delivery_order are pending delivery
+   */
+  const checkDeliveryOrder = async (): Promise<DeliveryOrderCheck> => {
+    try {
+      const driver = await getDriverInfo();
+
+      // Get this load's info including delivery_order
+      const { data: thisLoad, error: loadError } = await supabase
+        .from('loads')
+        .select('id, delivery_order, customer_name, delivery_city, delivery_state, load_status')
+        .eq('id', loadId)
+        .eq('owner_id', driver.owner_id)
+        .single();
+
+      if (loadError || !thisLoad) {
+        return { allowed: false, reason: 'Load not found', currentDeliveryIndex: null, thisLoadDeliveryOrder: null };
+      }
+
+      // If this load has no delivery_order, it can be delivered anytime
+      if (thisLoad.delivery_order === null || thisLoad.delivery_order === undefined) {
+        return { allowed: true, currentDeliveryIndex: null, thisLoadDeliveryOrder: null };
+      }
+
+      // Find the trip this load is associated with
+      const { data: tripLoad, error: tripLoadError } = await supabase
+        .from('trip_loads')
+        .select('trip_id')
+        .eq('load_id', loadId)
+        .single();
+
+      if (tripLoadError || !tripLoad) {
+        // Load not associated with a trip, allow delivery
+        return { allowed: true, currentDeliveryIndex: null, thisLoadDeliveryOrder: thisLoad.delivery_order };
+      }
+
+      // Get trip's current_delivery_index
+      const { data: trip, error: tripError } = await supabase
+        .from('trips')
+        .select('id, current_delivery_index')
+        .eq('id', tripLoad.trip_id)
+        .single();
+
+      if (tripError || !trip) {
+        return { allowed: false, reason: 'Trip not found', currentDeliveryIndex: null, thisLoadDeliveryOrder: thisLoad.delivery_order };
+      }
+
+      const currentIndex = trip.current_delivery_index || 1;
+
+      // If this load's delivery_order matches current_delivery_index, allow
+      if (thisLoad.delivery_order === currentIndex) {
+        return {
+          allowed: true,
+          currentDeliveryIndex: currentIndex,
+          thisLoadDeliveryOrder: thisLoad.delivery_order
+        };
+      }
+
+      // If this load's delivery_order is higher than current_delivery_index,
+      // find which load should be delivered first
+      if (thisLoad.delivery_order > currentIndex) {
+        // Get all loads for this trip that are not yet delivered and have delivery_order
+        const { data: tripLoads, error: loadsError } = await supabase
+          .from('trip_loads')
+          .select(`
+            load_id,
+            loads:load_id (
+              id,
+              delivery_order,
+              customer_name,
+              delivery_city,
+              delivery_state,
+              load_status
+            )
+          `)
+          .eq('trip_id', tripLoad.trip_id);
+
+        if (loadsError || !tripLoads) {
+          return {
+            allowed: false,
+            reason: 'Could not check delivery order',
+            currentDeliveryIndex: currentIndex,
+            thisLoadDeliveryOrder: thisLoad.delivery_order
+          };
+        }
+
+        // Find loads that should be delivered before this one
+        const loadsBeforeThis = tripLoads
+          .map(tl => tl.loads as unknown as {
+            id: string;
+            delivery_order: number | null;
+            customer_name: string | null;
+            delivery_city: string | null;
+            delivery_state: string | null;
+            load_status: string;
+          })
+          .filter(load =>
+            load &&
+            load.delivery_order !== null &&
+            load.delivery_order < thisLoad.delivery_order &&
+            load.load_status !== 'delivered' &&
+            load.load_status !== 'storage_completed'
+          )
+          .sort((a, b) => (a.delivery_order || 0) - (b.delivery_order || 0));
+
+        if (loadsBeforeThis.length > 0) {
+          const nextLoad = loadsBeforeThis[0];
+          const customerDisplay = nextLoad.customer_name ||
+            (nextLoad.delivery_city && nextLoad.delivery_state
+              ? `${nextLoad.delivery_city}, ${nextLoad.delivery_state}`
+              : `Delivery #${nextLoad.delivery_order}`);
+
+          return {
+            allowed: false,
+            reason: `Complete delivery #${nextLoad.delivery_order} (${customerDisplay}) first`,
+            nextLoad: {
+              id: nextLoad.id,
+              delivery_order: nextLoad.delivery_order!,
+              customer_name: nextLoad.customer_name,
+              delivery_city: nextLoad.delivery_city,
+              delivery_state: nextLoad.delivery_state,
+            },
+            currentDeliveryIndex: currentIndex,
+            thisLoadDeliveryOrder: thisLoad.delivery_order,
+          };
+        }
+      }
+
+      // If we get here, this load can be delivered (no blocking loads found)
+      return {
+        allowed: true,
+        currentDeliveryIndex: currentIndex,
+        thisLoadDeliveryOrder: thisLoad.delivery_order
+      };
+    } catch (err) {
+      console.error('Error checking delivery order:', err);
+      // On error, allow delivery to not block the driver
+      return { allowed: true, currentDeliveryIndex: null, thisLoadDeliveryOrder: null };
+    }
+  };
+
+  /**
+   * Increment trip's current_delivery_index after a delivery is completed
+   */
+  const incrementDeliveryIndex = async (completedDeliveryOrder: number | null): Promise<void> => {
+    if (completedDeliveryOrder === null) return;
+
+    try {
+      const driver = await getDriverInfo();
+
+      // Find the trip this load is associated with
+      const { data: tripLoad } = await supabase
+        .from('trip_loads')
+        .select('trip_id')
+        .eq('load_id', loadId)
+        .single();
+
+      if (!tripLoad) return;
+
+      // Get current trip state
+      const { data: trip } = await supabase
+        .from('trips')
+        .select('current_delivery_index')
+        .eq('id', tripLoad.trip_id)
+        .single();
+
+      if (!trip) return;
+
+      const currentIndex = trip.current_delivery_index || 1;
+
+      // Only increment if completed order matches current index
+      if (completedDeliveryOrder === currentIndex) {
+        await supabase
+          .from('trips')
+          .update({ current_delivery_index: currentIndex + 1 })
+          .eq('id', tripLoad.trip_id)
+          .eq('owner_id', driver.owner_id);
+      }
+    } catch (err) {
+      console.error('Error incrementing delivery index:', err);
+      // Non-critical, don't throw
+    }
   };
 
   // Accept load (pending → accepted)
@@ -140,6 +343,16 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
   }): Promise<ActionResult> => {
     try {
       setLoading(true);
+
+      // Check delivery order before allowing
+      const orderCheck = await checkDeliveryOrder();
+      if (!orderCheck.allowed) {
+        return {
+          success: false,
+          error: orderCheck.reason || 'Cannot start delivery - check delivery order'
+        };
+      }
+
       const driver = await getDriverInfo();
 
       const { error } = await supabase
@@ -173,6 +386,13 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
       setLoading(true);
       const driver = await getDriverInfo();
 
+      // Get load's delivery_order before completing
+      const { data: load } = await supabase
+        .from('loads')
+        .select('delivery_order')
+        .eq('id', loadId)
+        .single();
+
       const { error } = await supabase
         .from('loads')
         .update({
@@ -183,6 +403,9 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
         .eq('owner_id', driver.owner_id);
 
       if (error) throw error;
+
+      // Increment trip's current_delivery_index (fire-and-forget)
+      incrementDeliveryIndex(load?.delivery_order || null);
 
       // Notify owner (fire-and-forget)
       notifyOwnerDeliveryCompleted(loadId);
@@ -207,6 +430,16 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
   }): Promise<ActionResult> => {
     try {
       setLoading(true);
+
+      // Check delivery order before allowing
+      const orderCheck = await checkDeliveryOrder();
+      if (!orderCheck.allowed) {
+        return {
+          success: false,
+          error: orderCheck.reason || 'Cannot start delivery - check delivery order'
+        };
+      }
+
       const driver = await getDriverInfo();
 
       const { error } = await supabase
@@ -603,6 +836,8 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
     requiresContractDetails,
     requiresPickupCompletion,
     completePickup,
+    // Delivery order
+    checkDeliveryOrder,
     // Damage functions
     getDamages,
     addDamageItem,
