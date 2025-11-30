@@ -52,12 +52,15 @@ export interface Trip {
   trip_flat_daily_rate: number | null;
 }
 
+export type LoadSource = 'own_customer' | 'partner' | 'marketplace';
+
 export interface Load {
   id: string;
   owner_id: string;
   job_number: string | null;
   load_number: string | null;
   load_type: 'pickup' | 'live_load' | 'company_load' | 'rfd' | 'local' | 'long_distance' | 'intrastate' | 'interstate';
+  load_source: LoadSource | null;
   service_type: string | null;
   company_id: string | null;
   status: string;
@@ -86,9 +89,27 @@ export interface Load {
   pieces_count: number | null;
   description: string | null;
   // Pricing
+  rate_per_cuft: number | null;
   total_rate: number | null;
   total_revenue: number | null;
   balance_due_on_delivery: number | null;
+  // Contract details (for partner/marketplace loads)
+  contract_details_entered_at: string | null;
+  contract_job_number: string | null;
+  contract_balance_due: number | null;
+  contract_linehaul_total: number | null;
+  amount_company_owes: number | null;
+  contract_accessorials_shuttle: number | null;
+  contract_accessorials_stairs: number | null;
+  contract_accessorials_long_carry: number | null;
+  contract_accessorials_bulky: number | null;
+  contract_accessorials_packing: number | null;
+  contract_accessorials_other: number | null;
+  contract_accessorials_notes: string | null;
+  // Customer details
+  customer_name: string | null;
+  customer_phone: string | null;
+  delivery_address_full: string | null;
   // Collection
   amount_collected_on_delivery: number | null;
   payment_method: string | null;

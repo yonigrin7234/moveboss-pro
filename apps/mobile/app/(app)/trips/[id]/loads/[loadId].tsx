@@ -12,7 +12,7 @@ import {
   Image,
   Modal,
 } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useLoadDetail } from '../../../../../hooks/useLoadDetail';
 import { useLoadActions } from '../../../../../hooks/useLoadActions';
@@ -23,6 +23,7 @@ import { LoadStatus } from '../../../../../types';
 
 export default function LoadDetailScreen() {
   const { id: tripId, loadId } = useLocalSearchParams<{ id: string; loadId: string }>();
+  const router = useRouter();
   const { load, loading, error, refetch } = useLoadDetail(loadId);
   const actions = useLoadActions(loadId, refetch);
 
@@ -149,10 +150,13 @@ export default function LoadDetailScreen() {
             {/* Action Card - shows next action based on status */}
             <WorkflowActionCard
               loadId={loadId}
+              tripId={tripId}
               loadStatus={load.load_status}
+              loadSource={load.load_source}
               actions={actions}
               balanceDue={load.balance_due_on_delivery}
               company={load.companies}
+              router={router}
             />
 
             {/* Contact Company Card - quick access to dispatcher */}
@@ -340,16 +344,22 @@ function TrustLevelBadge({ trustLevel }: { trustLevel: 'trusted' | 'cod_required
 // Workflow Action Card
 function WorkflowActionCard({
   loadId,
+  tripId,
   loadStatus,
+  loadSource,
   actions,
   balanceDue,
   company,
+  router,
 }: {
   loadId: string;
+  tripId: string;
   loadStatus: LoadStatus;
+  loadSource: 'own_customer' | 'partner' | 'marketplace' | null;
   actions: ReturnType<typeof useLoadActions>;
   balanceDue: number | null;
   company?: { name: string; phone: string | null; trust_level?: 'trusted' | 'cod_required' } | null;
+  router: ReturnType<typeof useRouter>;
 }) {
   const trustLevel = company?.trust_level || 'cod_required';
   const [cuftInput, setCuftInput] = useState('');
@@ -357,6 +367,9 @@ function WorkflowActionCard({
   const [photo, setPhoto] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { uploading, progress, uploadLoadPhoto } = useImageUpload();
+
+  // Check if this load requires contract details entry after loading
+  const requiresContractDetails = loadSource === 'partner' || loadSource === 'marketplace';
 
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -483,6 +496,38 @@ function WorkflowActionCard({
 
   // Loading → Finish Loading
   if (loadStatus === 'loading') {
+    const handleFinishLoading = async () => {
+      setSubmitting(true);
+      try {
+        let photoUrl: string | undefined;
+
+        if (photo) {
+          const uploadResult = await uploadLoadPhoto(photo, loadId, 'loading-end');
+          if (!uploadResult.success) {
+            Alert.alert('Upload Error', uploadResult.error || 'Failed to upload photo');
+            return;
+          }
+          photoUrl = uploadResult.url;
+        }
+
+        const result = await actions.finishLoading(cuftInput ? parseFloat(cuftInput) : undefined, photoUrl);
+        if (!result.success) {
+          Alert.alert('Error', result.error || 'Action failed');
+          return;
+        }
+
+        setPhoto(null);
+        setCuftInput('');
+
+        // Navigate to contract details if this is a partner/marketplace load
+        if (requiresContractDetails) {
+          router.push(`/trips/${tripId}/loads/${loadId}/contract-details`);
+        }
+      } finally {
+        setSubmitting(false);
+      }
+    };
+
     return (
       <View style={styles.actionCard}>
         <Text style={styles.actionTitle}>Finish Loading</Text>
@@ -511,16 +556,18 @@ function WorkflowActionCard({
         )}
         <TouchableOpacity
           style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
-          onPress={() => handleActionWithPhoto(
-            (url) => actions.finishLoading(cuftInput ? parseFloat(cuftInput) : undefined, url),
-            'loading-end'
-          )}
+          onPress={handleFinishLoading}
           disabled={isLoading}
         >
           <Text style={styles.primaryButtonText}>
             {buttonText || 'Finish Loading'}
           </Text>
         </TouchableOpacity>
+        {requiresContractDetails && (
+          <Text style={styles.contractDetailsHint}>
+            You'll enter contract details next
+          </Text>
+        )}
       </View>
     );
   }
@@ -1118,6 +1165,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 16,
+  },
+  contractDetailsHint: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 12,
+    fontStyle: 'italic',
   },
   primaryButton: {
     backgroundColor: '#fff',
