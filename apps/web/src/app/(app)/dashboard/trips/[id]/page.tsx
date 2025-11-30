@@ -10,6 +10,7 @@ import {
   addTripLoadInputSchema,
   removeLoadFromTrip,
   reorderTripLoads,
+  confirmDeliveryOrder,
   createTripExpense,
   newTripExpenseInputSchema,
   deleteTripExpense,
@@ -347,6 +348,20 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     }
   }
 
+  async function confirmDeliveryOrderAction(): Promise<{ errors?: Record<string, string>; success?: boolean } | null> {
+    'use server';
+    const currentUser = await getCurrentUser();
+    if (!currentUser) return { errors: { _form: 'Not authenticated' } };
+
+    try {
+      await confirmDeliveryOrder(id, currentUser.id);
+      revalidatePath(`/dashboard/trips/${id}`);
+      return { success: true };
+    } catch (error) {
+      return { errors: { _form: error instanceof Error ? error.message : 'Failed to notify driver' } };
+    }
+  }
+
   async function reassignDriverAction(
     formData: FormData
   ): Promise<{ errors?: Record<string, string>; success?: boolean } | null> {
@@ -393,6 +408,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
         recalculateSettlement: recalculateSettlementAction,
         updateDriverSharing: updateDriverSharingAction,
         reorderLoads: reorderLoadsAction,
+        confirmDeliveryOrder: confirmDeliveryOrderAction,
         reassignDriver: reassignDriverAction,
       }}
     />

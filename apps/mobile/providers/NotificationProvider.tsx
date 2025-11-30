@@ -38,14 +38,27 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       switch (data.type) {
         case 'trip_assigned':
         case 'load_status_changed':
+        case 'load_removed':
           if (data.tripId) {
             router.push(`/(app)/trips/${data.tripId}`);
           }
           break;
 
         case 'load_assigned':
+        case 'load_added':
           if (data.tripId && data.loadId) {
             router.push(`/(app)/trips/${data.tripId}/loads/${data.loadId}`);
+          } else if (data.tripId) {
+            router.push(`/(app)/trips/${data.tripId}`);
+          }
+          break;
+
+        case 'delivery_order_changed':
+          // Navigate to load if specified, otherwise trip
+          if (data.tripId && data.loadId) {
+            router.push(`/(app)/trips/${data.tripId}/loads/${data.loadId}`);
+          } else if (data.tripId) {
+            router.push(`/(app)/trips/${data.tripId}`);
           }
           break;
 

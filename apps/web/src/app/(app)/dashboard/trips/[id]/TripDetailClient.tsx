@@ -86,6 +86,7 @@ interface TripDetailClientProps {
     recalculateSettlement: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
     updateDriverSharing: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
     reorderLoads: (items: { load_id: string; sequence_index: number }[]) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
+    confirmDeliveryOrder: () => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
     reassignDriver: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
   };
 }
@@ -238,6 +239,8 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, loadT
   const [orderedLoads, setOrderedLoads] = useState(() =>
     [...trip.loads].sort((a, b) => a.sequence_index - b.sequence_index)
   );
+  const [hasOrderChanges, setHasOrderChanges] = useState(false);
+  const [isPushingToDriver, setIsPushingToDriver] = useState(false);
 
   // Sync orderedLoads when trip.loads prop changes (e.g., after adding/removing loads)
   useEffect(() => {
@@ -272,12 +275,37 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, loadT
           }));
           actions.reorderLoads(reorderPayload);
 
+          // Mark that we have unsaved changes to push to driver
+          setHasOrderChanges(true);
+
           return newItems;
         });
       }
     },
     [actions]
   );
+
+  const handlePushToDriver = useCallback(async () => {
+    setIsPushingToDriver(true);
+    try {
+      const result = await actions.confirmDeliveryOrder();
+      if (result?.success) {
+        setHasOrderChanges(false);
+        toast({
+          title: 'Notification sent',
+          description: 'Driver has been notified of the updated delivery order.',
+        });
+      } else if (result?.errors) {
+        toast({
+          title: 'Failed to notify driver',
+          description: result.errors._form || 'An error occurred',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setIsPushingToDriver(false);
+    }
+  }, [actions, toast]);
 
   const tripDriver = Array.isArray(trip.driver) ? trip.driver[0] : trip.driver;
   const tripTruck = Array.isArray(trip.truck) ? trip.truck[0] : trip.truck;
@@ -359,6 +387,27 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, loadT
           <TabsTrigger value="expenses">Expenses</TabsTrigger>
           <TabsTrigger value="settlement">Settlement</TabsTrigger>
         </TabsList>
+
+        {/* Push to Driver Banner - shows when delivery order has been changed (visible on all tabs) */}
+        {hasOrderChanges && tripDriver && (
+          <Card className="border-amber-500/50 bg-amber-500/10 mb-4">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="font-medium text-amber-400">Delivery order changed</p>
+                <p className="text-sm text-muted-foreground">
+                  Push the new order to {tripDriver.first_name} when you&apos;re done.
+                </p>
+              </div>
+              <Button
+                onClick={handlePushToDriver}
+                disabled={isPushingToDriver}
+                className="bg-amber-500 hover:bg-amber-600 text-white"
+              >
+                {isPushingToDriver ? 'Sending...' : 'Push to Driver'}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="mt-0">
@@ -954,6 +1003,7 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, loadT
             })}
             onReorderLoads={async (items) => {
               await actions.reorderLoads(items);
+              setHasOrderChanges(true);
             }}
           />
         </TabsContent>

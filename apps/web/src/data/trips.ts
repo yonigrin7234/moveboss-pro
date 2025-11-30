@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase-server';
 import type { Load } from '@/data/loads';
 import { computeTripFinancialsWithDriverPay, snapshotDriverCompensation, type TripFinancialResult } from '@/data/trip-financials';
-import { notifyDriverTripAssigned } from '@/lib/push-notifications';
+import { notifyDriverTripAssigned, notifyDriverLoadAddedToTrip, notifyDriverLoadRemovedFromTrip, notifyDriverDeliveryOrderChanged } from '@/lib/push-notifications';
 
 export const tripStatusSchema = z.enum(['planned', 'active', 'en_route', 'completed', 'settled', 'cancelled']);
 export const tripExpenseCategorySchema = z.enum([
@@ -871,11 +871,30 @@ export async function addLoadToTrip(
     .eq('id', tripId)
     .single();
 
+  // Count existing loads on this trip to set delivery_order
+  const { count: existingLoadsCount } = await supabase
+    .from('trip_loads')
+    .select('id', { count: 'exact', head: true })
+    .eq('trip_id', tripId)
+    .eq('owner_id', userId);
+
+  const deliveryOrder = (existingLoadsCount ?? 0) + 1;
+
+  // Set delivery_order on the load
+  await supabase
+    .from('loads')
+    .update({
+      delivery_order: deliveryOrder,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', input.load_id)
+    .eq('owner_id', userId);
+
   const payload = {
     owner_id: userId,
     trip_id: tripId,
     load_id: input.load_id,
-    sequence_index: input.sequence_index ?? 0,
+    sequence_index: input.sequence_index ?? (existingLoadsCount ?? 0),
     role: input.role ?? 'primary',
   };
 
@@ -936,12 +955,45 @@ export async function addLoadToTrip(
   }
 
   await computeTripFinancialSummary(supabase, tripId, userId);
+
+  // Send push notification to driver if trip has one assigned
+  if (trip?.driver_id && data.load) {
+    const { data: tripData } = await supabase
+      .from('trips')
+      .select('trip_number')
+      .eq('id', tripId)
+      .single();
+
+    const loadData = data.load as Load;
+    const pickupLocation = [loadData.pickup_city, loadData.pickup_state].filter(Boolean).join(', ') || 'TBD';
+    const deliveryLocation = [loadData.delivery_city, loadData.delivery_state].filter(Boolean).join(', ') || 'TBD';
+
+    notifyDriverLoadAddedToTrip(
+      trip.driver_id,
+      loadData.load_number || loadData.job_number || 'New Load',
+      input.load_id,
+      tripId,
+      parseInt(tripData?.trip_number?.replace(/\D/g, '') || '0', 10),
+      deliveryOrder, // Use the delivery order we just set
+      pickupLocation,
+      deliveryLocation
+    ).catch((err) => {
+      console.error('Failed to send load added notification:', err);
+    });
+  }
+
   return data as TripLoad;
 }
 
 export async function removeLoadFromTrip(tripId: string, loadId: string, userId: string): Promise<void> {
   const supabase = await createClient();
   await assertOwnership(supabase, 'trips', tripId, userId, 'Trip');
+
+  // Get trip and load info BEFORE deletion for notification
+  const [{ data: tripData }, { data: loadData }] = await Promise.all([
+    supabase.from('trips').select('driver_id, trip_number').eq('id', tripId).single(),
+    supabase.from('loads').select('load_number, job_number').eq('id', loadId).single(),
+  ]);
 
   const { error } = await supabase
     .from('trip_loads')
@@ -954,7 +1006,32 @@ export async function removeLoadFromTrip(tripId: string, loadId: string, userId:
     throw new Error(`Failed to remove load from trip: ${error.message}`);
   }
 
+  // Clear delivery_order on the removed load
+  await supabase
+    .from('loads')
+    .update({
+      delivery_order: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', loadId)
+    .eq('owner_id', userId);
+
   await computeTripFinancialSummary(supabase, tripId, userId);
+
+  // Send push notification to driver if trip has one assigned
+  if (tripData?.driver_id) {
+    const loadNumber = loadData?.load_number || loadData?.job_number || 'Load';
+    const tripNumber = parseInt(tripData.trip_number?.replace(/\D/g, '') || '0', 10);
+
+    notifyDriverLoadRemovedFromTrip(
+      tripData.driver_id,
+      loadNumber,
+      tripId,
+      tripNumber
+    ).catch((err) => {
+      console.error('Failed to send load removed notification:', err);
+    });
+  }
 }
 
 export async function reorderTripLoads(
@@ -967,7 +1044,8 @@ export async function reorderTripLoads(
   const supabase = await createClient();
   await assertOwnership(supabase, 'trips', tripId, userId, 'Trip');
 
-  const updates = items.map((item) =>
+  // Update sequence_index on trip_loads
+  const tripLoadUpdates = items.map((item) =>
     supabase
       .from('trip_loads')
       .update({ sequence_index: item.sequence_index })
@@ -976,12 +1054,59 @@ export async function reorderTripLoads(
       .eq('owner_id', userId)
   );
 
-  const results = await Promise.all(updates);
+  // Also update delivery_order on loads table (1-indexed for display)
+  const loadOrderUpdates = items.map((item) =>
+    supabase
+      .from('loads')
+      .update({
+        delivery_order: item.sequence_index + 1,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', item.load_id)
+      .eq('owner_id', userId)
+  );
+
+  const results = await Promise.all([...tripLoadUpdates, ...loadOrderUpdates]);
   for (const result of results) {
     if (result.error) {
       throw new Error(`Failed to reorder trip loads: ${result.error.message}`);
     }
   }
+
+  // NOTE: No notification sent here - owner may be experimenting with order.
+  // Use confirmDeliveryOrder() when owner is done to notify driver.
+}
+
+/**
+ * Confirm delivery order and notify driver.
+ * Call this when owner is done arranging loads and wants to push changes to driver.
+ */
+export async function confirmDeliveryOrder(
+  tripId: string,
+  userId: string
+): Promise<void> {
+  const supabase = await createClient();
+  await assertOwnership(supabase, 'trips', tripId, userId, 'Trip');
+
+  const { data: tripData } = await supabase
+    .from('trips')
+    .select('driver_id, trip_number')
+    .eq('id', tripId)
+    .single();
+
+  if (!tripData?.driver_id) {
+    // No driver assigned, nothing to notify
+    return;
+  }
+
+  const tripNumber = parseInt(tripData.trip_number?.replace(/\D/g, '') || '0', 10);
+
+  await notifyDriverDeliveryOrderChanged(
+    tripData.driver_id,
+    tripId,
+    tripNumber,
+    `Delivery order has been updated for Trip #${tripNumber}. Check the new sequence.`
+  );
 }
 
 export async function listTripExpenses(tripId: string, userId: string): Promise<TripExpense[]> {

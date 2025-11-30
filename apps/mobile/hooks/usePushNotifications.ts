@@ -20,6 +20,9 @@ Notifications.setNotificationHandler({
 export type NotificationType =
   | 'trip_assigned'
   | 'load_assigned'
+  | 'load_added'
+  | 'load_removed'
+  | 'delivery_order_changed'
   | 'load_status_changed'
   | 'payment_received'
   | 'settlement_approved'

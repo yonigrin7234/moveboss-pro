@@ -18,6 +18,9 @@ const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 export type PushNotificationType =
   | 'trip_assigned'
   | 'load_assigned'
+  | 'load_added'
+  | 'load_removed'
+  | 'delivery_order_changed'
   | 'load_status_changed'
   | 'payment_received'
   | 'settlement_approved'
@@ -475,6 +478,115 @@ export async function notifyDriverMessage(
     type: 'message',
     ...data,
   });
+}
+
+/**
+ * Notify driver when a load is ADDED to their trip
+ * AGGRESSIVE: High priority notification
+ */
+export async function notifyDriverLoadAddedToTrip(
+  driverId: string,
+  loadNumber: string,
+  loadId: string,
+  tripId: string,
+  tripNumber: number,
+  deliveryOrder: number | null,
+  pickupLocation: string,
+  deliveryLocation: string
+): Promise<void> {
+  const orderText = deliveryOrder ? ` (Delivery #${deliveryOrder})` : '';
+  await sendPushToDriver(
+    driverId,
+    '🚨 NEW LOAD ADDED',
+    `Load ${loadNumber}${orderText} added to Trip #${tripNumber}: ${pickupLocation} → ${deliveryLocation}`,
+    {
+      type: 'load_added',
+      loadId,
+      tripId,
+    },
+    { channelId: 'trips', sound: 'default' }
+  );
+}
+
+/**
+ * Notify driver when a load is REMOVED from their trip
+ * AGGRESSIVE: High priority notification
+ */
+export async function notifyDriverLoadRemovedFromTrip(
+  driverId: string,
+  loadNumber: string,
+  tripId: string,
+  tripNumber: number,
+  reason?: string
+): Promise<void> {
+  const reasonText = reason ? ` - ${reason}` : '';
+  await sendPushToDriver(
+    driverId,
+    '⚠️ LOAD REMOVED',
+    `Load ${loadNumber} removed from Trip #${tripNumber}${reasonText}`,
+    {
+      type: 'load_removed',
+      tripId,
+    },
+    { channelId: 'trips', sound: 'default' }
+  );
+}
+
+/**
+ * Notify driver when delivery order changes
+ * AGGRESSIVE: High priority notification - affects which load they can deliver next
+ */
+export async function notifyDriverDeliveryOrderChanged(
+  driverId: string,
+  tripId: string,
+  tripNumber: number,
+  message?: string
+): Promise<void> {
+  await sendPushToDriver(
+    driverId,
+    '🔄 DELIVERY ORDER CHANGED',
+    message || `Delivery order updated for Trip #${tripNumber}. Check your loads for new sequence.`,
+    {
+      type: 'delivery_order_changed',
+      tripId,
+    },
+    { channelId: 'trips', sound: 'default' }
+  );
+}
+
+/**
+ * Notify driver of specific load delivery order change
+ * AGGRESSIVE: Tells driver exactly what changed
+ */
+export async function notifyDriverLoadOrderChanged(
+  driverId: string,
+  loadNumber: string,
+  loadId: string,
+  tripId: string,
+  tripNumber: number,
+  oldOrder: number | null,
+  newOrder: number | null
+): Promise<void> {
+  let message: string;
+  if (oldOrder && newOrder) {
+    message = `Load ${loadNumber} moved from delivery #${oldOrder} to #${newOrder} in Trip #${tripNumber}`;
+  } else if (newOrder) {
+    message = `Load ${loadNumber} is now delivery #${newOrder} in Trip #${tripNumber}`;
+  } else {
+    message = `Delivery order removed for load ${loadNumber} in Trip #${tripNumber}`;
+  }
+
+  await sendPushToDriver(
+    driverId,
+    '🔄 LOAD ORDER CHANGED',
+    message,
+    {
+      type: 'delivery_order_changed',
+      loadId,
+      tripId,
+    },
+    { channelId: 'trips', sound: 'default' }
+  );
 }
 
 // ============================================
