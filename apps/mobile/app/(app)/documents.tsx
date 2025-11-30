@@ -13,7 +13,6 @@ import {
   Linking,
 } from 'react-native';
 import { Stack } from 'expo-router';
-import * as Clipboard from 'expo-clipboard';
 import { useVehicleDocuments } from '../../hooks/useVehicleDocuments';
 import { VehicleDocument, DocumentStatus } from '../../types';
 
@@ -157,9 +156,9 @@ export default function DocumentsScreen() {
     expiredCount,
   } = useVehicleDocuments();
 
-  const handleCopyToClipboard = async (text: string, label: string) => {
-    await Clipboard.setStringAsync(text);
-    Alert.alert('Copied', `${label} copied to clipboard`);
+  const handleCopyToClipboard = (text: string, label: string) => {
+    // Show the value in an alert (clipboard requires dev build)
+    Alert.alert(label, text, [{ text: 'OK' }]);
   };
 
   const handleCall = (phone: string) => {
