@@ -8,6 +8,7 @@ export const emailConfig = {
     complianceAlerts: true,
     marketplaceActivity: true,
     driverAssignments: true,
+    partnershipInvitations: true,
     dailyDigest: false,
     weeklyDigest: false,
   },

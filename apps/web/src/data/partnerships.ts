@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase-server';
+import { sendPartnershipInvitationEmail } from '@/lib/email/notifications';
 
 export interface PartnerCompany {
   id: string;
@@ -403,6 +404,25 @@ export async function createInvitation(
     return { success: false, error: error.message };
   }
 
+  // Send invitation email if we have an email address
+  if (data.to_email && result.invitation_token) {
+    const emailResult = await sendPartnershipInvitationEmail({
+      toEmail: data.to_email,
+      toCompanyName: data.to_company_name,
+      fromCompanyId: data.from_company_id,
+      fromOwnerId: ownerId,
+      relationshipType: data.relationship_type,
+      message: data.message,
+      invitationToken: result.invitation_token,
+    });
+
+    if (!emailResult.success) {
+      console.error('Error sending invitation email:', emailResult.error);
+      // We still return success since the invitation was created
+      // The email error is logged but doesn't fail the whole operation
+    }
+  }
+
   return { success: true, id: result.id, token: result.invitation_token };
 }
 
@@ -433,4 +453,129 @@ export async function deletePartnership(
   ownerId: string
 ): Promise<{ success: boolean; error?: string }> {
   return updatePartnershipStatus(id, ownerId, 'terminated', 'Deleted by owner');
+}
+
+// Get invitation by token (for accepting)
+export async function getInvitationByToken(token: string): Promise<{
+  invitation: (PartnershipInvitation & { from_company: { id: string; name: string } }) | null;
+  error?: string;
+}> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('partnership_invitations')
+    .select(
+      `
+      *,
+      from_company:companies!partnership_invitations_from_company_id_fkey(id, name)
+    `
+    )
+    .eq('invitation_token', token)
+    .single();
+
+  if (error) {
+    console.error('Error fetching invitation:', error);
+    return { invitation: null, error: 'Invitation not found' };
+  }
+
+  // Check if expired
+  if (new Date(data.expires_at) < new Date()) {
+    return { invitation: null, error: 'This invitation has expired' };
+  }
+
+  // Check status
+  if (data.status !== 'pending') {
+    return { invitation: null, error: `This invitation has already been ${data.status}` };
+  }
+
+  return { invitation: data };
+}
+
+// Accept partnership invitation
+export async function acceptPartnershipInvitation(
+  token: string,
+  acceptingUserId: string,
+  acceptingCompanyId: string
+): Promise<{ success: boolean; partnershipId?: string; error?: string }> {
+  const supabase = await createClient();
+
+  // Get invitation
+  const { invitation, error: fetchError } = await getInvitationByToken(token);
+
+  if (!invitation || fetchError) {
+    return { success: false, error: fetchError || 'Invitation not found' };
+  }
+
+  // Create the partnership
+  const { data: partnership, error: partnershipError } = await supabase
+    .from('company_partnerships')
+    .insert({
+      owner_id: acceptingUserId,
+      company_a_id: invitation.from_company_id,
+      company_b_id: acceptingCompanyId,
+      initiated_by_id: invitation.from_company_id,
+      relationship_type: invitation.relationship_type,
+      status: 'active',
+      approved_at: new Date().toISOString(),
+      payment_terms: 'net_30',
+    })
+    .select('id')
+    .single();
+
+  if (partnershipError) {
+    console.error('Error creating partnership:', partnershipError);
+    return { success: false, error: 'Failed to create partnership' };
+  }
+
+  // Also create a reverse partnership for the inviting company
+  await supabase.from('company_partnerships').insert({
+    owner_id: invitation.from_owner_id,
+    company_a_id: invitation.from_company_id,
+    company_b_id: acceptingCompanyId,
+    initiated_by_id: invitation.from_company_id,
+    relationship_type: invitation.relationship_type,
+    status: 'active',
+    approved_at: new Date().toISOString(),
+    payment_terms: 'net_30',
+  });
+
+  // Update invitation status
+  await supabase
+    .from('partnership_invitations')
+    .update({
+      status: 'accepted',
+      responded_at: new Date().toISOString(),
+      to_company_id: acceptingCompanyId,
+    })
+    .eq('id', invitation.id);
+
+  return { success: true, partnershipId: partnership.id };
+}
+
+// Decline partnership invitation
+export async function declinePartnershipInvitation(
+  token: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  const { invitation, error: fetchError } = await getInvitationByToken(token);
+
+  if (!invitation || fetchError) {
+    return { success: false, error: fetchError || 'Invitation not found' };
+  }
+
+  const { error } = await supabase
+    .from('partnership_invitations')
+    .update({
+      status: 'declined',
+      responded_at: new Date().toISOString(),
+    })
+    .eq('id', invitation.id);
+
+  if (error) {
+    console.error('Error declining invitation:', error);
+    return { success: false, error: 'Failed to decline invitation' };
+  }
+
+  return { success: true };
 }

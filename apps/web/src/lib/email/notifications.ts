@@ -4,6 +4,10 @@ import { loadStatusEmail, LoadStatusEmailData } from './templates/load-status';
 import { complianceAlertEmail, ComplianceAlertEmailData } from './templates/compliance';
 import { marketplaceEmail, MarketplaceEmailData } from './templates/marketplace';
 import { driverAssignmentEmail, DriverAssignmentEmailData } from './templates/driver-assignment';
+import {
+  partnershipInvitationEmail,
+  PartnershipInvitationEmailData,
+} from './templates/partnership-invitation';
 import { createClient } from '@/lib/supabase-server';
 
 // Get user email preferences
@@ -465,6 +469,62 @@ export async function notifyDriverAssigned(loadId: string, driverId: string): Pr
   await sendEmail({
     to: user.email,
     subject: `Driver Assigned: ${driver.first_name} ${driver.last_name} for Load ${load.load_number}`,
+    html,
+  });
+}
+
+// ============================================
+// PARTNERSHIP INVITATION NOTIFICATIONS
+// ============================================
+
+export async function sendPartnershipInvitationEmail(data: {
+  toEmail: string;
+  toCompanyName?: string;
+  fromCompanyId: string;
+  fromOwnerId: string;
+  relationshipType: string;
+  message?: string;
+  invitationToken: string;
+}): Promise<{ success: boolean; error?: string }> {
+  if (!emailConfig.enabled.partnershipInvitations) {
+    return { success: true };
+  }
+
+  const supabase = await createClient();
+
+  // Get sender's info
+  const { data: sender } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', data.fromOwnerId)
+    .single();
+
+  const { data: fromCompany } = await supabase
+    .from('companies')
+    .select('name')
+    .eq('id', data.fromCompanyId)
+    .single();
+
+  if (!fromCompany) {
+    return { success: false, error: 'Sender company not found' };
+  }
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const acceptUrl = `${baseUrl}/invitation/${data.invitationToken}`;
+
+  const html = partnershipInvitationEmail({
+    recipientEmail: data.toEmail,
+    recipientCompanyName: data.toCompanyName,
+    senderName: sender?.full_name || 'A user',
+    senderCompanyName: fromCompany.name,
+    relationshipType: data.relationshipType,
+    message: data.message,
+    acceptUrl,
+  });
+
+  return await sendEmail({
+    to: data.toEmail,
+    subject: `${fromCompany.name} has invited you to partner on MoveBoss Pro`,
     html,
   });
 }
