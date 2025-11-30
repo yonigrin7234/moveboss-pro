@@ -31,36 +31,20 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
           </p>
         </div>
 
-        <div className="space-y-8">
-          <div className="space-y-2">
-            <h3 className="text-xl font-semibold">Streamline Your Operations</h3>
-            <p className="text-primary-foreground/80">
-              Manage loads, trips, drivers, and finances all in one place.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-primary-foreground/10 rounded-lg p-4">
-              <p className="text-3xl font-bold">500+</p>
-              <p className="text-sm text-primary-foreground/80">Active Carriers</p>
-            </div>
-            <div className="bg-primary-foreground/10 rounded-lg p-4">
-              <p className="text-3xl font-bold">50k+</p>
-              <p className="text-sm text-primary-foreground/80">Loads Delivered</p>
-            </div>
-            <div className="bg-primary-foreground/10 rounded-lg p-4">
-              <p className="text-3xl font-bold">98%</p>
-              <p className="text-sm text-primary-foreground/80">On-Time Rate</p>
-            </div>
-            <div className="bg-primary-foreground/10 rounded-lg p-4">
-              <p className="text-3xl font-bold">4.9</p>
-              <p className="text-sm text-primary-foreground/80">User Rating</p>
-            </div>
-          </div>
+        <div className="space-y-6">
+          <p className="text-lg text-primary-foreground/90">
+            Built for modern moving companies.
+          </p>
+          <p className="text-lg text-primary-foreground/90">
+            One platform for loads, trips, drivers & finances.
+          </p>
+          <p className="text-lg text-primary-foreground/90">
+            Designed for carriers, brokers, and owner-operators.
+          </p>
         </div>
 
         <p className="text-sm text-primary-foreground/60">
-          © 2024 MoveBoss Pro. All rights reserved.
+          © 2025 MoveBoss Pro. All rights reserved.
         </p>
       </div>
 
