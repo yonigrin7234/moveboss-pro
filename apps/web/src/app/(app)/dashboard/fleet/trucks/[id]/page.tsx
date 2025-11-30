@@ -71,6 +71,12 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
       'rental_company_other',
       'rental_truck_number',
       'notes',
+      // Document photo URLs
+      'registration_photo_url',
+      'insurance_photo_url',
+      'ifta_photo_url',
+      'inspection_photo_url',
+      'permit_photo_url',
     ];
 
     const rawData = extractFormValues(formData, fields, {
@@ -155,6 +161,12 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
     rental_company_other: truck.rental_company_other ?? undefined,
     rental_truck_number: truck.rental_truck_number ?? undefined,
     notes: truck.notes ?? undefined,
+    // Document photo URLs
+    registration_photo_url: (truck as any).registration_photo_url ?? undefined,
+    insurance_photo_url: (truck as any).insurance_photo_url ?? undefined,
+    ifta_photo_url: (truck as any).ifta_photo_url ?? undefined,
+    inspection_photo_url: (truck as any).inspection_photo_url ?? undefined,
+    permit_photo_url: (truck as any).permit_photo_url ?? undefined,
   };
 
   const statusColors: Record<string, string> = {

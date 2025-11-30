@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Card,
@@ -24,6 +24,12 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+
+// Document field mappings for trailers
+const DOC_FIELD_MAP: Record<string, string> = {
+  registration_file: 'registration_photo_url',
+  inspection_file: 'inspection_photo_url',
+};
 
 // Helper component for Select with hidden input
 function SelectWithHiddenInput({
@@ -92,15 +98,19 @@ export function TrailerForm({
     assignedDriverId: initialData?.assigned_driver_id || '',
   });
   const docTiles = [
-    { id: 'registration_file', label: 'Registration copy' },
-    { id: 'insurance_file', label: 'Insurance' },
-    { id: 'maintenance_file', label: 'Maintenance records' },
+    { id: 'registration_file', label: 'Registration', urlField: 'registration_photo_url' },
+    { id: 'inspection_file', label: 'Inspection', urlField: 'inspection_photo_url' },
   ];
   const [docPreviews, setDocPreviews] = useState<Record<string, { name: string; url: string } | null>>({
     registration_file: null,
-    insurance_file: null,
-    maintenance_file: null,
+    inspection_file: null,
   });
+  // State for uploaded document URLs (persisted to database)
+  const [docUrls, setDocUrls] = useState<Record<string, string>>({
+    registration_photo_url: (initialData as any)?.registration_photo_url || '',
+    inspection_photo_url: (initialData as any)?.inspection_photo_url || '',
+  });
+  const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
   const setDocPreview = (key: string, file?: File | null) => {
     setDocPreviews((prev) => {
       const existing = prev[key];
@@ -109,6 +119,54 @@ export function TrailerForm({
       return { ...prev, [key]: { name: file.name, url: URL.createObjectURL(file) } };
     });
   };
+
+  // Upload document to Supabase storage and store URL
+  const handleDocUpload = async (inputId: string, file: File) => {
+    const urlField = DOC_FIELD_MAP[inputId];
+    if (!urlField) return;
+
+    setUploadingDoc(inputId);
+    setDocPreview(inputId, file);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bucket', 'documents');
+      formData.append('folder', 'trailers');
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Upload failed');
+      }
+
+      const data = await response.json();
+      const publicUrl = data.url || data.publicUrl;
+
+      if (publicUrl) {
+        setDocUrls((prev) => ({ ...prev, [urlField]: publicUrl }));
+        toast({
+          title: 'Document uploaded',
+          description: `${file.name} uploaded successfully.`,
+        });
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: 'Upload failed',
+        description: error instanceof Error ? error.message : 'Failed to upload document',
+        variant: 'destructive',
+      });
+      setDocPreview(inputId, null);
+    } finally {
+      setUploadingDoc(null);
+    }
+  };
+
   useEffect(() => {
     return () => {
       Object.values(docPreviews).forEach((item) => {
@@ -462,73 +520,69 @@ export function TrailerForm({
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Documents</CardTitle>
               <p className="text-xs text-muted-foreground">
-                Registration, insurance, and maintenance records for quick access.
+                Registration and inspection documents for quick access.
               </p>
             </CardHeader>
             <CardContent className="space-y-2.5">
+              {/* Hidden inputs for document URLs */}
+              {Object.entries(docUrls).map(([field, url]) => (
+                <input key={field} type="hidden" name={field} value={url} />
+              ))}
+
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="registration_file" className="text-sm">Registration</Label>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <Input
                       id="registration_file"
-                      name="registration_file"
                       type="file"
                       accept="image/*,application/pdf"
-                      onChange={(event) => setDocPreview('registration_file', event.target.files?.[0] || null)}
+                      disabled={uploadingDoc === 'registration_file'}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) handleDocUpload('registration_file', file);
+                      }}
+                      className="flex-1"
                     />
-                    {docPreviews.registration_file?.url && (
-                      <button
-                        type="button"
-                        className="text-xs text-primary underline"
-                        onClick={() => window.open(docPreviews.registration_file!.url, '_blank')}
+                    {uploadingDoc === 'registration_file' && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {docUrls.registration_photo_url && (
+                      <a
+                        href={docUrls.registration_photo_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:text-primary/80"
                       >
-                        View
-                      </button>
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
                     )}
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="insurance_file" className="text-sm">Insurance</Label>
-                  <div className="flex items-center gap-3">
+                  <Label htmlFor="inspection_file" className="text-sm">Inspection</Label>
+                  <div className="flex items-center gap-2">
                     <Input
-                      id="insurance_file"
-                      name="insurance_file"
+                      id="inspection_file"
                       type="file"
                       accept="image/*,application/pdf"
-                      onChange={(event) => setDocPreview('insurance_file', event.target.files?.[0] || null)}
+                      disabled={uploadingDoc === 'inspection_file'}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) handleDocUpload('inspection_file', file);
+                      }}
+                      className="flex-1"
                     />
-                    {docPreviews.insurance_file?.url && (
-                      <button
-                        type="button"
-                        className="text-xs text-primary underline"
-                        onClick={() => window.open(docPreviews.insurance_file!.url, '_blank')}
+                    {uploadingDoc === 'inspection_file' && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {docUrls.inspection_photo_url && (
+                      <a
+                        href={docUrls.inspection_photo_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:text-primary/80"
                       >
-                        View
-                      </button>
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
                     )}
                   </div>
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="maintenance_file" className="text-sm">Maintenance records</Label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    id="maintenance_file"
-                    name="maintenance_file"
-                    type="file"
-                    accept="image/*,application/pdf"
-                    onChange={(event) => setDocPreview('maintenance_file', event.target.files?.[0] || null)}
-                  />
-                  {docPreviews.maintenance_file?.url && (
-                    <button
-                      type="button"
-                      className="text-xs text-primary underline"
-                      onClick={() => window.open(docPreviews.maintenance_file!.url, '_blank')}
-                    >
-                      View
-                    </button>
-                  )}
                 </div>
               </div>
             </CardContent>
@@ -597,9 +651,12 @@ export function TrailerForm({
           </div>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           {docTiles.map((tile) => {
-            const ok = Boolean(docPreviews[tile.id]?.url);
+            const hasUploadedUrl = Boolean(docUrls[tile.urlField]);
+            const hasPreview = Boolean(docPreviews[tile.id]?.url);
+            const isUploading = uploadingDoc === tile.id;
+            const ok = hasUploadedUrl || hasPreview;
             return (
               <button
                 key={tile.id}
@@ -614,16 +671,24 @@ export function TrailerForm({
                   <div>
                     <CardTitle className="text-sm font-semibold">{tile.label}</CardTitle>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {ok ? 'Added — tap to view or replace.' : 'Missing — tap to add this file.'}
+                      {isUploading
+                        ? 'Uploading...'
+                        : ok
+                        ? 'Added — tap to view or replace.'
+                        : 'Missing — tap to add this file.'}
                     </p>
                   </div>
                   <span
                     className={cn(
                       "inline-flex items-center rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide",
-                      ok ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-muted-foreground"
+                      isUploading
+                        ? "bg-blue-500/10 text-blue-600"
+                        : ok
+                        ? "bg-emerald-500/10 text-emerald-600"
+                        : "bg-muted text-muted-foreground"
                     )}
                   >
-                    {ok ? 'Ready' : 'Pending'}
+                    {isUploading ? 'Uploading' : ok ? 'Ready' : 'Pending'}
                   </span>
                 </div>
               </button>

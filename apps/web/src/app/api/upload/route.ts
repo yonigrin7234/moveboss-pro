@@ -6,13 +6,21 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 
-const BUCKET = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || 'uploads';
+const DEFAULT_BUCKET = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || 'uploads';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+// Allowed buckets for security
+const ALLOWED_BUCKETS = ['uploads', 'documents', 'load-photos', 'receipts'];
 
 export async function POST(request: Request) {
   const formData = await request.formData();
   const file = formData.get('file');
+  const bucketParam = formData.get('bucket') as string | null;
+  const folderParam = formData.get('folder') as string | null;
+
+  // Validate and select bucket
+  const BUCKET = bucketParam && ALLOWED_BUCKETS.includes(bucketParam) ? bucketParam : DEFAULT_BUCKET;
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: 'File is required' }, { status: 400 });
@@ -22,7 +30,9 @@ export async function POST(request: Request) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const ext = file.name.split('.').pop() || 'jpg';
-    const fileName = `${randomUUID()}.${ext}`;
+    const baseFileName = `${randomUUID()}.${ext}`;
+    // Support folder paths for organizing files
+    const fileName = folderParam ? `${folderParam}/${baseFileName}` : baseFileName;
 
     // Prefer service role for bucket create; fall back to anon for existing buckets
     const hasServiceKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);

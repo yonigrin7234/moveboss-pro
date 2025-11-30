@@ -43,6 +43,12 @@ export default async function NewTruckPage() {
       'rental_company_other',
       'rental_truck_number',
       'notes',
+      // Document photo URLs
+      'registration_photo_url',
+      'insurance_photo_url',
+      'ifta_photo_url',
+      'inspection_photo_url',
+      'permit_photo_url',
     ];
 
     const rawData = extractFormValues(formData, fields, {

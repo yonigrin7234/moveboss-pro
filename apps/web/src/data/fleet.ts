@@ -61,6 +61,28 @@ export const newTruckInputSchema = z.object({
   rental_company_other: z.string().trim().max(100).optional().nullable(),
   rental_truck_number: z.string().trim().max(50).optional().nullable(),
   notes: z.string().trim().max(5000).optional(),
+  // Document photo URLs
+  registration_photo_url: z.string().url().optional().nullable(),
+  insurance_photo_url: z.string().url().optional().nullable(),
+  ifta_photo_url: z.string().url().optional().nullable(),
+  inspection_photo_url: z.string().url().optional().nullable(),
+  permit_photo_url: z.string().url().optional().nullable(),
+  // Additional expiry fields
+  insurance_expiry: z.string().optional().transform((val) => {
+    if (!val || val === '') return undefined;
+    const date = new Date(val);
+    return isNaN(date.getTime()) ? undefined : val;
+  }),
+  ifta_expiry: z.string().optional().transform((val) => {
+    if (!val || val === '') return undefined;
+    const date = new Date(val);
+    return isNaN(date.getTime()) ? undefined : val;
+  }),
+  permit_expiry: z.string().optional().transform((val) => {
+    if (!val || val === '') return undefined;
+    const date = new Date(val);
+    return isNaN(date.getTime()) ? undefined : val;
+  }),
 })
 .refine(
   (data) => {
@@ -102,6 +124,9 @@ export const newTrailerInputSchema = z.object({
   assigned_driver_id: z.string().uuid().optional().nullable(),
   status: trailerStatusSchema.optional().default('active'),
   notes: z.string().trim().max(5000).optional(),
+  // Document photo URLs
+  registration_photo_url: z.string().url().optional().nullable(),
+  inspection_photo_url: z.string().url().optional().nullable(),
 });
 
 export const updateTrailerInputSchema = newTrailerInputSchema.partial();

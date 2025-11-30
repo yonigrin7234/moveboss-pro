@@ -37,6 +37,9 @@ export default async function NewTrailerPage() {
       'assigned_driver_id',
       'status',
       'notes',
+      // Document photo URLs
+      'registration_photo_url',
+      'inspection_photo_url',
     ];
 
     const rawData = extractFormValues(formData, fields);

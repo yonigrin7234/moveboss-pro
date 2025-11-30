@@ -7,6 +7,7 @@ import { getDriversForUser } from '@/data/drivers';
 import { getTrucksForUser, getTrailersForUser } from '@/data/fleet';
 import { getTripsForLoadAssignment, addLoadToTrip } from '@/data/trips';
 import { LoadForm } from '@/components/loads/LoadForm';
+import { LoadPhotos } from '@/components/loads/LoadPhotos';
 import { DeleteLoadButton } from './delete-load-button';
 import { LoadActions } from './load-actions';
 import { cleanFormValues, extractFormValues } from '@/lib/form-data';
@@ -338,6 +339,9 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
         submitLabel="Save changes"
         cancelHref={`/dashboard/loads/${id}`}
       />
+
+      {/* Driver-Uploaded Photos */}
+      <LoadPhotos load={load} />
     </div>
   );
 }

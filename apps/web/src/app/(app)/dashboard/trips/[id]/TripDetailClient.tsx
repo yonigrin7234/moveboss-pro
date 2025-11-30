@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
-import { DollarSign, AlertTriangle, Map, GripVertical } from 'lucide-react';
+import Image from 'next/image';
+import { DollarSign, AlertTriangle, Map, GripVertical, Receipt, X } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -226,6 +227,7 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, loadT
   const [showDeleteTripConfirm, setShowDeleteTripConfirm] = useState(false);
   const [loadToRemove, setLoadToRemove] = useState<string | null>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
+  const [viewingReceiptUrl, setViewingReceiptUrl] = useState<string | null>(null);
   const [shareDriverWithCompanies, setShareDriverWithCompanies] = useState(
     trip.share_driver_with_companies ?? true
   );
@@ -1051,17 +1053,38 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, loadT
                   ) : (
                     <div className="space-y-2">
                       {trip.expenses.map((expense) => (
-                        <div key={expense.id} className="flex items-center justify-between p-3 rounded-md border border-border">
-                          <div>
+                        <div key={expense.id} className="flex items-center gap-3 p-3 rounded-md border border-border">
+                          {/* Receipt Thumbnail */}
+                          {expense.receipt_photo_url ? (
+                            <button
+                              type="button"
+                              onClick={() => setViewingReceiptUrl(expense.receipt_photo_url)}
+                              className="relative h-12 w-12 flex-shrink-0 rounded-md overflow-hidden border bg-muted hover:ring-2 hover:ring-primary transition-all"
+                            >
+                              <Image
+                                src={expense.receipt_photo_url}
+                                alt="Receipt"
+                                fill
+                                className="object-cover"
+                                sizes="48px"
+                              />
+                            </button>
+                          ) : (
+                            <div className="h-12 w-12 flex-shrink-0 rounded-md border bg-muted flex items-center justify-center">
+                              <Receipt className="h-5 w-5 text-muted-foreground" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium">{formatCurrency(expense.amount)}</p>
-                            <p className="text-xs text-muted-foreground capitalize">
+                            <p className="text-xs text-muted-foreground capitalize truncate">
                               {expense.category} • {expense.incurred_at}
+                              {expense.description && ` • ${expense.description}`}
                             </p>
                           </div>
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-red-500 hover:text-red-600"
+                            className="text-red-500 hover:text-red-600 flex-shrink-0"
                             onClick={() => setExpenseToDelete(expense.id)}
                           >
                             Delete
@@ -1383,6 +1406,31 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, loadT
               {isSubmitting ? 'Deleting...' : 'Delete Expense'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Receipt Viewer Dialog */}
+      <Dialog open={!!viewingReceiptUrl} onOpenChange={(open) => !open && setViewingReceiptUrl(null)}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden">
+          <DialogTitle className="sr-only">Receipt Preview</DialogTitle>
+          <button
+            type="button"
+            onClick={() => setViewingReceiptUrl(null)}
+            className="absolute top-2 right-2 z-10 p-2 bg-black/50 rounded-full text-white hover:bg-black/70"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          {viewingReceiptUrl && (
+            <div className="relative w-full h-[80vh]">
+              <Image
+                src={viewingReceiptUrl}
+                alt="Receipt"
+                fill
+                className="object-contain"
+                sizes="100vw"
+              />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -65,6 +65,9 @@ export default async function TrailerDetailPage({ params }: TrailerDetailPagePro
       'assigned_driver_id',
       'status',
       'notes',
+      // Document photo URLs
+      'registration_photo_url',
+      'inspection_photo_url',
     ];
 
     const rawData = extractFormValues(formData, fields);
@@ -112,6 +115,9 @@ export default async function TrailerDetailPage({ params }: TrailerDetailPagePro
     assigned_driver_id: trailer.assigned_driver_id ?? undefined,
     status: trailer.status,
     notes: trailer.notes ?? undefined,
+    // Document photo URLs
+    registration_photo_url: (trailer as any).registration_photo_url ?? undefined,
+    inspection_photo_url: (trailer as any).inspection_photo_url ?? undefined,
   };
 
   const statusColors: Record<string, string> = {
