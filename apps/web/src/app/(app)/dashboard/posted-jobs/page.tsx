@@ -165,7 +165,7 @@ function getRoute(job: PostedJob) {
   return `${origin} → ${dest}`;
 }
 
-function JobCard({ job }: { job: PostedJob }) {
+function JobCard({ job, requestCount }: { job: PostedJob; requestCount: number }) {
   const price = job.posting_type === 'pickup' ? job.balance_due : job.linehaul_amount;
   const priceLabel = job.posting_type === 'pickup' ? 'Balance Due' : 'Linehaul';
   const dateDisplay = job.pickup_date_start && job.pickup_date_end
@@ -173,65 +173,69 @@ function JobCard({ job }: { job: PostedJob }) {
     : formatDate(job.pickup_date);
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="p-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono font-semibold">{job.job_number}</span>
-              {getTypeBadge(job.posting_type, job.load_type)}
-              {getStatusBadge(job.posting_status)}
-              {job.truck_requirement === 'semi_only' && (
-                <Badge className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-0">
-                  🚛 Semi Only
-                </Badge>
-              )}
-              {job.truck_requirement === 'box_truck_only' && (
-                <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">
-                  📦 Box Truck Only
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5" />
-                {getRoute(job)}
-              </span>
-            </div>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Calendar className="h-3.5 w-3.5" />
-                {dateDisplay}
-              </span>
-              <span className="flex items-center gap-1">
-                <Package className="h-3.5 w-3.5" />
-                {job.cubic_feet ?? '-'} CUFT
-              </span>
-              <span className="flex items-center gap-1">
-                <DollarSign className="h-3.5 w-3.5" />
-                {formatCurrency(price)} {priceLabel}
-              </span>
-            </div>
-            {job.assigned_carrier && (
-              <div className="text-sm">
-                <span className="text-muted-foreground">Assigned to: </span>
-                <span className="font-medium">{job.assigned_carrier.name}</span>
+    <Link href={`/dashboard/posted-jobs/${job.id}`}>
+      <Card className="hover:shadow-md transition-shadow cursor-pointer">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-mono font-semibold">{job.job_number}</span>
+                {getTypeBadge(job.posting_type, job.load_type)}
+                {getStatusBadge(job.posting_status)}
+                {requestCount > 0 && job.posting_status === 'posted' && (
+                  <Badge className="bg-orange-500/10 text-orange-600 dark:text-orange-400 border-0">
+                    {requestCount} request{requestCount > 1 ? 's' : ''}
+                  </Badge>
+                )}
+                {job.truck_requirement === 'semi_only' && (
+                  <Badge className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-0">
+                    Semi Only
+                  </Badge>
+                )}
+                {job.truck_requirement === 'box_truck_only' && (
+                  <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">
+                    Box Truck Only
+                  </Badge>
+                )}
               </div>
-            )}
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5" />
+                  {getRoute(job)}
+                </span>
+              </div>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {dateDisplay}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Package className="h-3.5 w-3.5" />
+                  {job.cubic_feet ?? '-'} CUFT
+                </span>
+                <span className="flex items-center gap-1">
+                  <DollarSign className="h-3.5 w-3.5" />
+                  {formatCurrency(price)} {priceLabel}
+                </span>
+              </div>
+              {job.assigned_carrier && (
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Assigned to: </span>
+                  <span className="font-medium">{job.assigned_carrier.name}</span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+              <MarketplaceActions
+                loadId={job.id}
+                postingStatus={job.posting_status}
+                isOwner
+              />
+            </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <MarketplaceActions
-              loadId={job.id}
-              postingStatus={job.posting_status}
-              isOwner
-            />
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/dashboard/loads/${job.id}`}>View</Link>
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
@@ -284,9 +288,29 @@ export default async function PostedJobsPage() {
   }
 
   const jobs = (postedJobs || []) as unknown as PostedJob[];
+
+  // Fetch pending request counts for all posted jobs
+  const jobIds = jobs.map((j) => j.id);
+  const requestCountMap: Record<string, number> = {};
+
+  if (jobIds.length > 0) {
+    const { data: requestCounts } = await supabase
+      .from('load_requests')
+      .select('load_id')
+      .in('load_id', jobIds)
+      .eq('status', 'pending');
+
+    if (requestCounts) {
+      for (const req of requestCounts) {
+        requestCountMap[req.load_id] = (requestCountMap[req.load_id] || 0) + 1;
+      }
+    }
+  }
+
   const pickups = jobs.filter((j) => j.posting_type === 'pickup');
   const loads = jobs.filter((j) => j.posting_type === 'load');
   const activeJobs = jobs.filter((j) => ['posted', 'assigned', 'in_progress'].includes(j.posting_status));
+  const totalPendingRequests = Object.values(requestCountMap).reduce((sum, count) => sum + count, 0);
 
   return (
     <div className="space-y-6">
@@ -314,7 +338,7 @@ export default async function PostedJobsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Posted</CardTitle>
@@ -331,6 +355,17 @@ export default async function PostedJobsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{activeJobs.length}</div>
+          </CardContent>
+        </Card>
+        <Card className={totalPendingRequests > 0 ? 'border-orange-500/30' : ''}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
+            <Truck className="h-4 w-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${totalPendingRequests > 0 ? 'text-orange-500' : ''}`}>
+              {totalPendingRequests}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -371,7 +406,7 @@ export default async function PostedJobsPage() {
               </CardContent>
             </Card>
           ) : (
-            jobs.map((job) => <JobCard key={job.id} job={job} />)
+            jobs.map((job) => <JobCard key={job.id} job={job} requestCount={requestCountMap[job.id] || 0} />)
           )}
         </TabsContent>
 
@@ -387,7 +422,7 @@ export default async function PostedJobsPage() {
               </CardContent>
             </Card>
           ) : (
-            pickups.map((job) => <JobCard key={job.id} job={job} />)
+            pickups.map((job) => <JobCard key={job.id} job={job} requestCount={requestCountMap[job.id] || 0} />)
           )}
         </TabsContent>
 
@@ -403,7 +438,7 @@ export default async function PostedJobsPage() {
               </CardContent>
             </Card>
           ) : (
-            loads.map((job) => <JobCard key={job.id} job={job} />)
+            loads.map((job) => <JobCard key={job.id} job={job} requestCount={requestCountMap[job.id] || 0} />)
           )}
         </TabsContent>
       </Tabs>
