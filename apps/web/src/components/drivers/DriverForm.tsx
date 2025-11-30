@@ -540,7 +540,7 @@ export function DriverForm({
                             minLength={6}
                             placeholder="Password"
                             className="h-9"
-                            value={password}
+                            autoComplete="new-password"
                             onChange={(e) => setPassword(e.target.value)}
                           />
                           <p className="text-xs text-muted-foreground">
@@ -559,7 +559,7 @@ export function DriverForm({
                             minLength={6}
                             placeholder="Repeat password"
                             className={cn("h-9", passwordMismatch && "border-destructive focus-visible:ring-destructive")}
-                            value={confirmPassword}
+                            autoComplete="new-password"
                             onChange={(e) => setConfirmPassword(e.target.value)}
                           />
                           {passwordMismatch && (
