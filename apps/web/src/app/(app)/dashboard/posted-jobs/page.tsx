@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { MarketplaceActions } from '@/components/marketplace/marketplace-actions';
 import {
   FileText,
   Upload,
@@ -218,7 +219,12 @@ function JobCard({ job }: { job: PostedJob }) {
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <MarketplaceActions
+              loadId={job.id}
+              postingStatus={job.posting_status}
+              isOwner
+            />
             <Button variant="outline" size="sm" asChild>
               <Link href={`/dashboard/loads/${job.id}`}>View</Link>
             </Button>

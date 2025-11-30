@@ -47,6 +47,7 @@ import {
   Star,
   Camera,
 } from 'lucide-react';
+import { MarketplaceActions } from '@/components/marketplace/marketplace-actions';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -259,8 +260,27 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
           </div>
           <h1 className="text-2xl font-bold">{load.load_number}</h1>
         </div>
-        <Badge className={status.color}>{status.label}</Badge>
+        <div className="flex items-center gap-2">
+          <Badge className={status.color}>{status.label}</Badge>
+        </div>
       </div>
+
+      {/* Release Load Action - only show if load is accepted (not yet in progress) */}
+      {carrierCompany && load.posting_status === 'assigned' && load.load_status === 'accepted' && (
+        <Card className="border-yellow-500/30 bg-yellow-500/5">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="font-medium">Can&apos;t complete this load?</p>
+              <p className="text-sm text-muted-foreground">Release it back to the marketplace for other carriers</p>
+            </div>
+            <MarketplaceActions
+              loadId={load.id}
+              postingStatus={load.posting_status}
+              carrierId={carrierCompany.id}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick Stats */}
       <div className="grid grid-cols-3 gap-4">

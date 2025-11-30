@@ -789,3 +789,254 @@ export async function notifyOwnerExpenseAdded(
     { channelId: 'activity' }
   );
 }
+
+// ============================================
+// MARKETPLACE NOTIFICATION HELPERS
+// ============================================
+
+/**
+ * Get carrier company name by ID
+ */
+async function getCarrierName(carrierId: string): Promise<string> {
+  const supabase = getAdminClient();
+
+  const { data } = await supabase
+    .from('companies')
+    .select('name')
+    .eq('id', carrierId)
+    .single();
+
+  return data?.name || 'Carrier';
+}
+
+/**
+ * Get load info for marketplace notifications
+ */
+async function getLoadMarketplaceInfo(loadId: string): Promise<{
+  ownerId: string | null;
+  loadNumber: string | null;
+  companyId: string | null;
+  origin: string | null;
+  destination: string | null;
+}> {
+  const supabase = getAdminClient();
+
+  const { data: load } = await supabase
+    .from('loads')
+    .select(`
+      owner_id,
+      load_number,
+      company_id,
+      pickup_city,
+      pickup_state,
+      delivery_city,
+      delivery_state
+    `)
+    .eq('id', loadId)
+    .single();
+
+  if (!load) {
+    return { ownerId: null, loadNumber: null, companyId: null, origin: null, destination: null };
+  }
+
+  const origin = load.pickup_city && load.pickup_state
+    ? `${load.pickup_city}, ${load.pickup_state}`
+    : null;
+  const destination = load.delivery_city && load.delivery_state
+    ? `${load.delivery_city}, ${load.delivery_state}`
+    : null;
+
+  return {
+    ownerId: load.owner_id,
+    loadNumber: load.load_number,
+    companyId: load.company_id,
+    origin,
+    destination,
+  };
+}
+
+/**
+ * Notify owner when a carrier releases a load back to marketplace
+ */
+export async function notifyOwnerLoadReleased(
+  loadId: string,
+  carrierId: string,
+  reason?: string
+): Promise<void> {
+  const [loadInfo, carrierName] = await Promise.all([
+    getLoadMarketplaceInfo(loadId),
+    getCarrierName(carrierId),
+  ]);
+
+  if (!loadInfo.ownerId) return;
+
+  const route = loadInfo.origin && loadInfo.destination
+    ? ` (${loadInfo.origin} → ${loadInfo.destination})`
+    : '';
+
+  const body = reason
+    ? `${carrierName} released load ${loadInfo.loadNumber}${route} back to marketplace. Reason: ${reason}`
+    : `${carrierName} released load ${loadInfo.loadNumber}${route} back to marketplace`;
+
+  await sendPushToUser(
+    loadInfo.ownerId,
+    '🔄 Load Released',
+    body,
+    {
+      type: 'load_status_changed',
+      loadId,
+    },
+    { channelId: 'marketplace' }
+  );
+}
+
+/**
+ * Notify carrier when a load they were assigned to is cancelled
+ */
+export async function notifyCarrierLoadCancelled(
+  loadId: string,
+  carrierId: string,
+  reason?: string
+): Promise<void> {
+  const loadInfo = await getLoadMarketplaceInfo(loadId);
+
+  // Get carrier owner's user ID for push notification
+  const supabase = getAdminClient();
+  const { data: carrier } = await supabase
+    .from('companies')
+    .select('owner_id')
+    .eq('id', carrierId)
+    .single();
+
+  if (!carrier?.owner_id) return;
+
+  const route = loadInfo.origin && loadInfo.destination
+    ? ` (${loadInfo.origin} → ${loadInfo.destination})`
+    : '';
+
+  const body = reason
+    ? `Load ${loadInfo.loadNumber}${route} has been cancelled. Reason: ${reason}`
+    : `Load ${loadInfo.loadNumber}${route} has been cancelled by the shipper`;
+
+  await sendPushToUser(
+    carrier.owner_id,
+    '❌ Load Cancelled',
+    body,
+    {
+      type: 'load_status_changed',
+      loadId,
+    },
+    { channelId: 'marketplace' }
+  );
+}
+
+/**
+ * Notify owner when a carrier requests their load
+ */
+export async function notifyOwnerNewLoadRequest(
+  loadId: string,
+  carrierId: string,
+  requestType: 'accept_listed' | 'counter_offer',
+  offeredRate?: number
+): Promise<void> {
+  const [loadInfo, carrierName] = await Promise.all([
+    getLoadMarketplaceInfo(loadId),
+    getCarrierName(carrierId),
+  ]);
+
+  if (!loadInfo.ownerId) return;
+
+  let body: string;
+  if (requestType === 'counter_offer' && offeredRate) {
+    body = `${carrierName} made a counter offer of $${offeredRate.toFixed(2)} on load ${loadInfo.loadNumber}`;
+  } else {
+    body = `${carrierName} requested load ${loadInfo.loadNumber}`;
+  }
+
+  await sendPushToUser(
+    loadInfo.ownerId,
+    '📬 New Load Request',
+    body,
+    {
+      type: 'general',
+      loadId,
+    },
+    { channelId: 'marketplace' }
+  );
+}
+
+/**
+ * Notify carrier when their load request is accepted
+ */
+export async function notifyCarrierRequestAccepted(
+  loadId: string,
+  carrierId: string,
+  finalRate?: number
+): Promise<void> {
+  const loadInfo = await getLoadMarketplaceInfo(loadId);
+
+  // Get carrier owner's user ID
+  const supabase = getAdminClient();
+  const { data: carrier } = await supabase
+    .from('companies')
+    .select('owner_id')
+    .eq('id', carrierId)
+    .single();
+
+  if (!carrier?.owner_id) return;
+
+  const route = loadInfo.origin && loadInfo.destination
+    ? ` (${loadInfo.origin} → ${loadInfo.destination})`
+    : '';
+
+  const body = finalRate
+    ? `Your request for load ${loadInfo.loadNumber}${route} was accepted at $${finalRate.toFixed(2)}`
+    : `Your request for load ${loadInfo.loadNumber}${route} was accepted`;
+
+  await sendPushToUser(
+    carrier.owner_id,
+    '✅ Request Accepted',
+    body,
+    {
+      type: 'load_assigned',
+      loadId,
+    },
+    { channelId: 'marketplace' }
+  );
+}
+
+/**
+ * Notify carrier when their load request is declined
+ */
+export async function notifyCarrierRequestDeclined(
+  loadId: string,
+  carrierId: string,
+  message?: string
+): Promise<void> {
+  const loadInfo = await getLoadMarketplaceInfo(loadId);
+
+  // Get carrier owner's user ID
+  const supabase = getAdminClient();
+  const { data: carrier } = await supabase
+    .from('companies')
+    .select('owner_id')
+    .eq('id', carrierId)
+    .single();
+
+  if (!carrier?.owner_id) return;
+
+  const body = message
+    ? `Your request for load ${loadInfo.loadNumber} was declined: ${message}`
+    : `Your request for load ${loadInfo.loadNumber} was declined`;
+
+  await sendPushToUser(
+    carrier.owner_id,
+    '❌ Request Declined',
+    body,
+    {
+      type: 'general',
+      loadId,
+    },
+    { channelId: 'marketplace' }
+  );
+}

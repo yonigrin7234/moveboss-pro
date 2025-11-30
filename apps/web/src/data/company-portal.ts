@@ -203,25 +203,243 @@ export async function assignLoadToCarrier(
   return { success: true };
 }
 
-// Unassign carrier from load
+// Unassign carrier from load (also resets posting_status back to 'posted' if it was marketplace load)
 export async function unassignCarrierFromLoad(
-  loadId: string
+  loadId: string,
+  options?: { returnToMarketplace?: boolean }
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
 
+  const updatePayload: Record<string, unknown> = {
+    assigned_carrier_id: null,
+    carrier_assigned_at: null,
+    carrier_confirmed_at: null,
+    carrier_rate: null,
+    carrier_rate_type: null,
+    load_status: 'pending',
+    assigned_at: null,
+  };
+
+  // If returnToMarketplace is true, reset posting_status to 'posted'
+  if (options?.returnToMarketplace) {
+    updatePayload.posting_status = 'posted';
+    updatePayload.marketplace_listed = true;
+  }
+
+  const { error } = await supabase
+    .from('loads')
+    .update(updatePayload)
+    .eq('id', loadId);
+
+  if (error) {
+    console.error('Error unassigning carrier:', error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+// ===========================================
+// MARKETPLACE POSTING MANAGEMENT
+// ===========================================
+
+/**
+ * Release a load back to the marketplace (carrier gives back a claimed load)
+ * Transitions: assigned -> posted
+ */
+export async function releaseLoadToMarketplace(
+  loadId: string,
+  carrierId: string,
+  reason?: string
+): Promise<{ success: boolean; error?: string; loadOwnerId?: string }> {
+  const supabase = await createClient();
+
+  // First verify the carrier is actually assigned to this load
+  const { data: load, error: fetchError } = await supabase
+    .from('loads')
+    .select('id, owner_id, assigned_carrier_id, posting_status, load_number, company_id')
+    .eq('id', loadId)
+    .single();
+
+  if (fetchError || !load) {
+    return { success: false, error: 'Load not found' };
+  }
+
+  if (load.assigned_carrier_id !== carrierId) {
+    return { success: false, error: 'You are not assigned to this load' };
+  }
+
+  if (load.posting_status !== 'assigned') {
+    return { success: false, error: 'Load is not in assigned status' };
+  }
+
+  // Release the load back to marketplace
   const { error } = await supabase
     .from('loads')
     .update({
       assigned_carrier_id: null,
       carrier_assigned_at: null,
+      carrier_confirmed_at: null,
       carrier_rate: null,
       carrier_rate_type: null,
+      assigned_at: null,
       load_status: 'pending',
+      posting_status: 'posted', // Back to marketplace
+      marketplace_listed: true,
+      release_reason: reason || null,
+      released_at: new Date().toISOString(),
+      released_by_carrier_id: carrierId,
     })
     .eq('id', loadId);
 
   if (error) {
-    console.error('Error unassigning carrier:', error);
+    console.error('Error releasing load:', error);
+    return { success: false, error: error.message };
+  }
+
+  // Update carrier's loads_given_back count
+  await supabase.rpc('increment_carrier_loads_given_back', { carrier_id: carrierId });
+
+  return { success: true, loadOwnerId: load.owner_id };
+}
+
+/**
+ * Unpublish a load from marketplace (posted -> draft)
+ * Owner takes it off the marketplace
+ */
+export async function unpublishLoad(
+  loadId: string,
+  ownerId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  // Verify ownership
+  const { data: load, error: fetchError } = await supabase
+    .from('loads')
+    .select('id, owner_id, posting_status')
+    .eq('id', loadId)
+    .eq('owner_id', ownerId)
+    .single();
+
+  if (fetchError || !load) {
+    return { success: false, error: 'Load not found or you do not have permission' };
+  }
+
+  if (load.posting_status !== 'posted') {
+    return { success: false, error: 'Load must be in posted status to unpublish' };
+  }
+
+  const { error } = await supabase
+    .from('loads')
+    .update({
+      posting_status: 'draft',
+      marketplace_listed: false,
+      posted_at: null,
+    })
+    .eq('id', loadId);
+
+  if (error) {
+    console.error('Error unpublishing load:', error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Cancel a load (any status -> cancelled)
+ * Can be done by owner
+ */
+export async function cancelPostedLoad(
+  loadId: string,
+  ownerId: string,
+  reason?: string
+): Promise<{ success: boolean; error?: string; previousCarrierId?: string }> {
+  const supabase = await createClient();
+
+  // Verify ownership
+  const { data: load, error: fetchError } = await supabase
+    .from('loads')
+    .select('id, owner_id, posting_status, assigned_carrier_id')
+    .eq('id', loadId)
+    .eq('owner_id', ownerId)
+    .single();
+
+  if (fetchError || !load) {
+    return { success: false, error: 'Load not found or you do not have permission' };
+  }
+
+  // Don't allow cancelling completed loads
+  if (load.posting_status === 'completed') {
+    return { success: false, error: 'Cannot cancel a completed load' };
+  }
+
+  const previousCarrierId = load.assigned_carrier_id;
+
+  const { error } = await supabase
+    .from('loads')
+    .update({
+      posting_status: 'cancelled',
+      marketplace_listed: false,
+      cancelled_at: new Date().toISOString(),
+      cancellation_reason: reason || null,
+      // Clear carrier assignment if any
+      assigned_carrier_id: null,
+      carrier_assigned_at: null,
+      carrier_confirmed_at: null,
+      assigned_at: null,
+    })
+    .eq('id', loadId);
+
+  if (error) {
+    console.error('Error cancelling load:', error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, previousCarrierId };
+}
+
+/**
+ * Repost a cancelled or draft load to marketplace
+ */
+export async function repostLoadToMarketplace(
+  loadId: string,
+  ownerId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  // Verify ownership
+  const { data: load, error: fetchError } = await supabase
+    .from('loads')
+    .select('id, owner_id, posting_status')
+    .eq('id', loadId)
+    .eq('owner_id', ownerId)
+    .single();
+
+  if (fetchError || !load) {
+    return { success: false, error: 'Load not found or you do not have permission' };
+  }
+
+  if (!['draft', 'cancelled'].includes(load.posting_status || '')) {
+    return { success: false, error: 'Load must be in draft or cancelled status to repost' };
+  }
+
+  const { error } = await supabase
+    .from('loads')
+    .update({
+      posting_status: 'posted',
+      marketplace_listed: true,
+      posted_at: new Date().toISOString(),
+      cancelled_at: null,
+      cancellation_reason: null,
+      released_at: null,
+      released_by_carrier_id: null,
+      release_reason: null,
+    })
+    .eq('id', loadId);
+
+  if (error) {
+    console.error('Error reposting load:', error);
     return { success: false, error: error.message };
   }
 

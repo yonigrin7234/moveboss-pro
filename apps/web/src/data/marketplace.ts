@@ -942,6 +942,7 @@ export async function getAssignedLoadDetails(
   carrier_rate_type: string;
   // Status
   load_status: string;
+  posting_status: string | null;
   expected_load_date: string | null;
   carrier_confirmed_at: string | null;
   carrier_assigned_at: string | null;
@@ -987,7 +988,7 @@ export async function getAssignedLoadDetails(
       destination_gate_code, destination_notes,
       estimated_cuft, estimated_weight_lbs, pieces_count,
       carrier_rate, carrier_rate_type,
-      load_status, expected_load_date,
+      load_status, posting_status, expected_load_date,
       carrier_confirmed_at, carrier_assigned_at,
       loading_started_at, loaded_at, in_transit_at, delivered_at,
       assigned_driver_id, assigned_driver_name, assigned_driver_phone,
@@ -1033,6 +1034,7 @@ export async function getAssignedLoadDetails(
     carrier_rate: number | null;
     carrier_rate_type: string;
     load_status: string;
+    posting_status: string | null;
     expected_load_date: string | null;
     carrier_confirmed_at: string | null;
     carrier_assigned_at: string | null;
