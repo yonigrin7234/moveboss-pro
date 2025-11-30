@@ -111,7 +111,6 @@ export function TripForm({
   const [state, formAction, pending] = useActionState(onSubmit, null);
   const formRef = useRef<HTMLFormElement>(null);
   const [snapshot, setSnapshot] = useState({
-    tripNumber: initialData?.trip_number || '',
     status: initialData?.status || 'planned',
     driverId: initialData?.driver_id || '',
     truckId: initialData?.truck_id || '',
@@ -161,7 +160,6 @@ export function TripForm({
     const syncSnapshot = () => {
       const data = new FormData(form);
       setSnapshot({
-        tripNumber: (data.get('trip_number') as string) || '',
         status: ((data.get('status') as string) || 'planned') as TripStatus,
         driverId: (data.get('driver_id') as string) || '',
         truckId: (data.get('truck_id') as string) || '',
@@ -209,7 +207,8 @@ export function TripForm({
             id: 'basics',
             title: 'Identity ready',
             body: 'Trip #, status, and assignment.',
-            complete: Boolean(snapshot.tripNumber && (snapshot.driverId || snapshot.truckId)),
+            // Trip number is auto-generated for new trips, so consider it ready if we have assignment
+            complete: Boolean((initialData?.trip_number || true) && (snapshot.driverId || snapshot.truckId)),
           },
           {
             id: 'routing',
@@ -274,14 +273,23 @@ export function TripForm({
                   <Label htmlFor="trip_number" className="text-sm">
                     Trip Number
                   </Label>
-                  <Input
-                    id="trip_number"
-                    name="trip_number"
-                    defaultValue={initialData?.trip_number || ''}
-                    placeholder="Auto-generated (TRP-0001)"
-                    className="h-9"
-                  />
-                  <p className="text-xs text-muted-foreground">Leave empty to auto-generate</p>
+                  {initialData?.trip_number ? (
+                    <Input
+                      id="trip_number"
+                      name="trip_number"
+                      defaultValue={initialData.trip_number}
+                      className="h-9"
+                      readOnly
+                    />
+                  ) : (
+                    <Input
+                      id="trip_number"
+                      value="Auto-generated on save"
+                      className="h-9 bg-muted text-muted-foreground"
+                      readOnly
+                      disabled
+                    />
+                  )}
                   {state?.errors?.trip_number && (
                     <p className="text-xs text-destructive">{state.errors.trip_number}</p>
                   )}
