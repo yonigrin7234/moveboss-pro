@@ -27,6 +27,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useSetupProgress } from '@/hooks/use-setup-progress';
 
 // Helper component for Select with hidden input
 function SelectWithHiddenInput({
@@ -112,6 +113,7 @@ export function DriverForm({
 }: DriverFormProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const { markComplete } = useSetupProgress();
   const [state, formAction, pending] = useActionState(onSubmit, null);
   const [currentStep, setCurrentStep] = useState(0);
   const [payMode, setPayMode] = useState<DriverPayMode>(
@@ -181,6 +183,8 @@ export function DriverForm({
   // On successful server action, show toast then navigate.
   useEffect(() => {
     if (state?.success) {
+      // Mark setup progress for first driver
+      markComplete('first_driver_added');
       toast({
         title: 'Driver saved',
         description: 'The driver was created successfully.',
@@ -188,7 +192,7 @@ export function DriverForm({
       router.push('/dashboard/drivers');
       router.refresh();
     }
-  }, [state?.success, router, toast]);
+  }, [state?.success, router, toast, markComplete]);
   const complianceItems = [
     { id: 'license_file', label: "Driver's license copy", ok: Boolean(licenseFile), url: licenseFile?.url },
     { id: 'medical_card_file', label: 'Medical card image', ok: Boolean(medicalCardFile), url: medicalCardFile?.url },

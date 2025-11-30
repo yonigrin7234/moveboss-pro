@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, FileText, Loader2, X } from 'lucide-react';
+import { useSetupProgress } from '@/hooks/use-setup-progress';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +31,7 @@ type UploadDocumentFormProps = {
 
 export function UploadDocumentForm({ companies, documentTypes, userId }: UploadDocumentFormProps) {
   const router = useRouter();
+  const { markComplete } = useSetupProgress();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isUploading, setIsUploading] = useState(false);
@@ -131,6 +133,8 @@ export function UploadDocumentForm({ companies, documentTypes, userId }: UploadD
         throw new Error(result.error || 'Failed to create document');
       }
 
+      // Mark setup progress for compliance verification
+      markComplete('compliance_verified');
       router.push('/dashboard/compliance');
       router.refresh();
     } catch (err) {

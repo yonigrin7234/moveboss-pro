@@ -7,9 +7,7 @@ import { getWorkspaceCompanyForUser } from '@/data/companies';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { LoadRequestForm } from '@/components/loads/LoadRequestForm';
 import {
   ArrowLeft,
   MapPin,
@@ -75,14 +73,17 @@ export default async function LoadDetailPage({ params }: PageProps) {
   const company = Array.isArray(load.company) ? load.company[0] : load.company;
 
   // Server action to submit request
-  async function submitRequest(formData: FormData) {
+  async function submitRequest(
+    _prevState: { error?: string; success?: boolean } | null,
+    formData: FormData
+  ): Promise<{ error?: string; success?: boolean } | null> {
     'use server';
 
     const user = await getCurrentUser();
-    if (!user) redirect('/login');
+    if (!user) return { error: 'Not authenticated' };
 
     const workspaceCompany = await getWorkspaceCompanyForUser(user.id);
-    if (!workspaceCompany) redirect('/onboarding/workspace');
+    if (!workspaceCompany) return { error: 'No workspace company found' };
 
     const requestType = formData.get('request_type') as 'accept_listed' | 'counter_offer';
     const counterOfferRate = requestType === 'counter_offer'
@@ -109,12 +110,11 @@ export default async function LoadDetailPage({ params }: PageProps) {
     });
 
     if (!result.success) {
-      // In a real app, you'd want better error handling
-      throw new Error(result.error || 'Failed to submit request');
+      return { error: result.error || 'Failed to submit request' };
     }
 
     revalidatePath(`/dashboard/load-board/${id}`);
-    redirect('/dashboard/my-requests');
+    return { success: true };
   }
 
   // Server action to withdraw request
@@ -561,153 +561,13 @@ export default async function LoadDetailPage({ params }: PageProps) {
                 <CardTitle>Request This Load</CardTitle>
               </CardHeader>
               <CardContent>
-                <form action={submitRequest} className="space-y-4">
-                  {/* Rate Section */}
-                  {!load.is_open_to_counter ? (
-                    <div className="p-4 rounded-lg bg-muted">
-                      <p className="text-sm font-medium mb-1">Rate</p>
-                      <p className="text-2xl font-bold">
-                        {formatRate(load.company_rate, load.company_rate_type)}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        This is a fixed rate - no counter offers
-                      </p>
-                      <input type="hidden" name="request_type" value="accept_listed" />
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="p-3 rounded-lg border">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="request_type"
-                            value="accept_listed"
-                            className="h-4 w-4"
-                            defaultChecked
-                          />
-                          <div>
-                            <p className="font-medium">
-                              Accept {formatRate(load.company_rate, load.company_rate_type)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Accept the company&apos;s posted rate
-                            </p>
-                          </div>
-                        </label>
-                      </div>
-
-                      <div className="p-3 rounded-lg border">
-                        <label className="flex items-start gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="request_type"
-                            value="counter_offer"
-                            className="h-4 w-4 mt-1"
-                          />
-                          <div className="flex-1">
-                            <p className="font-medium">Make a counter-offer</p>
-                            <div className="mt-2">
-                              <Label htmlFor="counter_offer_rate" className="text-xs">
-                                Your Rate ($/cuft)
-                              </Label>
-                              <Input
-                                id="counter_offer_rate"
-                                name="counter_offer_rate"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                placeholder="e.g. 0.75"
-                                className="mt-1"
-                              />
-                            </div>
-                          </div>
-                        </label>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Proposed Dates Section */}
-                  <div className="space-y-4 pt-4 border-t">
-                    <div>
-                      <Label className="text-sm font-medium">When can you load?</Label>
-                      <div className="grid grid-cols-2 gap-2 mt-2">
-                        <div>
-                          <Label htmlFor="proposed_load_date_start" className="text-xs text-muted-foreground">
-                            From
-                          </Label>
-                          <Input
-                            id="proposed_load_date_start"
-                            name="proposed_load_date_start"
-                            type="date"
-                            className="mt-1"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="proposed_load_date_end" className="text-xs text-muted-foreground">
-                            To
-                          </Label>
-                          <Input
-                            id="proposed_load_date_end"
-                            name="proposed_load_date_end"
-                            type="date"
-                            className="mt-1"
-                            required
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium">When can you deliver?</Label>
-                      <div className="grid grid-cols-2 gap-2 mt-2">
-                        <div>
-                          <Label htmlFor="proposed_delivery_date_start" className="text-xs text-muted-foreground">
-                            From
-                          </Label>
-                          <Input
-                            id="proposed_delivery_date_start"
-                            name="proposed_delivery_date_start"
-                            type="date"
-                            className="mt-1"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="proposed_delivery_date_end" className="text-xs text-muted-foreground">
-                            To
-                          </Label>
-                          <Input
-                            id="proposed_delivery_date_end"
-                            name="proposed_delivery_date_end"
-                            type="date"
-                            className="mt-1"
-                            required
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="message">Message (Optional)</Label>
-                    <Textarea
-                      id="message"
-                      name="message"
-                      placeholder="Add a message to the company..."
-                      className="mt-1"
-                      rows={3}
-                    />
-                  </div>
-
-                  <Button type="submit" className="w-full">
-                    Submit Request
-                  </Button>
-
-                  <p className="text-xs text-center text-muted-foreground">
-                    The company will review your request and respond
-                  </p>
-                </form>
+                <LoadRequestForm
+                  loadId={load.id}
+                  companyRate={load.company_rate}
+                  companyRateType={load.company_rate_type}
+                  isOpenToCounter={load.is_open_to_counter}
+                  onSubmit={submitRequest}
+                />
               </CardContent>
             </Card>
           )}

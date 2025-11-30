@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
+import { useSetupProgress } from '@/hooks/use-setup-progress'
 
 const serviceTypeOptions = [
   { value: 'hhg_local', label: 'HHG Local' },
@@ -135,6 +136,7 @@ export function LoadCreateForm({
 }: LoadCreateFormProps) {
   const router = useRouter()
   const { toast } = useToast()
+  const { markComplete } = useSetupProgress()
   const [state, formAction, pending] = useActionState(onSubmit, null)
   const [loadSource, setLoadSource] = useState<'own_customer' | 'partner'>('own_customer')
   const [loadType, setLoadType] = useState<'company_load' | 'live_load'>('company_load')
@@ -334,6 +336,8 @@ export function LoadCreateForm({
 
   useEffect(() => {
     if (state?.success) {
+      // Mark setup progress for first load
+      markComplete('first_load_created')
       toast({
         title: 'Load saved',
         description: state.tripId
@@ -348,7 +352,7 @@ export function LoadCreateForm({
       }
       router.refresh()
     }
-  }, [state?.success, state?.tripId, router, toast])
+  }, [state?.success, state?.tripId, router, toast, markComplete])
 
   return (
     <form action={formAction} className="space-y-6">

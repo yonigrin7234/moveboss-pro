@@ -24,6 +24,7 @@ import {
 import { ChevronLeft, ChevronRight, Loader2, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useSetupProgress } from '@/hooks/use-setup-progress';
 import { DatePicker } from '@/components/ui/date-picker';
 
 // Document field mappings
@@ -98,6 +99,7 @@ export function TruckForm({
 }: TruckFormProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const { markComplete } = useSetupProgress();
   const [state, formAction, pending] = useActionState(onSubmit, null);
   const [currentStep, setCurrentStep] = useState(0);
   const [vehicleType, setVehicleType] = useState<TruckVehicleType | ''>(initialData?.vehicle_type || '');
@@ -170,6 +172,8 @@ export function TruckForm({
   // On successful server action, toast and navigate
   useEffect(() => {
     if (state?.success) {
+      // Mark setup progress for first vehicle
+      markComplete('first_vehicle_added');
       toast({
         title: 'Truck saved',
         description: 'The truck was created successfully.',
@@ -177,7 +181,7 @@ export function TruckForm({
       router.push('/dashboard/fleet');
       router.refresh();
     }
-  }, [state?.success, router, toast]);
+  }, [state?.success, router, toast, markComplete]);
 
   // Update hidden inputs when values change
   useEffect(() => {
