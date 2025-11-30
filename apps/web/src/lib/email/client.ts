@@ -1,6 +1,16 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resendClient: Resend | null = null;
+
+function getResendClient(): Resend | null {
+  if (!process.env.RESEND_API_KEY) {
+    return null;
+  }
+  if (!resendClient) {
+    resendClient = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resendClient;
+}
 
 export interface SendEmailOptions {
   to: string | string[];
@@ -13,8 +23,10 @@ export interface SendEmailOptions {
 export async function sendEmail(
   options: SendEmailOptions
 ): Promise<{ success: boolean; error?: string }> {
+  const resend = getResendClient();
+
   // Skip if no API key (development)
-  if (!process.env.RESEND_API_KEY) {
+  if (!resend) {
     console.log('[Email] Skipping email (no API key):', options.subject);
     return { success: true };
   }
