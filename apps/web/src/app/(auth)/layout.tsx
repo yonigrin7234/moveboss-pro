@@ -77,16 +77,6 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
         {/* Top accent line */}
         <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-[200px] h-0.5 ${styles.accentLine}`} />
 
-        {/* Mobile logo */}
-        <div className="lg:hidden text-center mb-8">
-          <div className="flex items-center justify-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-white flex items-center justify-center">
-              <span className="text-black font-bold text-sm">M</span>
-            </div>
-            <span className="text-white font-semibold text-lg tracking-tight">MoveBoss</span>
-          </div>
-        </div>
-
         <div className="w-full">
           {children}
         </div>

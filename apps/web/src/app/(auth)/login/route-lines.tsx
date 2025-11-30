@@ -9,14 +9,14 @@ export function RouteLines() {
       viewBox="0 0 800 900"
       preserveAspectRatio="xMidYMid slice"
     >
-      {/* Connected route paths between nodes */}
+      {/* Connected route paths between nodes - shifted to avoid headline overlap */}
       <path
         className={styles.routePath}
-        d="M-50,60 Q100,80 200,120 Q320,180 320,220"
+        d="M-50,60 Q100,80 200,120 Q380,180 420,280"
       />
       <path
         className={styles.routePath}
-        d="M320,220 Q340,280 380,320 Q450,400 500,440"
+        d="M420,280 Q440,340 460,380 Q500,440 500,440"
       />
       <path
         className={styles.routePath}
@@ -34,17 +34,17 @@ export function RouteLines() {
 
       <path
         className={styles.routePath}
-        d="M-50,300 Q100,350 200,380 Q320,420 320,220"
+        d="M-50,350 Q100,380 200,400 Q350,440 420,280"
       />
       <path
         className={styles.routePath}
-        d="M320,220 Q400,200 500,180 Q650,150 850,120"
+        d="M420,280 Q500,250 580,200 Q700,140 850,120"
       />
 
-      {/* Nodes with pulse rings */}
+      {/* Nodes with pulse rings - positioned to avoid text overlap */}
       <g>
-        <circle className={styles.routeNodeRing} cx="320" cy="220" r="5" />
-        <circle className={styles.routeNode} cx="320" cy="220" r="4" />
+        <circle className={styles.routeNodeRing} cx="420" cy="280" r="5" />
+        <circle className={styles.routeNode} cx="420" cy="280" r="4" />
       </g>
       <g>
         <circle
@@ -59,12 +59,12 @@ export function RouteLines() {
       <g>
         <circle
           className={styles.routeNodeRing}
-          cx="200"
-          cy="380"
+          cx="150"
+          cy="500"
           r="5"
           style={{ animationDelay: '-1.2s' }}
         />
-        <circle className={styles.routeNode} cx="200" cy="380" r="4" />
+        <circle className={styles.routeNode} cx="150" cy="500" r="4" />
       </g>
       <g>
         <circle

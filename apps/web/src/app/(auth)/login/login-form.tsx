@@ -96,7 +96,7 @@ export function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@company.com"
-              className="w-full py-3 pl-[42px] pr-3.5 bg-white/[0.03] border border-white/[0.08] rounded-lg text-sm text-white placeholder:text-white/30 outline-none transition-all focus:border-sky-500/50 focus:bg-sky-500/[0.03]"
+              className="w-full py-3 pl-[42px] pr-3.5 bg-white/[0.03] border border-white/[0.08] rounded-lg text-sm text-white placeholder:text-white/30 outline-none transition-all focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30 focus:bg-sky-500/5"
               required
             />
           </div>
@@ -124,7 +124,7 @@ export function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••••••"
-              className="w-full py-3 pl-[42px] pr-10 bg-white/[0.03] border border-white/[0.08] rounded-lg text-sm text-white placeholder:text-white/30 outline-none transition-all focus:border-sky-500/50 focus:bg-sky-500/[0.03]"
+              className="w-full py-3 pl-[42px] pr-10 bg-white/[0.03] border border-white/[0.08] rounded-lg text-sm text-white placeholder:text-white/30 outline-none transition-all focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30 focus:bg-sky-500/5"
               required
             />
             <button
