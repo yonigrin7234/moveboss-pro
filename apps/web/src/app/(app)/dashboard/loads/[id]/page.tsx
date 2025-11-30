@@ -1,14 +1,13 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser, createClient } from '@/lib/supabase-server';
-import { getLoadById, updateLoad, deleteLoad, type Load } from '@/data/loads';
+import { getLoadById, updateLoad, type Load } from '@/data/loads';
 import { getCompaniesForUser } from '@/data/companies';
 import { getDriversForUser } from '@/data/drivers';
 import { getTrucksForUser, getTrailersForUser } from '@/data/fleet';
 import { getTripsForLoadAssignment, addLoadToTrip } from '@/data/trips';
 import { LoadForm } from '@/components/loads/LoadForm';
 import { LoadPhotos } from '@/components/loads/LoadPhotos';
-import { DeleteLoadButton } from './delete-load-button';
 import { LoadActions } from './load-actions';
 import { cleanFormValues, extractFormValues } from '@/lib/form-data';
 
@@ -149,14 +148,6 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
     }
   }
 
-  async function deleteLoadAction() {
-    'use server';
-    const user = await getCurrentUser();
-    if (!user) throw new Error('Not authenticated');
-    await deleteLoad(id, user.id);
-    redirect('/dashboard/loads');
-  }
-
   async function postToMarketplaceAction(): Promise<{ success: boolean; error?: string }> {
     'use server';
     const currentUser = await getCurrentUser();
@@ -276,7 +267,6 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
           >
             Back to Loads
           </Link>
-          <DeleteLoadButton deleteAction={deleteLoadAction} />
         </div>
       </div>
 

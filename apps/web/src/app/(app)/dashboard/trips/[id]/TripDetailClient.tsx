@@ -224,7 +224,6 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, loadT
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Confirmation dialog states
-  const [showDeleteTripConfirm, setShowDeleteTripConfirm] = useState(false);
   const [loadToRemove, setLoadToRemove] = useState<string | null>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
   const [viewingReceiptUrl, setViewingReceiptUrl] = useState<string | null>(null);
@@ -345,12 +344,6 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, loadT
         <div className="flex gap-3">
           <Button variant="outline" asChild>
             <Link href="/dashboard/trips">Back to Trips</Link>
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={() => setShowDeleteTripConfirm(true)}
-          >
-            Delete Trip
           </Button>
         </div>
       </div>
@@ -1306,38 +1299,6 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, loadT
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Delete Trip Confirmation Dialog */}
-      <Dialog open={showDeleteTripConfirm} onOpenChange={setShowDeleteTripConfirm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="h-5 w-5" />
-              Delete Trip
-            </DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete trip <strong>{trip.trip_number}</strong>? This action cannot be undone and will remove all associated data including loads, expenses, and settlements.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setShowDeleteTripConfirm(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                setIsSubmitting(true);
-                await actions.deleteTrip();
-                setShowDeleteTripConfirm(false);
-                setIsSubmitting(false);
-              }}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Deleting...' : 'Delete Trip'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Remove Load Confirmation Dialog */}
       <Dialog open={!!loadToRemove} onOpenChange={(open) => !open && setLoadToRemove(null)}>

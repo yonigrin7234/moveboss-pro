@@ -3,26 +3,26 @@
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
-interface DeleteTripButtonProps {
-  deleteAction: () => Promise<void>;
+interface CancelTripButtonProps {
+  cancelAction: () => Promise<void>;
 }
 
-export function DeleteTripButton({ deleteAction }: DeleteTripButtonProps) {
+export function CancelTripButton({ cancelAction }: CancelTripButtonProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const handleDelete = () => {
-    if (!confirm('Delete this trip? This action cannot be undone.')) {
+  const handleCancel = () => {
+    if (!confirm('Cancel this trip? This action cannot be undone.')) {
       return;
     }
 
     startTransition(async () => {
       try {
-        await deleteAction();
+        await cancelAction();
         router.push('/dashboard/trips');
         router.refresh();
       } catch (error) {
-        alert(error instanceof Error ? error.message : 'Failed to delete trip');
+        alert(error instanceof Error ? error.message : 'Failed to cancel trip');
       }
     });
   };
@@ -30,13 +30,16 @@ export function DeleteTripButton({ deleteAction }: DeleteTripButtonProps) {
   return (
     <button
       type="button"
-      onClick={handleDelete}
+      onClick={handleCancel}
       disabled={isPending}
-      className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      className="px-4 py-2 border border-destructive/30 text-destructive rounded-md hover:bg-destructive/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
-      {isPending ? 'Deleting...' : 'Delete Trip'}
+      {isPending ? 'Cancelling...' : 'Cancel Trip'}
     </button>
   );
 }
+
+// Keep backwards compatibility
+export { CancelTripButton as DeleteTripButton };
 
 
