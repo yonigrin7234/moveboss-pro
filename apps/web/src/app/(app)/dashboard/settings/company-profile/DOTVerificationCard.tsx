@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSetupProgress } from '@/hooks/use-setup-progress';
 import {
   BadgeCheck,
   CheckCircle,
@@ -80,6 +81,7 @@ export function DOTVerificationCard({
   readOnly = false,
 }: DOTVerificationCardProps) {
   const router = useRouter();
+  const { markComplete } = useSetupProgress();
   const [dotNumber, setDotNumber] = useState(currentDotNumber || '');
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +122,12 @@ export function DOTVerificationCard({
       }
 
       setVerifyResult(data);
+
+      // Mark setup progress for compliance verification when FMCSA verified
+      if (data.verified) {
+        markComplete('compliance_verified');
+      }
+
       router.refresh(); // Refresh to update the page with new data
     } catch (err) {
       setError('Failed to verify DOT number. Please try again.');

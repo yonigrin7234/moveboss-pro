@@ -77,9 +77,9 @@ const checklistItems: ChecklistItem[] = [
   {
     id: 'compliance_verified',
     title: 'Verify DOT & Insurance',
-    description: 'Upload compliance documents for verification',
+    description: 'Complete FMCSA verification for your company',
     icon: <Shield className="h-5 w-5" />,
-    href: '/dashboard/compliance',
+    href: '/dashboard/settings/company-profile',
     roles: ['carrier', 'company', 'owner_operator'],
   },
 ];
