@@ -90,9 +90,9 @@ export function TopNav({ user, company, unreadNotifications = 0 }: TopNavProps) 
     ? company.status.charAt(0).toUpperCase() + company.status.slice(1)
     : undefined
   const statusToneMap: Record<string, string> = {
-    active: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200",
-    inactive: "bg-muted text-muted-foreground",
-    suspended: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200",
+    active: "bg-success/10 text-success border border-success/20",
+    inactive: "bg-muted text-muted-foreground border border-border",
+    suspended: "bg-warning/15 text-warning-foreground border border-warning/25",
   }
   const statusBadgeClass = company?.status ? statusToneMap[company.status] ?? "bg-muted text-muted-foreground" : undefined
 
@@ -109,23 +109,15 @@ export function TopNav({ user, company, unreadNotifications = 0 }: TopNavProps) 
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur">
-      <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
-        <div className="flex min-w-0 flex-col gap-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-muted-foreground">
-            <span className="text-primary">MoveBoss Pro</span>
-            <span className="mx-1.5">·</span>
-            <span>Workspace</span>
-          </p>
+    <header className="sticky top-0 z-30 border-b border-border/50 bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="flex min-w-0 flex-col gap-0.5">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold text-foreground">{companyDisplayName}</h1>
-            <span className="rounded-full border border-border/60 px-2 py-0.5 text-xs capitalize text-muted-foreground">
-              {title}
-            </span>
+            <h1 className="text-lg font-semibold text-foreground tracking-tight">{title}</h1>
             {companyStatusLabel && (
               <span
                 className={cn(
-                  "rounded-full px-2 py-0.5 text-xs capitalize",
+                  "rounded-md px-2 py-0.5 text-[11px] font-medium capitalize",
                   statusBadgeClass,
                 )}
               >
@@ -133,58 +125,58 @@ export function TopNav({ user, company, unreadNotifications = 0 }: TopNavProps) 
               </span>
             )}
           </div>
+          <p className="text-xs text-muted-foreground">
+            {companyDisplayName}
+          </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <NotificationBell unreadCount={unreadNotifications} />
           <ThemeToggle />
-          <div className="flex items-center gap-3 rounded-full border border-border/70 bg-card/60 px-3 py-1.5">
-            <div className="hidden text-right sm:flex sm:flex-col">
-              <p className="text-sm font-medium text-foreground">{userDisplayName}</p>
-              <p className="text-xs text-muted-foreground">{userEmail}</p>
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  id="account-menu-trigger"
-                  variant="ghost"
-                  className="relative h-10 w-10 rounded-full border border-border bg-background/40"
-                  aria-label="Account menu"
-                >
-                  <Avatar className="h-10 w-10">
-                    <AvatarFallback className="bg-muted text-foreground">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel>
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-foreground">{userDisplayName}</p>
-                    <p className="text-xs text-muted-foreground">{userEmail}</p>
-                    <p className="text-xs text-muted-foreground">{companyDisplayName}</p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem disabled>
-                  <span className="text-sm text-muted-foreground">Account settings coming soon</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                  onSelect={(event) => {
-                    event.preventDefault()
-                    if (!isSigningOut) {
-                      void handleSignOut()
-                    }
-                  }}
-                >
-                  {isSigningOut ? "Signing out..." : "Sign out"}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <div className="h-5 w-px bg-border/50 mx-1 hidden sm:block" />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                id="account-menu-trigger"
+                variant="ghost"
+                className="relative h-8 gap-2 rounded-lg px-2 hover:bg-accent"
+                aria-label="Account menu"
+              >
+                <Avatar className="h-7 w-7">
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="hidden text-sm font-medium text-foreground sm:inline-block">
+                  {userDisplayName}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-semibold text-foreground">{userDisplayName}</p>
+                  <p className="text-xs text-muted-foreground">{userEmail}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem disabled className="text-muted-foreground">
+                Account settings coming soon
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                onSelect={(event) => {
+                  event.preventDefault()
+                  if (!isSigningOut) {
+                    void handleSignOut()
+                  }
+                }}
+              >
+                {isSigningOut ? "Signing out..." : "Sign out"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>

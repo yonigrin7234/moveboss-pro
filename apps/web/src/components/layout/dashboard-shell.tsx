@@ -36,7 +36,7 @@ export function DashboardShell({ children, user, company, role, unreadNotificati
   const userName = user?.fullName || user?.email
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
+    <div className="flex min-h-screen bg-background text-foreground antialiased">
       <Sidebar
         companyName={companyName}
         userName={userName}
@@ -47,8 +47,10 @@ export function DashboardShell({ children, user, company, role, unreadNotificati
       />
       <div className="flex flex-1 flex-col min-w-0 pb-16 sm:pb-0">
         <TopNav user={user} company={company} unreadNotifications={unreadNotifications} />
-        <main className="flex-1 space-y-6 px-4 py-6 sm:px-6 lg:px-10 min-w-0">
-          {children}
+        <main className="flex-1 px-4 py-5 sm:px-6 lg:px-8 min-w-0 max-w-[1600px]">
+          <div className="space-y-5">
+            {children}
+          </div>
         </main>
       </div>
       <MobileNav />

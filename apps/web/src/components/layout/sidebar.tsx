@@ -294,28 +294,29 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
     const isExpanded = expandedItems.has(item.href)
 
     return (
-      <div key={item.href} className="space-y-1">
+      <div key={item.href} className="space-y-0.5">
         {hasChildren ? (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             <Button
               asChild
               variant="ghost"
+              size="sm"
               className={cn(
-                "flex-1 justify-start gap-3 text-sm font-medium transition-all duration-200",
+                "flex-1 justify-start gap-2.5 h-8 text-[13px] font-medium transition-all duration-150",
                 active
-                  ? "bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
               )}
             >
               <Link href={item.href}>
-                <Icon className="h-4 w-4 shrink-0" />
+                <Icon className="h-4 w-4 shrink-0 opacity-70" />
                 <span className="flex-1">{item.label}</span>
               </Link>
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 shrink-0"
+              className="h-7 w-7 shrink-0 text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
@@ -324,7 +325,7 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
             >
               <ChevronRight
                 className={cn(
-                  "h-4 w-4 transition-transform duration-200",
+                  "h-3.5 w-3.5 transition-transform duration-150",
                   isExpanded && "rotate-90"
                 )}
               />
@@ -334,22 +335,23 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
           <Button
             asChild
             variant="ghost"
+            size="sm"
             className={cn(
-              "w-full justify-start gap-3 text-sm font-medium transition-all duration-200",
+              "w-full justify-start gap-2.5 h-8 text-[13px] font-medium transition-all duration-150",
               active
-                ? "bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
             )}
           >
             <Link href={item.href}>
-              <Icon className="h-4 w-4 shrink-0" />
+              <Icon className="h-4 w-4 shrink-0 opacity-70" />
               <span className="flex-1">{item.label}</span>
             </Link>
           </Button>
         )}
 
         {hasChildren && isExpanded && item.children && (
-          <div className="ml-4 space-y-0.5 border-l-2 border-border/30 pl-4 animate-in slide-in-from-top-1 duration-200">
+          <div className="ml-3.5 space-y-0.5 border-l border-sidebar-border pl-3 animate-in slide-in-from-top-1 duration-150">
             {item.children.map((child) => {
               const ChildIcon = child.icon
               const childActive = isChildActive(pathname, child)
@@ -361,14 +363,14 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "w-full justify-start gap-2.5 text-xs font-normal transition-all duration-200 h-8",
+                    "w-full justify-start gap-2 text-xs font-normal transition-all duration-150 h-7",
                     childActive
-                      ? "bg-accent/80 text-accent-foreground hover:bg-accent shadow-sm font-medium"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent/30"
+                      ? "bg-sidebar-accent/80 text-sidebar-accent-foreground font-medium"
+                      : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/40"
                   )}
                 >
                   <Link href={child.href}>
-                    <ChildIcon className="h-3.5 w-3.5 shrink-0" />
+                    <ChildIcon className="h-3.5 w-3.5 shrink-0 opacity-60" />
                     <span>{child.label}</span>
                   </Link>
                 </Button>
@@ -381,32 +383,29 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
   }
 
   return (
-    <aside className="hidden border-r border-border bg-card md:flex md:w-64 md:flex-col">
-      <div className="flex h-24 items-center border-b border-border px-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+    <aside className="hidden border-r border-sidebar-border bg-sidebar md:flex md:w-60 md:flex-col">
+      <div className="flex h-[60px] items-center border-b border-sidebar-border px-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground shadow-sm shrink-0">
             {workspaceInitials}
           </div>
-          <div className="space-y-1">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-muted-foreground">
-              Workspace
-            </p>
-            <p className="max-w-[150px] truncate text-sm font-semibold text-foreground">
+          <div className="space-y-0 min-w-0">
+            <p className="max-w-[145px] truncate text-sm font-semibold text-sidebar-foreground leading-tight">
               {displayCompanyName}
             </p>
-            <p className="max-w-[150px] truncate text-xs text-muted-foreground">{roleBadge}</p>
+            <p className="max-w-[145px] truncate text-[11px] text-sidebar-foreground/60">{roleBadge}</p>
           </div>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
+      <nav className="flex-1 space-y-0.5 px-2.5 py-3 overflow-y-auto">
         {/* Top items (Overview, Activity) */}
         {topItems.map(renderNavItem)}
 
         {/* Posting Section */}
         {postingItems.length > 0 && (
           <>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-3 pt-4 pb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50 px-2 pt-5 pb-1">
               Posting
             </p>
             {postingItems.map(renderNavItem)}
@@ -416,7 +415,7 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
         {/* Carrier Section */}
         {carrierItems.length > 0 && (
           <>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-3 pt-4 pb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50 px-2 pt-5 pb-1">
               Carrier
             </p>
             {carrierItems.map(renderNavItem)}
@@ -426,7 +425,7 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
         {/* General Section */}
         {generalItems.length > 0 && (
           <>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-3 pt-4 pb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50 px-2 pt-5 pb-1">
               General
             </p>
             {generalItems.map(renderNavItem)}

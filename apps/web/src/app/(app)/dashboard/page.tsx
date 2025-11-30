@@ -96,10 +96,10 @@ const recentTrips = [
 ];
 
 const statusStyles: Record<string, string> = {
-  'En Route': 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  Completed: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  Planned: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
-  Delayed: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+  'En Route': 'bg-warning/10 text-warning-foreground border border-warning/20',
+  Completed: 'bg-success/10 text-success border border-success/20',
+  Planned: 'bg-info/10 text-info border border-info/20',
+  Delayed: 'bg-destructive/10 text-destructive border border-destructive/20',
 };
 
 export default async function DashboardPage() {
@@ -158,19 +158,19 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-6 w-full">
-      <div className="space-y-1">
+    <div className="space-y-5 w-full">
+      <div className="space-y-0.5">
+        <h2 className="text-lg font-semibold text-foreground tracking-tight">
+          Welcome back
+        </h2>
         <p className="text-sm text-muted-foreground">
-          Welcome back, {user.email ?? 'fleet owner'}
-        </p>
-        <p className="text-xs text-muted-foreground">
           Track performance, assets, and partner data from a single view.
         </p>
       </div>
 
       {error && (
-        <Card className="border-destructive bg-destructive/10">
-          <CardContent className="pt-6 text-sm text-destructive">
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="py-4 text-sm text-destructive">
             Error loading companies: {error}
           </CardContent>
         </Card>
@@ -179,17 +179,17 @@ export default async function DashboardPage() {
       {/* Setup Checklist - shows at top for new users */}
       <SetupChecklist userRole={userRole} />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {statCards.map((stat) => (
-          <Card key={stat.label}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+          <Card key={stat.label} className="group">
+            <CardHeader className="pb-1.5">
+              <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 {stat.label}
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-semibold text-foreground">{stat.value}</p>
-              <p className="text-xs text-muted-foreground">{stat.description}</p>
+            <CardContent className="pt-0">
+              <p className="text-2xl font-bold text-foreground tracking-tight">{stat.value}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{stat.description}</p>
             </CardContent>
           </Card>
         ))}

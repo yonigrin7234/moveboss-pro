@@ -161,23 +161,23 @@ export function SetupChecklist({ userRole, className }: SetupChecklistProps) {
   // If all complete, show celebration then hide
   if (allComplete && !progress.checklist_dismissed) {
     return (
-      <Card className={cn('border-green-500/30 bg-green-500/5', className)}>
-        <CardContent className="pt-6">
+      <Card className={cn('border-success/30 bg-success/5', className)}>
+        <CardContent className="py-4">
           <div className="flex items-center gap-4">
             <div className="flex-shrink-0">
-              <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
-                <Sparkles className="h-6 w-6 text-green-500" />
+              <div className="w-10 h-10 rounded-lg bg-success/15 flex items-center justify-center">
+                <Sparkles className="h-5 w-5 text-success" />
               </div>
             </div>
             <div className="flex-grow">
-              <h3 className="font-semibold text-green-600 dark:text-green-400">
+              <h3 className="text-sm font-semibold text-success">
                 Setup Complete!
               </h3>
               <p className="text-sm text-muted-foreground">
                 You&apos;re all set up and ready to start using MoveBoss Pro
               </p>
             </div>
-            <Button variant="ghost" size="sm" onClick={dismissChecklist}>
+            <Button variant="ghost" size="sm" className="text-xs" onClick={dismissChecklist}>
               Dismiss
             </Button>
           </div>
@@ -188,59 +188,59 @@ export function SetupChecklist({ userRole, className }: SetupChecklistProps) {
 
   return (
     <Card className={cn('border-primary/20', className)}>
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex-shrink-0">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Sparkles className="h-5 w-5 text-primary" />
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Sparkles className="h-4 w-4 text-primary" />
               </div>
             </div>
             <div>
-              <CardTitle className="text-lg">Get your workspace ready</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-sm font-semibold">Get your workspace ready</CardTitle>
+              <CardDescription className="text-xs">
                 Complete these steps to unlock full functionality
               </CardDescription>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="font-mono">
+          <div className="flex items-center gap-1.5">
+            <Badge variant="secondary" className="text-xs px-2 py-0.5 font-mono">
               {completedCount}/{totalCount}
             </Badge>
             <Button
               variant="ghost"
-              size="icon"
-              className="h-8 w-8"
+              size="icon-sm"
+              className="h-7 w-7"
               onClick={() => setIsExpanded(!isExpanded)}
             >
               {isExpanded ? (
-                <ChevronUp className="h-4 w-4" />
+                <ChevronUp className="h-3.5 w-3.5" />
               ) : (
-                <ChevronDown className="h-4 w-4" />
+                <ChevronDown className="h-3.5 w-3.5" />
               )}
             </Button>
             <Button
               variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              size="icon-sm"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
               onClick={dismissChecklist}
               title="Dismiss checklist"
             >
-              <X className="h-4 w-4" />
+              <X className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
 
         {/* Progress bar */}
-        <div className="mt-4">
-          <Progress value={progressPercent} className="h-2" />
-          <p className="text-xs text-muted-foreground mt-1">{progressPercent}% complete</p>
+        <div className="mt-3">
+          <Progress value={progressPercent} className="h-1.5" />
+          <p className="text-[11px] text-muted-foreground mt-1">{progressPercent}% complete</p>
         </div>
       </CardHeader>
 
       {isExpanded && (
         <CardContent className="pt-0">
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {roleItems.map((item) => {
               const isComplete = progress[item.id];
 
@@ -248,9 +248,9 @@ export function SetupChecklist({ userRole, className }: SetupChecklistProps) {
                 <div
                   key={item.id}
                   className={cn(
-                    'flex items-center gap-3 p-3 rounded-lg transition-colors cursor-pointer',
+                    'flex items-center gap-2.5 p-2.5 rounded-md transition-all duration-150 cursor-pointer',
                     isComplete
-                      ? 'bg-green-500/5 text-muted-foreground'
+                      ? 'bg-success/5 text-muted-foreground'
                       : 'hover:bg-accent'
                   )}
                   onClick={() => {
@@ -262,21 +262,21 @@ export function SetupChecklist({ userRole, className }: SetupChecklistProps) {
                   <div
                     className={cn(
                       'flex-shrink-0',
-                      isComplete ? 'text-green-500' : 'text-muted-foreground'
+                      isComplete ? 'text-success' : 'text-muted-foreground/50'
                     )}
                   >
                     {isComplete ? (
-                      <CheckCircle2 className="h-5 w-5" />
+                      <CheckCircle2 className="h-4 w-4" />
                     ) : (
-                      <Circle className="h-5 w-5" />
+                      <Circle className="h-4 w-4" />
                     )}
                   </div>
 
                   <div
                     className={cn(
-                      'flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center',
+                      'flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center',
                       isComplete
-                        ? 'bg-green-500/10 text-green-500'
+                        ? 'bg-success/10 text-success'
                         : 'bg-primary/10 text-primary'
                     )}
                   >
@@ -285,7 +285,7 @@ export function SetupChecklist({ userRole, className }: SetupChecklistProps) {
 
                   <div className="flex-grow min-w-0">
                     <p
-                      className={cn('font-medium text-sm', isComplete && 'line-through')}
+                      className={cn('font-medium text-sm', isComplete && 'line-through opacity-60')}
                     >
                       {item.title}
                     </p>
@@ -295,7 +295,7 @@ export function SetupChecklist({ userRole, className }: SetupChecklistProps) {
                   </div>
 
                   {!isComplete && (
-                    <Button variant="ghost" size="sm" className="flex-shrink-0 gap-1">
+                    <Button variant="ghost" size="sm" className="flex-shrink-0 gap-1 h-7 text-xs">
                       Start
                       <ArrowRight className="h-3 w-3" />
                     </Button>
