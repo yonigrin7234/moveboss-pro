@@ -31,7 +31,8 @@ const optionalTrimmedString = (max = 200) =>
     .transform((val) => (val && val.length > 0 ? val : undefined));
 
 export const newTripInputSchema = z.object({
-  trip_number: z.string().trim().min(1, 'Trip number is required').max(100),
+  trip_number: z.string().trim().max(100).optional(), // Auto-generated if not provided
+  reference_number: z.string().trim().max(100).optional(), // Owner's custom reference
   status: tripStatusSchema.optional().default('planned'),
   driver_id: z.string().uuid().optional(),
   truck_id: z.string().uuid().optional(),
@@ -90,6 +91,7 @@ export interface Trip {
   created_at: string;
   updated_at: string;
   trip_number: string;
+  reference_number: string | null;
   status: TripStatus;
   driver_id: string | null;
   truck_id: string | null;
@@ -223,6 +225,35 @@ async function assertOwnership(
 
 function nullable<T>(value: T | undefined): T | null {
   return value === undefined ? null : (value as T);
+}
+
+/**
+ * Generate the next trip number in format TRP-XXXX
+ * Finds the highest existing number and increments by 1
+ */
+async function generateNextTripNumber(supabase: SupabaseClient, userId: string): Promise<string> {
+  const { data, error } = await supabase
+    .from('trips')
+    .select('trip_number')
+    .eq('owner_id', userId)
+    .like('trip_number', 'TRP-%')
+    .order('trip_number', { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error('Error fetching trip numbers:', error);
+  }
+
+  let nextNumber = 1;
+  if (data && data.length > 0) {
+    const lastTripNumber = data[0].trip_number;
+    const match = lastTripNumber.match(/TRP-(\d+)/);
+    if (match) {
+      nextNumber = parseInt(match[1], 10) + 1;
+    }
+  }
+
+  return `TRP-${nextNumber.toString().padStart(4, '0')}`;
 }
 
 function normalizeDate(value?: string): string | null {
@@ -588,9 +619,13 @@ export async function createTrip(input: NewTripInput, userId: string): Promise<T
     assertOwnership(supabase, 'trailers', input.trailer_id, userId, 'Trailer'),
   ]);
 
+  // Auto-generate trip number if not provided
+  const tripNumber = input.trip_number?.trim() || await generateNextTripNumber(supabase, userId);
+
   const payload = {
     owner_id: userId,
-    trip_number: input.trip_number,
+    trip_number: tripNumber,
+    reference_number: nullable(input.reference_number),
     status: input.status ?? 'planned',
     driver_id: nullable(input.driver_id),
     truck_id: nullable(input.truck_id),

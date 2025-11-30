@@ -58,7 +58,7 @@ function SelectWithHiddenInput({
 }
 
 interface TripFormProps {
-  initialData?: Partial<NewTripInput> & { share_driver_with_companies?: boolean };
+  initialData?: Partial<NewTripInput> & { share_driver_with_companies?: boolean; reference_number?: string | null };
   drivers: Driver[];
   trucks: Truck[];
   trailers: Trailer[];
@@ -272,34 +272,47 @@ export function TripForm({
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="trip_number" className="text-sm">
-                    Trip Number <span className="text-destructive">*</span>
+                    Trip Number
                   </Label>
                   <Input
                     id="trip_number"
                     name="trip_number"
-                    required
                     defaultValue={initialData?.trip_number || ''}
+                    placeholder="Auto-generated (TRP-0001)"
                     className="h-9"
                   />
+                  <p className="text-xs text-muted-foreground">Leave empty to auto-generate</p>
                   {state?.errors?.trip_number && (
                     <p className="text-xs text-destructive">{state.errors.trip_number}</p>
                   )}
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="status" className="text-sm">Status</Label>
-                  <SelectWithHiddenInput name="status" defaultValue={initialData?.status || 'planned'}>
-                    <SelectTrigger id="status" className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {statusOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </SelectWithHiddenInput>
+                  <Label htmlFor="reference_number" className="text-sm">
+                    Reference # <span className="text-muted-foreground text-xs">(optional)</span>
+                  </Label>
+                  <Input
+                    id="reference_number"
+                    name="reference_number"
+                    defaultValue={initialData?.reference_number || ''}
+                    placeholder="Your internal reference"
+                    className="h-9"
+                  />
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="status" className="text-sm">Status</Label>
+                <SelectWithHiddenInput name="status" defaultValue={initialData?.status || 'planned'}>
+                  <SelectTrigger id="status" className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </SelectWithHiddenInput>
               </div>
             </CardContent>
           </Card>
