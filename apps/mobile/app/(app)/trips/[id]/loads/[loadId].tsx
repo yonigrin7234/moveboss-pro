@@ -19,7 +19,8 @@ import { useLoadActions } from '../../../../../hooks/useLoadActions';
 import { useImageUpload } from '../../../../../hooks/useImageUpload';
 import { useLoadDocuments, DocumentType, LoadDocument } from '../../../../../hooks/useLoadDocuments';
 import { StatusBadge } from '../../../../../components/StatusBadge';
-import { LoadStatus } from '../../../../../types';
+import { DamageDocumentation } from '../../../../../components/DamageDocumentation';
+import { LoadStatus, DamageItem } from '../../../../../types';
 
 export default function LoadDetailScreen() {
   const { id: tripId, loadId } = useLocalSearchParams<{ id: string; loadId: string }>();
@@ -153,6 +154,8 @@ export default function LoadDetailScreen() {
               tripId={tripId}
               loadStatus={load.load_status}
               loadSource={load.load_source}
+              postingType={load.posting_type}
+              pickupCompletedAt={load.pickup_completed_at}
               actions={actions}
               balanceDue={load.balance_due_on_delivery}
               company={load.companies}
@@ -270,6 +273,15 @@ export default function LoadDetailScreen() {
               )}
             </View>
 
+            {/* Pre-Existing Damages - Read Only (for in_transit and delivered) */}
+            {(load.load_status === 'in_transit' || load.load_status === 'delivered') &&
+              load.pre_existing_damages &&
+              (load.pre_existing_damages as DamageItem[]).length > 0 && (
+              <View style={styles.card}>
+                <DamageDocumentation loadId={loadId} readonly />
+              </View>
+            )}
+
             {/* Financial Info */}
             {(load.balance_due_on_delivery || load.amount_collected_on_delivery) && (
               <View style={styles.card}>
@@ -347,6 +359,8 @@ function WorkflowActionCard({
   tripId,
   loadStatus,
   loadSource,
+  postingType,
+  pickupCompletedAt,
   actions,
   balanceDue,
   company,
@@ -356,6 +370,8 @@ function WorkflowActionCard({
   tripId: string;
   loadStatus: LoadStatus;
   loadSource: 'own_customer' | 'partner' | 'marketplace' | null;
+  postingType: 'pickup' | 'load' | 'live_load' | null;
+  pickupCompletedAt: string | null;
   actions: ReturnType<typeof useLoadActions>;
   balanceDue: number | null;
   company?: { name: string; phone: string | null; trust_level?: 'trusted' | 'cod_required' } | null;
@@ -368,8 +384,11 @@ function WorkflowActionCard({
   const [submitting, setSubmitting] = useState(false);
   const { uploading, progress, uploadLoadPhoto } = useImageUpload();
 
+  // Check if this load requires pickup completion (pickup from customer's home)
+  const requiresPickupCompletion = postingType === 'pickup' && !pickupCompletedAt;
+
   // Check if this load requires contract details entry after loading
-  const requiresContractDetails = loadSource === 'partner' || loadSource === 'marketplace';
+  const requiresContractDetails = (loadSource === 'partner' || loadSource === 'marketplace') && !requiresPickupCompletion;
 
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -519,8 +538,13 @@ function WorkflowActionCard({
         setPhoto(null);
         setCuftInput('');
 
-        // Navigate to contract details if this is a partner/marketplace load
-        if (requiresContractDetails) {
+        // Navigate based on load type:
+        // 1. Pickup (posting_type = 'pickup') → pickup-completion screen
+        // 2. Partner/marketplace loads → contract-details screen
+        // 3. Own customer → done (just set status to loaded)
+        if (requiresPickupCompletion) {
+          router.push(`/trips/${tripId}/loads/${loadId}/pickup-completion`);
+        } else if (requiresContractDetails) {
           router.push(`/trips/${tripId}/loads/${loadId}/contract-details`);
         }
       } finally {
@@ -563,7 +587,12 @@ function WorkflowActionCard({
             {buttonText || 'Finish Loading'}
           </Text>
         </TouchableOpacity>
-        {requiresContractDetails && (
+        {requiresPickupCompletion && (
+          <Text style={styles.contractDetailsHint}>
+            You'll complete pickup details next
+          </Text>
+        )}
+        {requiresContractDetails && !requiresPickupCompletion && (
           <Text style={styles.contractDetailsHint}>
             You'll enter contract details next
           </Text>
@@ -572,52 +601,63 @@ function WorkflowActionCard({
     );
   }
 
-  // Loaded → Start Delivery (with payment collection)
+  // Loaded → Start Delivery (collect payment first if balance due)
   if (loadStatus === 'loaded') {
-    const handleStartDelivery = () => {
-      const paymentData = {
-        amountCollected: amountInput ? parseFloat(amountInput) : undefined,
-      };
+    // Check for balance due from either field
+    const effectiveBalanceDue = balanceDue || 0;
+    const hasBalanceDue = effectiveBalanceDue > 0;
 
+    // If there's a balance due, redirect to collect-payment screen first
+    if (hasBalanceDue) {
+      return (
+        <View style={styles.actionCard}>
+          <Text style={styles.actionTitle}>Collect Payment & Start Delivery</Text>
+          <TrustLevelBadge trustLevel={trustLevel} />
+          <Text style={styles.actionDescription}>
+            Balance due: ${effectiveBalanceDue.toFixed(2)}
+          </Text>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={() => router.push(`/trips/${tripId}/loads/${loadId}/collect-payment`)}
+          >
+            <Text style={styles.primaryButtonText}>
+              Collect Payment
+            </Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // No balance due - proceed directly to start delivery
+    const handleStartDelivery = () => {
       if (trustLevel === 'cod_required') {
         Alert.alert(
           'Verify Before Unloading',
-          `${company?.name || 'This company'} is not a trusted company.\n\nIf there's a shortfall between the rate and customer payment, call the owner to verify the company has settled before unloading.${balanceDue ? `\n\nBalance to collect from customer: $${balanceDue.toFixed(2)}` : ''}`,
+          `${company?.name || 'This company'} is not a trusted company.\n\nCall the owner to verify the company has settled before unloading.`,
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Start Delivery', onPress: () => handleAction(() => actions.startDelivery(paymentData)) },
+            { text: 'Start Delivery', onPress: () => handleAction(() => actions.startDelivery()) },
           ]
         );
       } else {
-        // Trusted company - proceed without verification
-        handleAction(() => actions.startDelivery(paymentData));
+        handleAction(() => actions.startDelivery());
       }
     };
 
     return (
       <View style={styles.actionCard}>
-        <Text style={styles.actionTitle}>Collect Payment & Start Delivery</Text>
+        <Text style={styles.actionTitle}>Start Delivery</Text>
         <TrustLevelBadge trustLevel={trustLevel} />
         <Text style={styles.actionDescription}>
-          {balanceDue
-            ? `Balance due: $${balanceDue.toFixed(2)}`
-            : 'Enter amount collected (if any)'}
+          No payment to collect - ready to deliver
         </Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Amount Collected"
-          placeholderTextColor="#666"
-          value={amountInput}
-          onChangeText={setAmountInput}
-          keyboardType="decimal-pad"
-        />
         <TouchableOpacity
           style={[styles.primaryButton, actions.loading && styles.buttonDisabled]}
           onPress={handleStartDelivery}
           disabled={actions.loading}
         >
           <Text style={styles.primaryButtonText}>
-            {actions.loading ? 'Starting...' : 'Collect & Start Delivery'}
+            {actions.loading ? 'Starting...' : 'Start Delivery'}
           </Text>
         </TouchableOpacity>
       </View>

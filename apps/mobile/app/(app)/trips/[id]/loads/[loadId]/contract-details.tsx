@@ -18,6 +18,7 @@ import { useLoadDetail } from '../../../../../../hooks/useLoadDetail';
 import { useLoadActions } from '../../../../../../hooks/useLoadActions';
 import { useImageUpload } from '../../../../../../hooks/useImageUpload';
 import { supabase } from '../../../../../../lib/supabase';
+import { DamageDocumentation } from '../../../../../../components/DamageDocumentation';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ||
@@ -399,7 +400,10 @@ export default function ContractDetailsScreen() {
           </View>
         </View>
 
-        {/* Section 2: Customer & Delivery Info */}
+        {/* Section 2: Pre-Existing Damages */}
+        <DamageDocumentation loadId={loadId} onUpdate={refetch} />
+
+        {/* Section 3: Customer & Delivery Info */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Customer & Delivery Info</Text>
           <Text style={styles.sectionSubtitle}>From the Bill of Lading (for navigation & contact)</Text>
@@ -483,7 +487,7 @@ export default function ContractDetailsScreen() {
           </Text>
         </View>
 
-        {/* Section 3: Accessorials (Collapsible) */}
+        {/* Section 4: Accessorials (Collapsible) */}
         <TouchableOpacity
           style={styles.collapsibleHeader}
           onPress={() => setShowAccessorials(!showAccessorials)}
@@ -582,7 +586,7 @@ export default function ContractDetailsScreen() {
           </View>
         )}
 
-        {/* Section 4: Summary */}
+        {/* Section 5: Summary */}
         <View style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>Summary</Text>
           <View style={styles.summaryRow}>

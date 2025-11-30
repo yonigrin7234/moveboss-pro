@@ -13,6 +13,20 @@ export type ExpensePaidBy = 'driver_personal' | 'driver_cash' | 'company_card' |
 // Driver pay modes
 export type DriverPayMode = 'per_mile' | 'per_cuft' | 'per_mile_and_cuft' | 'percent_of_revenue' | 'flat_daily_rate';
 
+// Payment methods for delivery
+export type PaymentMethod = 'cashier_check' | 'money_order' | 'personal_check' | 'cash' | 'zelle' | 'already_paid';
+export type ZelleRecipient = 'owner' | 'driver' | 'original_company';
+
+// Pre-existing damage documentation
+export interface DamageItem {
+  id: string;
+  sticker_number: string;
+  item_description: string;
+  damage_description: string;
+  photo_url: string | null;
+  documented_at: string;
+}
+
 export interface Trip {
   id: string;
   owner_id: string;
@@ -54,6 +68,9 @@ export interface Trip {
 
 export type LoadSource = 'own_customer' | 'partner' | 'marketplace';
 
+// Posting type for marketplace/partner loads
+export type PostingType = 'pickup' | 'load' | 'live_load';
+
 export interface Load {
   id: string;
   owner_id: string;
@@ -61,6 +78,7 @@ export interface Load {
   load_number: string | null;
   load_type: 'pickup' | 'live_load' | 'company_load' | 'rfd' | 'local' | 'long_distance' | 'intrastate' | 'interstate';
   load_source: LoadSource | null;
+  posting_type: PostingType | null;
   service_type: string | null;
   company_id: string | null;
   status: string;
@@ -110,9 +128,22 @@ export interface Load {
   customer_name: string | null;
   customer_phone: string | null;
   delivery_address_full: string | null;
-  // Collection
+  // Collection & Payment
   amount_collected_on_delivery: number | null;
-  payment_method: string | null;
+  payment_method: 'cashier_check' | 'money_order' | 'personal_check' | 'cash' | 'zelle' | 'already_paid' | null;
+  payment_zelle_recipient: 'owner' | 'driver' | 'original_company' | null;
+  payment_photo_front_url: string | null;
+  payment_photo_back_url: string | null;
+  payment_notes: string | null;
+  // Pickup completion (for posting_type = 'pickup')
+  customer_rfd_date: string | null;
+  customer_rfd_date_end: string | null;
+  delivery_notes: string | null;
+  amount_collected_at_pickup: number | null;
+  remaining_balance_for_delivery: number | null;
+  pickup_completed_at: string | null;
+  // Pre-existing damages
+  pre_existing_damages: DamageItem[] | null;
   // Timestamps
   accepted_at: string | null;
   loading_started_at: string | null;
