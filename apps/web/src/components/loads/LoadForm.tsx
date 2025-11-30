@@ -269,8 +269,9 @@ export function LoadForm({
                     name="load_number"
                     defaultValue={initialData?.load_number || ''}
                     className="h-9"
-                    placeholder="Auto if left blank"
+                    placeholder="Auto-generated (LD-000001)"
                   />
+                  <p className="text-xs text-muted-foreground">Leave empty to auto-generate</p>
                   {state?.errors?.load_number && (
                     <p className="text-xs text-destructive">{state.errors.load_number}</p>
                   )}
@@ -883,7 +884,7 @@ export function LoadForm({
           <CardContent className="space-y-3 text-sm">
             <div className="flex items-start justify-between">
               <span className="text-muted-foreground">Load #</span>
-              <span className="font-medium text-right">{snapshot.loadNumber || 'Not set'}</span>
+              <span className="font-medium text-right">{snapshot.loadNumber || 'Auto (LD-XXXXXX)'}</span>
             </div>
             <div className="flex items-start justify-between">
               <span className="text-muted-foreground">Customer</span>
@@ -925,8 +926,8 @@ export function LoadForm({
             {
               id: 'basics',
               title: 'Basics ready',
-              body: 'Load #, customer, service type.',
-              complete: Boolean(snapshot.loadNumber && snapshot.companyId && snapshot.serviceType),
+              body: 'Customer & service type set.',
+              complete: Boolean(snapshot.companyId && snapshot.serviceType),
             },
             {
               id: 'pickup',
