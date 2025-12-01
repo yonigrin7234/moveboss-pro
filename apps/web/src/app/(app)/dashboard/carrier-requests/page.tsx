@@ -39,6 +39,7 @@ interface CarrierRequest {
     state: string | null;
     mc_number: string | null;
     dot_number: string | null;
+    fmcsa_verified: boolean | null;
     platform_rating: number | null;
     platform_loads_completed: number | null;
   } | null;
@@ -139,10 +140,10 @@ function RequestCard({ request }: { request: CarrierRequest }) {
       ? `${load.pickup_city}, ${load.pickup_state}`
       : '-';
 
-  // Only show verified if they actually have a DOT or MC number (not empty string)
+  // Only show verified if they completed FMCSA verification
+  const isVerified = carrier.fmcsa_verified === true;
   const hasDot = carrier.dot_number && carrier.dot_number.trim() !== '';
   const hasMc = carrier.mc_number && carrier.mc_number.trim() !== '';
-  const isVerified = hasDot || hasMc;
 
   // Posted rate info
   const postedRatePerCuft = load.rate_per_cuft;
@@ -290,7 +291,7 @@ export default async function CarrierRequestsPage() {
       accepted_company_rate, message, created_at,
       proposed_load_date_start, proposed_load_date_end,
       proposed_delivery_date_start, proposed_delivery_date_end,
-      carrier:carrier_id(id, name, city, state, mc_number, dot_number, platform_rating, platform_loads_completed),
+      carrier:carrier_id(id, name, city, state, mc_number, dot_number, fmcsa_verified, platform_rating, platform_loads_completed),
       load:load_id(
         id, load_number, load_type, posting_type, owner_id,
         pickup_city, pickup_state, delivery_city, delivery_state,
