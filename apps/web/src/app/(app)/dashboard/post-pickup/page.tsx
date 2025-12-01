@@ -174,7 +174,7 @@ export default function PostPickupPage() {
   };
 
   return (
-    <div className="space-y-4 max-w-4xl">
+    <div className="max-w-4xl mx-auto px-6 pt-4 space-y-4">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/dashboard/posted-jobs">
@@ -182,8 +182,8 @@ export default function PostPickupPage() {
           </Link>
         </Button>
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Post a Pickup</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-2xl font-semibold tracking-tight">Post a Pickup</h1>
+          <p className="text-sm text-muted-foreground/90">
             Carrier will collect the balance from the customer.
           </p>
         </div>
@@ -198,9 +198,9 @@ export default function PostPickupPage() {
 
         {/* Customer Information + Pickup Window in 2 columns */}
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card>
+          <Card className="rounded-lg">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Reference & Customer</CardTitle>
+              <CardTitle className="text-base font-medium tracking-tight">Reference & Customer</CardTitle>
               <CardDescription className="text-xs">Your internal reference + optional customer info</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -240,9 +240,9 @@ export default function PostPickupPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="rounded-lg">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Pickup Window</CardTitle>
+              <CardTitle className="text-base font-medium tracking-tight">Pickup Window</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
@@ -269,9 +269,9 @@ export default function PostPickupPage() {
 
         {/* Origin & Destination in 2 columns */}
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card>
+          <Card className="rounded-lg">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Origin (Pickup)</CardTitle>
+              <CardTitle className="text-base font-medium tracking-tight">Origin (Pickup)</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="grid gap-2 grid-cols-3">
@@ -336,9 +336,9 @@ export default function PostPickupPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="rounded-lg">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Destination (Delivery)</CardTitle>
+              <CardTitle className="text-base font-medium tracking-tight">Destination (Delivery)</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="grid gap-2 grid-cols-3">
@@ -393,9 +393,9 @@ export default function PostPickupPage() {
         </div>
 
         {/* Load Details & Pricing */}
-        <Card>
+        <Card className="rounded-lg">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Load Details & Pricing</CardTitle>
+            <CardTitle className="text-base font-medium tracking-tight">Load Details & Pricing</CardTitle>
             <CardDescription className="text-xs">
               Balance due is what the carrier will collect from the customer.
             </CardDescription>

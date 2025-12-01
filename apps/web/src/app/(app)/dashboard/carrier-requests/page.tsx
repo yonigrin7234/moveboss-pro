@@ -124,7 +124,7 @@ function RequestCard({ request }: { request: CarrierRequest }) {
     : 'Company rate';
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="rounded-lg hover:shadow-md transition-shadow">
       <CardContent className="p-4">
         <div className="flex flex-col gap-4">
           {/* Header */}
@@ -226,17 +226,17 @@ export default async function CarrierRequestsPage() {
   const declinedRequests = allRequests.filter((r) => ['declined', 'withdrawn'].includes(r.status));
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-7xl mx-auto px-6 pt-4 space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Carrier Requests</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl font-semibold tracking-tight">Carrier Requests</h1>
+        <p className="text-sm text-muted-foreground/90">
           Review and manage carrier requests on your posted jobs
         </p>
       </div>
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        <Card className="rounded-lg">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending</CardTitle>
             <Clock className="h-4 w-4 text-yellow-600" />
@@ -246,7 +246,7 @@ export default async function CarrierRequestsPage() {
             <p className="text-xs text-muted-foreground">Awaiting your response</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="rounded-lg">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Accepted</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -256,7 +256,7 @@ export default async function CarrierRequestsPage() {
             <p className="text-xs text-muted-foreground">Carriers assigned</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="rounded-lg">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Declined</CardTitle>
             <XCircle className="h-4 w-4 text-red-600" />
@@ -266,7 +266,7 @@ export default async function CarrierRequestsPage() {
             <p className="text-xs text-muted-foreground">Not accepted</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="rounded-lg">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total</CardTitle>
             <Truck className="h-4 w-4 text-muted-foreground" />
@@ -292,9 +292,9 @@ export default async function CarrierRequestsPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="pending" className="space-y-4">
+        <TabsContent value="pending" className="space-y-3">
           {pendingRequests.length === 0 ? (
-            <Card>
+            <Card className="rounded-lg">
               <CardContent className="py-10 text-center text-muted-foreground">
                 <Clock className="mx-auto h-12 w-12 mb-4 opacity-50" />
                 <p>No pending requests</p>
@@ -310,9 +310,9 @@ export default async function CarrierRequestsPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="accepted" className="space-y-4">
+        <TabsContent value="accepted" className="space-y-3">
           {acceptedRequests.length === 0 ? (
-            <Card>
+            <Card className="rounded-lg">
               <CardContent className="py-10 text-center text-muted-foreground">
                 <CheckCircle2 className="mx-auto h-12 w-12 mb-4 opacity-50" />
                 <p>No accepted requests yet</p>
@@ -325,9 +325,9 @@ export default async function CarrierRequestsPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="all" className="space-y-4">
+        <TabsContent value="all" className="space-y-3">
           {allRequests.length === 0 ? (
-            <Card>
+            <Card className="rounded-lg">
               <CardContent className="py-10 text-center text-muted-foreground">
                 <Truck className="mx-auto h-12 w-12 mb-4 opacity-50" />
                 <p>No carrier requests yet</p>

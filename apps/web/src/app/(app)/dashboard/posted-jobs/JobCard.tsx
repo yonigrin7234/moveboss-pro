@@ -171,7 +171,7 @@ export function JobCard({ job, requestCount }: { job: PostedJob; requestCount: n
 
   return (
     <Link href={`/dashboard/posted-jobs/${job.id}`}>
-      <Card className="hover:shadow-md transition-shadow cursor-pointer">
+      <Card className="rounded-lg hover:shadow-md transition-shadow cursor-pointer">
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="space-y-2">

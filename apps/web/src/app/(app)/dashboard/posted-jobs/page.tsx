@@ -31,9 +31,9 @@ export default async function PostedJobsPage() {
   if (companyError) {
     console.error('Error fetching workspace company:', companyError);
     return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold tracking-tight">My Posted Jobs</h1>
-        <Card>
+      <div className="max-w-7xl mx-auto px-6 pt-4 space-y-4">
+        <h1 className="text-2xl font-semibold tracking-tight">My Posted Jobs</h1>
+        <Card className="rounded-lg">
           <CardContent className="py-10 text-center text-muted-foreground">
             <AlertCircle className="mx-auto h-12 w-12 mb-4 text-destructive opacity-50" />
             <p>Error loading company data. Please try again.</p>
@@ -46,9 +46,9 @@ export default async function PostedJobsPage() {
 
   if (!workspaceCompany) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold tracking-tight">My Posted Jobs</h1>
-        <Card>
+      <div className="max-w-7xl mx-auto px-6 pt-4 space-y-4">
+        <h1 className="text-2xl font-semibold tracking-tight">My Posted Jobs</h1>
+        <Card className="rounded-lg">
           <CardContent className="py-10 text-center text-muted-foreground">
             No company found. Please complete your company profile first.
           </CardContent>
@@ -110,11 +110,11 @@ export default async function PostedJobsPage() {
   const totalPendingRequests = Object.values(requestCountMap).reduce((sum, count) => sum + count, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-7xl mx-auto px-6 pt-4 space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">My Posted Jobs</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-semibold tracking-tight">My Posted Jobs</h1>
+          <p className="text-sm text-muted-foreground/90">
             Manage your posted pickups and loads
           </p>
         </div>
@@ -136,7 +136,7 @@ export default async function PostedJobsPage() {
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-5">
-        <Card>
+        <Card className="rounded-lg">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Posted</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
@@ -145,7 +145,7 @@ export default async function PostedJobsPage() {
             <div className="text-2xl font-bold">{jobs.length}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="rounded-lg">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
@@ -154,7 +154,7 @@ export default async function PostedJobsPage() {
             <div className="text-2xl font-bold">{activeJobs.length}</div>
           </CardContent>
         </Card>
-        <Card className={totalPendingRequests > 0 ? 'border-orange-500/30' : ''}>
+        <Card className={`rounded-lg ${totalPendingRequests > 0 ? 'border-orange-500/30' : ''}`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
             <Truck className="h-4 w-4 text-orange-500" />
@@ -165,7 +165,7 @@ export default async function PostedJobsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="rounded-lg">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pickups</CardTitle>
             <Upload className="h-4 w-4 text-muted-foreground" />
@@ -174,7 +174,7 @@ export default async function PostedJobsPage() {
             <div className="text-2xl font-bold">{pickups.length}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="rounded-lg">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Loads</CardTitle>
             <PackagePlus className="h-4 w-4 text-muted-foreground" />
@@ -194,9 +194,9 @@ export default async function PostedJobsPage() {
           <TabsTrigger value="drafts">Drafts ({draftJobs.length})</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="active" className="space-y-4">
+        <TabsContent value="active" className="space-y-3">
           {activeJobs.length === 0 ? (
-            <Card>
+            <Card className="rounded-lg">
               <CardContent className="py-10 text-center text-muted-foreground">
                 <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
                 <p>No active posted jobs.</p>
@@ -208,9 +208,9 @@ export default async function PostedJobsPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="completed" className="space-y-4">
+        <TabsContent value="completed" className="space-y-3">
           {completedJobs.length === 0 ? (
-            <Card>
+            <Card className="rounded-lg">
               <CardContent className="py-10 text-center text-muted-foreground">
                 <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
                 <p>No completed jobs yet.</p>
@@ -222,9 +222,9 @@ export default async function PostedJobsPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="cancelled" className="space-y-4">
+        <TabsContent value="cancelled" className="space-y-3">
           {cancelledJobs.length === 0 ? (
-            <Card>
+            <Card className="rounded-lg">
               <CardContent className="py-10 text-center text-muted-foreground">
                 <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
                 <p>No cancelled jobs.</p>
@@ -235,9 +235,9 @@ export default async function PostedJobsPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="drafts" className="space-y-4">
+        <TabsContent value="drafts" className="space-y-3">
           {draftJobs.length === 0 ? (
-            <Card>
+            <Card className="rounded-lg">
               <CardContent className="py-10 text-center text-muted-foreground">
                 <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
                 <p>No draft or unpublished jobs.</p>

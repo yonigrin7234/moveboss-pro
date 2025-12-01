@@ -443,7 +443,7 @@ export default function PostLoadPage() {
   };
 
   return (
-    <div className="space-y-4 max-w-4xl">
+    <div className="max-w-4xl mx-auto px-6 pt-4 space-y-4">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/dashboard/posted-jobs">
@@ -451,8 +451,8 @@ export default function PostLoadPage() {
           </Link>
         </Button>
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Post a Load</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-2xl font-semibold tracking-tight">Post a Load</h1>
+          <p className="text-sm text-muted-foreground/90">
             You pay the carrier for the delivery.
           </p>
         </div>
@@ -480,9 +480,9 @@ export default function PostLoadPage() {
         <TabsContent value="live_load">
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Customer Info + Pickup Date */}
-            <Card>
+            <Card className="rounded-lg">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Reference & Customer</CardTitle>
+                <CardTitle className="text-base font-medium tracking-tight">Reference & Customer</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid gap-3 sm:grid-cols-4">
@@ -532,9 +532,9 @@ export default function PostLoadPage() {
 
             {/* Origin & Destination side by side */}
             <div className="grid gap-4 lg:grid-cols-2">
-              <Card>
+              <Card className="rounded-lg">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Origin</CardTitle>
+                  <CardTitle className="text-base font-medium tracking-tight">Origin</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="grid gap-2 grid-cols-3">
@@ -592,9 +592,9 @@ export default function PostLoadPage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="rounded-lg">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Destination</CardTitle>
+                  <CardTitle className="text-base font-medium tracking-tight">Destination</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="grid gap-2 grid-cols-3">
@@ -654,9 +654,9 @@ export default function PostLoadPage() {
             </div>
 
             {/* Foreman / Loading Contact */}
-            <Card>
+            <Card className="rounded-lg">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Foreman / Loading Contact</CardTitle>
+                <CardTitle className="text-base font-medium tracking-tight">Foreman / Loading Contact</CardTitle>
                 <CardDescription className="text-xs">
                   Contact info for the driver to coordinate loading (optional)
                 </CardDescription>
@@ -689,9 +689,9 @@ export default function PostLoadPage() {
             </Card>
 
             {/* Pricing & Options */}
-            <Card>
+            <Card className="rounded-lg">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Pricing & Options</CardTitle>
+                <CardTitle className="text-base font-medium tracking-tight">Pricing & Options</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid gap-3 sm:grid-cols-4">
@@ -832,9 +832,9 @@ export default function PostLoadPage() {
         <TabsContent value="rfd">
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Internal Reference */}
-            <Card>
+            <Card className="rounded-lg">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Reference</CardTitle>
+                <CardTitle className="text-base font-medium tracking-tight">Reference</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-1.5 max-w-xs">
@@ -850,9 +850,9 @@ export default function PostLoadPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="rounded-lg">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Storage Location</CardTitle>
+                <CardTitle className="text-base font-medium tracking-tight">Storage Location</CardTitle>
                 <CardDescription className="text-xs">
                   {isAddingNewStorage
                     ? 'Enter new storage details - it will be saved for future use'
@@ -1221,9 +1221,9 @@ export default function PostLoadPage() {
             </Card>
 
             {/* Destination */}
-            <Card>
+            <Card className="rounded-lg">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Destination</CardTitle>
+                <CardTitle className="text-base font-medium tracking-tight">Destination</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid gap-2 grid-cols-3">
@@ -1282,9 +1282,9 @@ export default function PostLoadPage() {
             </Card>
 
             {/* Foreman / Loading Contact */}
-            <Card>
+            <Card className="rounded-lg">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Foreman / Loading Contact</CardTitle>
+                <CardTitle className="text-base font-medium tracking-tight">Foreman / Loading Contact</CardTitle>
                 <CardDescription className="text-xs">
                   {isAddingNewStorage && newStorageData.contact_name
                     ? 'Using contact from new storage. Override here if different for this load.'
@@ -1321,9 +1321,9 @@ export default function PostLoadPage() {
             </Card>
 
             {/* Pricing & Options */}
-            <Card>
+            <Card className="rounded-lg">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Pricing & Options</CardTitle>
+                <CardTitle className="text-base font-medium tracking-tight">Pricing & Options</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid gap-3 sm:grid-cols-4">

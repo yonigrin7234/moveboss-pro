@@ -163,7 +163,7 @@ export default async function OperationsPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-7xl mx-auto px-6 pt-4 space-y-4">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
@@ -172,7 +172,7 @@ export default async function OperationsPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Keep freight, fleet, and teams moving
           </h1>
-          <p className="text-sm text-muted-foreground max-w-2xl">
+          <p className="text-sm text-muted-foreground/90 max-w-2xl">
             One place to launch loads, build trips, and triage alerts with instant access to the marketplace and fleet.
           </p>
           <div className="flex flex-wrap gap-2">
@@ -197,7 +197,7 @@ export default async function OperationsPage() {
           </div>
         </div>
 
-        <Card className="w-full max-w-md border-primary/30 shadow-sm">
+        <Card className="w-full max-w-md border-primary/30 shadow-sm rounded-lg">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-primary">Live Ops Snapshot</CardTitle>
           </CardHeader>
@@ -230,7 +230,7 @@ export default async function OperationsPage() {
       </div>
 
       {error && (
-        <Card className="border-destructive bg-destructive/10">
+        <Card className="border-destructive bg-destructive/10 rounded-lg">
           <CardContent className="py-3 text-sm text-destructive">
             {error}
           </CardContent>
@@ -239,7 +239,7 @@ export default async function OperationsPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {opsHealth.map((item) => (
-          <Card key={item.label}>
+          <Card key={item.label} className="rounded-lg">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{item.label}</CardTitle>
             </CardHeader>
@@ -252,10 +252,10 @@ export default async function OperationsPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <Card>
+        <Card className="rounded-lg">
           <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="text-lg">Active loads</CardTitle>
+              <CardTitle className="text-base font-medium tracking-tight">Active loads</CardTitle>
               <p className="text-sm text-muted-foreground">In progress or pending assignment</p>
             </div>
             <Button asChild size="sm" variant="outline">
@@ -330,9 +330,9 @@ export default async function OperationsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-primary/20">
+        <Card className="border-primary/20 rounded-lg">
           <CardHeader>
-            <CardTitle className="text-lg">Quick actions</CardTitle>
+            <CardTitle className="text-base font-medium tracking-tight">Quick actions</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {quickActions.map((action) => {
@@ -361,10 +361,10 @@ export default async function OperationsPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.8fr_1.2fr]">
-        <Card>
+        <Card className="rounded-lg">
           <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="text-lg">Trip queue</CardTitle>
+              <CardTitle className="text-base font-medium tracking-tight">Trip queue</CardTitle>
               <p className="text-sm text-muted-foreground">Planned and en route trips</p>
             </div>
             <Button asChild size="sm" variant="outline">
@@ -427,10 +427,10 @@ export default async function OperationsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-amber-200/60">
+        <Card className="border-amber-200/60 rounded-lg">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-lg">Operational alerts</CardTitle>
+              <CardTitle className="text-base font-medium tracking-tight">Operational alerts</CardTitle>
               <p className="text-sm text-muted-foreground">Issues to unblock today</p>
             </div>
             <Badge variant="outline" className="flex items-center gap-1">
