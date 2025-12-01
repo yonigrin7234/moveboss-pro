@@ -95,6 +95,10 @@ export interface MarketplaceLoad {
   // Notes (visible to carriers)
   special_instructions: string | null;
 
+  // Rate details
+  rate_per_cuft: number | null;
+  linehaul_amount: number | null;
+
   // Timestamps
   posted_to_marketplace_at: string;
   created_at: string;
@@ -152,6 +156,7 @@ export async function getMarketplaceLoads(filters?: {
   min_cuft?: number;
   max_cuft?: number;
   posting_type?: 'pickup' | 'load'; // Filter by type
+  excludeCompanyId?: string; // Exclude loads posted by this company (user's own company)
 }): Promise<MarketplaceLoad[]> {
   const supabase = await createClient();
 
@@ -192,6 +197,8 @@ export async function getMarketplaceLoads(filters?: {
       equipment_type,
       truck_requirement,
       notes,
+      rate_per_cuft,
+      linehaul_amount,
       posted_to_marketplace_at,
       created_at
     `)
@@ -199,6 +206,11 @@ export async function getMarketplaceLoads(filters?: {
     .eq('posting_status', 'posted')
     .is('assigned_carrier_id', null)
     .order('posted_to_marketplace_at', { ascending: false });
+
+  // Exclude user's own company loads - they should only see these in "My Posted Jobs"
+  if (filters?.excludeCompanyId) {
+    query = query.neq('posted_by_company_id', filters.excludeCompanyId);
+  }
 
   // Apply filters - use actual DB column names
   if (filters?.posting_type) {
@@ -336,6 +348,8 @@ export async function getMarketplaceLoads(filters?: {
     equipment_type: load.equipment_type,
     truck_requirement: load.truck_requirement,
     special_instructions: load.notes,
+    rate_per_cuft: load.rate_per_cuft,
+    linehaul_amount: load.linehaul_amount,
     posted_to_marketplace_at: load.posted_to_marketplace_at,
     created_at: load.created_at,
     company: companyMap.get(load.company_id || load.posted_by_company_id || '') || {
@@ -424,14 +438,14 @@ export async function getMarketplaceLoadWithRequestStatus(
       load_type,
       current_storage_location,
       storage_unit,
-      origin_city,
-      origin_state,
-      origin_zip,
-      destination_city,
-      destination_state,
-      destination_zip,
-      estimated_cuft,
-      estimated_weight_lbs,
+      pickup_city,
+      pickup_state,
+      pickup_zip,
+      delivery_city,
+      delivery_state,
+      delivery_postal_code,
+      cubic_feet_estimate,
+      weight_lbs_estimate,
       pieces_count,
       pricing_mode,
       company_rate,
@@ -447,7 +461,9 @@ export async function getMarketplaceLoadWithRequestStatus(
       pickup_date_end,
       equipment_type,
       truck_requirement,
-      special_instructions,
+      notes,
+      rate_per_cuft,
+      linehaul_amount,
       posted_to_marketplace_at,
       created_at
     `)
@@ -468,11 +484,50 @@ export async function getMarketplaceLoadWithRequestStatus(
     .eq('carrier_owner_id', carrierOwnerId)
     .single();
 
+  // Transform DB column names to interface names
   return {
-    ...(load as unknown as MarketplaceLoad),
+    id: load.id,
+    load_number: load.load_number,
+    company_id: load.company_id,
+    company: load.company,
+    storage_location: load.storage_location,
+    posting_type: load.posting_type,
+    load_subtype: load.load_subtype,
+    load_type: load.load_type,
+    current_storage_location: load.current_storage_location,
+    storage_unit: load.storage_unit,
+    // Map DB column names to interface names
+    origin_city: load.pickup_city || '',
+    origin_state: load.pickup_state || '',
+    origin_zip: load.pickup_zip || '',
+    destination_city: load.delivery_city || '',
+    destination_state: load.delivery_state || '',
+    destination_zip: load.delivery_postal_code || '',
+    estimated_cuft: load.cubic_feet_estimate,
+    estimated_weight_lbs: load.weight_lbs_estimate,
+    pieces_count: load.pieces_count,
+    pricing_mode: load.pricing_mode,
+    company_rate: load.company_rate,
+    company_rate_type: load.company_rate_type,
+    rate_is_fixed: load.rate_is_fixed,
+    is_open_to_counter: load.is_open_to_counter,
+    is_ready_now: load.is_ready_now,
+    available_date: load.available_date,
+    delivery_urgency: load.delivery_urgency,
+    rfd_date: load.rfd_date,
+    balance_due: load.balance_due,
+    pickup_date_start: load.pickup_date_start,
+    pickup_date_end: load.pickup_date_end,
+    equipment_type: load.equipment_type,
+    truck_requirement: load.truck_requirement,
+    special_instructions: load.notes,
+    rate_per_cuft: load.rate_per_cuft,
+    linehaul_amount: load.linehaul_amount,
+    posted_to_marketplace_at: load.posted_to_marketplace_at,
+    created_at: load.created_at,
     my_request_status: request?.status || null,
     my_request_id: request?.id || null,
-  };
+  } as MarketplaceLoad;
 }
 
 // Get requests for a load (company view)

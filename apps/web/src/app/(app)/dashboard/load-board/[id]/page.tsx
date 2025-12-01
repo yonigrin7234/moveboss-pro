@@ -31,7 +31,7 @@ import {
 function formatRate(rate: number | null, rateType: string): string {
   if (!rate) return 'Make an offer';
   const formatted = rate.toLocaleString('en-US', { minimumFractionDigits: 2 });
-  if (rateType === 'flat') return `$${formatted} flat`;
+  if (rateType === 'flat') return `$${formatted}`;
   if (rateType === 'per_cuft') return `$${formatted}/cuft`;
   if (rateType === 'per_lb') return `$${formatted}/lb`;
   return `$${formatted}`;

@@ -121,7 +121,7 @@ function formatPrice(load: MarketplaceLoad): { label: string; value: string } {
   // For loads, show linehaul/rate
   if (!load.company_rate) return { label: 'Linehaul', value: 'Make an offer' };
   const rate = load.company_rate.toLocaleString('en-US', { minimumFractionDigits: 2 });
-  if (load.company_rate_type === 'flat') return { label: 'Linehaul', value: `$${rate} flat` };
+  if (load.company_rate_type === 'flat') return { label: 'Linehaul', value: `$${rate}` };
   if (load.company_rate_type === 'per_cuft') return { label: 'Linehaul', value: `$${rate}/cuft` };
   if (load.company_rate_type === 'per_lb') return { label: 'Linehaul', value: `$${rate}/lb` };
   return { label: 'Linehaul', value: `$${rate}` };
@@ -183,11 +183,11 @@ function LoadCard({ load }: { load: MarketplaceLoad }) {
             <div className="flex items-center gap-2 flex-wrap">
               <LoadTypeBadge load={load} />
               <span className="text-lg font-semibold">
-                {load.origin_city}, {load.origin_state}
+                {load.origin_city}, {load.origin_state} {load.origin_zip}
               </span>
               <ArrowRight className="h-4 w-4 text-muted-foreground" />
               <span className="text-lg font-semibold">
-                {load.destination_city}, {load.destination_state}
+                {load.destination_city}, {load.destination_state} {load.destination_zip}
               </span>
             </div>
           </div>
@@ -216,6 +216,7 @@ function LoadCard({ load }: { load: MarketplaceLoad }) {
               <span className="flex items-center gap-1">
                 <Package className="h-4 w-4" />
                 {load.estimated_cuft.toLocaleString()} CF
+                {load.rate_per_cuft ? ` @ $${load.rate_per_cuft.toFixed(2)}/CF` : ''}
               </span>
             )}
             {dateDisplay && (
@@ -315,6 +316,7 @@ export default async function LoadBoardPage({ searchParams }: PageProps) {
     destination_state: params.destination || undefined,
     equipment_type: params.equipment || undefined,
     posting_type: activeTab === 'all' ? undefined : (activeTab as 'pickup' | 'load'),
+    excludeCompanyId: workspaceCompany.id, // Don't show user's own posted jobs
   };
 
   const [loads, counts] = await Promise.all([
