@@ -415,23 +415,20 @@ export async function getMarketplaceLoadWithRequestStatus(
 ): Promise<MarketplaceLoad | null> {
   const supabase = await createClient();
 
+  // Query load data without storage_location join to avoid failures for non-RFD loads
+  // We'll fetch storage location separately if needed
   const { data: load, error } = await supabase
     .from('loads')
     .select(`
       id,
       load_number,
       company_id,
+      posted_by_company_id,
+      storage_location_id,
       company:companies!loads_company_id_fkey(
         id, name, city, state,
         platform_loads_completed, platform_rating,
         dot_number, mc_number
-      ),
-      storage_location:storage_locations(
-        id, name, location_type, city, state, zip,
-        address_line1, unit_numbers, gate_code, access_hours,
-        access_instructions, truck_accessibility, accessibility_notes,
-        facility_brand, operating_hours, has_loading_dock, dock_height,
-        appointment_required, appointment_instructions
       ),
       posting_type,
       load_subtype,
@@ -476,6 +473,23 @@ export async function getMarketplaceLoadWithRequestStatus(
     return null;
   }
 
+  // Fetch storage location separately only for RFD loads that have a storage_location_id
+  let storageLocation = null;
+  if (load.storage_location_id) {
+    const { data: storageData } = await supabase
+      .from('storage_locations')
+      .select(`
+        id, name, location_type, city, state, zip,
+        address_line1, unit_numbers, gate_code, access_hours,
+        access_instructions, truck_accessibility, accessibility_notes,
+        facility_brand, operating_hours, has_loading_dock, dock_height,
+        appointment_required, appointment_instructions
+      `)
+      .eq('id', load.storage_location_id)
+      .single();
+    storageLocation = storageData;
+  }
+
   // Check if carrier has a request on this load
   const { data: request } = await supabase
     .from('load_requests')
@@ -485,14 +499,14 @@ export async function getMarketplaceLoadWithRequestStatus(
     .single();
 
   // Transform DB column names to interface names
-  // Note: company and storage_location come back as arrays from Supabase joins
+  // Note: company comes back as an array from Supabase joins
   const company = Array.isArray(load.company) ? load.company[0] : load.company;
-  const storageLocation = Array.isArray(load.storage_location) ? load.storage_location[0] : load.storage_location;
 
   return {
     id: load.id,
     load_number: load.load_number,
     company_id: load.company_id,
+    posted_by_company_id: load.posted_by_company_id,
     company: company || null,
     storage_location: storageLocation || null,
     posting_type: load.posting_type,
