@@ -33,6 +33,23 @@ export async function acceptPartnershipAction(
     return { success: false, error: 'Invalid company selection' };
   }
 
+  // Prevent self-partnership (same company ID)
+  if (companyId === invitation.from_company_id) {
+    return { success: false, error: 'You cannot partner with yourself' };
+  }
+
+  // Check if partnership already exists for this user
+  const { data: existingPartnership } = await supabase
+    .from('company_partnerships')
+    .select('id')
+    .eq('owner_id', user.id)
+    .or(`and(company_a_id.eq.${invitation.from_company_id},company_b_id.eq.${companyId}),and(company_a_id.eq.${companyId},company_b_id.eq.${invitation.from_company_id})`)
+    .maybeSingle();
+
+  if (existingPartnership) {
+    return { success: false, error: 'A partnership with this company already exists' };
+  }
+
   // Create the partnership for the accepting user
   const { error: partnershipError } = await supabase.from('company_partnerships').insert({
     owner_id: user.id,
