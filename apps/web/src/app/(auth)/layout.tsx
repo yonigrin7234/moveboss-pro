@@ -23,62 +23,67 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <div className="flex min-h-screen bg-[#080B12]">
-      {/* Left Panel */}
-      <div className={`hidden lg:flex flex-1 p-9 lg:p-11 flex-col relative overflow-hidden ${styles.gridBackground}`}>
-        {/* Route Lines Animation */}
-        <RouteLines />
+    <div className="min-h-screen bg-[#080B12] text-white">
+      {/* Centered container */}
+      <div className="mx-auto max-w-7xl px-6 lg:px-8 flex min-h-screen items-center">
+        <div className="flex flex-col lg:flex-row w-full gap-12 lg:gap-16 py-12 lg:py-0">
+          {/* Left Panel - Hero */}
+          <div className={`hidden lg:flex flex-1 flex-col relative overflow-hidden ${styles.gridBackground}`}>
+            {/* Route Lines Animation */}
+            <RouteLines />
 
-        {/* Content */}
-        <div className="flex-1 flex flex-col justify-center relative z-10 max-w-[500px]">
-          <h1 className="text-[44px] font-semibold leading-[1.12] tracking-tight mb-5 text-white">
-            Run your entire<br />
-            <span className="bg-gradient-to-r from-sky-500 to-cyan-500 bg-clip-text text-transparent">
-              moving operation
-            </span><br />
-            from one place.
-          </h1>
+            {/* Content */}
+            <div className="flex-1 flex flex-col justify-center relative z-10 max-w-[500px]">
+              <h1 className="text-[44px] font-semibold leading-[1.12] tracking-tight mb-5 text-white">
+                Run your entire<br />
+                <span className="bg-gradient-to-r from-sky-500 to-cyan-500 bg-clip-text text-transparent">
+                  moving operation
+                </span><br />
+                from one place.
+              </h1>
 
-          <p className="text-base text-white/50 leading-relaxed mb-6">
-            The complete platform for carriers, moving companies, and owner-operators to manage loads, drivers, finances, and compliance — all in one system.
-          </p>
+              <p className="text-base text-white/50 leading-relaxed mb-6">
+                The complete platform for carriers, moving companies, and owner-operators to manage loads, drivers, finances, and compliance — all in one system.
+              </p>
 
-          {/* Status Row */}
-          <div className="flex gap-6 mb-8">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-              <span className="text-[13px] text-white/45">Live FMCSA Monitoring</span>
+              {/* Status Row */}
+              <div className="flex gap-6 mb-8">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                  <span className="text-[13px] text-white/45">Live FMCSA Monitoring</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                  <span className="text-[13px] text-white/45">DOT Authority Verified</span>
+                </div>
+              </div>
+
+              {/* Feature Pills */}
+              <div className="flex flex-wrap gap-2">
+                <FeaturePill icon="grid">Load Board</FeaturePill>
+                <FeaturePill icon="bolt">Trip Management</FeaturePill>
+                <FeaturePill icon="globe">Fleet Tracking</FeaturePill>
+                <FeaturePill icon="dollar">Financial Brain</FeaturePill>
+                <FeaturePill icon="shield">Compliance</FeaturePill>
+                <FeaturePill icon="users">Driver Management</FeaturePill>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-              <span className="text-[13px] text-white/45">DOT Authority Verified</span>
+
+            {/* Footer */}
+            <div className="relative z-10 mt-8">
+              <p className="text-xs text-white/30">© 2025 MoveBoss</p>
             </div>
           </div>
 
-          {/* Feature Pills */}
-          <div className="flex flex-wrap gap-2">
-            <FeaturePill icon="grid">Load Board</FeaturePill>
-            <FeaturePill icon="bolt">Trip Management</FeaturePill>
-            <FeaturePill icon="globe">Fleet Tracking</FeaturePill>
-            <FeaturePill icon="dollar">Financial Brain</FeaturePill>
-            <FeaturePill icon="shield">Compliance</FeaturePill>
-            <FeaturePill icon="users">Driver Management</FeaturePill>
+          {/* Right Panel - Auth */}
+          <div className="flex-1 flex justify-center lg:justify-end">
+            <div className="w-full max-w-md bg-gradient-to-b from-[#0C1017] to-[#080B12] border border-white/5 rounded-2xl p-8 lg:p-10 relative">
+              {/* Top accent line */}
+              <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-[200px] h-0.5 rounded-full ${styles.accentLine}`} />
+
+              {children}
+            </div>
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="relative z-10">
-          <p className="text-xs text-white/30">© 2025 MoveBoss</p>
-        </div>
-      </div>
-
-      {/* Right Panel */}
-      <div className="w-full lg:w-[440px] bg-gradient-to-b from-[#0C1017] to-[#080B12] border-l border-white/5 p-9 lg:p-12 flex flex-col justify-center relative">
-        {/* Top accent line */}
-        <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-[200px] h-0.5 ${styles.accentLine}`} />
-
-        <div className="w-full">
-          {children}
         </div>
       </div>
     </div>
