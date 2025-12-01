@@ -14,19 +14,16 @@ interface LoadRequestFormProps {
   companyRate: number | null;
   companyRateType: string;
   isOpenToCounter: boolean;
+  ratePerCuft: number | null;
   onSubmit: (
     prevState: { error?: string; success?: boolean } | null,
     formData: FormData
   ) => Promise<{ error?: string; success?: boolean } | null>;
 }
 
-function formatRate(rate: number | null, rateType: string): string {
+function formatRatePerCuft(rate: number | null): string {
   if (!rate) return 'Make an offer';
-  const formatted = rate.toLocaleString('en-US', { minimumFractionDigits: 2 });
-  if (rateType === 'flat') return `$${formatted} flat`;
-  if (rateType === 'per_cuft') return `$${formatted}/cuft`;
-  if (rateType === 'per_lb') return `$${formatted}/lb`;
-  return `$${formatted}`;
+  return `$${rate.toFixed(2)}/CF`;
 }
 
 export function LoadRequestForm({
@@ -34,6 +31,7 @@ export function LoadRequestForm({
   companyRate,
   companyRateType,
   isOpenToCounter,
+  ratePerCuft,
   onSubmit,
 }: LoadRequestFormProps) {
   const router = useRouter();
@@ -67,9 +65,9 @@ export function LoadRequestForm({
       {/* Rate Section */}
       {!isOpenToCounter ? (
         <div className="p-4 rounded-lg bg-muted">
-          <p className="text-sm font-medium mb-1">Rate</p>
+          <p className="text-sm font-medium mb-1">Rate per CF</p>
           <p className="text-2xl font-bold">
-            {formatRate(companyRate, companyRateType)}
+            {formatRatePerCuft(ratePerCuft)}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
             This is a fixed rate - no counter offers
@@ -89,10 +87,10 @@ export function LoadRequestForm({
               />
               <div>
                 <p className="font-medium">
-                  Accept {formatRate(companyRate, companyRateType)}
+                  Accept {formatRatePerCuft(ratePerCuft)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Accept the company&apos;s posted rate
+                  Accept the company&apos;s posted rate per cubic foot
                 </p>
               </div>
             </label>
@@ -110,7 +108,7 @@ export function LoadRequestForm({
                 <p className="font-medium">Make a counter-offer</p>
                 <div className="mt-2">
                   <Label htmlFor="counter_offer_rate" className="text-xs">
-                    Your Rate ($/cuft)
+                    Your Rate per CF ($)
                   </Label>
                   <Input
                     id="counter_offer_rate"
@@ -118,7 +116,7 @@ export function LoadRequestForm({
                     type="number"
                     step="0.01"
                     min="0"
-                    placeholder="e.g. 0.75"
+                    placeholder={ratePerCuft ? `e.g. ${(ratePerCuft * 0.9).toFixed(2)}` : 'e.g. 2.50'}
                     className="mt-1"
                   />
                 </div>

@@ -26,6 +26,7 @@ import {
   Key,
   AlertTriangle,
   Ban,
+  BadgeCheck,
 } from 'lucide-react';
 
 function formatRate(rate: number | null, rateType: string): string {
@@ -211,24 +212,41 @@ export default async function LoadDetailPage({ params }: PageProps) {
             <CardContent>
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-lg font-semibold">{company?.name || 'Unknown Company'}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-lg font-semibold">{company?.name || 'Unknown Company'}</p>
+                    {(company?.dot_number || company?.mc_number) && (
+                      <Badge className="bg-green-500/20 text-green-600 dark:text-green-400 border-0">
+                        <BadgeCheck className="h-3 w-3 mr-1" />
+                        Verified
+                      </Badge>
+                    )}
+                  </div>
                   {company?.city && company?.state && (
                     <p className="text-muted-foreground">{company.city}, {company.state}</p>
                   )}
+                  {(company?.dot_number || company?.mc_number) && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {company?.dot_number && `DOT# ${company.dot_number}`}
+                      {company?.dot_number && company?.mc_number && ' • '}
+                      {company?.mc_number && `MC# ${company.mc_number}`}
+                    </p>
+                  )}
                 </div>
-                {company?.platform_rating && (
-                  <div className="text-right">
-                    <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
-                      <span className="font-semibold">{company.platform_rating.toFixed(1)}</span>
-                    </div>
-                    {company.platform_loads_completed > 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        {company.platform_loads_completed} loads completed
-                      </p>
-                    )}
-                  </div>
-                )}
+                <div className="text-right">
+                  {company?.platform_rating && (
+                    <>
+                      <div className="flex items-center gap-1">
+                        <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                        <span className="font-semibold">{company.platform_rating.toFixed(1)}</span>
+                      </div>
+                      {company.platform_loads_completed > 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          {company.platform_loads_completed} loads completed
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -262,6 +280,12 @@ export default async function LoadDetailPage({ params }: PageProps) {
                         ~{load.estimated_weight_lbs.toLocaleString()} lbs
                       </p>
                     )}
+                  </div>
+                )}
+                {load.rate_per_cuft && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Rate</p>
+                    <p className="font-medium">${load.rate_per_cuft.toFixed(2)}/CF</p>
                   </div>
                 )}
                 {load.pieces_count && (
@@ -499,17 +523,40 @@ export default async function LoadDetailPage({ params }: PageProps) {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5" />
-                Rate
+                Pricing
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">
-                {formatRate(load.company_rate, load.company_rate_type)}
-              </p>
-              {load.rate_is_fixed ? (
-                <p className="text-sm text-muted-foreground mt-1">Fixed rate - no negotiation</p>
+            <CardContent className="space-y-3">
+              {/* Rate per cubic foot */}
+              {load.rate_per_cuft ? (
+                <div>
+                  <p className="text-sm text-muted-foreground">Rate per CF</p>
+                  <p className="text-3xl font-bold">${load.rate_per_cuft.toFixed(2)}/CF</p>
+                </div>
               ) : (
-                <p className="text-sm text-muted-foreground mt-1">Open to offers</p>
+                <div>
+                  <p className="text-sm text-muted-foreground">Rate</p>
+                  <p className="text-3xl font-bold">Make an offer</p>
+                </div>
+              )}
+              {/* Calculated linehaul */}
+              {load.linehaul_amount && load.linehaul_amount > 0 && (
+                <div className="pt-2 border-t">
+                  <p className="text-sm text-muted-foreground">Linehaul</p>
+                  <p className="text-xl font-semibold">
+                    ${load.linehaul_amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
+                  {load.estimated_cuft && load.rate_per_cuft && (
+                    <p className="text-xs text-muted-foreground">
+                      {load.estimated_cuft.toLocaleString()} CF × ${load.rate_per_cuft.toFixed(2)}
+                    </p>
+                  )}
+                </div>
+              )}
+              {load.rate_is_fixed ? (
+                <p className="text-sm text-muted-foreground pt-2">Fixed rate - no negotiation</p>
+              ) : (
+                <p className="text-sm text-muted-foreground pt-2">Open to offers</p>
               )}
             </CardContent>
           </Card>
@@ -566,6 +613,7 @@ export default async function LoadDetailPage({ params }: PageProps) {
                   companyRate={load.company_rate}
                   companyRateType={load.company_rate_type}
                   isOpenToCounter={load.is_open_to_counter}
+                  ratePerCuft={load.rate_per_cuft}
                   onSubmit={submitRequest}
                 />
               </CardContent>
