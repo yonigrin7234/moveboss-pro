@@ -26,22 +26,29 @@ function Calendar({
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
         month_caption: cn(
-          "flex pt-1 items-center gap-1",
-          isDropdown ? "justify-between" : "justify-center relative"
+          "flex pt-1 items-center",
+          isDropdown ? "justify-center relative" : "justify-center relative"
         ),
-        caption_label: "text-sm font-medium",
+        caption_label: cn(
+          "text-sm font-medium",
+          isDropdown && "sr-only" // Screen reader only when using dropdowns (dropdowns show month/year)
+        ),
         nav: "flex items-center gap-1",
         button_previous: cn(
           buttonVariants({ variant: "outline" }),
           "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
-          !isDropdown && "absolute left-1"
+          "absolute left-1"
         ),
         button_next: cn(
           buttonVariants({ variant: "outline" }),
           "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
-          !isDropdown && "absolute right-1"
+          "absolute right-1"
         ),
-        dropdowns: "flex items-center gap-2",
+        dropdowns: "flex items-center gap-2 mx-10",
+        dropdown: "appearance-none bg-background border border-input rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer",
+        dropdown_root: "relative inline-flex items-center",
+        months_dropdown: "appearance-none bg-background border border-input rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer",
+        years_dropdown: "appearance-none bg-background border border-input rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer",
         month_grid: "w-full border-collapse",
         weekdays: "flex w-full",
         weekday: "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem] flex-1 text-center",
