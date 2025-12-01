@@ -438,13 +438,13 @@ export default async function LoadBoardPage({ searchParams }: PageProps) {
               <Filter className="h-4 w-4 mr-2" />
               Filter
             </Button>
-
-            {activeFilters > 0 && (
-              <Button variant="ghost" asChild>
-                <Link href={clearFiltersUrl}>Clear Filters</Link>
-              </Button>
-            )}
           </form>
+
+          {activeFilters > 0 && (
+            <Button variant="ghost" asChild className="ml-4">
+              <Link href={clearFiltersUrl}>Clear Filters</Link>
+            </Button>
+          )}
         </CardContent>
       </Card>
 
