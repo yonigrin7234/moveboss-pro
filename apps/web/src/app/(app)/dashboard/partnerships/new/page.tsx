@@ -15,11 +15,12 @@ export default async function NewPartnershipPage() {
 
   const supabase = await createClient();
 
-  // Get owner's companies
+  // Get owner's workspace companies (the companies they actually operate)
   const { data: myCompanies } = await supabase
     .from('companies')
     .select('id, name')
     .eq('owner_id', user.id)
+    .eq('is_workspace_company', true)
     .order('name');
 
   // Get all companies not owned by this user (potential partners)

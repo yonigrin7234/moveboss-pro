@@ -40,12 +40,13 @@ export default async function AcceptPartnershipInvitePage({ params }: PageProps)
     redirect(`/login?returnUrl=${returnUrl}`);
   }
 
-  // Get user's companies
+  // Get user's workspace companies (the companies they actually operate)
   const supabase = await createClient();
   const { data: companies } = await supabase
     .from('companies')
     .select('id, name, is_carrier, is_broker, is_agent')
-    .eq('owner_id', user.id);
+    .eq('owner_id', user.id)
+    .eq('is_workspace_company', true);
 
   const userCompanies = companies || [];
 
