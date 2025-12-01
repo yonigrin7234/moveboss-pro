@@ -26,25 +26,23 @@ function Calendar({
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
         month_caption: cn(
-          "flex pt-1 items-center",
-          isDropdown ? "justify-center relative" : "justify-center relative"
+          "flex pt-1 items-center h-10",
+          isDropdown ? "justify-center relative px-10" : "justify-center relative"
         ),
         caption_label: cn(
           "text-sm font-medium",
           isDropdown && "sr-only" // Screen reader only when using dropdowns (dropdowns show month/year)
         ),
-        nav: "flex items-center gap-1",
+        nav: "flex items-center justify-between absolute inset-x-0 top-0 h-10 px-1",
         button_previous: cn(
           buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
-          "absolute left-1"
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
         ),
         button_next: cn(
           buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
-          "absolute right-1"
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
         ),
-        dropdowns: "flex items-center gap-2 mx-10",
+        dropdowns: "flex items-center gap-2",
         dropdown: "appearance-none bg-background border border-input rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer",
         dropdown_root: "relative inline-flex items-center",
         months_dropdown: "appearance-none bg-background border border-input rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer",
