@@ -158,12 +158,12 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div className="max-w-7xl w-full mx-auto px-6 space-y-6 pt-6">
-      <div className="space-y-1">
-        <h2 className="text-xl font-semibold text-foreground tracking-tight">
-          Overview
+    <div className="max-w-7xl w-full mx-auto px-6 space-y-4 pt-4">
+      <div className="space-y-1 pb-2">
+        <h2 className="text-2xl font-semibold text-foreground tracking-tight">
+          Welcome back
         </h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground/90">
           Track performance, assets, and partner data from a single view.
         </p>
       </div>
@@ -181,44 +181,44 @@ export default async function DashboardPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {statCards.map((stat) => (
-          <Card key={stat.label} className="group h-full">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                {stat.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <p className="text-2xl font-bold text-foreground tracking-tight">{stat.value}</p>
-              <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
+          <Card key={stat.label} className="group h-full rounded-lg">
+            <CardContent className="p-4">
+              <p className="text-3xl font-semibold text-foreground tracking-tight">{stat.value}</p>
+              <div className="border-t border-border/40 mt-3 pt-3">
+                <p className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wide">
+                  {stat.label}
+                </p>
+                <p className="text-[11px] text-muted-foreground/70 mt-0.5">{stat.description}</p>
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
       {/* Status Widgets */}
-      <div className="grid gap-4 md:grid-cols-2 pt-2 border-t border-border/40">
+      <div className="grid gap-4 md:grid-cols-2 pt-3 border-t border-border/30">
         {verificationState && (
           <VerificationStatusWidget state={verificationState} />
         )}
         <ComplianceStatusWidget counts={complianceCounts} href="/dashboard/compliance/alerts" />
       </div>
 
-      <div className="flex flex-col gap-4 lg:flex-row">
-        <Card className="lg:flex-[3]">
-          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2 h-full rounded-lg">
+          <CardHeader className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between py-3 px-4">
             <div>
-              <CardTitle className="text-lg">Recent Companies</CardTitle>
-              <p className="text-sm text-muted-foreground">
+              <CardTitle className="text-base tracking-tight">Recent Companies</CardTitle>
+              <p className="text-[11.5px] text-muted-foreground">
                 Last five accounts you touched
               </p>
             </div>
-            <Button asChild size="sm" variant="outline">
+            <Button asChild size="sm" variant="outline" className="text-[11px] h-7">
               <Link href="/dashboard/companies">View all</Link>
             </Button>
           </CardHeader>
           <CardContent className="p-0">
             {companies.length === 0 ? (
-              <div className="p-8 text-center text-sm text-muted-foreground">
+              <div className="p-6 text-center text-sm text-muted-foreground">
                 No companies yet. Add partners to unlock reporting.
               </div>
             ) : (
@@ -260,21 +260,21 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="lg:flex-[2]">
-          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <Card className="h-full rounded-lg">
+          <CardHeader className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between py-3 px-4">
             <div>
-              <CardTitle className="text-lg">Driver roster</CardTitle>
-              <p className="text-sm text-muted-foreground">
+              <CardTitle className="text-base tracking-tight">Driver roster</CardTitle>
+              <p className="text-[11.5px] text-muted-foreground">
                 Recent drivers ready for dispatch
               </p>
             </div>
-            <Button asChild size="sm" variant="ghost">
-              <Link href="/dashboard/drivers">View drivers</Link>
+            <Button asChild size="sm" variant="ghost" className="text-[11px] h-7">
+              <Link href="/dashboard/drivers">View all</Link>
             </Button>
           </CardHeader>
           <CardContent className="p-0">
             {drivers.length === 0 ? (
-              <div className="p-8 text-center text-sm text-muted-foreground">
+              <div className="p-6 text-center text-sm text-muted-foreground">
                 No drivers yet. Add one to see them here.
               </div>
             ) : (
@@ -284,8 +284,6 @@ export default async function DashboardPage() {
                     <TableRow>
                       <TableHead>Driver</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead className="text-right">Pay mode</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -300,15 +298,9 @@ export default async function DashboardPage() {
                           </Link>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary" className="capitalize">
+                          <Badge variant="secondary" className="capitalize text-[10px]">
                             {driver.status}
                           </Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {driver.phone}
-                        </TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          {driver.pay_mode?.replaceAll('_', ' ') || '—'}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -321,48 +313,48 @@ export default async function DashboardPage() {
       </div>
 
       {/* Recent Activity Widget */}
-      <Card>
-        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-3">
+      <Card className="rounded-lg">
+        <CardHeader className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between py-3 px-4">
           <div>
-            <CardTitle className="text-lg flex items-center gap-2">
+            <CardTitle className="text-base tracking-tight flex items-center gap-2">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
               </span>
               Recent Activity
             </CardTitle>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-[11.5px] text-muted-foreground">
               Live updates from your drivers
             </p>
           </div>
-          <Button asChild size="sm" variant="ghost">
+          <Button asChild size="sm" variant="ghost" className="text-[11px] h-7">
             <Link href="/dashboard/activity">View all</Link>
           </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 pb-4 pt-0">
           {recentActivities.length === 0 ? (
-            <div className="py-6 text-center text-muted-foreground">
-              <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <div className="py-4 text-center text-muted-foreground">
+              <Clock className="h-6 w-6 mx-auto mb-2 opacity-50" />
               <p className="text-sm">No recent activity</p>
-              <p className="text-xs">Activity will appear here as your drivers work</p>
+              <p className="text-[11px]">Activity will appear here as your drivers work</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {recentActivities.map((activity) => {
                 const config = activityIcons[activity.activity_type] || activityIcons.load_accepted;
                 const Icon = config.icon;
                 return (
-                  <div key={activity.id} className="flex items-start gap-3">
+                  <div key={activity.id} className="flex items-start gap-2.5">
                     <div className={`mt-0.5 ${config.color}`}>
-                      <Icon className="h-4 w-4" />
+                      <Icon className="h-3.5 w-3.5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-foreground truncate">{activity.title}</p>
+                      <p className="text-[13px] text-foreground truncate">{activity.title}</p>
                       {activity.description && (
-                        <p className="text-xs text-muted-foreground truncate">{activity.description}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{activity.description}</p>
                       )}
                     </div>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                       {timeAgo(activity.created_at)}
                     </span>
                   </div>

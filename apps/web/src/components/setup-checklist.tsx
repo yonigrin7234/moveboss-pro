@@ -187,60 +187,60 @@ export function SetupChecklist({ userRole, className }: SetupChecklistProps) {
   }
 
   return (
-    <Card className={cn('border-primary/20', className)}>
-      <CardHeader className="pb-3 pt-4 px-4">
+    <Card className={cn('border-primary/20 rounded-lg', className)}>
+      <CardHeader className="pb-2.5 pt-3 px-3.5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <div className="flex-shrink-0">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Sparkles className="h-4 w-4 text-primary" />
+              <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
               </div>
             </div>
             <div>
-              <CardTitle className="text-sm font-semibold leading-tight">Get your workspace ready</CardTitle>
-              <CardDescription className="text-xs mt-0.5">
+              <CardTitle className="text-[13px] font-semibold leading-tight tracking-tight">Get your workspace ready</CardTitle>
+              <CardDescription className="text-[10.5px] mt-0.5">
                 Complete these steps to unlock full functionality
               </CardDescription>
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            <Badge variant="secondary" className="text-[11px] px-1.5 py-0 h-5 font-mono tabular-nums">
+          <div className="flex items-center gap-0.5">
+            <Badge variant="secondary" className="text-[11px] px-1.5 py-0 h-[18px] font-mono tabular-nums">
               {completedCount}/{totalCount}
             </Badge>
             <Button
               variant="ghost"
               size="icon-sm"
-              className="h-6 w-6"
+              className="h-5 w-5"
               onClick={() => setIsExpanded(!isExpanded)}
             >
               {isExpanded ? (
-                <ChevronUp className="h-3.5 w-3.5" />
+                <ChevronUp className="h-3 w-3" />
               ) : (
-                <ChevronDown className="h-3.5 w-3.5" />
+                <ChevronDown className="h-3 w-3" />
               )}
             </Button>
             <Button
               variant="ghost"
               size="icon-sm"
-              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+              className="h-5 w-5 text-muted-foreground hover:text-foreground"
               onClick={dismissChecklist}
               title="Dismiss checklist"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-3 w-3" />
             </Button>
           </div>
         </div>
 
         {/* Progress bar */}
-        <div className="mt-2.5">
+        <div className="mt-2">
           <Progress value={progressPercent} className="h-1" />
-          <p className="text-[10px] text-muted-foreground mt-1">{progressPercent}% complete</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">{progressPercent}% complete</p>
         </div>
       </CardHeader>
 
       {isExpanded && (
-        <CardContent className="pt-0 pb-3 px-4">
-          <div className="space-y-px">
+        <CardContent className="pt-0 pb-2.5 px-3.5">
+          <div className="space-y-0">
             {roleItems.map((item) => {
               const isComplete = progress[item.id];
 
@@ -248,7 +248,7 @@ export function SetupChecklist({ userRole, className }: SetupChecklistProps) {
                 <div
                   key={item.id}
                   className={cn(
-                    'flex items-center gap-2 py-2 px-2 rounded-md transition-all duration-150 cursor-pointer',
+                    'flex items-center gap-1.5 py-1.5 px-1.5 rounded transition-all duration-150 cursor-pointer',
                     isComplete
                       ? 'bg-success/5 text-muted-foreground'
                       : 'hover:bg-accent'
@@ -266,38 +266,38 @@ export function SetupChecklist({ userRole, className }: SetupChecklistProps) {
                     )}
                   >
                     {isComplete ? (
-                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <CheckCircle2 className="h-3 w-3" />
                     ) : (
-                      <Circle className="h-3.5 w-3.5" />
+                      <Circle className="h-3 w-3" />
                     )}
                   </div>
 
                   <div
                     className={cn(
-                      'flex-shrink-0 w-6 h-6 rounded flex items-center justify-center',
+                      'flex-shrink-0 w-5 h-5 rounded flex items-center justify-center',
                       isComplete
                         ? 'bg-success/10 text-success'
                         : 'bg-primary/10 text-primary'
                     )}
                   >
-                    <span className="[&>svg]:h-3.5 [&>svg]:w-3.5">{item.icon}</span>
+                    <span className="[&>svg]:h-3 [&>svg]:w-3">{item.icon}</span>
                   </div>
 
                   <div className="flex-grow min-w-0">
                     <p
-                      className={cn('font-medium text-[13px] leading-tight', isComplete && 'line-through opacity-60')}
+                      className={cn('font-medium text-[12.5px] leading-tight', isComplete && 'line-through opacity-60')}
                     >
                       {item.title}
                     </p>
-                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                    <p className="text-[11px] text-muted-foreground/90 truncate">
                       {item.description}
                     </p>
                   </div>
 
                   {!isComplete && (
-                    <Button variant="ghost" size="sm" className="flex-shrink-0 gap-0.5 h-6 text-[11px] px-2">
+                    <Button variant="ghost" size="sm" className="flex-shrink-0 gap-0.5 h-5 text-[11px] px-1.5">
                       Start
-                      <ArrowRight className="h-3 w-3" />
+                      <ArrowRight className="h-2.5 w-2.5" />
                     </Button>
                   )}
                 </div>
