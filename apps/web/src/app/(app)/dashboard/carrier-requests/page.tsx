@@ -15,8 +15,10 @@ import {
   MessageSquare,
   Calendar,
   BadgeCheck,
+  AlertTriangle,
 } from 'lucide-react';
 import { RequestActions } from './request-actions';
+import { getCompanyBalancesBatch } from '@/data/company-ledger';
 
 interface CarrierRequest {
   id: string;
@@ -128,11 +130,20 @@ function formatDateShort(dateStr: string | null): string {
   });
 }
 
-function RequestCard({ request }: { request: CarrierRequest }) {
+interface BalanceInfo {
+  totalOwed: number;  // They owe us
+  totalOwing: number; // We owe them
+  netBalance: number; // Positive = they owe us
+}
+
+function RequestCard({ request, balance }: { request: CarrierRequest; balance?: BalanceInfo }) {
   const load = request.load;
   const carrier = request.carrier;
 
   if (!load || !carrier) return null;
+
+  // Check if there's an open balance
+  const hasOpenBalance = balance && (balance.totalOwed > 0 || balance.totalOwing > 0);
 
   const route = load.pickup_city && load.pickup_state && load.delivery_city && load.delivery_state
     ? `${load.pickup_city}, ${load.pickup_state} → ${load.delivery_city}, ${load.delivery_state}`
@@ -213,7 +224,13 @@ function RequestCard({ request }: { request: CarrierRequest }) {
               )}
             </div>
             {request.status === 'pending' && (
-              <RequestActions requestId={request.id} loadId={load.id} carrierId={carrier.id} />
+              <RequestActions
+                requestId={request.id}
+                loadId={load.id}
+                carrierId={carrier.id}
+                carrierName={carrier.name}
+                balance={balance}
+              />
             )}
           </div>
 
@@ -248,6 +265,23 @@ function RequestCard({ request }: { request: CarrierRequest }) {
               </div>
             </div>
           </div>
+
+          {/* Open Balance Warning */}
+          {hasOpenBalance && request.status === 'pending' && (
+            <div className="flex items-center gap-2 text-sm bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 p-3 rounded-lg">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+              <div>
+                <span className="font-medium">Open balance with {carrier.name}: </span>
+                {balance!.netBalance > 0 ? (
+                  <span>They owe you {formatCurrency(balance!.totalOwed)}</span>
+                ) : balance!.netBalance < 0 ? (
+                  <span>You owe them {formatCurrency(balance!.totalOwing)}</span>
+                ) : (
+                  <span>{formatCurrency(balance!.totalOwed)} owed / {formatCurrency(balance!.totalOwing)} owing</span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Proposed Dates */}
           {(loadDateRange || deliveryDateRange) && (
@@ -320,6 +354,22 @@ export default async function CarrierRequestsPage() {
   const pendingRequests = allRequests.filter((r) => r.status === 'pending');
   const acceptedRequests = allRequests.filter((r) => r.status === 'accepted');
   const declinedRequests = allRequests.filter((r) => ['declined', 'withdrawn'].includes(r.status));
+
+  // Get unique carrier IDs from pending requests to fetch balances
+  const pendingCarrierIds = [...new Set(
+    pendingRequests
+      .map((r) => r.carrier?.id)
+      .filter((id): id is string => Boolean(id))
+  )];
+
+  // Fetch balances for all carriers with pending requests
+  const balances = await getCompanyBalancesBatch(pendingCarrierIds, user.id);
+
+  // Convert Map to a plain object for easier access in components
+  const balancesMap: Record<string, BalanceInfo> = {};
+  balances.forEach((value, key) => {
+    balancesMap[key] = value;
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-6 pt-4 space-y-4">
@@ -401,7 +451,11 @@ export default async function CarrierRequestsPage() {
             </Card>
           ) : (
             pendingRequests.map((request) => (
-              <RequestCard key={request.id} request={request} />
+              <RequestCard
+                key={request.id}
+                request={request}
+                balance={request.carrier?.id ? balancesMap[request.carrier.id] : undefined}
+              />
             ))
           )}
         </TabsContent>

@@ -386,6 +386,73 @@ export async function getCompanyPayments(
 }
 
 /**
+ * Get balances for multiple companies at once (batch query for efficiency)
+ * Returns a map of company_id -> balance info
+ */
+export async function getCompanyBalancesBatch(
+  companyIds: string[],
+  userId: string
+): Promise<Map<string, { totalOwed: number; totalOwing: number; netBalance: number }>> {
+  if (companyIds.length === 0) {
+    return new Map();
+  }
+
+  const supabase = await createClient();
+  const result = new Map<string, { totalOwed: number; totalOwing: number; netBalance: number }>();
+
+  // Initialize all companies with zero balance
+  for (const id of companyIds) {
+    result.set(id, { totalOwed: 0, totalOwing: 0, netBalance: 0 });
+  }
+
+  // Get open receivables for all companies (what they owe us)
+  const { data: receivables, error: receivablesError } = await supabase
+    .from('receivables')
+    .select('company_id, amount')
+    .in('company_id', companyIds)
+    .eq('owner_id', userId)
+    .eq('status', 'open');
+
+  if (receivablesError) {
+    console.error('Error fetching batch receivables:', receivablesError.message);
+  } else if (receivables) {
+    for (const r of receivables) {
+      const current = result.get(r.company_id);
+      if (current) {
+        current.totalOwed += Number(r.amount) || 0;
+        current.netBalance = current.totalOwed - current.totalOwing;
+      }
+    }
+  }
+
+  // Get open payables to these companies (what we owe them)
+  const { data: payables, error: payablesError } = await supabase
+    .from('payables')
+    .select('carrier_id, amount')
+    .eq('payee_type', 'carrier')
+    .in('carrier_id', companyIds)
+    .eq('owner_id', userId)
+    .eq('status', 'open');
+
+  if (payablesError) {
+    console.error('Error fetching batch payables:', payablesError.message);
+  } else if (payables) {
+    for (const p of payables) {
+      const carrierId = (p as any).carrier_id;
+      if (carrierId) {
+        const current = result.get(carrierId);
+        if (current) {
+          current.totalOwing += Number(p.amount) || 0;
+          current.netBalance = current.totalOwed - current.totalOwing;
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
  * Get receivables for a specific company
  */
 export async function getCompanyReceivables(

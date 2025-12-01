@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/lib/supabase-server';
 import { getMarketplaceLoadWithRequestStatus, createLoadRequest, withdrawLoadRequest } from '@/data/marketplace';
 import { getWorkspaceCompanyForUser } from '@/data/companies';
+import { getCompanyLedgerSummary } from '@/data/company-ledger';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -72,6 +73,23 @@ export default async function LoadDetailPage({ params }: PageProps) {
   }
 
   const company = Array.isArray(load.company) ? load.company[0] : load.company;
+
+  // Fetch balance with the load's company
+  let companyBalance: { totalOwed: number; totalOwing: number; netBalance: number } | null = null;
+  if (company?.id) {
+    try {
+      const ledger = await getCompanyLedgerSummary(company.id, user.id);
+      if (ledger.loadsFromThem.totalOwed > 0 || ledger.loadsToThem.totalOwing > 0) {
+        companyBalance = {
+          totalOwed: ledger.loadsFromThem.totalOwed,
+          totalOwing: ledger.loadsToThem.totalOwing,
+          netBalance: ledger.netBalance,
+        };
+      }
+    } catch (error) {
+      console.error('Error fetching company balance:', error);
+    }
+  }
 
   // Server action to submit request
   async function submitRequest(
@@ -614,6 +632,8 @@ export default async function LoadDetailPage({ params }: PageProps) {
                   companyRateType={load.company_rate_type}
                   isOpenToCounter={load.is_open_to_counter}
                   ratePerCuft={load.rate_per_cuft}
+                  companyName={company?.name || 'Unknown Company'}
+                  companyBalance={companyBalance}
                   onSubmit={submitRequest}
                 />
               </CardContent>

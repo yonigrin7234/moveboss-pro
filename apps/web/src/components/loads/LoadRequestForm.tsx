@@ -1,14 +1,22 @@
 'use client';
 
-import { useActionState, useEffect } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { DatePicker } from '@/components/ui/date-picker';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { useSetupProgress } from '@/hooks/use-setup-progress';
+import { AlertTriangle } from 'lucide-react';
+
+interface BalanceInfo {
+  totalOwed: number;  // They owe us
+  totalOwing: number; // We owe them
+  netBalance: number; // Positive = they owe us
+}
 
 interface LoadRequestFormProps {
   loadId: string;
@@ -16,6 +24,8 @@ interface LoadRequestFormProps {
   companyRateType: string;
   isOpenToCounter: boolean;
   ratePerCuft: number | null;
+  companyName?: string;
+  companyBalance?: BalanceInfo | null;
   onSubmit: (
     prevState: { error?: string; success?: boolean } | null,
     formData: FormData
@@ -27,18 +37,36 @@ function formatRatePerCuft(rate: number | null): string {
   return `$${rate.toFixed(2)}/CF`;
 }
 
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
 export function LoadRequestForm({
   loadId,
   companyRate,
   companyRateType,
   isOpenToCounter,
   ratePerCuft,
+  companyName,
+  companyBalance,
   onSubmit,
 }: LoadRequestFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const { markComplete } = useSetupProgress();
   const [state, formAction, pending] = useActionState(onSubmit, null);
+  const [acknowledgedBalance, setAcknowledgedBalance] = useState(false);
+
+  // Check if there's an open balance
+  const hasOpenBalance = companyBalance && (companyBalance.totalOwed > 0 || companyBalance.totalOwing > 0);
+
+  // Determine if submit should be disabled
+  const submitDisabled = pending || (hasOpenBalance === true && !acknowledgedBalance);
 
   useEffect(() => {
     if (state?.success) {
@@ -193,7 +221,45 @@ export function LoadRequestForm({
         />
       </div>
 
-      <Button type="submit" className="w-full" disabled={pending}>
+      {/* Open Balance Warning */}
+      {hasOpenBalance && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-medium text-amber-700 dark:text-amber-300">
+                Open balance with {companyName || 'this company'}
+              </p>
+              <p className="text-sm text-amber-600 dark:text-amber-400">
+                {companyBalance!.netBalance > 0 ? (
+                  <>They owe you <span className="font-semibold">{formatCurrency(companyBalance!.totalOwed)}</span></>
+                ) : companyBalance!.netBalance < 0 ? (
+                  <>You owe them <span className="font-semibold">{formatCurrency(companyBalance!.totalOwing)}</span></>
+                ) : (
+                  <>
+                    {formatCurrency(companyBalance!.totalOwed)} owed to you / {formatCurrency(companyBalance!.totalOwing)} you owe
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <Checkbox
+              id="acknowledge-balance"
+              checked={acknowledgedBalance}
+              onCheckedChange={(checked) => setAcknowledgedBalance(checked === true)}
+            />
+            <Label
+              htmlFor="acknowledge-balance"
+              className="text-sm text-amber-700 dark:text-amber-300 cursor-pointer"
+            >
+              I acknowledge this balance and want to continue
+            </Label>
+          </div>
+        </div>
+      )}
+
+      <Button type="submit" className="w-full" disabled={submitDisabled}>
         {pending ? 'Submitting...' : 'Submit Request'}
       </Button>
 

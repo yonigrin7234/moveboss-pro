@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase-client';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -14,20 +16,49 @@ import {
   DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+
+interface BalanceInfo {
+  totalOwed: number;  // They owe us
+  totalOwing: number; // We owe them
+  netBalance: number; // Positive = they owe us
+}
 
 interface RequestActionsProps {
   requestId: string;
   loadId: string;
   carrierId: string;
+  carrierName: string;
+  balance?: BalanceInfo;
 }
 
-export function RequestActions({ requestId, loadId, carrierId }: RequestActionsProps) {
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+export function RequestActions({ requestId, loadId, carrierId, carrierName, balance }: RequestActionsProps) {
   const router = useRouter();
   const [isAccepting, setIsAccepting] = useState(false);
   const [isDeclining, setIsDeclining] = useState(false);
   const [acceptDialogOpen, setAcceptDialogOpen] = useState(false);
   const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
+  const [acknowledgedBalance, setAcknowledgedBalance] = useState(false);
+
+  // Check if there's an open balance
+  const hasOpenBalance = balance && (balance.totalOwed > 0 || balance.totalOwing > 0);
+
+  // Reset acknowledgment when dialog closes
+  const handleAcceptDialogChange = (open: boolean) => {
+    setAcceptDialogOpen(open);
+    if (!open) {
+      setAcknowledgedBalance(false);
+    }
+  };
 
   const handleAccept = async () => {
     setIsAccepting(true);
@@ -109,9 +140,12 @@ export function RequestActions({ requestId, loadId, carrierId }: RequestActionsP
     }
   };
 
+  // Determine if accept button should be disabled
+  const acceptDisabled = isAccepting || (hasOpenBalance && !acknowledgedBalance);
+
   return (
     <div className="flex items-center gap-2">
-      <Dialog open={acceptDialogOpen} onOpenChange={setAcceptDialogOpen}>
+      <Dialog open={acceptDialogOpen} onOpenChange={handleAcceptDialogChange}>
         <DialogTrigger asChild>
           <Button size="sm" disabled={isAccepting || isDeclining}>
             {isAccepting ? (
@@ -130,11 +164,50 @@ export function RequestActions({ requestId, loadId, carrierId }: RequestActionsP
               will be automatically declined.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Balance Warning */}
+          {hasOpenBalance && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-medium text-amber-700 dark:text-amber-300">
+                    Open balance with {carrierName}
+                  </p>
+                  <p className="text-sm text-amber-600 dark:text-amber-400">
+                    {balance!.netBalance > 0 ? (
+                      <>They owe you <span className="font-semibold">{formatCurrency(balance!.totalOwed)}</span></>
+                    ) : balance!.netBalance < 0 ? (
+                      <>You owe them <span className="font-semibold">{formatCurrency(balance!.totalOwing)}</span></>
+                    ) : (
+                      <>
+                        {formatCurrency(balance!.totalOwed)} owed to you / {formatCurrency(balance!.totalOwing)} you owe
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <Checkbox
+                  id="acknowledge-balance"
+                  checked={acknowledgedBalance}
+                  onCheckedChange={(checked) => setAcknowledgedBalance(checked === true)}
+                />
+                <Label
+                  htmlFor="acknowledge-balance"
+                  className="text-sm text-amber-700 dark:text-amber-300 cursor-pointer"
+                >
+                  I acknowledge this balance and want to continue
+                </Label>
+              </div>
+            </div>
+          )}
+
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>
             </DialogClose>
-            <Button onClick={handleAccept} disabled={isAccepting}>
+            <Button onClick={handleAccept} disabled={acceptDisabled}>
               {isAccepting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Accept Carrier
             </Button>
