@@ -22,13 +22,26 @@ export default async function DashboardLayout({
   const fullName =
     (user?.user_metadata?.full_name as string | undefined) ||
     (user?.user_metadata?.name as string | undefined)
-  const [workspaceCompany, memberships, unreadNotifications, onboardingState, permissions] = await Promise.all([
-    getWorkspaceCompanyForUser(user.id),
-    getMembershipsForUser(user.id),
-    getUnreadNotificationCount(user.id),
-    getOnboardingState(user.id),
-    getCurrentUserPermissions(),
-  ])
+
+  // Fetch all layout data with error resilience
+  let workspaceCompany = null
+  let memberships: Awaited<ReturnType<typeof getMembershipsForUser>> = []
+  let unreadNotifications = 0
+  let onboardingState = null
+  let permissions = null
+
+  try {
+    [workspaceCompany, memberships, unreadNotifications, onboardingState, permissions] = await Promise.all([
+      getWorkspaceCompanyForUser(user.id),
+      getMembershipsForUser(user.id),
+      getUnreadNotificationCount(user.id),
+      getOnboardingState(user.id),
+      getCurrentUserPermissions(),
+    ])
+  } catch (error) {
+    console.error('[DashboardLayout] Error fetching layout data:', error)
+    // Continue with defaults - the UI will show appropriate empty states
+  }
   const companySummary = workspaceCompany
     ? {
         id: workspaceCompany.id,
