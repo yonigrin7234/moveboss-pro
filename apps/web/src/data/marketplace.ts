@@ -191,7 +191,7 @@ export async function getMarketplaceLoads(filters?: {
       pickup_date_end,
       equipment_type,
       truck_requirement,
-      special_instructions,
+      notes,
       posted_to_marketplace_at,
       created_at
     `)
@@ -225,8 +225,17 @@ export async function getMarketplaceLoads(filters?: {
   // Log the query result for debugging
   console.log('[Marketplace] Query result:', {
     dataLength: data?.length ?? 'null',
-    error: error ? { code: error.code, message: error.message, details: error.details } : null
+    error: error ? { code: error.code, message: error.message, details: error.details, hint: error.hint } : null
   });
+  
+  // TEMPORARY: Enhanced logging
+  if (error) {
+    console.log('[Marketplace] FULL ERROR OBJECT:', JSON.stringify(error, null, 2));
+  }
+  if (data) {
+    console.log('[Marketplace] Data returned:', data.length, 'rows');
+    console.log('[Marketplace] First row IDs:', data.slice(0, 5).map((r: any) => r.id));
+  }
 
   if (error) {
     console.error('[Marketplace] Error fetching loads:', error);
@@ -326,7 +335,7 @@ export async function getMarketplaceLoads(filters?: {
     pickup_date_end: load.pickup_date_end,
     equipment_type: load.equipment_type,
     truck_requirement: load.truck_requirement,
-    special_instructions: load.special_instructions,
+    special_instructions: load.notes,
     posted_to_marketplace_at: load.posted_to_marketplace_at,
     created_at: load.created_at,
     company: companyMap.get(load.company_id || load.posted_by_company_id || '') || {
