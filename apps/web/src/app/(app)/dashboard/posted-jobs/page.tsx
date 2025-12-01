@@ -100,7 +100,13 @@ export default async function PostedJobsPage() {
 
   const pickups = jobs.filter((j) => j.posting_type === 'pickup');
   const loads = jobs.filter((j) => j.posting_type === 'load');
+
+  // Status-based filtering
   const activeJobs = jobs.filter((j) => ['posted', 'assigned', 'in_progress'].includes(j.posting_status));
+  const completedJobs = jobs.filter((j) => j.posting_status === 'completed');
+  const cancelledJobs = jobs.filter((j) => j.posting_status === 'cancelled');
+  const draftJobs = jobs.filter((j) => j.posting_status === 'draft' || !j.posting_status);
+
   const totalPendingRequests = Object.values(requestCountMap).reduce((sum, count) => sum + count, 0);
 
   return (
@@ -179,57 +185,66 @@ export default async function PostedJobsPage() {
         </Card>
       </div>
 
-      {/* Jobs List */}
-      <Tabs defaultValue="all" className="space-y-4">
+      {/* Jobs List - Status-based tabs */}
+      <Tabs defaultValue="active" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="all">All ({jobs.length})</TabsTrigger>
-          <TabsTrigger value="pickups">Pickups ({pickups.length})</TabsTrigger>
-          <TabsTrigger value="loads">Loads ({loads.length})</TabsTrigger>
+          <TabsTrigger value="active">Active ({activeJobs.length})</TabsTrigger>
+          <TabsTrigger value="completed">Completed ({completedJobs.length})</TabsTrigger>
+          <TabsTrigger value="cancelled">Cancelled ({cancelledJobs.length})</TabsTrigger>
+          <TabsTrigger value="drafts">Drafts ({draftJobs.length})</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="all" className="space-y-4">
-          {jobs.length === 0 ? (
+        <TabsContent value="active" className="space-y-4">
+          {activeJobs.length === 0 ? (
             <Card>
               <CardContent className="py-10 text-center text-muted-foreground">
                 <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                <p>No posted jobs yet.</p>
+                <p>No active posted jobs.</p>
                 <p className="text-sm mt-2">Post a pickup or load to get started.</p>
               </CardContent>
             </Card>
           ) : (
-            jobs.map((job) => <JobCard key={job.id} job={job} requestCount={requestCountMap[job.id] || 0} />)
+            activeJobs.map((job) => <JobCard key={job.id} job={job} requestCount={requestCountMap[job.id] || 0} />)
           )}
         </TabsContent>
 
-        <TabsContent value="pickups" className="space-y-4">
-          {pickups.length === 0 ? (
+        <TabsContent value="completed" className="space-y-4">
+          {completedJobs.length === 0 ? (
             <Card>
               <CardContent className="py-10 text-center text-muted-foreground">
-                <Upload className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                <p>No pickups posted yet.</p>
-                <Button variant="outline" className="mt-4" asChild>
-                  <Link href="/dashboard/post-pickup">Post a Pickup</Link>
-                </Button>
+                <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
+                <p>No completed jobs yet.</p>
+                <p className="text-sm mt-2">Jobs will appear here once they&apos;re marked as completed.</p>
               </CardContent>
             </Card>
           ) : (
-            pickups.map((job) => <JobCard key={job.id} job={job} requestCount={requestCountMap[job.id] || 0} />)
+            completedJobs.map((job) => <JobCard key={job.id} job={job} requestCount={requestCountMap[job.id] || 0} />)
           )}
         </TabsContent>
 
-        <TabsContent value="loads" className="space-y-4">
-          {loads.length === 0 ? (
+        <TabsContent value="cancelled" className="space-y-4">
+          {cancelledJobs.length === 0 ? (
             <Card>
               <CardContent className="py-10 text-center text-muted-foreground">
-                <PackagePlus className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                <p>No loads posted yet.</p>
-                <Button variant="outline" className="mt-4" asChild>
-                  <Link href="/dashboard/post-load">Post a Load</Link>
-                </Button>
+                <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
+                <p>No cancelled jobs.</p>
               </CardContent>
             </Card>
           ) : (
-            loads.map((job) => <JobCard key={job.id} job={job} requestCount={requestCountMap[job.id] || 0} />)
+            cancelledJobs.map((job) => <JobCard key={job.id} job={job} requestCount={requestCountMap[job.id] || 0} />)
+          )}
+        </TabsContent>
+
+        <TabsContent value="drafts" className="space-y-4">
+          {draftJobs.length === 0 ? (
+            <Card>
+              <CardContent className="py-10 text-center text-muted-foreground">
+                <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
+                <p>No draft or unpublished jobs.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            draftJobs.map((job) => <JobCard key={job.id} job={job} requestCount={requestCountMap[job.id] || 0} />)
           )}
         </TabsContent>
       </Tabs>
