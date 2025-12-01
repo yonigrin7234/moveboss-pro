@@ -22,13 +22,6 @@ export default async function OnboardingLayout({
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b">
-        <div className="container flex h-16 items-center">
-          <div className="text-xl font-bold">MoveBoss Pro</div>
-        </div>
-      </header>
-
       {/* Content */}
       <main>{children}</main>
     </div>
