@@ -26,6 +26,13 @@ export function DatePicker({ name, defaultValue, placeholder = "Pick a date", cl
   )
   const [open, setOpen] = React.useState(false)
 
+  // Sync internal state when defaultValue changes (e.g., after form validation errors)
+  React.useEffect(() => {
+    if (defaultValue) {
+      setDate(new Date(defaultValue + 'T00:00:00'))
+    }
+  }, [defaultValue])
+
   // Format date as YYYY-MM-DD for form submission
   const formattedValue = date ? format(date, "yyyy-MM-dd") : ""
 
