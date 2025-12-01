@@ -155,6 +155,17 @@ export function DriverForm({
     medicalCardExpiry: initialData?.medical_card_expiry || '',
     authUserId: (initialData as any)?.auth_user_id || null,
   });
+
+  // Store form values to preserve data on validation errors
+  const [savedFormData, setSavedFormData] = useState<Record<string, string>>({});
+
+  // Helper to get field value: savedFormData (on error) > initialData > empty
+  const getFieldValue = (fieldName: string, initialValue?: string) => {
+    if (state?.errors && savedFormData[fieldName] !== undefined) {
+      return savedFormData[fieldName];
+    }
+    return initialValue || '';
+  };
   const sectionIndex: Record<string, number> = {
     profile: 0,
     access: 1,
@@ -430,6 +441,20 @@ export function DriverForm({
     }
   };
 
+  // Capture form data before submission to preserve values on error
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const values: Record<string, string> = {};
+    formData.forEach((value, key) => {
+      if (typeof value === 'string') {
+        values[key] = value;
+      }
+    });
+    setSavedFormData(values);
+    // Don't prevent default - let the form action run
+  };
+
   const renderStepContent = (stepIndex: number) => {
     switch (stepIndex) {
       case 0:
@@ -449,10 +474,11 @@ export function DriverForm({
                       First Name <span className="text-destructive">*</span>
                     </Label>
                     <Input
+                      key={`first_name-${savedFormData.first_name ?? 'init'}`}
                       id="first_name"
                       name="first_name"
                       required
-                      defaultValue={initialData?.first_name}
+                      defaultValue={getFieldValue('first_name', initialData?.first_name)}
                       className="h-9"
                     />
                     {state?.errors?.first_name && (
@@ -464,10 +490,11 @@ export function DriverForm({
                       Last Name <span className="text-destructive">*</span>
                     </Label>
                     <Input
+                      key={`last_name-${savedFormData.last_name ?? 'init'}`}
                       id="last_name"
                       name="last_name"
                       required
-                      defaultValue={initialData?.last_name}
+                      defaultValue={getFieldValue('last_name', initialData?.last_name)}
                       className="h-9"
                     />
                     {state?.errors?.last_name && (
@@ -481,11 +508,12 @@ export function DriverForm({
                       Phone <span className="text-destructive">*</span>
                     </Label>
                     <Input
+                      key={`phone-${savedFormData.phone ?? 'init'}`}
                       id="phone"
                       name="phone"
                       type="tel"
                       required
-                      defaultValue={initialData?.phone}
+                      defaultValue={getFieldValue('phone', initialData?.phone)}
                       className="h-9"
                     />
                     {state?.errors?.phone && (
@@ -495,10 +523,11 @@ export function DriverForm({
                   <div className="space-y-1.5">
                     <Label htmlFor="email" className="text-sm">Email</Label>
                     <Input
+                      key={`email-${savedFormData.email ?? 'init'}`}
                       id="email"
                       name="email"
                       type="email"
-                      defaultValue={initialData?.email}
+                      defaultValue={getFieldValue('email', initialData?.email)}
                       className="h-9"
                     />
                     {state?.errors?.email && (
@@ -510,8 +539,9 @@ export function DriverForm({
                   <div className="space-y-1.5">
                     <Label htmlFor="date_of_birth" className="text-sm">Date of Birth</Label>
                     <DatePicker
+                      key={`date_of_birth-${savedFormData.date_of_birth ?? 'init'}`}
                       name="date_of_birth"
-                      defaultValue={initialData?.date_of_birth || ''}
+                      defaultValue={getFieldValue('date_of_birth', initialData?.date_of_birth)}
                       placeholder="Select date"
                       className="h-9"
                     />
@@ -519,8 +549,9 @@ export function DriverForm({
                   <div className="space-y-1.5">
                     <Label htmlFor="start_date" className="text-sm">Start Date</Label>
                     <DatePicker
+                      key={`start_date-${savedFormData.start_date ?? 'init'}`}
                       name="start_date"
-                      defaultValue={initialData?.start_date || ''}
+                      defaultValue={getFieldValue('start_date', initialData?.start_date)}
                       placeholder="Select date"
                       className="h-9"
                     />
@@ -750,10 +781,11 @@ export function DriverForm({
                             License # <span className="text-destructive">*</span>
                           </Label>
                           <Input
+                            key={`license_number-${savedFormData.license_number ?? 'init'}`}
                             id="license_number"
                             name="license_number"
                             required
-                            defaultValue={initialData?.license_number}
+                            defaultValue={getFieldValue('license_number', initialData?.license_number)}
                             className="h-9"
                           />
                           {state?.errors?.license_number && (
@@ -763,10 +795,11 @@ export function DriverForm({
                         <div className="space-y-1.5">
                           <Label htmlFor="license_state" className="text-sm">State</Label>
                           <Input
+                            key={`license_state-${savedFormData.license_state ?? 'init'}`}
                             id="license_state"
                             name="license_state"
                             placeholder="CA"
-                            defaultValue={initialData?.license_state}
+                            defaultValue={getFieldValue('license_state', initialData?.license_state)}
                             className="h-9"
                           />
                         </div>
@@ -775,8 +808,9 @@ export function DriverForm({
                             Expiry <span className="text-destructive">*</span>
                           </Label>
                           <DatePicker
+                            key={`license_expiry-${savedFormData.license_expiry ?? 'init'}`}
                             name="license_expiry"
-                            defaultValue={initialData?.license_expiry || ''}
+                            defaultValue={getFieldValue('license_expiry', initialData?.license_expiry)}
                             placeholder="Select date"
                             className="h-9"
                           />
@@ -816,31 +850,34 @@ export function DriverForm({
                         <div className="space-y-1.5">
                           <Label htmlFor="cdl_class" className="text-sm">CDL Class</Label>
                           <Input
+                            key={`cdl_class-${savedFormData.cdl_class ?? 'init'}`}
                             id="cdl_class"
                             name="cdl_class"
                             placeholder="A, B, C"
                             maxLength={1}
-                            defaultValue={(initialData as any)?.cdl_class || ''}
+                            defaultValue={getFieldValue('cdl_class', (initialData as any)?.cdl_class)}
                             className="h-9"
                           />
                         </div>
                         <div className="space-y-1.5">
                           <Label htmlFor="cdl_endorsements" className="text-sm">Endorsements</Label>
                           <Input
+                            key={`cdl_endorsements-${savedFormData.cdl_endorsements ?? 'init'}`}
                             id="cdl_endorsements"
                             name="cdl_endorsements"
                             placeholder="H, N, P, S, T, X"
-                            defaultValue={(initialData as any)?.cdl_endorsements || ''}
+                            defaultValue={getFieldValue('cdl_endorsements', (initialData as any)?.cdl_endorsements)}
                             className="h-9"
                           />
                         </div>
                         <div className="space-y-1.5">
                           <Label htmlFor="cdl_restrictions" className="text-sm">Restrictions</Label>
                           <Input
+                            key={`cdl_restrictions-${savedFormData.cdl_restrictions ?? 'init'}`}
                             id="cdl_restrictions"
                             name="cdl_restrictions"
                             placeholder="Any restrictions"
-                            defaultValue={(initialData as any)?.cdl_restrictions || ''}
+                            defaultValue={getFieldValue('cdl_restrictions', (initialData as any)?.cdl_restrictions)}
                             className="h-9"
                           />
                         </div>
@@ -878,8 +915,9 @@ export function DriverForm({
                             Medical card expiry <span className="text-destructive">*</span>
                           </Label>
                           <DatePicker
+                            key={`medical_card_expiry-${savedFormData.medical_card_expiry ?? 'init'}`}
                             name="medical_card_expiry"
-                            defaultValue={initialData?.medical_card_expiry || ''}
+                            defaultValue={getFieldValue('medical_card_expiry', initialData?.medical_card_expiry)}
                             placeholder="Select date"
                             className="h-9"
                           />
@@ -889,8 +927,9 @@ export function DriverForm({
                             Issue date (optional)
                           </Label>
                           <DatePicker
+                            key={`medical_card_issue_date-${savedFormData.medical_card_issue_date ?? 'init'}`}
                             name="medical_card_issue_date"
-                            defaultValue={(initialData as any)?.medical_card_issue_date ?? ''}
+                            defaultValue={getFieldValue('medical_card_issue_date', (initialData as any)?.medical_card_issue_date)}
                             placeholder="Select date"
                             className="h-9"
                           />
@@ -1006,8 +1045,9 @@ export function DriverForm({
                 <div className="space-y-1.5">
                   <Label htmlFor="status" className="text-sm">Status</Label>
                   <SelectWithHiddenInput
+                    key={`status-${savedFormData.status ?? 'init'}`}
                     name="status"
-                    defaultValue={initialData?.status || 'active'}
+                    defaultValue={getFieldValue('status', initialData?.status) || 'active'}
                   >
                     <SelectTrigger id="status" className="h-9">
                       <SelectValue />
@@ -1023,8 +1063,9 @@ export function DriverForm({
                   <div className="space-y-1.5">
                     <Label htmlFor="assigned_truck_id" className="text-sm">Assigned Truck</Label>
                     <SelectWithHiddenInput
+                      key={`assigned_truck_id-${savedFormData.assigned_truck_id ?? 'init'}`}
                       name="assigned_truck_id"
-                      defaultValue={initialData?.assigned_truck_id || ''}
+                      defaultValue={getFieldValue('assigned_truck_id', initialData?.assigned_truck_id ?? undefined)}
                     >
                       <SelectTrigger id="assigned_truck_id" className="h-9">
                         <SelectValue placeholder="Unassigned" />
@@ -1051,8 +1092,9 @@ export function DriverForm({
                     <div className="space-y-1.5">
                       <Label htmlFor="assigned_trailer_id" className="text-sm">Assigned Trailer</Label>
                       <SelectWithHiddenInput
+                        key={`assigned_trailer_id-${savedFormData.assigned_trailer_id ?? 'init'}`}
                         name="assigned_trailer_id"
-                        defaultValue={initialData?.assigned_trailer_id || ''}
+                        defaultValue={getFieldValue('assigned_trailer_id', initialData?.assigned_trailer_id ?? undefined)}
                       >
                         <SelectTrigger id="assigned_trailer_id" className="h-9">
                           <SelectValue placeholder="Unassigned" />
@@ -1130,13 +1172,14 @@ export function DriverForm({
                     Rate per mile ($) <span className="text-destructive">*</span>
                   </Label>
                   <Input
+                    key={`rate_per_mile-${savedFormData.rate_per_mile ?? 'init'}`}
                     id="rate_per_mile"
                     name="rate_per_mile"
                     type="number"
                     step="0.01"
                     min="0"
                     required={payMode === 'per_mile'}
-                    defaultValue={initialData?.rate_per_mile?.toString() || ''}
+                    defaultValue={getFieldValue('rate_per_mile', initialData?.rate_per_mile?.toString())}
                     className="h-9"
                   />
                   {state?.errors?.rate_per_mile && (
@@ -1151,13 +1194,14 @@ export function DriverForm({
                     Rate per cubic foot ($) <span className="text-destructive">*</span>
                   </Label>
                   <Input
+                    key={`rate_per_cuft-${savedFormData.rate_per_cuft ?? 'init'}`}
                     id="rate_per_cuft"
                     name="rate_per_cuft"
                     type="number"
                     step="0.01"
                     min="0"
                     required={payMode === 'per_cuft'}
-                    defaultValue={initialData?.rate_per_cuft?.toString() || ''}
+                    defaultValue={getFieldValue('rate_per_cuft', initialData?.rate_per_cuft?.toString())}
                     className="h-9"
                   />
                   {state?.errors?.rate_per_cuft && (
@@ -1173,13 +1217,14 @@ export function DriverForm({
                       Rate per mile ($) <span className="text-destructive">*</span>
                     </Label>
                     <Input
+                      key={`rate_per_mile_dual-${savedFormData.rate_per_mile ?? 'init'}`}
                       id="rate_per_mile_dual"
                       name="rate_per_mile"
                       type="number"
                       step="0.01"
                       min="0"
                       required={payMode === 'per_mile_and_cuft'}
-                      defaultValue={initialData?.rate_per_mile?.toString() || ''}
+                      defaultValue={getFieldValue('rate_per_mile', initialData?.rate_per_mile?.toString())}
                       className="h-9"
                     />
                     {state?.errors?.rate_per_mile && (
@@ -1191,13 +1236,14 @@ export function DriverForm({
                       Rate per cubic foot ($) <span className="text-destructive">*</span>
                     </Label>
                     <Input
+                      key={`rate_per_cuft_dual-${savedFormData.rate_per_cuft ?? 'init'}`}
                       id="rate_per_cuft_dual"
                       name="rate_per_cuft"
                       type="number"
                       step="0.01"
                       min="0"
                       required={payMode === 'per_mile_and_cuft'}
-                      defaultValue={initialData?.rate_per_cuft?.toString() || ''}
+                      defaultValue={getFieldValue('rate_per_cuft', initialData?.rate_per_cuft?.toString())}
                       className="h-9"
                     />
                     {state?.errors?.rate_per_cuft && (
@@ -1216,6 +1262,7 @@ export function DriverForm({
                     % of trip revenue <span className="text-destructive">*</span>
                   </Label>
                   <Input
+                    key={`percent_of_revenue-${savedFormData.percent_of_revenue ?? 'init'}`}
                     id="percent_of_revenue"
                     name="percent_of_revenue"
                     type="number"
@@ -1223,7 +1270,7 @@ export function DriverForm({
                     min="0"
                     max="100"
                     required={payMode === 'percent_of_revenue'}
-                    defaultValue={initialData?.percent_of_revenue?.toString() || ''}
+                    defaultValue={getFieldValue('percent_of_revenue', initialData?.percent_of_revenue?.toString())}
                     className="h-9"
                   />
                   {state?.errors?.percent_of_revenue && (
@@ -1238,13 +1285,14 @@ export function DriverForm({
                     Flat daily rate ($) <span className="text-destructive">*</span>
                   </Label>
                   <Input
+                    key={`flat_daily_rate-${savedFormData.flat_daily_rate ?? 'init'}`}
                     id="flat_daily_rate"
                     name="flat_daily_rate"
                     type="number"
                     step="0.01"
                     min="0"
                     required={payMode === 'flat_daily_rate'}
-                    defaultValue={initialData?.flat_daily_rate?.toString() || ''}
+                    defaultValue={getFieldValue('flat_daily_rate', initialData?.flat_daily_rate?.toString())}
                     className="h-9"
                   />
                   {state?.errors?.flat_daily_rate && (
@@ -1256,11 +1304,12 @@ export function DriverForm({
               <div className="space-y-1.5">
                 <Label htmlFor="notes" className="text-sm">Notes</Label>
                 <Textarea
+                  key={`notes-${savedFormData.notes ?? 'init'}`}
                   id="notes"
                   name="notes"
                   rows={2}
                   placeholder="Additional notes about this driver..."
-                  defaultValue={initialData?.notes}
+                  defaultValue={getFieldValue('notes', initialData?.notes)}
                   className="text-sm"
                 />
               </div>
@@ -1348,7 +1397,7 @@ export function DriverForm({
         </Card>
       </aside>
 
-      <form ref={formRef} action={formAction} className="space-y-6">
+      <form ref={formRef} action={formAction} onSubmit={handleFormSubmit} className="space-y-6">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {complianceItems.map((card) => (
             <button
