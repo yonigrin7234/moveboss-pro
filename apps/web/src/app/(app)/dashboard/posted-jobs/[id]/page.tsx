@@ -236,14 +236,19 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
   const supabase = await createClient();
 
   // Get user's workspace company
-  const { data: workspaceCompany } = await supabase
+  const { data: workspaceCompany, error: workspaceError } = await supabase
     .from('companies')
     .select('id')
     .eq('owner_id', user.id)
     .eq('is_workspace_company', true)
     .maybeSingle();
 
+  if (workspaceError) {
+    console.error('[PostedJobDetail] Workspace company error:', workspaceError);
+  }
+
   if (!workspaceCompany) {
+    console.error('[PostedJobDetail] No workspace company found for user:', user.id);
     redirect('/dashboard/posted-jobs');
   }
 
@@ -270,7 +275,12 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
     .eq('posted_by_company_id', workspaceCompany.id)
     .single();
 
-  if (jobError || !job) {
+  if (jobError) {
+    console.error('[PostedJobDetail] Job query error:', jobError, 'for id:', id, 'company:', workspaceCompany.id);
+  }
+
+  if (!job) {
+    console.error('[PostedJobDetail] Job not found:', id);
     notFound();
   }
 
