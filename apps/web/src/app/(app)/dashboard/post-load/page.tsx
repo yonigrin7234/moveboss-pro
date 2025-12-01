@@ -55,7 +55,7 @@ type TruckRequirement = 'any' | 'semi_only' | 'box_truck_only';
 
 export default function PostLoadPage() {
   const router = useRouter();
-  const [loadType, setLoadType] = useState<LoadType>('live_load');
+  const [loadType, setLoadType] = useState<LoadType>('rfd');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [storageOptions, setStorageOptions] = useState<StorageOption[]>([]);
@@ -465,14 +465,20 @@ export default function PostLoadPage() {
       )}
 
       <Tabs value={loadType} onValueChange={(v) => setLoadType(v as LoadType)}>
-        <TabsList className="grid w-full grid-cols-2 max-w-sm">
-          <TabsTrigger value="live_load" className="flex items-center gap-2 text-sm">
-            <Truck className="h-4 w-4" />
-            Live Load
-          </TabsTrigger>
-          <TabsTrigger value="rfd" className="flex items-center gap-2 text-sm">
+        <TabsList className="grid w-full grid-cols-2 max-w-sm h-auto p-1 bg-muted/60">
+          <TabsTrigger
+            value="rfd"
+            className="flex items-center gap-2 text-sm py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
+          >
             <Warehouse className="h-4 w-4" />
             RFD
+          </TabsTrigger>
+          <TabsTrigger
+            value="live_load"
+            className="flex items-center gap-2 text-sm py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
+          >
+            <Truck className="h-4 w-4" />
+            Live Load
           </TabsTrigger>
         </TabsList>
 
