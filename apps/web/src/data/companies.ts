@@ -489,16 +489,9 @@ export async function getMembershipsForUser(userId: string): Promise<CompanyMemb
     .order('created_at', { ascending: false });
 
   if (error) {
-    // If the table does not exist yet, surface an empty list gracefully
-    if (error.message?.toLowerCase().includes('company_memberships')) {
-      return [];
-    }
-    // Network issues (e.g., fetch failed): fall back to empty to avoid crashing layout
-    if (error.message?.toLowerCase().includes('fetch failed')) {
-      console.error('[getMembershipsForUser] fetch failed, returning empty list');
-      return [];
-    }
-    throw new Error(`Failed to fetch memberships: ${error.message}`);
+    // Log error for debugging but don't crash - return empty list
+    console.error('[getMembershipsForUser] Error:', error.code, error.message);
+    return [];
   }
 
   return (data || []).map((row) => ({
@@ -523,10 +516,9 @@ export async function getPrimaryMembershipForUser(userId: string): Promise<Compa
     .maybeSingle();
 
   if (error) {
-    if (error.message?.toLowerCase().includes('company_memberships')) {
-      return null;
-    }
-    throw new Error(`Failed to fetch primary membership: ${error.message}`);
+    // Log error for debugging but don't crash - return null
+    console.error('[getPrimaryMembershipForUser] Error:', error.code, error.message);
+    return null;
   }
 
   if (!data) return null;
