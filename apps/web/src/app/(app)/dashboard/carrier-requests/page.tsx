@@ -21,11 +21,17 @@ import { RequestActions } from './request-actions';
 interface CarrierRequest {
   id: string;
   status: string;
+  request_type: 'accept_listed' | 'counter_offer' | null;
   offered_rate: number | null;
   offered_rate_type: string | null;
+  counter_offer_rate: number | null;
   accepted_company_rate: boolean | null;
   message: string | null;
   created_at: string;
+  proposed_load_date_start: string | null;
+  proposed_load_date_end: string | null;
+  proposed_delivery_date_start: string | null;
+  proposed_delivery_date_end: string | null;
   carrier: {
     id: string;
     name: string;
@@ -112,6 +118,14 @@ function formatDate(date: string) {
   });
 }
 
+function formatDateShort(dateStr: string | null): string {
+  if (!dateStr) return '';
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 function RequestCard({ request }: { request: CarrierRequest }) {
   const load = request.load;
   const carrier = request.carrier;
@@ -124,23 +138,43 @@ function RequestCard({ request }: { request: CarrierRequest }) {
       ? `${load.pickup_city}, ${load.pickup_state}`
       : '-';
 
-  const isVerified = carrier.dot_number || carrier.mc_number;
+  // Only show verified if they actually have a DOT or MC number (not empty string)
+  const hasDot = carrier.dot_number && carrier.dot_number.trim() !== '';
+  const hasMc = carrier.mc_number && carrier.mc_number.trim() !== '';
+  const isVerified = hasDot || hasMc;
 
   // Posted rate info
   const postedRatePerCuft = load.rate_per_cuft;
   const postedLinehaul = load.posting_type === 'pickup' ? load.balance_due : load.linehaul_amount;
 
-  // Offered rate - check if they accepted company rate or made counter offer
+  // Offered rate - check request_type and counter_offer_rate
   let offeredDisplay: string;
-  if (request.accepted_company_rate || !request.offered_rate) {
+  if (request.request_type === 'counter_offer' && request.counter_offer_rate) {
+    // Counter offer - show their proposed rate
+    offeredDisplay = `$${request.counter_offer_rate.toFixed(2)}/CF (counter)`;
+  } else if (request.accepted_company_rate || request.request_type === 'accept_listed') {
+    // Accepted the posted rate
     offeredDisplay = postedRatePerCuft
       ? `$${postedRatePerCuft.toFixed(2)}/CF (accepted)`
       : 'Accepted posted rate';
-  } else {
+  } else if (request.offered_rate) {
+    // Legacy: offered_rate field
     offeredDisplay = request.offered_rate_type === 'per_cuft'
       ? `$${request.offered_rate.toFixed(2)}/CF`
       : `${formatCurrency(request.offered_rate)}`;
+  } else {
+    offeredDisplay = 'Accepted posted rate';
   }
+
+  // Format proposed dates
+  const hasLoadDates = request.proposed_load_date_start || request.proposed_load_date_end;
+  const hasDeliveryDates = request.proposed_delivery_date_start || request.proposed_delivery_date_end;
+  const loadDateRange = hasLoadDates
+    ? `${formatDateShort(request.proposed_load_date_start)}${request.proposed_load_date_end && request.proposed_load_date_end !== request.proposed_load_date_start ? ` - ${formatDateShort(request.proposed_load_date_end)}` : ''}`
+    : null;
+  const deliveryDateRange = hasDeliveryDates
+    ? `${formatDateShort(request.proposed_delivery_date_start)}${request.proposed_delivery_date_end && request.proposed_delivery_date_end !== request.proposed_delivery_date_start ? ` - ${formatDateShort(request.proposed_delivery_date_end)}` : ''}`
+    : null;
 
   return (
     <Card className="rounded-lg hover:shadow-md transition-shadow">
@@ -168,10 +202,10 @@ function RequestCard({ request }: { request: CarrierRequest }) {
                   </span>
                 )}
               </div>
-              {(carrier.dot_number || carrier.mc_number) && (
+              {(hasDot || hasMc) && (
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  {carrier.dot_number && <span>DOT# {carrier.dot_number}</span>}
-                  {carrier.mc_number && <span>MC# {carrier.mc_number}</span>}
+                  {hasDot && <span>DOT# {carrier.dot_number}</span>}
+                  {hasMc && <span>MC# {carrier.mc_number}</span>}
                 </div>
               )}
             </div>
@@ -203,6 +237,24 @@ function RequestCard({ request }: { request: CarrierRequest }) {
             </div>
           </div>
 
+          {/* Proposed Dates */}
+          {(loadDateRange || deliveryDateRange) && (
+            <div className="grid gap-2 sm:grid-cols-2 text-sm bg-muted/30 p-3 rounded-lg">
+              {loadDateRange && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Calendar className="h-4 w-4" />
+                  <span>Can load: <span className="font-medium text-foreground">{loadDateRange}</span></span>
+                </div>
+              )}
+              {deliveryDateRange && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Calendar className="h-4 w-4" />
+                  <span>Can deliver: <span className="font-medium text-foreground">{deliveryDateRange}</span></span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Message */}
           {request.message && (
             <div className="flex items-start gap-2 text-sm bg-muted/50 p-3 rounded-lg">
@@ -213,7 +265,7 @@ function RequestCard({ request }: { request: CarrierRequest }) {
 
           {/* Footer */}
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Calendar className="h-3 w-3" />
+            <Clock className="h-3 w-3" />
             <span>Requested {formatDate(request.created_at)}</span>
           </div>
         </div>
@@ -232,7 +284,10 @@ export default async function CarrierRequestsPage() {
   const { data: requests, error } = await supabase
     .from('load_requests')
     .select(`
-      id, status, offered_rate, offered_rate_type, accepted_company_rate, message, created_at,
+      id, status, request_type, offered_rate, offered_rate_type, counter_offer_rate,
+      accepted_company_rate, message, created_at,
+      proposed_load_date_start, proposed_load_date_end,
+      proposed_delivery_date_start, proposed_delivery_date_end,
       carrier:carrier_id(id, name, city, state, mc_number, dot_number, platform_rating, platform_loads_completed),
       load:load_id(
         id, load_number, load_type, posting_type,
