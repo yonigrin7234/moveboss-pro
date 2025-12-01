@@ -486,7 +486,10 @@ export async function sendPartnershipInvitationEmail(data: {
   message?: string;
   invitationToken: string;
 }): Promise<{ success: boolean; error?: string }> {
+  console.log('[Partnership Email] Starting to send invitation email to:', data.toEmail);
+
   if (!emailConfig.enabled.partnershipInvitations) {
+    console.log('[Partnership Email] Partnership invitations disabled in config');
     return { success: true };
   }
 
@@ -506,11 +509,14 @@ export async function sendPartnershipInvitationEmail(data: {
     .single();
 
   if (!fromCompany) {
+    console.log('[Partnership Email] Sender company not found:', data.fromCompanyId);
     return { success: false, error: 'Sender company not found' };
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
   const acceptUrl = `${baseUrl}/invitation/${data.invitationToken}`;
+
+  console.log('[Partnership Email] Sending email with acceptUrl:', acceptUrl);
 
   const html = partnershipInvitationEmail({
     recipientEmail: data.toEmail,
@@ -522,9 +528,12 @@ export async function sendPartnershipInvitationEmail(data: {
     acceptUrl,
   });
 
-  return await sendEmail({
+  const result = await sendEmail({
     to: data.toEmail,
     subject: `${fromCompany.name} has invited you to partner on MoveBoss Pro`,
     html,
   });
+
+  console.log('[Partnership Email] Send result:', result);
+  return result;
 }
