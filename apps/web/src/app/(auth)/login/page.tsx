@@ -1,7 +1,14 @@
 import { LoginForm } from './login-form';
 import Link from 'next/link';
 
-export default function LoginPage() {
+interface LoginPageProps {
+  searchParams: Promise<{ error?: string }>;
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const params = await searchParams;
+  const errorMessage = params.error;
+
   return (
     <div className="w-full text-center">
       <span className="inline-block text-[11px] font-semibold tracking-[0.12em] text-sky-500 mb-3.5">
@@ -14,7 +21,7 @@ export default function LoginPage() {
         Secure access for your team and operation.
       </p>
 
-      <LoginForm />
+      <LoginForm initialError={errorMessage} />
 
       {/* Trust cue */}
       <p className="text-xs text-white/35 mt-5">
