@@ -253,12 +253,14 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
     <div>
       <div className="flex justify-between items-start mb-8">
         <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-            Job {load.job_number}
-          </p>
           <h1 className="text-3xl font-bold text-foreground">
-            {load.load_number || 'Internal ref pending'}
+            {load.load_number || 'New Load'}
           </h1>
+          {load.status && (
+            <p className="text-sm text-muted-foreground">
+              {load.service_type?.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+            </p>
+          )}
         </div>
         <div className="flex gap-4">
           <Link

@@ -268,10 +268,13 @@ export function LoadForm({
                     id="load_number"
                     name="load_number"
                     defaultValue={initialData?.load_number || ''}
-                    className="h-9"
+                    className="h-9 read-only:bg-muted read-only:cursor-not-allowed"
                     placeholder="Auto-generated (LD-000001)"
+                    readOnly={Boolean(initialData?.load_number)}
                   />
-                  <p className="text-xs text-muted-foreground">Leave empty to auto-generate</p>
+                  {!initialData?.load_number && (
+                    <p className="text-xs text-muted-foreground">Leave empty to auto-generate</p>
+                  )}
                   {state?.errors?.load_number && (
                     <p className="text-xs text-destructive">{state.errors.load_number}</p>
                   )}
