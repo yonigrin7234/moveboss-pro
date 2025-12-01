@@ -416,7 +416,7 @@ export async function listTripSettlements(params: {
         driver:drivers(id, first_name, last_name),
         trip_loads(
           load:loads(
-            company:companies(id, name)
+            company:companies!loads_company_id_fkey(id, name)
           )
         )
       )
