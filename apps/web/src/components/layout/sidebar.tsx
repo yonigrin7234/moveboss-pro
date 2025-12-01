@@ -173,8 +173,8 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
         { label: "My Requests", href: "/dashboard/my-requests", icon: Send },
       ]
       if (canManageLoads) {
+        operationsChildren.push({ label: "My Loads", href: "/dashboard/loads", icon: Boxes })
         operationsChildren.push({ label: "Assigned Loads", href: "/dashboard/assigned-loads", icon: ClipboardCheck })
-        operationsChildren.push({ label: "Marketplace Loads", href: "/dashboard/marketplace-loads", icon: Boxes })
       }
       if (canManageTrips) {
         operationsChildren.push({ label: "Trips", href: "/dashboard/trips", icon: Route })
