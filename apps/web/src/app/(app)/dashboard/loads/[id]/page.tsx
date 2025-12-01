@@ -173,9 +173,14 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
           posted_at: new Date().toISOString(),
           posting_type: 'load',
           posted_by_company_id: workspaceCompany?.id || null,
-          cubic_feet: data.cubic_feet,
-          rate_per_cuft: data.rate_per_cuft,
-          linehaul_amount: data.linehaul_amount,
+          // Marketplace visibility - required for load to appear on load board
+          is_marketplace_visible: true,
+          posted_to_marketplace_at: new Date().toISOString(),
+          load_status: 'pending',
+          // Rate and size info
+          estimated_cuft: data.cubic_feet,
+          company_rate: data.linehaul_amount,
+          company_rate_type: 'flat',
           is_open_to_counter: data.is_open_to_counter,
           truck_requirement: data.truck_requirement,
         })
