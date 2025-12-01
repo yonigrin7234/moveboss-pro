@@ -147,25 +147,26 @@ function RequestCard({ request }: { request: CarrierRequest }) {
 
   // Posted rate info
   const postedRatePerCuft = load.rate_per_cuft;
-  const postedLinehaul = load.posting_type === 'pickup' ? load.balance_due : load.linehaul_amount;
+  const cuft = load.cubic_feet_estimate || 0;
+  const postedLinehaul = postedRatePerCuft && cuft ? postedRatePerCuft * cuft : (load.posting_type === 'pickup' ? load.balance_due : load.linehaul_amount);
 
   // Offered rate - check request_type and counter_offer_rate
-  let offeredDisplay: string;
+  let offeredRatePerCuft: number | null = null;
+  let offeredLinehaul: number | null = null;
+  let offerType: 'counter' | 'accepted' | 'legacy' = 'accepted';
+
   if (request.request_type === 'counter_offer' && request.counter_offer_rate) {
-    // Counter offer - show their proposed rate
-    offeredDisplay = `$${request.counter_offer_rate.toFixed(2)}/CF (counter)`;
+    offeredRatePerCuft = request.counter_offer_rate;
+    offeredLinehaul = cuft ? request.counter_offer_rate * cuft : null;
+    offerType = 'counter';
   } else if (request.accepted_company_rate || request.request_type === 'accept_listed') {
-    // Accepted the posted rate
-    offeredDisplay = postedRatePerCuft
-      ? `$${postedRatePerCuft.toFixed(2)}/CF (accepted)`
-      : 'Accepted posted rate';
+    offeredRatePerCuft = postedRatePerCuft;
+    offeredLinehaul = postedLinehaul;
+    offerType = 'accepted';
   } else if (request.offered_rate) {
-    // Legacy: offered_rate field
-    offeredDisplay = request.offered_rate_type === 'per_cuft'
-      ? `$${request.offered_rate.toFixed(2)}/CF`
-      : `${formatCurrency(request.offered_rate)}`;
-  } else {
-    offeredDisplay = 'Accepted posted rate';
+    offeredRatePerCuft = request.offered_rate;
+    offeredLinehaul = cuft ? request.offered_rate * cuft : null;
+    offerType = 'legacy';
   }
 
   // Format proposed dates
@@ -217,25 +218,34 @@ function RequestCard({ request }: { request: CarrierRequest }) {
           </div>
 
           {/* Load Details */}
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-sm">
+          <div className="grid gap-2 sm:grid-cols-2 text-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
               <MapPin className="h-4 w-4" />
               <span>{route}</span>
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Package className="h-4 w-4" />
-              <span>
-                {load.cubic_feet_estimate ? `${load.cubic_feet_estimate.toLocaleString()} CF` : '-'}
-                {postedRatePerCuft ? ` @ $${postedRatePerCuft.toFixed(2)}/CF` : ''}
-              </span>
+              <span>{load.cubic_feet_estimate ? `${load.cubic_feet_estimate.toLocaleString()} CF` : '-'}</span>
             </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <DollarSign className="h-4 w-4" />
-              <span>Posted: {formatCurrency(postedLinehaul)}</span>
+          </div>
+
+          {/* Rate Comparison */}
+          <div className="grid gap-3 sm:grid-cols-2 text-sm bg-muted/30 p-3 rounded-lg">
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">Posted Rate</div>
+              <div className="font-medium">
+                {postedRatePerCuft ? `$${postedRatePerCuft.toFixed(2)}/CF` : '-'}
+                {postedLinehaul ? ` = ${formatCurrency(postedLinehaul)}` : ''}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Truck className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium text-primary">Offered: {offeredDisplay}</span>
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">
+                {offerType === 'counter' ? 'Counter Offer' : offerType === 'accepted' ? 'Accepted Rate' : 'Offered Rate'}
+              </div>
+              <div className={`font-medium ${offerType === 'counter' ? 'text-primary' : ''}`}>
+                {offeredRatePerCuft ? `$${offeredRatePerCuft.toFixed(2)}/CF` : '-'}
+                {offeredLinehaul ? ` = ${formatCurrency(offeredLinehaul)}` : ''}
+              </div>
             </div>
           </div>
 
