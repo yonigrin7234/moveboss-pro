@@ -95,6 +95,10 @@ export function PartnershipForm({
       {/* Add Existing Company */}
       <TabsContent value="existing">
         <form action={existingAction} className="space-y-6 mt-4">
+          <p className="text-sm text-muted-foreground">
+            Partner with a company that already has a MoveBoss account.
+          </p>
+
           {existingState?.error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -102,21 +106,30 @@ export function PartnershipForm({
             </Alert>
           )}
 
-          <div>
-            <Label htmlFor="my_company_id">Your Company *</Label>
-            <Select name="my_company_id" required>
-              <SelectTrigger>
-                <SelectValue placeholder="Select your company" />
-              </SelectTrigger>
-              <SelectContent>
-                {myCompanies?.map((company) => (
-                  <SelectItem key={company.id} value={company.id}>
-                    {company.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Show company name if only one, dropdown if multiple */}
+          {myCompanies?.length === 1 ? (
+            <div>
+              <Label className="text-muted-foreground text-sm">Your Company</Label>
+              <p className="font-medium">{myCompanies[0].name}</p>
+              <input type="hidden" name="my_company_id" value={myCompanies[0].id} />
+            </div>
+          ) : (
+            <div>
+              <Label htmlFor="my_company_id">Your Company *</Label>
+              <Select name="my_company_id" required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select your company" />
+                </SelectTrigger>
+                <SelectContent>
+                  {myCompanies?.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div>
             <Label htmlFor="partner_company_id">Partner Company *</Label>
@@ -187,6 +200,10 @@ export function PartnershipForm({
       {/* Invite by Email */}
       <TabsContent value="invite">
         <form action={inviteAction} className="space-y-6 mt-4">
+          <p className="text-sm text-muted-foreground">
+            Send an invitation to a company not yet on MoveBoss. They will receive an email with a link to join and accept your partnership.
+          </p>
+
           {inviteState?.error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -194,29 +211,38 @@ export function PartnershipForm({
             </Alert>
           )}
 
-          <div>
-            <Label htmlFor="my_company_id_invite">Your Company *</Label>
-            <Select name="my_company_id" required>
-              <SelectTrigger>
-                <SelectValue placeholder="Select your company" />
-              </SelectTrigger>
-              <SelectContent>
-                {myCompanies?.map((company) => (
-                  <SelectItem key={company.id} value={company.id}>
-                    {company.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Show company name if only one, dropdown if multiple */}
+          {myCompanies?.length === 1 ? (
+            <div>
+              <Label className="text-muted-foreground text-sm">Inviting as</Label>
+              <p className="font-medium">{myCompanies[0].name}</p>
+              <input type="hidden" name="my_company_id" value={myCompanies[0].id} />
+            </div>
+          ) : (
+            <div>
+              <Label htmlFor="my_company_id_invite">Your Company *</Label>
+              <Select name="my_company_id" required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select your company" />
+                </SelectTrigger>
+                <SelectContent>
+                  {myCompanies?.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div>
-            <Label htmlFor="to_company_name">Company Name *</Label>
+            <Label htmlFor="to_company_name">Their Company Name *</Label>
             <Input id="to_company_name" name="to_company_name" placeholder="ABC Trucking LLC" required />
           </div>
 
           <div>
-            <Label htmlFor="to_email">Email Address *</Label>
+            <Label htmlFor="to_email">Their Email Address *</Label>
             <Input
               id="to_email"
               name="to_email"
@@ -224,6 +250,9 @@ export function PartnershipForm({
               placeholder="dispatch@abctrucking.com"
               required
             />
+            <p className="text-xs text-muted-foreground mt-1">
+              The person at this email will receive the invitation link
+            </p>
           </div>
 
           <div>
