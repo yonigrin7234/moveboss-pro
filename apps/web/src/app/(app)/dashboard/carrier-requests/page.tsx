@@ -110,6 +110,7 @@ function formatCurrency(amount: number | null) {
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString('en-US', {
+    timeZone: 'America/Los_Angeles',
     month: 'short',
     day: 'numeric',
     year: 'numeric',
