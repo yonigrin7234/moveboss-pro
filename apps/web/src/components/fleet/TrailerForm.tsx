@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ChevronLeft, ChevronRight, Loader2, ExternalLink } from 'lucide-react';
+import { DatePicker } from '@/components/ui/date-picker';
 import { cn } from '@/lib/utils';
 import {
   Card,
@@ -207,16 +208,6 @@ export function TrailerForm({
     }
     const driver = drivers.find((d) => d.id === id);
     return driver ? `${driver.first_name} ${driver.last_name}` : 'Unknown';
-  };
-
-  const handleDateClick = (event: React.MouseEvent<HTMLInputElement>) => {
-    if (event.currentTarget?.showPicker) {
-      try {
-        event.currentTarget.showPicker();
-      } catch {
-        // ignore if browser blocks programmatic open
-      }
-    }
   };
 
   useEffect(() => {
@@ -463,24 +454,20 @@ export function TrailerForm({
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="registration_expiry" className="text-sm">Registration Expiry</Label>
-                    <Input
-                      type="date"
-                      id="registration_expiry"
+                    <DatePicker
                       name="registration_expiry"
                       defaultValue={initialData?.registration_expiry || ''}
+                      placeholder="Select date"
                       className="h-9"
-                      onClick={handleDateClick}
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="inspection_expiry" className="text-sm">Inspection Expiry</Label>
-                    <Input
-                      type="date"
-                      id="inspection_expiry"
+                    <DatePicker
                       name="inspection_expiry"
                       defaultValue={initialData?.inspection_expiry || ''}
+                      placeholder="Select date"
                       className="h-9"
-                      onClick={handleDateClick}
                     />
                   </div>
                 </div>
