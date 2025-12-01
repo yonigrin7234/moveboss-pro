@@ -19,6 +19,8 @@ import {
   Search,
   DollarSign,
   X,
+  BadgeCheck,
+  Calendar,
 } from 'lucide-react';
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -52,12 +54,26 @@ function timeAgo(dateString: string) {
   return 'Just now';
 }
 
+function formatDateShort(dateStr: string | null): string {
+  if (!dateStr) return '';
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 interface CarrierRequest {
   id: string;
   status: string;
+  request_type: 'accept_listed' | 'counter_offer' | null;
   offered_rate: number | null;
+  counter_offer_rate: number | null;
   accepted_company_rate: boolean;
   created_at: string;
+  proposed_load_date_start: string | null;
+  proposed_load_date_end: string | null;
+  proposed_delivery_date_start: string | null;
+  proposed_delivery_date_end: string | null;
   load: {
     id: string;
     load_number: string;
@@ -68,9 +84,10 @@ interface CarrierRequest {
     destination_state: string;
     destination_zip: string;
     estimated_cuft: number | null;
+    rate_per_cuft: number | null;
     company_rate: number | null;
     company_rate_type: string;
-    company: { id: string; name: string } | null;
+    company: { id: string; name: string; fmcsa_verified: boolean | null } | null;
   };
 }
 
@@ -85,22 +102,43 @@ function RequestCard({ request, withdrawAction }: RequestCardProps) {
   const load = request.load;
   const company = Array.isArray(load.company) ? load.company[0] : load.company;
   const isPending = request.status === 'pending';
+  const isVerified = company?.fmcsa_verified === true;
 
-  const displayRate = request.accepted_company_rate
-    ? formatRate(load.company_rate, load.company_rate_type)
-    : formatRate(request.offered_rate, 'per_cuft');
+  // Determine offer display
+  let offerDisplay: string;
+  if (request.request_type === 'counter_offer' && request.counter_offer_rate) {
+    offerDisplay = `$${request.counter_offer_rate.toFixed(2)}/CF (counter)`;
+  } else if (request.accepted_company_rate || request.request_type === 'accept_listed') {
+    offerDisplay = load.rate_per_cuft
+      ? `$${load.rate_per_cuft.toFixed(2)}/CF (accepted)`
+      : 'Accepted posted rate';
+  } else if (request.offered_rate) {
+    offerDisplay = `$${request.offered_rate.toFixed(2)}/CF`;
+  } else {
+    offerDisplay = 'Accepted posted rate';
+  }
+
+  // Format proposed dates
+  const hasLoadDates = request.proposed_load_date_start || request.proposed_load_date_end;
+  const hasDeliveryDates = request.proposed_delivery_date_start || request.proposed_delivery_date_end;
+  const loadDateRange = hasLoadDates
+    ? `${formatDateShort(request.proposed_load_date_start)}${request.proposed_load_date_end && request.proposed_load_date_end !== request.proposed_load_date_start ? ` - ${formatDateShort(request.proposed_load_date_end)}` : ''}`
+    : null;
+  const deliveryDateRange = hasDeliveryDates
+    ? `${formatDateShort(request.proposed_delivery_date_start)}${request.proposed_delivery_date_end && request.proposed_delivery_date_end !== request.proposed_delivery_date_start ? ` - ${formatDateShort(request.proposed_delivery_date_end)}` : ''}`
+    : null;
 
   return (
     <Card className="hover:bg-muted/50 transition-colors">
       <CardContent className="p-4">
         <Link href={`/dashboard/load-board/${load.id}`} className="block">
           <div className="flex items-start justify-between mb-3">
-            {/* Route */}
+            {/* Route with zip codes */}
             <div className="flex items-center gap-2 font-semibold">
               <MapPin className="h-4 w-4 text-muted-foreground" />
-              <span>{load.origin_city}, {load.origin_state}</span>
+              <span>{load.origin_city}, {load.origin_state} {load.origin_zip}</span>
               <ArrowRight className="h-4 w-4 text-muted-foreground" />
-              <span>{load.destination_city}, {load.destination_state}</span>
+              <span>{load.destination_city}, {load.destination_state} {load.destination_zip}</span>
             </div>
 
             {/* Status Badge */}
@@ -110,11 +148,17 @@ function RequestCard({ request, withdrawAction }: RequestCardProps) {
             </Badge>
           </div>
 
-          {/* Load Info */}
+          {/* Company Info with verified badge */}
           <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
             <span className="flex items-center gap-1">
               <Building2 className="h-4 w-4" />
               {company?.name || 'Unknown Company'}
+              {isVerified && (
+                <Badge className="bg-green-500/20 text-green-600 dark:text-green-400 border-0 text-xs px-1.5 py-0 ml-1">
+                  <BadgeCheck className="h-3 w-3 mr-0.5" />
+                  Verified
+                </Badge>
+              )}
             </span>
             {load.estimated_cuft && (
               <span className="flex items-center gap-1">
@@ -125,18 +169,40 @@ function RequestCard({ request, withdrawAction }: RequestCardProps) {
             <span>#{load.load_number}</span>
           </div>
 
-          {/* Rate and Time */}
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-1">
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-              <span>
-                {request.accepted_company_rate ? 'Accepted rate: ' : 'Your offer: '}
-                <span className="font-semibold">{displayRate}</span>
+          {/* Rate Info */}
+          <div className="flex items-center gap-4 text-sm mb-3">
+            {load.rate_per_cuft && (
+              <span className="text-muted-foreground">
+                Posted: <span className="font-medium">${load.rate_per_cuft.toFixed(2)}/CF</span>
               </span>
-            </div>
-            <span className="text-muted-foreground">
-              Requested {timeAgo(request.created_at)}
+            )}
+            <span className="flex items-center gap-1">
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <span>Your offer: <span className="font-semibold text-primary">{offerDisplay}</span></span>
             </span>
+          </div>
+
+          {/* Proposed Dates */}
+          {(loadDateRange || deliveryDateRange) && (
+            <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3 bg-muted/30 p-2 rounded">
+              {loadDateRange && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  Can load: <span className="font-medium text-foreground">{loadDateRange}</span>
+                </span>
+              )}
+              {deliveryDateRange && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  Can deliver: <span className="font-medium text-foreground">{deliveryDateRange}</span>
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Time */}
+          <div className="text-sm text-muted-foreground">
+            Requested {timeAgo(request.created_at)}
           </div>
         </Link>
 

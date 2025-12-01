@@ -1254,9 +1254,15 @@ export async function getCarrierRequests(
   Array<{
     id: string;
     status: string;
+    request_type: 'accept_listed' | 'counter_offer' | null;
     offered_rate: number | null;
+    counter_offer_rate: number | null;
     accepted_company_rate: boolean;
     created_at: string;
+    proposed_load_date_start: string | null;
+    proposed_load_date_end: string | null;
+    proposed_delivery_date_start: string | null;
+    proposed_delivery_date_end: string | null;
     load: {
       id: string;
       load_number: string;
@@ -1267,9 +1273,10 @@ export async function getCarrierRequests(
       destination_state: string;
       destination_zip: string;
       estimated_cuft: number | null;
+      rate_per_cuft: number | null;
       company_rate: number | null;
       company_rate_type: string;
-      company: { id: string; name: string } | null;
+      company: { id: string; name: string; fmcsa_verified: boolean | null } | null;
     };
   }>
 > {
@@ -1283,15 +1290,21 @@ export async function getCarrierRequests(
       `
       id,
       status,
+      request_type,
       offered_rate,
+      counter_offer_rate,
       accepted_company_rate,
       created_at,
+      proposed_load_date_start,
+      proposed_load_date_end,
+      proposed_delivery_date_start,
+      proposed_delivery_date_end,
       load:load_id(
         id, load_number,
         pickup_city, pickup_state, pickup_zip,
         delivery_city, delivery_state, delivery_postal_code,
-        cubic_feet_estimate, company_rate, company_rate_type,
-        company:company_id(id, name)
+        cubic_feet_estimate, rate_per_cuft, company_rate, company_rate_type,
+        company:company_id(id, name, fmcsa_verified)
       )
     `
     )
@@ -1310,9 +1323,15 @@ export async function getCarrierRequests(
     return {
       id: item.id,
       status: item.status,
+      request_type: item.request_type,
       offered_rate: item.offered_rate,
+      counter_offer_rate: item.counter_offer_rate,
       accepted_company_rate: item.accepted_company_rate,
       created_at: item.created_at,
+      proposed_load_date_start: item.proposed_load_date_start,
+      proposed_load_date_end: item.proposed_load_date_end,
+      proposed_delivery_date_start: item.proposed_delivery_date_start,
+      proposed_delivery_date_end: item.proposed_delivery_date_end,
       load: load ? {
         id: load.id,
         load_number: load.load_number,
@@ -1323,6 +1342,7 @@ export async function getCarrierRequests(
         destination_state: load.delivery_state || '',
         destination_zip: load.delivery_postal_code || '',
         estimated_cuft: load.cubic_feet_estimate,
+        rate_per_cuft: load.rate_per_cuft,
         company_rate: load.company_rate,
         company_rate_type: load.company_rate_type || 'flat',
         company: company,
