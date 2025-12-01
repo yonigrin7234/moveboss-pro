@@ -485,12 +485,16 @@ export async function getMarketplaceLoadWithRequestStatus(
     .single();
 
   // Transform DB column names to interface names
+  // Note: company and storage_location come back as arrays from Supabase joins
+  const company = Array.isArray(load.company) ? load.company[0] : load.company;
+  const storageLocation = Array.isArray(load.storage_location) ? load.storage_location[0] : load.storage_location;
+
   return {
     id: load.id,
     load_number: load.load_number,
     company_id: load.company_id,
-    company: load.company,
-    storage_location: load.storage_location,
+    company: company || null,
+    storage_location: storageLocation || null,
     posting_type: load.posting_type,
     load_subtype: load.load_subtype,
     load_type: load.load_type,
