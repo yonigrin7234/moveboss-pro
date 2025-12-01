@@ -50,8 +50,11 @@ export function AcceptPartnershipClient({
   hasCompanies,
 }: AcceptPartnershipClientProps) {
   const router = useRouter();
+  // Filter out the sending company from selection options
+  const eligibleCompaniesForSelection = userCompanies.filter(c => c.id !== invitation.from_company_id);
+
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(
-    userCompanies.length === 1 ? userCompanies[0].id : ''
+    eligibleCompaniesForSelection.length === 1 ? eligibleCompaniesForSelection[0].id : ''
   );
   const [isAccepting, setIsAccepting] = useState(false);
   const [isDeclining, setIsDeclining] = useState(false);
@@ -140,6 +143,42 @@ export function AcceptPartnershipClient({
     );
   }
 
+  // Check if all user companies are the same as the sender (can't accept own invitation)
+  const eligibleCompanies = userCompanies.filter(c => c.id !== invitation.from_company_id);
+  const canAccept = eligibleCompanies.length > 0;
+
+  if (!canAccept) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="max-w-md w-full mx-auto">
+          <CardHeader className="text-center">
+            <div className="h-12 w-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-2">
+              <AlertCircle className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+            </div>
+            <CardTitle>Cannot Accept This Invitation</CardTitle>
+            <CardDescription>
+              This invitation was sent from {invitation.from_company_name}, which is the same company on your account.
+              You cannot create a partnership between a company and itself.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
+              <p className="mb-2"><strong>Why am I seeing this?</strong></p>
+              <p>This invitation link was meant for someone else (the email recipient). If you received this email, you may need to:</p>
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Log out and create a new account for the receiving company</li>
+                <li>Or forward this invitation to the correct person</li>
+              </ul>
+            </div>
+            <Button variant="outline" className="w-full" onClick={() => router.push('/dashboard/partnerships')}>
+              Back to Partnerships
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="max-w-md w-full mx-auto">
@@ -180,7 +219,7 @@ export function AcceptPartnershipClient({
             </div>
           )}
 
-          {userCompanies.length > 1 && (
+          {eligibleCompaniesForSelection.length > 1 && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Select your company</label>
               <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
@@ -188,7 +227,7 @@ export function AcceptPartnershipClient({
                   <SelectValue placeholder="Choose a company" />
                 </SelectTrigger>
                 <SelectContent>
-                  {userCompanies.map((company) => (
+                  {eligibleCompaniesForSelection.map((company) => (
                     <SelectItem key={company.id} value={company.id}>
                       <div className="flex items-center gap-2">
                         <Building2 className="h-4 w-4" />
@@ -201,9 +240,9 @@ export function AcceptPartnershipClient({
             </div>
           )}
 
-          {userCompanies.length === 1 && (
+          {eligibleCompaniesForSelection.length === 1 && (
             <div className="text-sm text-muted-foreground">
-              Accepting as: <strong>{userCompanies[0].name}</strong>
+              Accepting as: <strong>{eligibleCompaniesForSelection[0].name}</strong>
             </div>
           )}
 

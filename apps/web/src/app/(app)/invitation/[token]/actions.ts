@@ -35,7 +35,7 @@ export async function acceptPartnershipAction(
 
   // Prevent self-partnership (same company ID)
   if (companyId === invitation.from_company_id) {
-    return { success: false, error: 'You cannot partner with yourself' };
+    return { success: false, error: 'This invitation was sent from the same company you selected. You cannot create a partnership between a company and itself. Please select a different company or log into the account that should receive this invitation.' };
   }
 
   // Check if partnership already exists for this user
