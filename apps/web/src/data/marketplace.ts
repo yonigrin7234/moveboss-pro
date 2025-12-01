@@ -157,6 +157,8 @@ export async function getMarketplaceLoads(filters?: {
 
   // Query loads without company join first, then fetch company data separately
   // This avoids RLS issues with the company join
+  // NOTE: Use actual DB column names (pickup_*, delivery_*, cubic_feet_estimate)
+  // not the interface names (origin_*, destination_*, estimated_cuft)
   let query = supabase
     .from('loads')
     .select(`
@@ -166,14 +168,14 @@ export async function getMarketplaceLoads(filters?: {
       posted_by_company_id,
       posting_type,
       load_subtype,
-      origin_city,
-      origin_state,
-      origin_zip,
-      destination_city,
-      destination_state,
-      destination_zip,
-      estimated_cuft,
-      estimated_weight_lbs,
+      pickup_city,
+      pickup_state,
+      pickup_zip,
+      delivery_city,
+      delivery_state,
+      delivery_postal_code,
+      cubic_feet_estimate,
+      weight_lbs_estimate,
       pieces_count,
       pricing_mode,
       company_rate,
@@ -194,34 +196,48 @@ export async function getMarketplaceLoads(filters?: {
       created_at
     `)
     .eq('is_marketplace_visible', true)
-    .eq('load_status', 'pending')
+    .eq('posting_status', 'posted')
     .is('assigned_carrier_id', null)
     .order('posted_to_marketplace_at', { ascending: false });
 
-  // Apply filters
+  // Apply filters - use actual DB column names
   if (filters?.posting_type) {
     query = query.eq('posting_type', filters.posting_type);
   }
   if (filters?.origin_state) {
-    query = query.eq('origin_state', filters.origin_state);
+    query = query.eq('pickup_state', filters.origin_state);
   }
   if (filters?.destination_state) {
-    query = query.eq('destination_state', filters.destination_state);
+    query = query.eq('delivery_state', filters.destination_state);
   }
   if (filters?.equipment_type) {
     query = query.eq('equipment_type', filters.equipment_type);
   }
   if (filters?.min_cuft) {
-    query = query.gte('estimated_cuft', filters.min_cuft);
+    query = query.gte('cubic_feet_estimate', filters.min_cuft);
   }
   if (filters?.max_cuft) {
-    query = query.lte('estimated_cuft', filters.max_cuft);
+    query = query.lte('cubic_feet_estimate', filters.max_cuft);
   }
 
   const { data, error } = await query;
 
+  // Log the query result for debugging
+  console.log('[Marketplace] Query result:', {
+    dataLength: data?.length ?? 'null',
+    error: error ? { code: error.code, message: error.message, details: error.details } : null
+  });
+
   if (error) {
     console.error('[Marketplace] Error fetching loads:', error);
+    // SUSPECTED RLS ISSUE: The count query returns results but the select query doesn't.
+    // This could be because:
+    // 1. RLS policy on loads table blocks SELECT for specific columns
+    // 2. The count query with head:true bypasses some RLS checks
+    // 3. One of the selected columns doesn't exist or has different RLS rules
+    //
+    // PROPOSED FIX (requires human approval):
+    // Check if the loads RLS policy allows reading all columns, or if it's row-level vs column-level
     return [];
   }
 
@@ -232,7 +248,7 @@ export async function getMarketplaceLoads(filters?: {
     // Check loads with is_marketplace_visible = true
     const { data: visibleLoads, error: visibleError } = await supabase
       .from('loads')
-      .select('id, is_marketplace_visible, load_status, assigned_carrier_id, posting_status, posted_to_marketplace_at')
+      .select('id, is_marketplace_visible, assigned_carrier_id, posting_status, posted_to_marketplace_at')
       .eq('is_marketplace_visible', true)
       .limit(10);
     console.log('[Marketplace] Loads with is_marketplace_visible=true:', visibleLoads, visibleError);
@@ -240,7 +256,7 @@ export async function getMarketplaceLoads(filters?: {
     // Check loads with posting_status = 'posted'
     const { data: postedLoads, error: postedError } = await supabase
       .from('loads')
-      .select('id, is_marketplace_visible, load_status, assigned_carrier_id, posting_status, posted_to_marketplace_at')
+      .select('id, is_marketplace_visible, assigned_carrier_id, posting_status, posted_to_marketplace_at')
       .eq('posting_status', 'posted')
       .limit(10);
     console.log('[Marketplace] Loads with posting_status=posted:', postedLoads, postedError);
@@ -248,7 +264,7 @@ export async function getMarketplaceLoads(filters?: {
     // Check recent loads
     const { data: recentLoads, error: recentError } = await supabase
       .from('loads')
-      .select('id, is_marketplace_visible, load_status, assigned_carrier_id, posting_status, created_at')
+      .select('id, is_marketplace_visible, assigned_carrier_id, posting_status, created_at')
       .order('created_at', { ascending: false })
       .limit(5);
     console.log('[Marketplace] Recent loads:', recentLoads, recentError);
@@ -278,9 +294,41 @@ export async function getMarketplaceLoads(filters?: {
     }
   }
 
-  // Map loads with company data
+  // Map loads with company data and transform column names to match interface
   const loadsWithCompanies = data.map(load => ({
-    ...load,
+    id: load.id,
+    load_number: load.load_number,
+    company_id: load.company_id,
+    posted_by_company_id: load.posted_by_company_id,
+    posting_type: load.posting_type,
+    load_subtype: load.load_subtype,
+    // Map DB column names to interface names
+    origin_city: load.pickup_city || '',
+    origin_state: load.pickup_state || '',
+    origin_zip: load.pickup_zip || '',
+    destination_city: load.delivery_city || '',
+    destination_state: load.delivery_state || '',
+    destination_zip: load.delivery_postal_code || '',
+    estimated_cuft: load.cubic_feet_estimate,
+    estimated_weight_lbs: load.weight_lbs_estimate,
+    pieces_count: load.pieces_count,
+    pricing_mode: load.pricing_mode,
+    company_rate: load.company_rate,
+    company_rate_type: load.company_rate_type,
+    rate_is_fixed: load.rate_is_fixed,
+    is_open_to_counter: load.is_open_to_counter,
+    is_ready_now: load.is_ready_now,
+    available_date: load.available_date,
+    delivery_urgency: load.delivery_urgency,
+    rfd_date: load.rfd_date,
+    balance_due: load.balance_due,
+    pickup_date_start: load.pickup_date_start,
+    pickup_date_end: load.pickup_date_end,
+    equipment_type: load.equipment_type,
+    truck_requirement: load.truck_requirement,
+    special_instructions: load.special_instructions,
+    posted_to_marketplace_at: load.posted_to_marketplace_at,
+    created_at: load.created_at,
     company: companyMap.get(load.company_id || load.posted_by_company_id || '') || {
       id: load.company_id || load.posted_by_company_id || '',
       name: 'Company',
@@ -304,12 +352,12 @@ export async function getMarketplaceLoadCounts(): Promise<{
 }> {
   const supabase = await createClient();
 
-  // Get total count
+  // Get total count - use posting_status='posted' (the actual DB column)
   const { count: allCount } = await supabase
     .from('loads')
     .select('*', { count: 'exact', head: true })
     .eq('is_marketplace_visible', true)
-    .eq('load_status', 'pending')
+    .eq('posting_status', 'posted')
     .is('assigned_carrier_id', null);
 
   // Get pickup count
@@ -317,7 +365,7 @@ export async function getMarketplaceLoadCounts(): Promise<{
     .from('loads')
     .select('*', { count: 'exact', head: true })
     .eq('is_marketplace_visible', true)
-    .eq('load_status', 'pending')
+    .eq('posting_status', 'posted')
     .is('assigned_carrier_id', null)
     .eq('posting_type', 'pickup');
 
@@ -326,7 +374,7 @@ export async function getMarketplaceLoadCounts(): Promise<{
     .from('loads')
     .select('*', { count: 'exact', head: true })
     .eq('is_marketplace_visible', true)
-    .eq('load_status', 'pending')
+    .eq('posting_status', 'posted')
     .is('assigned_carrier_id', null)
     .eq('posting_type', 'load');
 
