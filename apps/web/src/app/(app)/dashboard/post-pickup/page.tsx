@@ -148,18 +148,27 @@ export default function PostPickupPage() {
         pickup_city: formData.origin_city,
         pickup_state: formData.origin_state,
         pickup_zip: formData.origin_zip,
+        pickup_postal_code: formData.origin_zip,
         // Marketplace display columns
         origin_city: formData.origin_city,
         origin_state: formData.origin_state,
         origin_zip: formData.origin_zip,
         share_origin_address: formData.share_origin_address,
         // Destination (address optional, city/state/zip required)
+        dropoff_address_line1: formData.destination_address || null,
+        dropoff_city: formData.destination_city,
+        dropoff_state: formData.destination_state,
+        dropoff_postal_code: formData.destination_zip,
         delivery_address_line1: formData.destination_address || null,
+        delivery_city: formData.destination_city,
+        delivery_state: formData.destination_state,
+        delivery_postal_code: formData.destination_zip,
         // Marketplace display columns
         destination_city: formData.destination_city,
         destination_state: formData.destination_state,
         destination_zip: formData.destination_zip,
-        // Load details
+        // Load details - set both column variants
+        cubic_feet: parseFloat(formData.cubic_feet) || 0,
         estimated_cuft: parseFloat(formData.cubic_feet) || 0,
         rate_per_cuft: parseFloat(formData.rate_per_cuft) || 0,
         balance_due: parseFloat(formData.balance_due) || 0,
