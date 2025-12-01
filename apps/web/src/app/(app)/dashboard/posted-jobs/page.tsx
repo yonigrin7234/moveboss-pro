@@ -246,12 +246,28 @@ export default async function PostedJobsPage() {
   const supabase = await createClient();
 
   // Get user's workspace company
-  const { data: workspaceCompany } = await supabase
+  const { data: workspaceCompany, error: companyError } = await supabase
     .from('companies')
     .select('id')
     .eq('owner_id', user.id)
     .eq('is_workspace_company', true)
     .maybeSingle();
+
+  if (companyError) {
+    console.error('Error fetching workspace company:', companyError);
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold tracking-tight">My Posted Jobs</h1>
+        <Card>
+          <CardContent className="py-10 text-center text-muted-foreground">
+            <AlertCircle className="mx-auto h-12 w-12 mb-4 text-destructive opacity-50" />
+            <p>Error loading company data. Please try again.</p>
+            <p className="text-xs mt-2 font-mono">{companyError.message}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!workspaceCompany) {
     return (
