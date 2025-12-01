@@ -281,7 +281,8 @@ export default async function CarrierRequestsPage() {
 
   const supabase = await createClient();
 
-  // Get all requests on loads posted by this user
+  // Get requests on loads posted by this user
+  // Include owner_id so we can filter to only the user's loads
   const { data: requests, error } = await supabase
     .from('load_requests')
     .select(`
@@ -291,7 +292,7 @@ export default async function CarrierRequestsPage() {
       proposed_delivery_date_start, proposed_delivery_date_end,
       carrier:carrier_id(id, name, city, state, mc_number, dot_number, platform_rating, platform_loads_completed),
       load:load_id(
-        id, load_number, load_type, posting_type,
+        id, load_number, load_type, posting_type, owner_id,
         pickup_city, pickup_state, delivery_city, delivery_state,
         cubic_feet_estimate, balance_due, linehaul_amount, company_rate, rate_per_cuft
       )
@@ -303,8 +304,8 @@ export default async function CarrierRequestsPage() {
   }
 
   // Filter to only show requests for loads this user owns
-  // (RLS should handle this, but let's be explicit)
-  const allRequests = (requests || []) as unknown as CarrierRequest[];
+  const allRequests = ((requests || []) as unknown as (CarrierRequest & { load: { owner_id: string } | null })[])
+    .filter((r) => r.load?.owner_id === user.id);
   const pendingRequests = allRequests.filter((r) => r.status === 'pending');
   const acceptedRequests = allRequests.filter((r) => r.status === 'accepted');
   const declinedRequests = allRequests.filter((r) => ['declined', 'withdrawn'].includes(r.status));
