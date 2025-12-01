@@ -159,6 +159,16 @@ export function DriverForm({
   // Store form values to preserve data on validation errors
   const [savedFormData, setSavedFormData] = useState<Record<string, string>>({});
 
+  // Track whether to show errors (hide after user starts editing/navigating)
+  const [errorsCleared, setErrorsCleared] = useState(false);
+
+  // Reset errorsCleared when new errors come in from form submission
+  useEffect(() => {
+    if (state?.errors) {
+      setErrorsCleared(false);
+    }
+  }, [state?.errors]);
+
   // Helper to get field value: savedFormData (on error) > initialData > empty
   const getFieldValue = (fieldName: string, initialValue?: string) => {
     if (state?.errors && savedFormData[fieldName] !== undefined) {
@@ -166,6 +176,9 @@ export function DriverForm({
     }
     return initialValue || '';
   };
+
+  // Check if errors should be shown
+  const shouldShowErrors = state?.errors && !errorsCleared;
   const sectionIndex: Record<string, number> = {
     profile: 0,
     access: 1,
@@ -430,6 +443,7 @@ export function DriverForm({
   const nextStep = () => {
     if (currentStep < STEPS.length - 1) {
       setCurrentStep(currentStep + 1);
+      setErrorsCleared(true); // Clear errors when navigating
       scrollToTop();
     }
   };
@@ -437,6 +451,7 @@ export function DriverForm({
   const prevStep = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
+      setErrorsCleared(true); // Clear errors when navigating
       scrollToTop();
     }
   };
@@ -481,7 +496,7 @@ export function DriverForm({
                       defaultValue={getFieldValue('first_name', initialData?.first_name)}
                       className="h-9"
                     />
-                    {state?.errors?.first_name && (
+                    {shouldShowErrors && state?.errors?.first_name && (
                       <p className="text-xs text-destructive">{state.errors.first_name}</p>
                     )}
                   </div>
@@ -497,7 +512,7 @@ export function DriverForm({
                       defaultValue={getFieldValue('last_name', initialData?.last_name)}
                       className="h-9"
                     />
-                    {state?.errors?.last_name && (
+                    {shouldShowErrors && state?.errors?.last_name && (
                       <p className="text-xs text-destructive">{state.errors.last_name}</p>
                     )}
                   </div>
@@ -516,7 +531,7 @@ export function DriverForm({
                       defaultValue={getFieldValue('phone', initialData?.phone)}
                       className="h-9"
                     />
-                    {state?.errors?.phone && (
+                    {shouldShowErrors && state?.errors?.phone && (
                       <p className="text-xs text-destructive">{state.errors.phone}</p>
                     )}
                   </div>
@@ -530,7 +545,7 @@ export function DriverForm({
                       defaultValue={getFieldValue('email', initialData?.email)}
                       className="h-9"
                     />
-                    {state?.errors?.email && (
+                    {shouldShowErrors && state?.errors?.email && (
                       <p className="text-xs text-destructive">{state.errors.email}</p>
                     )}
                   </div>
@@ -788,7 +803,7 @@ export function DriverForm({
                             defaultValue={getFieldValue('license_number', initialData?.license_number)}
                             className="h-9"
                           />
-                          {state?.errors?.license_number && (
+                          {shouldShowErrors && state?.errors?.license_number && (
                             <p className="text-xs text-destructive">{state.errors.license_number}</p>
                           )}
                         </div>
@@ -814,7 +829,7 @@ export function DriverForm({
                             placeholder="Select date"
                             className="h-9"
                           />
-                          {state?.errors?.license_expiry && (
+                          {shouldShowErrors && state?.errors?.license_expiry && (
                             <p className="text-xs text-destructive">{state.errors.license_expiry}</p>
                           )}
                         </div>
@@ -1161,7 +1176,7 @@ export function DriverForm({
                   <SelectItem value="flat_daily_rate">Flat daily rate</SelectItem>
                 </SelectContent>
               </SelectWithHiddenInput>
-              {state?.errors?.pay_mode && (
+              {shouldShowErrors && state?.errors?.pay_mode && (
                 <p className="text-xs text-destructive">{state.errors.pay_mode}</p>
               )}
             </div>
@@ -1182,7 +1197,7 @@ export function DriverForm({
                     defaultValue={getFieldValue('rate_per_mile', initialData?.rate_per_mile?.toString())}
                     className="h-9"
                   />
-                  {state?.errors?.rate_per_mile && (
+                  {shouldShowErrors && state?.errors?.rate_per_mile && (
                     <p className="text-xs text-destructive">{state.errors.rate_per_mile}</p>
                   )}
                 </div>
@@ -1204,7 +1219,7 @@ export function DriverForm({
                     defaultValue={getFieldValue('rate_per_cuft', initialData?.rate_per_cuft?.toString())}
                     className="h-9"
                   />
-                  {state?.errors?.rate_per_cuft && (
+                  {shouldShowErrors && state?.errors?.rate_per_cuft && (
                     <p className="text-xs text-destructive">{state.errors.rate_per_cuft}</p>
                   )}
                 </div>
@@ -1227,7 +1242,7 @@ export function DriverForm({
                       defaultValue={getFieldValue('rate_per_mile', initialData?.rate_per_mile?.toString())}
                       className="h-9"
                     />
-                    {state?.errors?.rate_per_mile && (
+                    {shouldShowErrors && state?.errors?.rate_per_mile && (
                       <p className="text-xs text-destructive">{state.errors.rate_per_mile}</p>
                     )}
                   </div>
@@ -1246,7 +1261,7 @@ export function DriverForm({
                       defaultValue={getFieldValue('rate_per_cuft', initialData?.rate_per_cuft?.toString())}
                       className="h-9"
                     />
-                    {state?.errors?.rate_per_cuft && (
+                    {shouldShowErrors && state?.errors?.rate_per_cuft && (
                       <p className="text-xs text-destructive">{state.errors.rate_per_cuft}</p>
                     )}
                   </div>
@@ -1273,7 +1288,7 @@ export function DriverForm({
                     defaultValue={getFieldValue('percent_of_revenue', initialData?.percent_of_revenue?.toString())}
                     className="h-9"
                   />
-                  {state?.errors?.percent_of_revenue && (
+                  {shouldShowErrors && state?.errors?.percent_of_revenue && (
                     <p className="text-xs text-destructive">{state.errors.percent_of_revenue}</p>
                   )}
                 </div>
@@ -1295,7 +1310,7 @@ export function DriverForm({
                     defaultValue={getFieldValue('flat_daily_rate', initialData?.flat_daily_rate?.toString())}
                     className="h-9"
                   />
-                  {state?.errors?.flat_daily_rate && (
+                  {shouldShowErrors && state?.errors?.flat_daily_rate && (
                     <p className="text-xs text-destructive">{state.errors.flat_daily_rate}</p>
                   )}
                 </div>
@@ -1466,7 +1481,7 @@ export function DriverForm({
           ))}
         </div>
 
-        {state?.errors?._form && (
+        {shouldShowErrors && state?.errors?._form && (
           <Alert variant="destructive" className="py-3">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription className="text-sm whitespace-pre-wrap font-mono">
