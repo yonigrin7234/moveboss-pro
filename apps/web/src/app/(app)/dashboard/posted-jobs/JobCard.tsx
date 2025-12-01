@@ -19,7 +19,8 @@ import {
 
 export interface PostedJob {
   id: string;
-  job_number: string;
+  job_number: string | null;
+  load_number: string | null;
   load_type: string;
   posting_type: string;
   posting_status: string;
@@ -175,7 +176,7 @@ export function JobCard({ job, requestCount }: { job: PostedJob; requestCount: n
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono font-semibold">{job.job_number}</span>
+                <span className="font-mono font-semibold">{job.load_number || job.job_number}</span>
                 {getTypeBadge(job.posting_type, job.load_type)}
                 {getStatusBadge(job.posting_status)}
                 {requestCount > 0 && job.posting_status === 'posted' && (

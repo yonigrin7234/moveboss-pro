@@ -61,7 +61,7 @@ export default async function PostedJobsPage() {
   const { data: postedJobs, error } = await supabase
     .from('loads')
     .select(`
-      id, job_number, load_type, posting_type, posting_status, posted_at,
+      id, job_number, load_number, load_type, posting_type, posting_status, posted_at,
       pickup_date_start, pickup_date_end, pickup_date,
       pickup_city, pickup_state,
       dropoff_city, dropoff_state, delivery_city, delivery_state,

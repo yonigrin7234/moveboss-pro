@@ -348,7 +348,7 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
         <div className="flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold tracking-tight">
-              {postedJob.job_number || postedJob.load_number}
+              {postedJob.load_number || postedJob.job_number}
             </h1>
             {getTypeBadge(postedJob.posting_type, postedJob.load_type)}
             {getStatusBadge(postedJob.posting_status)}
