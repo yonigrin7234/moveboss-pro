@@ -227,6 +227,35 @@ export async function getMarketplaceLoads(filters?: {
     return [];
   }
 
+  // Debug logging - check what loads exist with marketplace flags
+  if (!data || data.length === 0) {
+    console.log('[Marketplace] No loads found. Checking database state...');
+
+    // Check loads with is_marketplace_visible = true
+    const { data: visibleLoads, error: visibleError } = await supabase
+      .from('loads')
+      .select('id, is_marketplace_visible, load_status, assigned_carrier_id, posting_status, posted_to_marketplace_at')
+      .eq('is_marketplace_visible', true)
+      .limit(10);
+    console.log('[Marketplace] Loads with is_marketplace_visible=true:', visibleLoads, visibleError);
+
+    // Check loads with posting_status = 'posted'
+    const { data: postedLoads, error: postedError } = await supabase
+      .from('loads')
+      .select('id, is_marketplace_visible, load_status, assigned_carrier_id, posting_status, posted_to_marketplace_at')
+      .eq('posting_status', 'posted')
+      .limit(10);
+    console.log('[Marketplace] Loads with posting_status=posted:', postedLoads, postedError);
+
+    // Check recent loads
+    const { data: recentLoads, error: recentError } = await supabase
+      .from('loads')
+      .select('id, is_marketplace_visible, load_status, assigned_carrier_id, posting_status, created_at')
+      .order('created_at', { ascending: false })
+      .limit(5);
+    console.log('[Marketplace] Recent loads:', recentLoads, recentError);
+  }
+
   return (data || []) as unknown as MarketplaceLoad[];
 }
 
