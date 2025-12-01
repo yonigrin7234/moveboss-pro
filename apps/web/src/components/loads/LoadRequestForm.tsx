@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { DatePicker } from '@/components/ui/date-picker';
 import { useToast } from '@/hooks/use-toast';
 import { useSetupProgress } from '@/hooks/use-setup-progress';
 
@@ -132,27 +133,23 @@ export function LoadRequestForm({
           <Label className="text-sm font-medium">When can you load?</Label>
           <div className="grid grid-cols-2 gap-2 mt-2">
             <div>
-              <Label htmlFor="proposed_load_date_start" className="text-xs text-muted-foreground">
+              <Label className="text-xs text-muted-foreground">
                 From
               </Label>
-              <Input
-                id="proposed_load_date_start"
+              <DatePicker
                 name="proposed_load_date_start"
-                type="date"
-                className="mt-1"
-                required
+                placeholder="Start date"
+                className="mt-1 h-10"
               />
             </div>
             <div>
-              <Label htmlFor="proposed_load_date_end" className="text-xs text-muted-foreground">
+              <Label className="text-xs text-muted-foreground">
                 To
               </Label>
-              <Input
-                id="proposed_load_date_end"
+              <DatePicker
                 name="proposed_load_date_end"
-                type="date"
-                className="mt-1"
-                required
+                placeholder="End date"
+                className="mt-1 h-10"
               />
             </div>
           </div>
@@ -162,27 +159,23 @@ export function LoadRequestForm({
           <Label className="text-sm font-medium">When can you deliver?</Label>
           <div className="grid grid-cols-2 gap-2 mt-2">
             <div>
-              <Label htmlFor="proposed_delivery_date_start" className="text-xs text-muted-foreground">
+              <Label className="text-xs text-muted-foreground">
                 From
               </Label>
-              <Input
-                id="proposed_delivery_date_start"
+              <DatePicker
                 name="proposed_delivery_date_start"
-                type="date"
-                className="mt-1"
-                required
+                placeholder="Start date"
+                className="mt-1 h-10"
               />
             </div>
             <div>
-              <Label htmlFor="proposed_delivery_date_end" className="text-xs text-muted-foreground">
+              <Label className="text-xs text-muted-foreground">
                 To
               </Label>
-              <Input
-                id="proposed_delivery_date_end"
+              <DatePicker
                 name="proposed_delivery_date_end"
-                type="date"
-                className="mt-1"
-                required
+                placeholder="End date"
+                className="mt-1 h-10"
               />
             </div>
           </div>
