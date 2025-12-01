@@ -14,6 +14,7 @@ import {
   Package,
   MessageSquare,
   Calendar,
+  BadgeCheck,
 } from 'lucide-react';
 import { RequestActions } from './request-actions';
 
@@ -22,6 +23,7 @@ interface CarrierRequest {
   status: string;
   offered_rate: number | null;
   offered_rate_type: string | null;
+  accepted_company_rate: boolean | null;
   message: string | null;
   created_at: string;
   carrier: {
@@ -31,17 +33,19 @@ interface CarrierRequest {
     state: string | null;
     mc_number: string | null;
     dot_number: string | null;
+    platform_rating: number | null;
+    platform_loads_completed: number | null;
   } | null;
   load: {
     id: string;
-    job_number: string;
+    load_number: string;
     load_type: string;
     posting_type: string;
     pickup_city: string | null;
     pickup_state: string | null;
-    dropoff_city: string | null;
-    dropoff_state: string | null;
-    cubic_feet: number | null;
+    delivery_city: string | null;
+    delivery_state: string | null;
+    cubic_feet_estimate: number | null;
     balance_due: number | null;
     linehaul_amount: number | null;
     company_rate: number | null;
@@ -114,14 +118,29 @@ function RequestCard({ request }: { request: CarrierRequest }) {
 
   if (!load || !carrier) return null;
 
-  const route = load.pickup_city && load.pickup_state && load.dropoff_city && load.dropoff_state
-    ? `${load.pickup_city}, ${load.pickup_state} → ${load.dropoff_city}, ${load.dropoff_state}`
-    : '-';
+  const route = load.pickup_city && load.pickup_state && load.delivery_city && load.delivery_state
+    ? `${load.pickup_city}, ${load.pickup_state} → ${load.delivery_city}, ${load.delivery_state}`
+    : load.pickup_city && load.pickup_state
+      ? `${load.pickup_city}, ${load.pickup_state}`
+      : '-';
 
-  const loadPrice = load.posting_type === 'pickup' ? load.balance_due : load.linehaul_amount;
-  const offeredRate = request.offered_rate
-    ? `${formatCurrency(request.offered_rate)}${request.offered_rate_type === 'per_cuft' ? '/cuft' : ' flat'}`
-    : 'Company rate';
+  const isVerified = carrier.dot_number || carrier.mc_number;
+
+  // Posted rate info
+  const postedRatePerCuft = load.rate_per_cuft;
+  const postedLinehaul = load.posting_type === 'pickup' ? load.balance_due : load.linehaul_amount;
+
+  // Offered rate - check if they accepted company rate or made counter offer
+  let offeredDisplay: string;
+  if (request.accepted_company_rate || !request.offered_rate) {
+    offeredDisplay = postedRatePerCuft
+      ? `$${postedRatePerCuft.toFixed(2)}/CF (accepted)`
+      : 'Accepted posted rate';
+  } else {
+    offeredDisplay = request.offered_rate_type === 'per_cuft'
+      ? `$${request.offered_rate.toFixed(2)}/CF`
+      : `${formatCurrency(request.offered_rate)}`;
+  }
 
   return (
     <Card className="rounded-lg hover:shadow-md transition-shadow">
@@ -131,22 +150,28 @@ function RequestCard({ request }: { request: CarrierRequest }) {
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div className="space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono font-semibold">{load.job_number}</span>
+                <span className="font-mono font-semibold">{load.load_number}</span>
                 {getStatusBadge(request.status)}
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Building2 className="h-4 w-4 text-muted-foreground" />
                 <span className="font-medium">{carrier.name}</span>
+                {isVerified && (
+                  <Badge className="bg-green-500/20 text-green-600 dark:text-green-400 border-0 text-xs px-1.5 py-0">
+                    <BadgeCheck className="h-3 w-3 mr-0.5" />
+                    Verified
+                  </Badge>
+                )}
                 {carrier.city && carrier.state && (
                   <span className="text-muted-foreground">
                     ({carrier.city}, {carrier.state})
                   </span>
                 )}
               </div>
-              {(carrier.mc_number || carrier.dot_number) && (
+              {(carrier.dot_number || carrier.mc_number) && (
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  {carrier.mc_number && <span>MC# {carrier.mc_number}</span>}
                   {carrier.dot_number && <span>DOT# {carrier.dot_number}</span>}
+                  {carrier.mc_number && <span>MC# {carrier.mc_number}</span>}
                 </div>
               )}
             </div>
@@ -163,15 +188,18 @@ function RequestCard({ request }: { request: CarrierRequest }) {
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Package className="h-4 w-4" />
-              <span>{load.cubic_feet ?? '-'} CUFT</span>
+              <span>
+                {load.cubic_feet_estimate ? `${load.cubic_feet_estimate.toLocaleString()} CF` : '-'}
+                {postedRatePerCuft ? ` @ $${postedRatePerCuft.toFixed(2)}/CF` : ''}
+              </span>
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <DollarSign className="h-4 w-4" />
-              <span>Load: {formatCurrency(loadPrice)}</span>
+              <span>Posted: {formatCurrency(postedLinehaul)}</span>
             </div>
             <div className="flex items-center gap-2">
               <Truck className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium text-primary">Offered: {offeredRate}</span>
+              <span className="font-medium text-primary">Offered: {offeredDisplay}</span>
             </div>
           </div>
 
@@ -204,12 +232,12 @@ export default async function CarrierRequestsPage() {
   const { data: requests, error } = await supabase
     .from('load_requests')
     .select(`
-      id, status, offered_rate, offered_rate_type, message, created_at,
-      carrier:carrier_id(id, name, city, state, mc_number, dot_number),
+      id, status, offered_rate, offered_rate_type, accepted_company_rate, message, created_at,
+      carrier:carrier_id(id, name, city, state, mc_number, dot_number, platform_rating, platform_loads_completed),
       load:load_id(
-        id, job_number, load_type, posting_type,
-        pickup_city, pickup_state, dropoff_city, dropoff_state,
-        cubic_feet, balance_due, linehaul_amount, company_rate, rate_per_cuft
+        id, load_number, load_type, posting_type,
+        pickup_city, pickup_state, delivery_city, delivery_state,
+        cubic_feet_estimate, balance_due, linehaul_amount, company_rate, rate_per_cuft
       )
     `)
     .order('created_at', { ascending: false });
