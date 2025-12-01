@@ -9,7 +9,6 @@ import {
   type LoadStatus,
 } from '@/data/loads';
 import { getCompaniesForUser, type Company } from '@/data/companies';
-import { getLoadTripAssignments, type LoadTripAssignment } from '@/data/trips';
 import { LoadListFilters } from './load-list-filters';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -61,12 +60,22 @@ function formatServiceType(serviceType: Load['service_type']): string {
   }
 }
 
-function formatCurrency(amount: number | null): string {
+function formatCurrency(amount: number | null, compact = false): string {
   if (!amount) return '—';
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
+    minimumFractionDigits: compact ? 0 : 2,
+    maximumFractionDigits: compact ? 0 : 2,
   }).format(amount);
+}
+
+function formatDate(date: string | null): string {
+  if (!date) return '—';
+  return new Date(date).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 interface LoadsPageProps {
@@ -99,23 +108,17 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
   let loads: Load[] = [];
   let companies: Company[] = [];
   let stats = { totalLoads: 0, pending: 0, inTransit: 0, delivered: 0 };
-  let loadTripAssignments: Record<string, LoadTripAssignment> = {};
   let error: string | null = null;
 
   try {
-    const [loadsResult, companiesResult, statsResult, tripAssignmentsMap] = await Promise.all([
+    const [loadsResult, companiesResult, statsResult] = await Promise.all([
       getLoadsForUser(user.id, filters),
       getCompaniesForUser(user.id),
       getLoadStatsForUser(user.id),
-      getLoadTripAssignments(user.id),
     ]);
     loads = loadsResult;
     companies = companiesResult;
     stats = statsResult;
-    // Convert Map to Record for easier lookup
-    tripAssignmentsMap.forEach((value, key) => {
-      loadTripAssignments[key] = value;
-    });
   } catch (err) {
     error = err instanceof Error ? err.message : 'Failed to load loads';
   }
@@ -198,18 +201,24 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
                 <TableRow>
                   <TableHead>Load Number</TableHead>
                   <TableHead>Company</TableHead>
-                  <TableHead>Service Type</TableHead>
-                  <TableHead>Pickup</TableHead>
-                  <TableHead>Delivery</TableHead>
-                  <TableHead>Trip / Driver</TableHead>
+                  <TableHead>Service</TableHead>
+                  <TableHead>Origin</TableHead>
+                  <TableHead>Destination</TableHead>
+                  <TableHead className="text-right">CUFT</TableHead>
+                  <TableHead>RFD Date</TableHead>
+                  <TableHead className="text-right">Rate</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Rate</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loads.map((load) => {
                   const company = Array.isArray(load.company) ? load.company[0] : load.company;
+                  const cuft = load.cubic_feet || load.cubic_feet_estimate;
+                  const ratePerCuft = load.rate_per_cuft;
+                  const linehaulTotal = load.linehaul_amount || (cuft && ratePerCuft ? cuft * ratePerCuft : null);
+                  const isPosted = load.posting_status === 'posted';
+
                   return (
                   <TableRow key={load.id}>
                     <TableCell className="font-medium">
@@ -225,45 +234,44 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-muted-foreground text-sm">
                       {company?.name || '—'}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="text-muted-foreground text-sm">
                       {formatServiceType(load.service_type)}
                     </TableCell>
-                    <TableCell>
-                      <div className="text-sm text-muted-foreground">
-                        {load.pickup_city && load.pickup_state
-                          ? `${load.pickup_city}, ${load.pickup_state}`
-                          : '—'}
-                      </div>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {load.pickup_city && load.pickup_state
+                        ? `${load.pickup_city}, ${load.pickup_state}`
+                        : '—'}
                     </TableCell>
-                    <TableCell>
-                      <div className="text-sm text-muted-foreground">
-                        {load.delivery_city && load.delivery_state
-                          ? `${load.delivery_city}, ${load.delivery_state}`
+                    <TableCell className="text-sm text-muted-foreground">
+                      {load.delivery_city && load.delivery_state
+                        ? `${load.delivery_city}, ${load.delivery_state}`
+                        : load.dropoff_city && load.dropoff_state
+                          ? `${load.dropoff_city}, ${load.dropoff_state}`
                           : '—'}
-                      </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {loadTripAssignments[load.id] ? (
+                    <TableCell className="text-right text-sm">
+                      {cuft ? cuft.toLocaleString() : '—'}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDate(load.delivery_date || load.first_available_date || null)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {ratePerCuft ? (
                         <div className="space-y-0.5">
-                          <Link
-                            href={`/dashboard/trips/${loadTripAssignments[load.id].tripId}`}
-                            className="text-primary hover:underline text-sm"
-                          >
-                            Trip {loadTripAssignments[load.id].tripNumber}
-                          </Link>
-                          {loadTripAssignments[load.id].driverName && (
+                          <div className="text-sm font-medium">
+                            ${ratePerCuft.toFixed(2)}/cuft
+                          </div>
+                          {isPosted && linehaulTotal && (
                             <div className="text-xs text-muted-foreground">
-                              {loadTripAssignments[load.id].driverName}
+                              {formatCurrency(linehaulTotal, true)} total
                             </div>
                           )}
                         </div>
-                      ) : load.assigned_driver ? (
-                        `${load.assigned_driver.first_name} ${load.assigned_driver.last_name}`
                       ) : (
-                        '—'
+                        <span className="text-sm text-muted-foreground">—</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -283,9 +291,6 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
                       >
                         {formatStatus(load.status)}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {formatCurrency(load.total_rate)}
                     </TableCell>
                     <TableCell>
                       <Button variant="ghost" size="sm" asChild>
