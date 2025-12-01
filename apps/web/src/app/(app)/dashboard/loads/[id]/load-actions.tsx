@@ -4,6 +4,10 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Store, Route, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Select,
   SelectContent,
@@ -29,11 +33,20 @@ interface Trip {
   driver?: { first_name?: string; last_name?: string } | null;
 }
 
+export interface MarketplacePostingData {
+  cubic_feet: number;
+  rate_per_cuft: number;
+  linehaul_amount: number;
+  is_open_to_counter: boolean;
+  truck_requirement: 'any' | 'semi_only' | 'box_truck_only';
+}
+
 interface LoadActionsProps {
   loadId: string;
   postingStatus: string | null;
   trips: Trip[];
-  onPostToMarketplace: () => Promise<{ success: boolean; error?: string }>;
+  initialCubicFeet?: number | null;
+  onPostToMarketplace: (data: MarketplacePostingData) => Promise<{ success: boolean; error?: string }>;
   onAssignToTrip: (tripId: string) => Promise<{ success: boolean; error?: string }>;
 }
 
@@ -52,6 +65,7 @@ export function LoadActions({
   loadId,
   postingStatus,
   trips,
+  initialCubicFeet,
   onPostToMarketplace,
   onAssignToTrip,
 }: LoadActionsProps) {
@@ -62,12 +76,62 @@ export function LoadActions({
   const [selectedTripId, setSelectedTripId] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
 
+  // Marketplace posting form state
+  const [cubicFeet, setCubicFeet] = useState(initialCubicFeet?.toString() || '');
+  const [ratePerCuft, setRatePerCuft] = useState('');
+  const [linehaulAmount, setLinehaulAmount] = useState('');
+  const [isOpenToCounter, setIsOpenToCounter] = useState(false);
+  const [truckRequirement, setTruckRequirement] = useState<'any' | 'semi_only' | 'box_truck_only'>('any');
+
   const isDraft = !postingStatus || postingStatus === 'draft';
   const isPosted = postingStatus === 'posted';
 
+  // Auto-calculate linehaul when cuft or rate changes
+  const handleCuftChange = (value: string) => {
+    setCubicFeet(value);
+    const cuft = parseFloat(value);
+    const rate = parseFloat(ratePerCuft);
+    if (!isNaN(cuft) && !isNaN(rate)) {
+      setLinehaulAmount((cuft * rate).toFixed(2));
+    }
+  };
+
+  const handleRateChange = (value: string) => {
+    setRatePerCuft(value);
+    const cuft = parseFloat(cubicFeet);
+    const rate = parseFloat(value);
+    if (!isNaN(cuft) && !isNaN(rate)) {
+      setLinehaulAmount((cuft * rate).toFixed(2));
+    }
+  };
+
   const handlePostToMarketplace = () => {
+    // Validate required fields
+    const cuft = parseFloat(cubicFeet);
+    const rate = parseFloat(ratePerCuft);
+    const linehaul = parseFloat(linehaulAmount);
+
+    if (isNaN(cuft) || cuft <= 0) {
+      toast({ title: 'Invalid CUFT', description: 'Please enter a valid cubic feet value.', variant: 'destructive' });
+      return;
+    }
+    if (isNaN(rate) || rate <= 0) {
+      toast({ title: 'Invalid Rate', description: 'Please enter a valid rate per CUFT.', variant: 'destructive' });
+      return;
+    }
+    if (isNaN(linehaul) || linehaul <= 0) {
+      toast({ title: 'Invalid Linehaul', description: 'Please enter a valid linehaul amount.', variant: 'destructive' });
+      return;
+    }
+
     startTransition(async () => {
-      const result = await onPostToMarketplace();
+      const result = await onPostToMarketplace({
+        cubic_feet: cuft,
+        rate_per_cuft: rate,
+        linehaul_amount: linehaul,
+        is_open_to_counter: isOpenToCounter,
+        truck_requirement: truckRequirement,
+      });
       if (result.success) {
         toast({
           title: 'Posted to Marketplace',
@@ -165,23 +229,98 @@ export function LoadActions({
         </div>
       )}
 
-      {/* Post to Marketplace Confirmation Dialog */}
+      {/* Post to Marketplace Form Dialog */}
       <Dialog open={showPostModal} onOpenChange={setShowPostModal}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Store className="h-5 w-5" />
               Post to Marketplace
             </DialogTitle>
             <DialogDescription>
-              This will make the load visible to carriers on the marketplace. They can request to haul it.
+              Set pricing and options for carriers to see on the marketplace.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground">
-              Once posted, you&apos;ll receive requests from interested carriers that you can review and accept.
-            </p>
+
+          <div className="space-y-4 py-4">
+            {/* Pricing */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="mp_cubic_feet" className="text-sm">CUFT *</Label>
+                <Input
+                  id="mp_cubic_feet"
+                  type="number"
+                  min="1"
+                  value={cubicFeet}
+                  onChange={(e) => handleCuftChange(e.target.value)}
+                  placeholder="500"
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="mp_rate" className="text-sm">Rate/CUFT ($) *</Label>
+                <Input
+                  id="mp_rate"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={ratePerCuft}
+                  onChange={(e) => handleRateChange(e.target.value)}
+                  placeholder="3.50"
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="mp_linehaul" className="text-sm">Linehaul ($) *</Label>
+                <Input
+                  id="mp_linehaul"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={linehaulAmount}
+                  onChange={(e) => setLinehaulAmount(e.target.value)}
+                  placeholder="1750.00"
+                  className="h-9"
+                />
+              </div>
+            </div>
+
+            {/* Truck Requirement */}
+            <div className="space-y-2">
+              <Label className="text-sm">Truck Requirement</Label>
+              <RadioGroup
+                value={truckRequirement}
+                onValueChange={(v) => setTruckRequirement(v as typeof truckRequirement)}
+                className="flex flex-wrap gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="any" id="truck_any" />
+                  <Label htmlFor="truck_any" className="font-normal cursor-pointer text-sm">Any</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="semi_only" id="truck_semi" />
+                  <Label htmlFor="truck_semi" className="font-normal cursor-pointer text-sm">Semi Only</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="box_truck_only" id="truck_box" />
+                  <Label htmlFor="truck_box" className="font-normal cursor-pointer text-sm">Box Truck Only</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* Counter Offers */}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="mp_counter"
+                checked={isOpenToCounter}
+                onCheckedChange={(checked) => setIsOpenToCounter(checked === true)}
+              />
+              <Label htmlFor="mp_counter" className="font-normal cursor-pointer text-sm">
+                Open to counter offers from carriers
+              </Label>
+            </div>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPostModal(false)} disabled={isPending}>
               Cancel

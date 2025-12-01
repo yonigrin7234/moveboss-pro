@@ -8,7 +8,7 @@ import { getTrucksForUser, getTrailersForUser } from '@/data/fleet';
 import { getTripsForLoadAssignment, addLoadToTrip } from '@/data/trips';
 import { LoadForm } from '@/components/loads/LoadForm';
 import { LoadPhotos } from '@/components/loads/LoadPhotos';
-import { LoadActions } from './load-actions';
+import { LoadActions, type MarketplacePostingData } from './load-actions';
 import { cleanFormValues, extractFormValues } from '@/lib/form-data';
 
 function formatStatus(status: Load['status']): string {
@@ -148,7 +148,7 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
     }
   }
 
-  async function postToMarketplaceAction(): Promise<{ success: boolean; error?: string }> {
+  async function postToMarketplaceAction(data: MarketplacePostingData): Promise<{ success: boolean; error?: string }> {
     'use server';
     const currentUser = await getCurrentUser();
     if (!currentUser) return { success: false, error: 'Not authenticated' };
@@ -156,13 +156,27 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
     try {
       const supabase = await createClient();
 
-      // Update the load's posting status
+      // Get user's workspace company for posted_by_company_id
+      const { data: workspaceCompany } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('owner_id', currentUser.id)
+        .eq('is_workspace_company', true)
+        .maybeSingle();
+
+      // Update the load with posting status and marketplace-specific fields
       const { error } = await supabase
         .from('loads')
         .update({
           posting_status: 'posted',
           posted_at: new Date().toISOString(),
-          posting_type: 'live_load', // Default to live_load for now
+          posting_type: 'load',
+          posted_by_company_id: workspaceCompany?.id || null,
+          cubic_feet: data.cubic_feet,
+          rate_per_cuft: data.rate_per_cuft,
+          linehaul_amount: data.linehaul_amount,
+          is_open_to_counter: data.is_open_to_counter,
+          truck_requirement: data.truck_requirement,
         })
         .eq('id', id)
         .eq('owner_id', currentUser.id);
@@ -296,6 +310,7 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
         <LoadActions
           loadId={id}
           postingStatus={load.posting_status ?? null}
+          initialCubicFeet={load.cubic_feet_estimate ?? load.cubic_feet ?? null}
           trips={availableTrips.map((t) => ({
             id: t.id,
             trip_number: t.trip_number,
