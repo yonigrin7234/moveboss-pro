@@ -33,7 +33,7 @@ function Calendar({
           "text-sm font-medium",
           isDropdown && "sr-only" // Screen reader only when using dropdowns (dropdowns show month/year)
         ),
-        nav: "flex items-center justify-between absolute inset-x-0 top-0 h-10 px-1",
+        nav: "flex items-center justify-between absolute inset-x-0 top-0 h-10 px-1 z-10 pointer-events-none [&>button]:pointer-events-auto",
         button_previous: cn(
           buttonVariants({ variant: "outline" }),
           "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
