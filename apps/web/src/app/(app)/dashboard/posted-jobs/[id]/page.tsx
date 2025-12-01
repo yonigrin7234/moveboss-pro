@@ -51,18 +51,12 @@ interface PostedJob {
   pickup_city: string | null;
   pickup_state: string | null;
   pickup_zip: string | null;
-  origin_city: string | null;
-  origin_state: string | null;
-  origin_zip: string | null;
   loading_city: string | null;
   loading_state: string | null;
   // Destination
   dropoff_city: string | null;
   dropoff_state: string | null;
   dropoff_zip: string | null;
-  destination_city: string | null;
-  destination_state: string | null;
-  destination_zip: string | null;
   delivery_city: string | null;
   delivery_state: string | null;
   // Size & Rate
@@ -208,23 +202,23 @@ function formatDate(date: string | null) {
 function getOrigin(job: PostedJob) {
   // For RFD loads, use loading/storage location
   if (job.load_type === 'rfd' || job.posting_type === 'load') {
-    const city = job.loading_city || job.origin_city || job.pickup_city;
-    const state = job.loading_state || job.origin_state || job.pickup_state;
-    const zip = job.origin_zip || job.pickup_zip;
+    const city = job.loading_city || job.pickup_city;
+    const state = job.loading_state || job.pickup_state;
+    const zip = job.pickup_zip;
     if (city && state) return { city, state, zip };
     if (job.current_storage_location) return { city: job.current_storage_location, state: '', zip: null };
   }
   // For pickups
-  const city = job.pickup_city || job.origin_city;
-  const state = job.pickup_state || job.origin_state;
-  const zip = job.pickup_zip || job.origin_zip;
+  const city = job.pickup_city;
+  const state = job.pickup_state;
+  const zip = job.pickup_zip;
   return { city, state, zip };
 }
 
 function getDestination(job: PostedJob) {
-  const city = job.dropoff_city || job.destination_city || job.delivery_city;
-  const state = job.dropoff_state || job.destination_state || job.delivery_state;
-  const zip = job.dropoff_zip || job.destination_zip;
+  const city = job.dropoff_city || job.delivery_city;
+  const state = job.dropoff_state || job.delivery_state;
+  const zip = job.dropoff_zip;
   return { city, state, zip };
 }
 
@@ -259,10 +253,8 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
       id, job_number, load_number, load_type, posting_type, posting_status, posted_at,
       pickup_date_start, pickup_date_end, pickup_date, rfd_date,
       pickup_city, pickup_state, pickup_zip,
-      origin_city, origin_state, origin_zip,
       loading_city, loading_state,
       dropoff_city, dropoff_state, dropoff_zip,
-      destination_city, destination_state, destination_zip,
       delivery_city, delivery_state,
       cubic_feet, estimated_cuft, rate_per_cuft, company_rate,
       balance_due, linehaul_amount,
