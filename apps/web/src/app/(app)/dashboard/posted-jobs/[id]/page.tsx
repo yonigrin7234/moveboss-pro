@@ -56,19 +56,17 @@ interface PostedJob {
   // Destination
   dropoff_city: string | null;
   dropoff_state: string | null;
-  dropoff_zip: string | null;
+  dropoff_postal_code: string | null;
   delivery_city: string | null;
   delivery_state: string | null;
   // Size & Rate
   cubic_feet: number | null;
-  estimated_cuft: number | null;
   rate_per_cuft: number | null;
   company_rate: number | null;
   balance_due: number | null;
   linehaul_amount: number | null;
   // Requirements
   truck_requirement: 'any' | 'semi_only' | 'box_truck_only' | null;
-  special_instructions: string | null;
   is_open_to_counter: boolean;
   // Storage
   current_storage_location: string | null;
@@ -218,7 +216,7 @@ function getOrigin(job: PostedJob) {
 function getDestination(job: PostedJob) {
   const city = job.dropoff_city || job.delivery_city;
   const state = job.dropoff_state || job.delivery_state;
-  const zip = job.dropoff_zip;
+  const zip = job.dropoff_postal_code;
   return { city, state, zip };
 }
 
@@ -254,11 +252,11 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
       pickup_date_start, pickup_date_end, pickup_date, rfd_date,
       pickup_city, pickup_state, pickup_zip,
       loading_city, loading_state,
-      dropoff_city, dropoff_state, dropoff_zip,
+      dropoff_city, dropoff_state, dropoff_postal_code,
       delivery_city, delivery_state,
-      cubic_feet, estimated_cuft, rate_per_cuft, company_rate,
+      cubic_feet, rate_per_cuft, company_rate,
       balance_due, linehaul_amount,
-      truck_requirement, special_instructions, is_open_to_counter,
+      truck_requirement, is_open_to_counter,
       current_storage_location,
       assigned_carrier_id,
       assigned_carrier:assigned_carrier_id(id, name)
@@ -329,7 +327,7 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
   // Calculated values
   const origin = getOrigin(postedJob);
   const destination = getDestination(postedJob);
-  const cuft = postedJob.cubic_feet || postedJob.estimated_cuft;
+  const cuft = postedJob.cubic_feet;
   const rate = postedJob.rate_per_cuft || postedJob.company_rate;
   const totalValue = rate && cuft ? rate * cuft : null;
   const price = postedJob.posting_type === 'pickup' ? postedJob.balance_due : postedJob.linehaul_amount;
@@ -450,16 +448,6 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
             </>
           )}
 
-          {/* Special Instructions */}
-          {postedJob.special_instructions && (
-            <>
-              <Separator />
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Special Instructions</p>
-                <p className="text-sm">{postedJob.special_instructions}</p>
-              </div>
-            </>
-          )}
         </CardContent>
       </Card>
 
