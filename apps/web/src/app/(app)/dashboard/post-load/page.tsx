@@ -325,19 +325,13 @@ export default function PostLoadPage() {
         posted_to_marketplace_at: new Date().toISOString(),
         load_status: 'pending',
         is_open_to_counter: data.is_open_to_counter,
-        // Destination (same for both types) - set both column name variants for compatibility
-        dropoff_address_line1: data.destination_address,
-        dropoff_city: data.destination_city,
-        dropoff_state: data.destination_state,
-        dropoff_postal_code: data.destination_zip,
-        delivery_city: data.destination_city,
-        delivery_state: data.destination_state,
-        delivery_postal_code: data.destination_zip,
+        // Destination (same for both types) - marketplace display columns
         destination_city: data.destination_city,
         destination_state: data.destination_state,
         destination_zip: data.destination_zip,
-        // Load details - set both column name variants for compatibility
-        cubic_feet: parseFloat(data.cubic_feet) || 0,
+        // Full address stored in delivery_* columns (revealed after assignment)
+        delivery_address_line1: data.destination_address,
+        // Load details
         estimated_cuft: parseFloat(data.cubic_feet) || 0,
         rate_per_cuft: parseFloat(data.rate_per_cuft) || 0,
         linehaul_amount: parseFloat(data.linehaul_amount) || 0,
@@ -358,8 +352,8 @@ export default function PostLoadPage() {
         payload.pickup_address_line1 = liveLoadData.origin_address;
         payload.pickup_city = liveLoadData.origin_city;
         payload.pickup_state = liveLoadData.origin_state;
-        payload.pickup_postal_code = liveLoadData.origin_zip;
-        // Also set origin_* columns for marketplace display
+        payload.pickup_zip = liveLoadData.origin_zip;
+        // Set origin_* columns for marketplace display
         payload.origin_city = liveLoadData.origin_city;
         payload.origin_state = liveLoadData.origin_state;
         payload.origin_zip = liveLoadData.origin_zip;
@@ -431,11 +425,8 @@ export default function PostLoadPage() {
         payload.pickup_address_line1 = storageAddress;
         payload.pickup_city = storageCity;
         payload.pickup_state = storageState;
-        payload.pickup_postal_code = storageZip;
-        payload.loading_city = storageCity;
-        payload.loading_state = storageState;
-        payload.loading_postal_code = storageZip;
-        // Also set origin_* columns for marketplace display (storage is origin for RFD)
+        payload.pickup_zip = storageZip;
+        // Set origin_* columns for marketplace display (storage is origin for RFD)
         payload.origin_city = storageCity;
         payload.origin_state = storageState;
         payload.origin_zip = storageZip;

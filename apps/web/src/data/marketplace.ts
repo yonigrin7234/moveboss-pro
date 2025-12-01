@@ -227,25 +227,6 @@ export async function getMarketplaceLoads(filters?: {
     return [];
   }
 
-  console.log('[Marketplace] Query returned', data?.length || 0, 'loads');
-  if (data?.length === 0) {
-    // Debug: check if there are ANY marketplace-visible loads
-    const { data: debugData, error: debugError } = await supabase
-      .from('loads')
-      .select('id, is_marketplace_visible, load_status, assigned_carrier_id, posted_to_marketplace_at, posting_status')
-      .eq('is_marketplace_visible', true)
-      .limit(5);
-    console.log('[Marketplace] Debug - loads with is_marketplace_visible=true:', debugData, debugError);
-
-    // Also check what loads exist with posting_status = 'posted'
-    const { data: postedData } = await supabase
-      .from('loads')
-      .select('id, is_marketplace_visible, load_status, posting_status, posted_to_marketplace_at')
-      .eq('posting_status', 'posted')
-      .limit(5);
-    console.log('[Marketplace] Debug - loads with posting_status=posted:', postedData);
-  }
-
   return (data || []) as unknown as MarketplaceLoad[];
 }
 
