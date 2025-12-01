@@ -158,10 +158,10 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-5 w-full">
-      <div className="space-y-0.5">
-        <h2 className="text-lg font-semibold text-foreground tracking-tight">
-          Welcome back
+    <div className="max-w-7xl w-full mx-auto px-6 space-y-6 pt-6">
+      <div className="space-y-1">
+        <h2 className="text-xl font-semibold text-foreground tracking-tight">
+          Overview
         </h2>
         <p className="text-sm text-muted-foreground">
           Track performance, assets, and partner data from a single view.
@@ -179,24 +179,24 @@ export default async function DashboardPage() {
       {/* Setup Checklist - shows at top for new users */}
       <SetupChecklist userRole={userRole} />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {statCards.map((stat) => (
-          <Card key={stat.label} className="group">
-            <CardHeader className="pb-1.5">
+          <Card key={stat.label} className="group h-full">
+            <CardHeader className="pb-2">
               <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 {stat.label}
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <p className="text-2xl font-bold text-foreground tracking-tight">{stat.value}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{stat.description}</p>
+              <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
       {/* Status Widgets */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 pt-2 border-t border-border/40">
         {verificationState && (
           <VerificationStatusWidget state={verificationState} />
         )}
