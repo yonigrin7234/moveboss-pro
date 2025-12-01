@@ -219,6 +219,11 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
                       >
                         {load.load_number || load.job_number}
                       </Link>
+                      {load.internal_reference && (
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          Ref: {load.internal_reference}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {company?.name || '—'}

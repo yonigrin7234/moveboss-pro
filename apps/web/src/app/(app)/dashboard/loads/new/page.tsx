@@ -35,7 +35,7 @@ export default async function NewLoadPage() {
     const fields = [
       'load_type',
       'load_source',
-      'load_number',
+      'internal_reference',
       'service_type',
       'company_id',
       'assigned_driver_id',

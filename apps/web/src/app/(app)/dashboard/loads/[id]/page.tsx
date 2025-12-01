@@ -124,6 +124,7 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
       // Dispatch contact
       'dispatch_contact_name',
       'dispatch_contact_phone',
+      'internal_reference',
     ];
 
     const rawData = extractFormValues(formData, fields);
@@ -261,6 +262,8 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
     // Dispatch contact
     dispatch_contact_name: load.dispatch_contact_name ?? undefined,
     dispatch_contact_phone: load.dispatch_contact_phone ?? undefined,
+    // Internal reference
+    internal_reference: load.internal_reference ?? undefined,
   };
 
   return (
@@ -270,11 +273,16 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
           <h1 className="text-3xl font-bold text-foreground">
             {load.load_number || 'New Load'}
           </h1>
-          {load.status && (
-            <p className="text-sm text-muted-foreground">
-              {load.service_type?.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
-            </p>
-          )}
+          <div className="flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground">
+            {load.service_type && (
+              <span>{load.service_type.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}</span>
+            )}
+            {load.internal_reference && (
+              <span className="text-xs font-medium text-muted-foreground/80 px-2 py-0.5 bg-muted rounded">
+                Ref: {load.internal_reference}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex gap-4">
           <Link

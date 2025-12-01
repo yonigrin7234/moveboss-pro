@@ -437,12 +437,12 @@ export function LoadCreateForm({
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="job_number">Job Number</Label>
-              <Input id="job_number" value="Assigned when saved" disabled className="bg-muted" />
+              <Label htmlFor="load_number">Load Number</Label>
+              <Input id="load_number" value="Auto-generated (LD-XXXXXX)" disabled className="bg-muted" />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="load_number">Internal Reference</Label>
-              <Input id="load_number" name="load_number" placeholder="Optional" />
+              <Label htmlFor="internal_reference">Internal Reference</Label>
+              <Input id="internal_reference" name="internal_reference" placeholder="Your CRM # (optional)" />
             </div>
           </div>
 

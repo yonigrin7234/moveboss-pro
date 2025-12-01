@@ -260,24 +260,41 @@ export function LoadForm({
                 <CardTitle className="text-sm font-medium">Load Identity</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2.5">
-                <div className="space-y-1.5">
-                  <Label htmlFor="load_number" className="text-sm">
-                    Load Number
-                  </Label>
-                  <Input
-                    id="load_number"
-                    name="load_number"
-                    defaultValue={initialData?.load_number || ''}
-                    className="h-9 read-only:bg-muted read-only:cursor-not-allowed"
-                    placeholder="Auto-generated (LD-000001)"
-                    readOnly={Boolean(initialData?.load_number)}
-                  />
-                  {!initialData?.load_number && (
-                    <p className="text-xs text-muted-foreground">Leave empty to auto-generate</p>
-                  )}
-                  {state?.errors?.load_number && (
-                    <p className="text-xs text-destructive">{state.errors.load_number}</p>
-                  )}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="load_number" className="text-sm">
+                      Load Number
+                    </Label>
+                    <Input
+                      id="load_number"
+                      name="load_number"
+                      defaultValue={initialData?.load_number || ''}
+                      className="h-9 read-only:bg-muted read-only:cursor-not-allowed"
+                      placeholder="Auto-generated (LD-000001)"
+                      readOnly={Boolean(initialData?.load_number)}
+                    />
+                    {!initialData?.load_number && (
+                      <p className="text-xs text-muted-foreground">Leave empty to auto-generate</p>
+                    )}
+                    {state?.errors?.load_number && (
+                      <p className="text-xs text-destructive">{state.errors.load_number}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="internal_reference" className="text-sm">
+                      Internal Reference
+                    </Label>
+                    <Input
+                      id="internal_reference"
+                      name="internal_reference"
+                      defaultValue={(initialData as any)?.internal_reference || ''}
+                      className="h-9"
+                      placeholder="Your CRM # (optional)"
+                    />
+                    {state?.errors?.internal_reference && (
+                      <p className="text-xs text-destructive">{state.errors.internal_reference}</p>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1.5">
