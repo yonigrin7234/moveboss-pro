@@ -325,7 +325,7 @@ export default async function LoadBoardPage({ searchParams }: PageProps) {
   // Count active filters (excluding type)
   const activeFilters = [params.origin, params.destination, params.equipment].filter(Boolean).length;
 
-  // Build URL with current filters
+  // Build URL with current filters (for tab navigation)
   const buildTabUrl = (type: string) => {
     const searchParams = new URLSearchParams();
     if (params.origin) searchParams.set('origin', params.origin);
@@ -335,6 +335,11 @@ export default async function LoadBoardPage({ searchParams }: PageProps) {
     const queryString = searchParams.toString();
     return `/dashboard/load-board${queryString ? `?${queryString}` : ''}`;
   };
+
+  // Build URL without filters (for clear filters button)
+  const clearFiltersUrl = activeTab !== 'all'
+    ? `/dashboard/load-board?type=${activeTab}`
+    : '/dashboard/load-board';
 
   return (
     <div className="space-y-6">
@@ -436,7 +441,7 @@ export default async function LoadBoardPage({ searchParams }: PageProps) {
 
             {activeFilters > 0 && (
               <Button variant="ghost" asChild>
-                <Link href={buildTabUrl(activeTab)}>Clear Filters</Link>
+                <Link href={clearFiltersUrl}>Clear Filters</Link>
               </Button>
             )}
           </form>
@@ -462,7 +467,7 @@ export default async function LoadBoardPage({ searchParams }: PageProps) {
             </p>
             {activeFilters > 0 && (
               <Button variant="outline" asChild>
-                <Link href={buildTabUrl(activeTab)}>Clear Filters</Link>
+                <Link href={clearFiltersUrl}>Clear Filters</Link>
               </Button>
             )}
           </CardContent>

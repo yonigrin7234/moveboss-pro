@@ -320,9 +320,12 @@ export default function PostLoadPage() {
         posting_status: 'posted',
         posted_at: new Date().toISOString(),
         service_type: data.service_type,
-        status: 'pending',
+        // Marketplace visibility - required for load to appear on load board
+        is_marketplace_visible: true,
+        posted_to_marketplace_at: new Date().toISOString(),
+        load_status: 'pending',
         is_open_to_counter: data.is_open_to_counter,
-        // Destination (same for both types)
+        // Destination (same for both types) - set both column name variants for compatibility
         dropoff_address_line1: data.destination_address,
         dropoff_city: data.destination_city,
         dropoff_state: data.destination_state,
@@ -330,10 +333,16 @@ export default function PostLoadPage() {
         delivery_city: data.destination_city,
         delivery_state: data.destination_state,
         delivery_postal_code: data.destination_zip,
-        // Load details
+        destination_city: data.destination_city,
+        destination_state: data.destination_state,
+        destination_zip: data.destination_zip,
+        // Load details - set both column name variants for compatibility
         cubic_feet: parseFloat(data.cubic_feet) || 0,
+        estimated_cuft: parseFloat(data.cubic_feet) || 0,
         rate_per_cuft: parseFloat(data.rate_per_cuft) || 0,
         linehaul_amount: parseFloat(data.linehaul_amount) || 0,
+        company_rate: parseFloat(data.linehaul_amount) || 0,
+        company_rate_type: 'flat',
         notes: data.notes,
         truck_requirement: data.truck_requirement,
         // Dispatch/Foreman contact
@@ -350,6 +359,10 @@ export default function PostLoadPage() {
         payload.pickup_city = liveLoadData.origin_city;
         payload.pickup_state = liveLoadData.origin_state;
         payload.pickup_postal_code = liveLoadData.origin_zip;
+        // Also set origin_* columns for marketplace display
+        payload.origin_city = liveLoadData.origin_city;
+        payload.origin_state = liveLoadData.origin_state;
+        payload.origin_zip = liveLoadData.origin_zip;
       } else {
         // RFD has storage location info
         let storageLocationId = rfdData.storage_location_id || null;
@@ -422,6 +435,10 @@ export default function PostLoadPage() {
         payload.loading_city = storageCity;
         payload.loading_state = storageState;
         payload.loading_postal_code = storageZip;
+        // Also set origin_* columns for marketplace display (storage is origin for RFD)
+        payload.origin_city = storageCity;
+        payload.origin_state = storageState;
+        payload.origin_zip = storageZip;
         payload.storage_unit = rfdData.storage_unit_numbers || null;
         // RFD date - null means "ready now"
         payload.rfd_date = rfdData.rfd_ready_type === 'ready_on_date' && rfdData.rfd_date

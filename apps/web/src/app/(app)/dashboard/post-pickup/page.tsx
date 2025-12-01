@@ -132,7 +132,10 @@ export default function PostPickupPage() {
         posting_status: 'posted',
         posted_at: new Date().toISOString(),
         service_type: formData.service_type,
-        status: 'pending',
+        // Marketplace visibility - required for load to appear on load board
+        is_marketplace_visible: true,
+        posted_to_marketplace_at: new Date().toISOString(),
+        load_status: 'pending',
         // Customer info stored in pickup contact (optional)
         pickup_contact_name: formData.customer_name || null,
         pickup_contact_phone: formData.customer_phone || null,
@@ -145,6 +148,9 @@ export default function PostPickupPage() {
         pickup_city: formData.origin_city,
         pickup_state: formData.origin_state,
         pickup_postal_code: formData.origin_zip,
+        origin_city: formData.origin_city,
+        origin_state: formData.origin_state,
+        origin_zip: formData.origin_zip,
         share_origin_address: formData.share_origin_address,
         // Destination (address optional, city/state/zip required)
         dropoff_address_line1: formData.destination_address || null,
@@ -154,11 +160,16 @@ export default function PostPickupPage() {
         delivery_city: formData.destination_city,
         delivery_state: formData.destination_state,
         delivery_postal_code: formData.destination_zip,
-        // Load details
+        destination_city: formData.destination_city,
+        destination_state: formData.destination_state,
+        destination_zip: formData.destination_zip,
+        // Load details - set both column name variants for compatibility
         cubic_feet: parseFloat(formData.cubic_feet) || 0,
+        estimated_cuft: parseFloat(formData.cubic_feet) || 0,
         rate_per_cuft: parseFloat(formData.rate_per_cuft) || 0,
         balance_due: parseFloat(formData.balance_due) || 0,
         linehaul_amount: parseFloat(formData.balance_due) || 0,
+        company_rate: parseFloat(formData.balance_due) || 0,
         notes: formData.notes,
       });
 
