@@ -608,9 +608,10 @@ export async function createLoadRequest(
   }
 
   // Get load to find company_id and check RFD date
+  // Use correct DB column names: pickup_*, delivery_*
   const { data: load } = await supabase
     .from('loads')
-    .select('company_id, owner_id, load_number, origin_city, origin_state, destination_city, destination_state, rfd_date, is_open_to_counter')
+    .select('company_id, owner_id, load_number, pickup_city, pickup_state, delivery_city, delivery_state, rfd_date, is_open_to_counter')
     .eq('id', data.load_id)
     .single();
 
@@ -679,7 +680,7 @@ export async function createLoadRequest(
     .single();
 
   // Notify company
-  const route = `${load.origin_city}, ${load.origin_state} → ${load.destination_city}, ${load.destination_state}`;
+  const route = `${load.pickup_city || ''}, ${load.pickup_state || ''} → ${load.delivery_city || ''}, ${load.delivery_state || ''}`;
   await notifyLoadRequested(
     load.owner_id,
     load.company_id,
@@ -1274,6 +1275,7 @@ export async function getCarrierRequests(
 > {
   const supabase = await createClient();
 
+  // Use correct DB column names: pickup_*, delivery_*, cubic_feet_estimate
   const { data, error } = await supabase
     .from('load_requests')
     .select(
@@ -1285,9 +1287,9 @@ export async function getCarrierRequests(
       created_at,
       load:loads(
         id, load_number,
-        origin_city, origin_state, origin_zip,
-        destination_city, destination_state, destination_zip,
-        estimated_cuft, company_rate, company_rate_type,
+        pickup_city, pickup_state, pickup_zip,
+        delivery_city, delivery_state, delivery_postal_code,
+        cubic_feet_estimate, company_rate, company_rate_type,
         company:companies!loads_company_id_fkey(id, name)
       )
     `
@@ -1300,27 +1302,32 @@ export async function getCarrierRequests(
     return [];
   }
 
-  return (data || []) as unknown as Array<{
-    id: string;
-    status: string;
-    offered_rate: number | null;
-    accepted_company_rate: boolean;
-    created_at: string;
-    load: {
-      id: string;
-      load_number: string;
-      origin_city: string;
-      origin_state: string;
-      origin_zip: string;
-      destination_city: string;
-      destination_state: string;
-      destination_zip: string;
-      estimated_cuft: number | null;
-      company_rate: number | null;
-      company_rate_type: string;
-      company: { id: string; name: string } | null;
+  // Map DB column names to interface names
+  return (data || []).map((item: any) => {
+    const load = Array.isArray(item.load) ? item.load[0] : item.load;
+    const company = load?.company ? (Array.isArray(load.company) ? load.company[0] : load.company) : null;
+    return {
+      id: item.id,
+      status: item.status,
+      offered_rate: item.offered_rate,
+      accepted_company_rate: item.accepted_company_rate,
+      created_at: item.created_at,
+      load: load ? {
+        id: load.id,
+        load_number: load.load_number,
+        origin_city: load.pickup_city || '',
+        origin_state: load.pickup_state || '',
+        origin_zip: load.pickup_zip || '',
+        destination_city: load.delivery_city || '',
+        destination_state: load.delivery_state || '',
+        destination_zip: load.delivery_postal_code || '',
+        estimated_cuft: load.cubic_feet_estimate,
+        company_rate: load.company_rate,
+        company_rate_type: load.company_rate_type || 'flat',
+        company: company,
+      } : null,
     };
-  }>;
+  }) as any;
 }
 
 // Marketplace load interface for carrier view

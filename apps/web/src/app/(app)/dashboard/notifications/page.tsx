@@ -159,13 +159,18 @@ export default async function NotificationsPage() {
                       notificationIcons[notification.type] || notificationIcons.load_request_received;
                     const Icon = config.icon;
                     const isUnread = !notification.is_read;
-                    const linkHref = notification.type === 'partner_load_posted' && notification.load_id
-                      ? `/dashboard/marketplace`
-                      : notification.load_id
-                        ? `/dashboard/loads/${notification.load_id}`
-                        : notification.request_id
-                          ? `/dashboard/marketplace/my-requests`
-                          : '#';
+                    // Determine the correct link based on notification type
+                    let linkHref = '#';
+                    if (notification.type === 'load_request_received') {
+                      // Company receiving a request should go to carrier requests page
+                      linkHref = '/dashboard/carrier-requests';
+                    } else if (notification.type === 'partner_load_posted' && notification.load_id) {
+                      linkHref = '/dashboard/load-board';
+                    } else if (notification.load_id) {
+                      linkHref = `/dashboard/loads/${notification.load_id}`;
+                    } else if (notification.request_id) {
+                      linkHref = '/dashboard/my-requests';
+                    }
 
                     return (
                       <div
