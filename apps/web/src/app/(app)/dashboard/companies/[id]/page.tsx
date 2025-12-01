@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { CompanyForm } from '@/components/companies/CompanyForm';
 import { DeleteCompanyButton } from './delete-company-button';
 import { cleanFormValues, extractFormValues } from '@/lib/form-data';
+import { Receipt } from 'lucide-react';
 
 function formatCompanyType(type: Company['company_type']): string {
   switch (type) {
@@ -187,6 +188,12 @@ export default async function CompanyDetailPage({ params }: CompanyDetailPagePro
           </Badge>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href={`/dashboard/companies/${id}/ledger`} className="flex items-center gap-2">
+              <Receipt className="h-4 w-4" />
+              View Ledger
+            </Link>
+          </Button>
           <Button variant="outline" asChild>
             <Link href="/dashboard/companies">Back to Companies</Link>
           </Button>
