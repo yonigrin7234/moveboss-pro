@@ -162,6 +162,46 @@ export function DriverForm({
     assignment: 3,
     comp: 4,
   };
+
+  // Map field names to step indices for error navigation
+  const fieldToStepMap: Record<string, number> = {
+    // Step 0 - Personal
+    first_name: 0,
+    last_name: 0,
+    phone: 0,
+    email: 0,
+    date_of_birth: 0,
+    start_date: 0,
+    // Step 1 - Access
+    has_login: 1,
+    login_method: 1,
+    driver_password: 1,
+    driver_password_confirm: 1,
+    // Step 2 - Compliance
+    license_number: 2,
+    license_state: 2,
+    license_expiry: 2,
+    is_cdl: 2,
+    cdl_class: 2,
+    cdl_endorsements: 2,
+    cdl_restrictions: 2,
+    medical_card_expiry: 2,
+    medical_card_issue_date: 2,
+    twic_card_number: 2,
+    twic_card_expiry: 2,
+    mvr_date: 2,
+    // Step 3 - Assignment
+    status: 3,
+    assigned_truck_id: 3,
+    assigned_trailer_id: 3,
+    // Step 4 - Compensation
+    pay_mode: 4,
+    rate_per_mile: 4,
+    rate_per_cuft: 4,
+    percent_of_revenue: 4,
+    flat_daily_rate: 4,
+    notes: 4,
+  };
   const setFilePreview = (
     setter: React.Dispatch<React.SetStateAction<{ name: string; url: string } | null>>,
     file?: File
@@ -193,6 +233,68 @@ export function DriverForm({
       router.refresh();
     }
   }, [state?.success, router, toast, markComplete]);
+
+  // When errors occur, navigate to the step containing the first error field
+  useEffect(() => {
+    if (state?.errors && !state.success) {
+      const errorFields = Object.keys(state.errors).filter(key => key !== '_form');
+      let targetStep = currentStep;
+      let targetField: string | null = null;
+
+      // Check for field-specific errors
+      if (errorFields.length > 0) {
+        // Find the lowest step index that has an error
+        for (const field of errorFields) {
+          const stepIndex = fieldToStepMap[field];
+          if (stepIndex !== undefined && (targetField === null || stepIndex < targetStep)) {
+            targetStep = stepIndex;
+            targetField = field;
+          }
+        }
+      }
+
+      // Check for _form errors that mention specific fields (e.g., duplicate email)
+      const formError = state.errors._form?.toLowerCase() || '';
+      if (formError) {
+        // Detect email-related errors
+        if (formError.includes('email') && (targetField === null || fieldToStepMap.email < targetStep)) {
+          targetStep = fieldToStepMap.email;
+          targetField = 'email';
+        }
+        // Detect phone-related errors
+        else if (formError.includes('phone') && (targetField === null || fieldToStepMap.phone < targetStep)) {
+          targetStep = fieldToStepMap.phone;
+          targetField = 'phone';
+        }
+        // Detect password-related errors
+        else if ((formError.includes('password') || formError.includes('portal')) &&
+                 (targetField === null || fieldToStepMap.driver_password < targetStep)) {
+          targetStep = fieldToStepMap.driver_password;
+          targetField = 'driver_password';
+        }
+        // Detect license-related errors
+        else if (formError.includes('license') && (targetField === null || fieldToStepMap.license_number < targetStep)) {
+          targetStep = fieldToStepMap.license_number;
+          targetField = 'license_number';
+        }
+      }
+
+      // Navigate to the step with the error if different from current
+      if (targetStep !== currentStep) {
+        setCurrentStep(targetStep);
+        scrollToTop();
+      }
+
+      // Focus the error field after a brief delay
+      if (targetField) {
+        setTimeout(() => {
+          const el = document.getElementById(targetField!);
+          el?.focus();
+          el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+      }
+    }
+  }, [state?.errors, state?.success]);
   const complianceItems = [
     { id: 'license_file', label: "Driver's license copy", ok: Boolean(licenseFile), url: licenseFile?.url },
     { id: 'medical_card_file', label: 'Medical card image', ok: Boolean(medicalCardFile), url: medicalCardFile?.url },
