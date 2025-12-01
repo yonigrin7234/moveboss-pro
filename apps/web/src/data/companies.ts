@@ -350,11 +350,9 @@ export async function getWorkspaceCompanyForUser(userId: string): Promise<Compan
     .maybeSingle();
 
   if (error) {
-    const msg = error.message?.toLowerCase() ?? '';
-    if (error.code === 'PGRST116' || msg.includes('is_workspace_company')) {
-      return null;
-    }
-    throw new Error(`Failed to fetch workspace company: ${error.message}`);
+    // Log error for debugging but don't crash - let the UI handle missing company gracefully
+    console.error('[getWorkspaceCompanyForUser] Error:', error.code, error.message);
+    return null;
   }
 
   return data as Company | null;
