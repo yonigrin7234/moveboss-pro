@@ -19,11 +19,12 @@ export default async function RevenueReportPage({ searchParams }: PageProps) {
   const supabase = await createClient();
   const params = await searchParams;
 
-  // Get user's carrier company
+  // Get user's carrier company (must be their workspace company)
   const { data: company } = await supabase
     .from('companies')
     .select('id')
     .eq('owner_id', user.id)
+    .eq('is_workspace_company', true)
     .eq('is_carrier', true)
     .single();
 
