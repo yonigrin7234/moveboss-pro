@@ -177,8 +177,10 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
           is_marketplace_visible: true,
           posted_to_marketplace_at: new Date().toISOString(),
           load_status: 'pending',
-          // Rate and size info
-          estimated_cuft: data.cubic_feet,
+          // Rate and size info - use correct DB column names
+          cubic_feet_estimate: data.cubic_feet,
+          rate_per_cuft: data.rate_per_cuft,
+          linehaul_amount: data.linehaul_amount,
           company_rate: data.linehaul_amount,
           company_rate_type: 'flat',
           is_open_to_counter: data.is_open_to_counter,
