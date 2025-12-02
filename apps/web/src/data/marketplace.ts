@@ -1220,6 +1220,7 @@ export async function getAssignedLoadDetails(
 
   // Query load data WITHOUT company join to avoid RLS issues
   // The carrier can read the load but may not be able to read the broker's company
+  // DEBUG: Using simplified query first to isolate the issue
   const { data, error } = await supabase
     .from('loads')
     .select(
@@ -1246,6 +1247,14 @@ export async function getAssignedLoadDetails(
     .eq('id', loadId)
     .eq('assigned_carrier_id', carrier.id)
     .single();
+
+  console.log('getAssignedLoadDetails: Query result', {
+    hasData: !!data,
+    hasError: !!error,
+    errorCode: error?.code,
+    errorMessage: error?.message,
+    dataId: data?.id,
+  });
 
   if (error || !data) {
     console.error('getAssignedLoadDetails: Error or no data for load', loadId, 'carrier', carrier.id, 'error:', error);

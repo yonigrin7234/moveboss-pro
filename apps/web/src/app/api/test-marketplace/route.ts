@@ -77,7 +77,13 @@ export async function GET(request: Request) {
         carrier_confirmed_at: l.carrier_confirmed_at,
       })),
       loadId: loadId,
-      loadDetails: loadDetails ? 'Found' : 'Not found (null)',
+      loadDetailsStatus: loadDetails ? 'Found' : 'Not found (null)',
+      loadDetailsData: loadDetails ? {
+        id: loadDetails.id,
+        load_number: loadDetails.load_number,
+        load_status: loadDetails.load_status,
+        company: loadDetails.company,
+      } : null,
       rawLoadQuery: rawLoadQuery,
     });
   } catch (error: any) {
