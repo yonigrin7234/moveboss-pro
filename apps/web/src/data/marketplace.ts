@@ -299,13 +299,13 @@ export async function getMarketplaceLoads(filters?: {
 
   // Fetch companies using a service role or public data approach
   // For now, create placeholder company data - the UI can handle missing company info
-  const companyMap = new Map<string, { id: string; name: string; city: string | null; state: string | null; platform_loads_completed: number; platform_rating: number | null; dot_number: string | null; mc_number: string | null }>();
+  const companyMap = new Map<string, { id: string; name: string; city: string | null; state: string | null; platform_loads_completed: number; platform_rating: number | null; dot_number: string | null; mc_number: string | null; fmcsa_verified: boolean | null }>();
 
   if (companyIds.length > 0) {
     // Try to fetch companies - this may be limited by RLS
     const { data: companies } = await supabase
       .from('companies')
-      .select('id, name, city, state, platform_loads_completed, platform_rating, dot_number, mc_number')
+      .select('id, name, city, state, platform_loads_completed, platform_rating, dot_number, mc_number, fmcsa_verified')
       .in('id', companyIds);
 
     if (companies) {
@@ -361,6 +361,7 @@ export async function getMarketplaceLoads(filters?: {
       platform_rating: null,
       dot_number: null,
       mc_number: null,
+      fmcsa_verified: null,
     }
   }));
 
@@ -428,7 +429,7 @@ export async function getMarketplaceLoadWithRequestStatus(
       company:companies!loads_company_id_fkey(
         id, name, city, state,
         platform_loads_completed, platform_rating,
-        dot_number, mc_number
+        dot_number, mc_number, fmcsa_verified
       ),
       posting_type,
       load_subtype,

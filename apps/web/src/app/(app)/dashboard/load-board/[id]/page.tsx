@@ -232,7 +232,7 @@ export default async function LoadDetailPage({ params }: PageProps) {
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="text-lg font-semibold">{company?.name || 'Unknown Company'}</p>
-                    {(company?.dot_number || company?.mc_number) && (
+                    {company?.fmcsa_verified === true && (
                       <Badge className="bg-green-500/20 text-green-600 dark:text-green-400 border-0">
                         <BadgeCheck className="h-3 w-3 mr-1" />
                         Verified
