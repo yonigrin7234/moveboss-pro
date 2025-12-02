@@ -1220,30 +1220,10 @@ export async function getAssignedLoadDetails(
 
   // Query load data WITHOUT company join to avoid RLS issues
   // The carrier can read the load but may not be able to read the broker's company
-  // DEBUG: Using simplified query first to isolate the issue
+  // DEBUG: Select ALL columns to avoid column name mismatches
   const { data, error } = await supabase
     .from('loads')
-    .select(
-      `
-      id, load_number, company_id,
-      pickup_city, pickup_state, pickup_postal_code,
-      pickup_address_line1, pickup_address_line2,
-      pickup_contact_name, pickup_contact_phone, pickup_contact_email,
-      pickup_gate_code, pickup_notes,
-      delivery_city, delivery_state, delivery_postal_code,
-      delivery_address_line1, delivery_address_line2,
-      delivery_contact_name, delivery_contact_phone, delivery_contact_email,
-      delivery_gate_code, delivery_notes,
-      cubic_feet, cubic_feet_estimate, weight_lbs_estimate, pieces_count,
-      carrier_rate, carrier_rate_type,
-      load_status, posting_status, expected_load_date,
-      carrier_confirmed_at, carrier_assigned_at,
-      loading_started_at, loaded_at, in_transit_at, delivered_at,
-      assigned_driver_id, assigned_driver_name, assigned_driver_phone,
-      special_instructions,
-      source_company_name
-    `
-    )
+    .select('*')
     .eq('id', loadId)
     .eq('assigned_carrier_id', carrier.id)
     .single();
