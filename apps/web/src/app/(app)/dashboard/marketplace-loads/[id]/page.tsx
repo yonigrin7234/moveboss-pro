@@ -27,6 +27,7 @@ import {
   Route,
   FileText,
 } from 'lucide-react';
+import { TripAssignmentForm } from '@/components/trip-assignment-form';
 
 function formatDateRange(start: string | null, end: string | null): string {
   if (!start) return 'TBD';
@@ -108,22 +109,28 @@ export default async function MarketplaceLoadDetailPage({ params }: PageProps) {
   }
 
   // Server action to assign load to trip
-  async function assignToTripAction(formData: FormData) {
+  async function assignToTripAction(loadId: string, tripId: string): Promise<{ success: boolean; error?: string }> {
     'use server';
 
     const user = await getCurrentUser();
-    if (!user) redirect('/login');
+    if (!user) {
+      return { success: false, error: 'Not authenticated' };
+    }
 
-    const tripId = formData.get('trip_id') as string;
-    if (!tripId) return;
+    if (!tripId) {
+      return { success: false, error: 'No trip selected' };
+    }
 
     // Get load order (count of loads in trip + 1)
-    const result = await assignLoadToTrip(id, tripId, 1);
+    const result = await assignLoadToTrip(loadId, tripId, 1);
 
     if (result.success) {
-      revalidatePath(`/dashboard/marketplace-loads/${id}`);
+      revalidatePath(`/dashboard/marketplace-loads/${loadId}`);
       revalidatePath('/dashboard/marketplace-loads');
+      revalidatePath(`/dashboard/trips/${tripId}`);
     }
+
+    return result;
   }
 
   // Server action to update status
@@ -461,51 +468,21 @@ export default async function MarketplaceLoadDetailPage({ params }: PageProps) {
                   </Button>
                 </div>
               ) : (
-                <form action={assignToTripAction} className="space-y-4">
+                <div className="space-y-4">
                   <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
                     <Clock className="h-5 w-5" />
                     <span className="text-sm font-medium">Not assigned to a trip</span>
                   </div>
-
-                  {availableTrips.length > 0 ? (
-                    <>
-                      <div className="space-y-2">
-                        <Label>Select Trip</Label>
-                        <Select name="trip_id">
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a trip..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableTrips.map((trip) => {
-                              const driver = Array.isArray(trip.driver) ? trip.driver[0] : trip.driver;
-                              return (
-                                <SelectItem key={trip.id} value={trip.id}>
-                                  #{trip.trip_number}
-                                  {driver && ` - ${driver.first_name} ${driver.last_name}`}
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <Button type="submit" className="w-full">
-                        <Truck className="h-4 w-4 mr-2" />
-                        Assign to Trip
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm text-muted-foreground">
-                        No active trips available. Create a trip first to assign this load.
-                      </p>
-                      <Button asChild className="w-full">
-                        <Link href="/dashboard/trips/new">
-                          Create New Trip
-                        </Link>
-                      </Button>
-                    </>
-                  )}
-                </form>
+                  <TripAssignmentForm
+                    loadId={id}
+                    availableTrips={availableTrips.map((trip) => ({
+                      id: trip.id,
+                      trip_number: trip.trip_number,
+                      driver: Array.isArray(trip.driver) ? trip.driver[0] : trip.driver,
+                    }))}
+                    assignToTrip={assignToTripAction}
+                  />
+                </div>
               )}
             </CardContent>
           </Card>

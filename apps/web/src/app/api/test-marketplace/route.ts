@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser, createClient } from '@/lib/supabase-server';
-import { getCarrierAssignedLoads, getAssignedLoadDetails } from '@/data/marketplace';
+import { getCarrierAssignedLoads, getAssignedLoadDetails, assignLoadToTrip } from '@/data/marketplace';
+import { getTripsForLoadAssignment } from '@/data/trips';
 
 export async function GET(request: Request) {
   try {
@@ -93,6 +94,101 @@ export async function GET(request: Request) {
         message: error?.message,
         code: error?.code,
         details: error?.details,
+      },
+    }, { status: 500 });
+  }
+}
+
+// POST: Test trip assignment
+export async function POST(request: Request) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+
+    const { loadId, tripId } = await request.json();
+    if (!loadId || !tripId) {
+      return NextResponse.json({ error: 'loadId and tripId are required' }, { status: 400 });
+    }
+
+    const supabase = await createClient();
+    const diagnostics: Record<string, unknown> = {};
+
+    // 1. Get user info
+    diagnostics.user = { id: user.id, email: user.email };
+
+    // 2. Get carrier
+    const { data: carrier, error: carrierError } = await supabase
+      .from('companies')
+      .select('id, name, owner_id, is_workspace_company')
+      .eq('owner_id', user.id)
+      .eq('is_workspace_company', true)
+      .maybeSingle();
+    diagnostics.carrier = { data: carrier, error: carrierError };
+
+    // 3. Get trip info
+    const { data: trip, error: tripError } = await supabase
+      .from('trips')
+      .select('id, owner_id, driver_id, trip_number')
+      .eq('id', tripId)
+      .single();
+    diagnostics.trip = { data: trip, error: tripError };
+    diagnostics.tripOwnerMatch = trip?.owner_id === user.id;
+
+    // 4. Get load info
+    const { data: load, error: loadError } = await supabase
+      .from('loads')
+      .select('id, load_number, assigned_carrier_id, trip_id, owner_id')
+      .eq('id', loadId)
+      .single();
+    diagnostics.load = { data: load, error: loadError };
+    diagnostics.loadCarrierMatch = load?.assigned_carrier_id === carrier?.id;
+
+    // 5. Check existing trip_loads for this load
+    const { data: existingTripLoad, error: existingError } = await supabase
+      .from('trip_loads')
+      .select('id, trip_id, owner_id')
+      .eq('load_id', loadId)
+      .maybeSingle();
+    diagnostics.existingTripLoad = { data: existingTripLoad, error: existingError };
+
+    // 6. Get available trips for load assignment
+    const availableTrips = await getTripsForLoadAssignment(user.id);
+    diagnostics.availableTripsCount = availableTrips.length;
+
+    // 7. NOW TRY THE ACTUAL ASSIGNMENT
+    const result = await assignLoadToTrip(loadId, tripId, 1);
+    diagnostics.assignResult = result;
+
+    // 8. Check if trip_loads was created
+    const { data: afterTripLoad, error: afterError } = await supabase
+      .from('trip_loads')
+      .select('id, trip_id, load_id, owner_id, sequence_index')
+      .eq('load_id', loadId)
+      .maybeSingle();
+    diagnostics.afterTripLoad = { data: afterTripLoad, error: afterError };
+
+    // 9. Check load's trip_id after assignment
+    const { data: afterLoad, error: afterLoadError } = await supabase
+      .from('loads')
+      .select('id, trip_id, assigned_driver_id, assigned_driver_name')
+      .eq('id', loadId)
+      .single();
+    diagnostics.afterLoad = { data: afterLoad, error: afterLoadError };
+
+    return NextResponse.json({
+      success: result.success,
+      diagnostics,
+    });
+  } catch (error: any) {
+    return NextResponse.json({
+      success: false,
+      error: {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        stack: error?.stack,
       },
     }, { status: 500 });
   }

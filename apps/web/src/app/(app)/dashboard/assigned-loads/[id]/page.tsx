@@ -50,6 +50,7 @@ import {
   Route,
 } from 'lucide-react';
 import { MarketplaceActions } from '@/components/marketplace/marketplace-actions';
+import { TripAssignmentForm } from '@/components/trip-assignment-form';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -225,30 +226,33 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
     revalidatePath(`/dashboard/assigned-loads/${loadId}`);
   }
 
-  async function assignToTripAction(formData: FormData) {
+  async function assignToTripAction(loadId: string, tripId: string): Promise<{ success: boolean; error?: string }> {
     'use server';
 
     const currentUser = await getCurrentUser();
-    if (!currentUser) redirect('/login');
+    if (!currentUser) {
+      return { success: false, error: 'Not authenticated' };
+    }
 
-    const tripId = formData.get('trip_id') as string;
-    console.log('assignToTripAction: Called with', { loadId: id, tripId, userId: currentUser.id });
+    console.log('assignToTripAction: Called with', { loadId, tripId, userId: currentUser.id });
 
     if (!tripId) {
       console.error('assignToTripAction: No tripId provided');
-      return;
+      return { success: false, error: 'No trip selected' };
     }
 
-    const result = await assignLoadToTrip(id, tripId, 1);
+    const result = await assignLoadToTrip(loadId, tripId, 1);
     console.log('assignToTripAction: Result', result);
 
     if (result.success) {
-      revalidatePath(`/dashboard/assigned-loads/${id}`);
+      revalidatePath(`/dashboard/assigned-loads/${loadId}`);
       revalidatePath('/dashboard/assigned-loads');
       revalidatePath(`/dashboard/trips/${tripId}`);
     } else {
       console.error('assignToTripAction: Failed', result.error);
     }
+
+    return result;
   }
 
   const company = Array.isArray(load.company) ? load.company[0] : load.company;
@@ -636,46 +640,15 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
               </Button>
             </div>
           ) : (
-            <form action={assignToTripAction} className="space-y-4">
-              {availableTrips.length > 0 ? (
-                <>
-                  <div className="space-y-2">
-                    <Label>Select Trip</Label>
-                    <Select name="trip_id">
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a trip..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableTrips.map((trip) => {
-                          const driver = Array.isArray(trip.driver) ? trip.driver[0] : trip.driver;
-                          return (
-                            <SelectItem key={trip.id} value={trip.id}>
-                              #{trip.trip_number}
-                              {driver && ` - ${driver.first_name} ${driver.last_name}`}
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button type="submit" className="w-full">
-                    <Truck className="h-4 w-4 mr-2" />
-                    Assign to Trip
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-muted-foreground">
-                    No active trips available. Create a trip first to assign this load.
-                  </p>
-                  <Button asChild className="w-full">
-                    <Link href="/dashboard/trips/new">
-                      Create New Trip
-                    </Link>
-                  </Button>
-                </>
-              )}
-            </form>
+            <TripAssignmentForm
+              loadId={id}
+              availableTrips={availableTrips.map((trip) => ({
+                id: trip.id,
+                trip_number: trip.trip_number,
+                driver: Array.isArray(trip.driver) ? trip.driver[0] : trip.driver,
+              }))}
+              assignToTrip={assignToTripAction}
+            />
           )}
         </CardContent>
       </Card>
