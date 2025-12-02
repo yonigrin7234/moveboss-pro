@@ -292,7 +292,7 @@ export function TripMapTab({
                   <SelectTrigger className="w-28 h-8">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent position="popper" side="bottom" align="start">
+                  <SelectContent position="popper" side="bottom" align="start" className="z-[9999]">
                     <SelectItem value="25">25 mi</SelectItem>
                     <SelectItem value="50">50 mi</SelectItem>
                     <SelectItem value="100">100 mi</SelectItem>
