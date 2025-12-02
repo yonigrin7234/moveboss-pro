@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -213,13 +214,10 @@ export default async function ConfirmLoadPage({ params }: PageProps) {
                 <Calendar className="h-4 w-4" />
                 Expected Load Date *
               </Label>
-              <Input
-                id="expected_load_date"
+              <DatePicker
                 name="expected_load_date"
-                type="date"
-                required
-                className="mt-1 w-48"
-                min={new Date().toISOString().split('T')[0]}
+                placeholder="Select load date"
+                className="mt-1 w-48 h-10"
               />
               <p className="text-xs text-muted-foreground mt-1">
                 When do you plan to pick up this load?
