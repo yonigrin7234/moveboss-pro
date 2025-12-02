@@ -9,7 +9,7 @@ import {
   DollarSign,
   Truck,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { DashboardMode } from '@/lib/dashboardMode';
 
 interface QuickAction {
@@ -24,16 +24,14 @@ interface QuickActionsProps {
 
 function QuickActionButton({ label, href, icon: Icon }: QuickAction) {
   return (
-    <Link href={href} className="block">
-      <div className="group h-full rounded-xl border border-border bg-card p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/50 hover:-translate-y-0.5 cursor-pointer">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10 ring-1 ring-primary/20 group-hover:bg-primary/15 transition-colors">
-            <Icon className="h-4 w-4 text-primary" />
-          </div>
-          <span className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
-            {label}
-          </span>
+    <Link href={href} className="group block">
+      <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent transition-colors">
+        <div className="p-1.5 rounded-md bg-primary/5 ring-1 ring-primary/10 group-hover:bg-primary/10 transition-colors">
+          <Icon className="h-3.5 w-3.5 text-primary" />
         </div>
+        <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
+          {label}
+        </span>
       </div>
     </Link>
   );
@@ -56,76 +54,73 @@ export function QuickActions({ mode }: QuickActionsProps) {
     { label: 'Receivables', href: '/dashboard/finance/receivables', icon: DollarSign },
   ];
 
-  // Hybrid mode: show both sections organized
+  // Hybrid mode: single card with two rows
   if (mode === 'hybrid') {
     return (
-      <div className="space-y-6">
-        {/* My Jobs Section */}
-        <div className="space-y-3">
+      <Card className="rounded-xl shadow-sm">
+        <CardHeader className="py-3 px-4">
+          <CardTitle className="text-sm font-semibold tracking-tight">Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 space-y-3">
+          {/* My Jobs Row */}
           <div>
-            <h3 className="text-sm font-semibold text-foreground tracking-tight">My Jobs</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Jobs my trucks are running
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              My Jobs
             </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {fleetActions.map((action) => (
+                <QuickActionButton key={action.label} {...action} />
+              ))}
+            </div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+
+          {/* Posted Jobs Row */}
+          <div className="pt-3 border-t border-border/50">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              Posted Jobs
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {overflowActions.map((action) => (
+                <QuickActionButton key={action.label} {...action} />
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Carrier mode: single card with fleet actions
+  if (mode === 'carrier') {
+    return (
+      <Card className="rounded-xl shadow-sm">
+        <CardHeader className="py-3 px-4">
+          <CardTitle className="text-sm font-semibold tracking-tight">Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {fleetActions.map((action) => (
               <QuickActionButton key={action.label} {...action} />
             ))}
           </div>
-        </div>
-
-        {/* Posted Jobs Section */}
-        <div className="space-y-3 pt-4 border-t border-border/50">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground tracking-tight">Posted Jobs</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Jobs available for other carriers
-            </p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {overflowActions.map((action) => (
-              <QuickActionButton key={action.label} {...action} />
-            ))}
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     );
   }
 
-  // Carrier mode: show only fleet actions
-  if (mode === 'carrier') {
-    return (
-      <div className="space-y-3">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground tracking-tight">Quick Actions</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Jump to common tasks
-          </p>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {fleetActions.map((action) => (
+  // Broker mode: single card with overflow actions
+  return (
+    <Card className="rounded-xl shadow-sm">
+      <CardHeader className="py-3 px-4">
+        <CardTitle className="text-sm font-semibold tracking-tight">Quick Actions</CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {overflowActions.map((action) => (
             <QuickActionButton key={action.label} {...action} />
           ))}
         </div>
-      </div>
-    );
-  }
-
-  // Broker mode: show only overflow actions
-  return (
-    <div className="space-y-3">
-      <div>
-        <h3 className="text-sm font-semibold text-foreground tracking-tight">Quick Actions</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Jump to common tasks
-        </p>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {overflowActions.map((action) => (
-          <QuickActionButton key={action.label} {...action} />
-        ))}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -94,35 +94,29 @@ export function TodaysFocus({ mode, items }: TodaysFocusProps) {
     const brokerItems = items.filter(isBrokerItem);
 
     return (
-      <Card className="rounded-xl">
-        <CardHeader className="py-3 px-4">
+      <Card className="rounded-xl shadow-sm">
+        <CardHeader className="py-2.5 px-4">
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base tracking-tight">Today's Focus</CardTitle>
-              <p className="text-[11.5px] text-muted-foreground">
-                Items needing attention
-              </p>
-            </div>
-            <Badge variant="secondary" className="text-xs">
-              {items.length} item{items.length !== 1 ? 's' : ''}
+            <CardTitle className="text-sm font-semibold tracking-tight">Today's Focus</CardTitle>
+            <Badge variant="secondary" className="text-[10px] h-5">
+              {items.length}
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="px-4 pb-4 pt-0">
-          <div className="space-y-4">
+        <CardContent className="px-4 pb-3 pt-0">
+          <div className="space-y-3">
             {/* My Jobs Subsection */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 px-1">
-                <h4 className="text-xs font-semibold text-foreground tracking-tight">My Jobs</h4>
-                <span className="text-[10px] text-muted-foreground">Jobs my trucks are running</span>
-              </div>
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-1">
+                My Jobs
+              </p>
               {fleetItems.length === 0 ? (
-                <div className="py-4 px-3 text-center rounded-lg border border-dashed border-border/50">
-                  <CheckCircle2 className="h-6 w-6 mx-auto mb-1.5 text-success opacity-40" />
-                  <p className="text-xs font-medium text-muted-foreground">All clear</p>
+                <div className="py-3 px-3 text-center rounded-lg bg-accent/30">
+                  <CheckCircle2 className="h-4 w-4 mx-auto mb-1 text-success opacity-40" />
+                  <p className="text-[11px] font-medium text-muted-foreground">All clear</p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {fleetItems.map((item) => {
                     const Icon = item.icon;
                     const config = severityConfig[item.severity];
@@ -131,24 +125,19 @@ export function TodaysFocus({ mode, items }: TodaysFocusProps) {
                       <Link
                         key={item.id}
                         href={item.href}
-                        className="flex items-center gap-3 p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-accent/50 transition-all group"
+                        className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent transition-colors group"
                       >
                         <div className={`${config.iconClass}`}>
-                          <Icon className="h-4 w-4" />
+                          <Icon className="h-3.5 w-3.5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                          <p className="text-xs font-medium text-foreground group-hover:text-primary transition-colors truncate">
                             {item.label}
                           </p>
-                          {item.description && (
-                            <p className="text-xs text-muted-foreground truncate">
-                              {item.description}
-                            </p>
-                          )}
                         </div>
                         <Badge
                           variant="outline"
-                          className={`${config.badgeClass} font-semibold text-xs`}
+                          className={`${config.badgeClass} font-semibold text-[10px] h-5`}
                         >
                           {item.count}
                         </Badge>
@@ -160,18 +149,17 @@ export function TodaysFocus({ mode, items }: TodaysFocusProps) {
             </div>
 
             {/* Posted Jobs Subsection */}
-            <div className="space-y-2 pt-4 border-t border-border/50">
-              <div className="flex items-center gap-2 px-1">
-                <h4 className="text-xs font-semibold text-foreground tracking-tight">Posted Jobs</h4>
-                <span className="text-[10px] text-muted-foreground">Jobs available for other carriers</span>
-              </div>
+            <div className="space-y-1.5 pt-2 border-t border-border/50">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-1">
+                Posted Jobs
+              </p>
               {brokerItems.length === 0 ? (
-                <div className="py-4 px-3 text-center rounded-lg border border-dashed border-border/50">
-                  <CheckCircle2 className="h-6 w-6 mx-auto mb-1.5 text-success opacity-40" />
-                  <p className="text-xs font-medium text-muted-foreground">All clear</p>
+                <div className="py-3 px-3 text-center rounded-lg bg-accent/30">
+                  <CheckCircle2 className="h-4 w-4 mx-auto mb-1 text-success opacity-40" />
+                  <p className="text-[11px] font-medium text-muted-foreground">All clear</p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {brokerItems.map((item) => {
                     const Icon = item.icon;
                     const config = severityConfig[item.severity];
@@ -180,24 +168,19 @@ export function TodaysFocus({ mode, items }: TodaysFocusProps) {
                       <Link
                         key={item.id}
                         href={item.href}
-                        className="flex items-center gap-3 p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-accent/50 transition-all group"
+                        className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent transition-colors group"
                       >
                         <div className={`${config.iconClass}`}>
-                          <Icon className="h-4 w-4" />
+                          <Icon className="h-3.5 w-3.5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                          <p className="text-xs font-medium text-foreground group-hover:text-primary transition-colors truncate">
                             {item.label}
                           </p>
-                          {item.description && (
-                            <p className="text-xs text-muted-foreground truncate">
-                              {item.description}
-                            </p>
-                          )}
                         </div>
                         <Badge
                           variant="outline"
-                          className={`${config.badgeClass} font-semibold text-xs`}
+                          className={`${config.badgeClass} font-semibold text-[10px] h-5`}
                         >
                           {item.count}
                         </Badge>
@@ -216,19 +199,16 @@ export function TodaysFocus({ mode, items }: TodaysFocusProps) {
   // Carrier and Broker modes - single list
   if (visibleItems.length === 0) {
     return (
-      <Card className="rounded-xl">
-        <CardHeader className="py-3 px-4">
-          <CardTitle className="text-base tracking-tight">Today's Focus</CardTitle>
-          <p className="text-[11.5px] text-muted-foreground">
-            Items needing attention
-          </p>
+      <Card className="rounded-xl shadow-sm">
+        <CardHeader className="py-2.5 px-4">
+          <CardTitle className="text-sm font-semibold tracking-tight">Today's Focus</CardTitle>
         </CardHeader>
-        <CardContent className="px-4 pb-4 pt-0">
-          <div className="py-8 text-center">
-            <CheckCircle2 className="h-10 w-10 mx-auto mb-3 text-success opacity-50" />
-            <p className="text-sm font-medium text-foreground">All caught up!</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              No items need immediate attention
+        <CardContent className="px-4 pb-3 pt-0">
+          <div className="py-6 text-center">
+            <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-success opacity-40" />
+            <p className="text-xs font-medium text-foreground">All caught up!</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              No items need attention
             </p>
           </div>
         </CardContent>
@@ -237,22 +217,17 @@ export function TodaysFocus({ mode, items }: TodaysFocusProps) {
   }
 
   return (
-    <Card className="rounded-xl">
-      <CardHeader className="py-3 px-4">
+    <Card className="rounded-xl shadow-sm">
+      <CardHeader className="py-2.5 px-4">
         <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-base tracking-tight">Today's Focus</CardTitle>
-            <p className="text-[11.5px] text-muted-foreground">
-              Items needing attention
-            </p>
-          </div>
-          <Badge variant="secondary" className="text-xs">
-            {visibleItems.length} item{visibleItems.length !== 1 ? 's' : ''}
+          <CardTitle className="text-sm font-semibold tracking-tight">Today's Focus</CardTitle>
+          <Badge variant="secondary" className="text-[10px] h-5">
+            {visibleItems.length}
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="px-4 pb-4 pt-0">
-        <div className="space-y-2">
+      <CardContent className="px-4 pb-3 pt-0">
+        <div className="space-y-1">
           {visibleItems.map((item) => {
             const Icon = item.icon;
             const config = severityConfig[item.severity];
@@ -261,24 +236,19 @@ export function TodaysFocus({ mode, items }: TodaysFocusProps) {
               <Link
                 key={item.id}
                 href={item.href}
-                className="flex items-center gap-3 p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-accent/50 transition-all group"
+                className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent transition-colors group"
               >
                 <div className={`${config.iconClass}`}>
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-3.5 w-3.5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                  <p className="text-xs font-medium text-foreground group-hover:text-primary transition-colors truncate">
                     {item.label}
                   </p>
-                  {item.description && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {item.description}
-                    </p>
-                  )}
                 </div>
                 <Badge
                   variant="outline"
-                  className={`${config.badgeClass} font-semibold text-xs`}
+                  className={`${config.badgeClass} font-semibold text-[10px] h-5`}
                 >
                   {item.count}
                 </Badge>

@@ -14,6 +14,8 @@ import {
   Boxes,
   DollarSign,
   Clipboard,
+  BadgeCheck,
+  AlertTriangle,
 } from 'lucide-react';
 
 import {
@@ -258,191 +260,227 @@ export default async function DashboardPage() {
       {/* Stat Cards - Role Aware */}
       <StatRow mode={mode} data={statData} />
 
-      {/* Status Widgets - Conditional */}
-      <div className="grid gap-4 md:grid-cols-2 pt-4 border-t border-border/50">
-        {verificationState && (
-          <VerificationStatusWidget state={verificationState} />
-        )}
-        {mode !== 'broker' && (
-          <ComplianceStatusWidget counts={complianceCounts} href="/dashboard/compliance/alerts" />
-        )}
-      </div>
+      {/* Status Insight Bar - Merged FMCSA + Compliance */}
+      {(verificationState || mode !== 'broker') && (
+        <Card className="rounded-xl border-l-4 border-l-primary/30 shadow-sm bg-gradient-to-r from-accent/20 to-transparent">
+          <CardContent className="py-3 px-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* FMCSA Verification */}
+              {verificationState && (
+                <div className="flex items-center gap-3">
+                  {verificationState.status === 'verified' ? (
+                    <>
+                      <div className="p-2 rounded-lg bg-success/10 ring-1 ring-success/20">
+                        <BadgeCheck className="h-4 w-4 text-success" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-success">FMCSA Verified</p>
+                        {verificationState.fmcsa?.legalName && (
+                          <p className="text-[11px] text-muted-foreground truncate">
+                            {verificationState.fmcsa.legalName}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-2 rounded-lg bg-muted">
+                        <BadgeCheck className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-foreground">Get Verified</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {verificationState.completedCount}/{verificationState.requirements.length} steps
+                        </p>
+                      </div>
+                      <Link
+                        href="/dashboard/settings/company-profile"
+                        className="text-[11px] text-primary hover:underline"
+                      >
+                        Start →
+                      </Link>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Compliance Status */}
+              {mode !== 'broker' && (
+                <div className="flex items-center gap-3">
+                  {complianceCounts.warning + complianceCounts.urgent + complianceCounts.critical + complianceCounts.expired === 0 ? (
+                    <>
+                      <div className="p-2 rounded-lg bg-success/10 ring-1 ring-success/20">
+                        <CheckCircle className="h-4 w-4 text-success" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-success">All Compliant</p>
+                        <p className="text-[11px] text-muted-foreground">No issues</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-2 rounded-lg bg-destructive/10 ring-1 ring-destructive/20">
+                        <AlertTriangle className="h-4 w-4 text-destructive" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-foreground">Compliance Alerts</p>
+                        <div className="flex gap-1.5 mt-0.5">
+                          {complianceCounts.expired > 0 && (
+                            <Badge variant="destructive" className="text-[9px] h-4 px-1.5">
+                              {complianceCounts.expired} Expired
+                            </Badge>
+                          )}
+                          {complianceCounts.critical > 0 && (
+                            <Badge variant="pill-destructive" className="text-[9px] h-4 px-1.5">
+                              {complianceCounts.critical} Critical
+                            </Badge>
+                          )}
+                          {complianceCounts.urgent > 0 && (
+                            <Badge variant="pill-warning" className="text-[9px] h-4 px-1.5">
+                              {complianceCounts.urgent} Urgent
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <Link
+                        href="/dashboard/compliance/alerts"
+                        className="text-[11px] text-primary hover:underline"
+                      >
+                        View →
+                      </Link>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Today's Focus Widget */}
       {focusItems.length > 0 && (
         <TodaysFocus mode={mode} items={focusItems} />
       )}
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Recent Companies Widget */}
-        <Card className="lg:col-span-2 h-full rounded-xl">
-          <CardHeader className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between py-3 px-4">
+      {/* Combined Companies + Drivers Widget */}
+      <Card className="rounded-xl shadow-sm">
+        <CardContent className="p-4">
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Recent Companies */}
             <div>
-              <CardTitle className="text-base tracking-tight">
-                {mode === 'broker' ? 'Recent Carriers' : 'Recent Companies'}
-              </CardTitle>
-              <p className="text-[11.5px] text-muted-foreground">
-                {mode === 'broker'
-                  ? 'Carriers handling your loads'
-                  : 'Last five accounts you touched'}
-              </p>
-            </div>
-            <Button asChild size="sm" variant="outline" className="text-[11px] h-7">
-              <Link href="/dashboard/companies">View all</Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="p-0">
-            {companies.length === 0 ? (
-              <div className="p-6 text-center text-sm text-muted-foreground">
-                No companies yet. Add partners to unlock reporting.
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-sm font-semibold tracking-tight">
+                    {mode === 'broker' ? 'Recent Carriers' : 'Recent Companies'}
+                  </h3>
+                  <p className="text-[10px] text-muted-foreground">
+                    {mode === 'broker' ? 'Handling your loads' : 'Last five accounts'}
+                  </p>
+                </div>
+                <Link href="/dashboard/companies" className="text-[11px] text-primary hover:underline">
+                  View all
+                </Link>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>DOT</TableHead>
-                      <TableHead>MC</TableHead>
-                      <TableHead>Created</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {companies.map((company) => (
-                      <TableRow
-                        key={company.id}
-                        className="cursor-pointer hover:bg-accent/50 transition-colors"
-                      >
-                        <TableCell className="font-medium">
-                          <Link
-                            href={`/dashboard/companies/${company.id}`}
-                            className="text-foreground hover:text-primary"
-                          >
-                            {company.name}
-                          </Link>
-                        </TableCell>
-                        <TableCell>{company.dot_number ?? '—'}</TableCell>
-                        <TableCell>{company.mc_number ?? '—'}</TableCell>
-                        <TableCell>
-                          {new Date(company.created_at).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                          })}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Driver Roster Widget - Only show if has fleet */}
-        {mode !== 'broker' && (
-          <Card className="h-full rounded-xl">
-            <CardHeader className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between py-3 px-4">
-              <div>
-                <CardTitle className="text-base tracking-tight">Driver roster</CardTitle>
-                <p className="text-[11.5px] text-muted-foreground">
-                  Recent drivers ready for dispatch
-                </p>
-              </div>
-              <Button asChild size="sm" variant="ghost" className="text-[11px] h-7">
-                <Link href="/dashboard/drivers">View all</Link>
-              </Button>
-            </CardHeader>
-            <CardContent className="p-0">
-              {drivers.length === 0 ? (
-                <div className="p-6 text-center text-sm text-muted-foreground">
-                  No drivers yet. Add one to see them here.
+              {companies.length === 0 ? (
+                <div className="py-4 text-center text-[11px] text-muted-foreground">
+                  No companies yet
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Driver</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {drivers.map((driver) => (
-                        <TableRow
-                          key={driver.id}
-                          className="cursor-pointer hover:bg-accent/50 transition-colors"
-                        >
-                          <TableCell className="font-medium">
-                            <Link
-                              href={`/dashboard/drivers/${driver.id}`}
-                              className="text-foreground hover:text-primary"
-                            >
-                              {driver.first_name} {driver.last_name}
-                            </Link>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="secondary" className="capitalize text-[10px]">
-                              {driver.status}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                <div className="space-y-2">
+                  {companies.map((company) => (
+                    <Link
+                      key={company.id}
+                      href={`/dashboard/companies/${company.id}`}
+                      className="flex items-center justify-between p-2 rounded-lg hover:bg-accent transition-colors group"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-foreground group-hover:text-primary truncate">
+                          {company.name}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          DOT: {company.dot_number ?? '—'} • MC: {company.mc_number ?? '—'}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
-        )}
-      </div>
+            </div>
 
-      {/* Recent Activity Widget */}
-      <Card className="rounded-xl">
-        <CardHeader className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between py-3 px-4">
-          <div>
-            <CardTitle className="text-base tracking-tight flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-              </span>
-              Recent Activity
-            </CardTitle>
-            <p className="text-[11.5px] text-muted-foreground">
-              {mode !== 'broker'
-                ? 'Live updates from your drivers'
-                : 'Live updates from your carriers'}
-            </p>
+            {/* Driver Roster - Only show if has fleet */}
+            {mode !== 'broker' && (
+              <div className="lg:border-l lg:pl-6 border-border/50">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="text-sm font-semibold tracking-tight">Driver Roster</h3>
+                    <p className="text-[10px] text-muted-foreground">Ready for dispatch</p>
+                  </div>
+                  <Link href="/dashboard/drivers" className="text-[11px] text-primary hover:underline">
+                    View all
+                  </Link>
+                </div>
+                {drivers.length === 0 ? (
+                  <div className="py-4 text-center text-[11px] text-muted-foreground">
+                    No drivers yet
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {drivers.map((driver) => (
+                      <Link
+                        key={driver.id}
+                        href={`/dashboard/drivers/${driver.id}`}
+                        className="flex items-center justify-between p-2 rounded-lg hover:bg-accent transition-colors group"
+                      >
+                        <p className="text-xs font-medium text-foreground group-hover:text-primary truncate">
+                          {driver.first_name} {driver.last_name}
+                        </p>
+                        <Badge variant="secondary" className="capitalize text-[9px] h-4">
+                          {driver.status}
+                        </Badge>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <Button asChild size="sm" variant="ghost" className="text-[11px] h-7">
-            <Link href="/dashboard/activity">View all</Link>
-          </Button>
-        </CardHeader>
-        <CardContent className="px-4 pb-4 pt-0">
+        </CardContent>
+      </Card>
+
+      {/* Recent Activity - Compact Footer */}
+      <Card className="rounded-xl shadow-sm">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary"></span>
+              </span>
+              <h3 className="text-sm font-semibold tracking-tight">Recent Activity</h3>
+            </div>
+            <Link href="/dashboard/activity" className="text-[11px] text-primary hover:underline">
+              View all
+            </Link>
+          </div>
           {recentActivities.length === 0 ? (
-            <div className="py-4 text-center text-muted-foreground">
-              <Clock className="h-6 w-6 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No recent activity</p>
-              <p className="text-[11px]">
-                {mode !== 'broker'
-                  ? 'Activity will appear here as your drivers work'
-                  : 'Activity will appear here as carriers move your loads'}
+            <div className="py-6 text-center">
+              <Clock className="h-6 w-6 mx-auto mb-2 text-muted-foreground opacity-30" />
+              <p className="text-[11px] text-muted-foreground">
+                {mode !== 'broker' ? 'Activity from drivers will appear here' : 'Activity from carriers will appear here'}
               </p>
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="space-y-1.5">
               {recentActivities.map((activity) => {
                 const config = activityIcons[activity.activity_type] || activityIcons.load_accepted;
                 const Icon = config.icon;
                 return (
-                  <div key={activity.id} className="flex items-start gap-2.5">
-                    <div className={`mt-0.5 ${config.color}`}>
-                      <Icon className="h-3.5 w-3.5" />
+                  <div key={activity.id} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-accent transition-colors">
+                    <div className={`${config.color}`}>
+                      <Icon className="h-3 w-3" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13px] text-foreground truncate">{activity.title}</p>
-                      {activity.description && (
-                        <p className="text-[11px] text-muted-foreground truncate">{activity.description}</p>
-                      )}
+                      <p className="text-xs text-foreground truncate">{activity.title}</p>
                     </div>
                     <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                       {timeAgo(activity.created_at)}
