@@ -39,20 +39,27 @@ export async function GET(request: Request) {
           .eq('id', loadId)
           .maybeSingle();
 
-        // Try the exact same query as getAssignedLoadDetails
+        // Try the exact same query as getAssignedLoadDetails (without companies JOIN)
         const { data: detailQuery, error: detailError } = await supabase
           .from('loads')
           .select(`
-            id, load_number, company_id,
-            company:companies!loads_company_id_fkey(id, name, phone)
+            id, load_number, company_id, source_company_name,
+            pickup_city, pickup_state, pickup_postal_code,
+            carrier_confirmed_at, load_status, assigned_carrier_id
           `)
           .eq('id', loadId)
           .eq('assigned_carrier_id', carrier.id)
           .single();
 
+        // Check if carrier ID matches assigned_carrier_id
+        const carrierMatch = rawLoad?.assigned_carrier_id === carrier.id;
+
         rawLoadQuery = {
           simpleQuery: { data: rawLoad, error: rawError },
-          detailQuery: { data: detailQuery, error: detailError }
+          detailQuery: { data: detailQuery, error: detailError },
+          carrierIdFromLoad: rawLoad?.assigned_carrier_id,
+          carrierIdFromCompany: carrier.id,
+          carrierMatch: carrierMatch,
         };
       }
     }
