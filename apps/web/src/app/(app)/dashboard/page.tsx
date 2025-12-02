@@ -139,7 +139,7 @@ export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: company, error: companyError } = await supabase
     .from('companies')
-    .select('id, is_carrier, is_broker')
+    .select('id, name, is_carrier, is_broker')
     .eq('owner_id', user.id)
     .eq('is_workspace_company', true)
     .single();
@@ -230,17 +230,69 @@ export default async function DashboardPage() {
 
   return (
     <div className="max-w-7xl w-full mx-auto px-6 space-y-6 pt-4">
-      <div className="space-y-1 pb-2">
-        <h2 className="text-2xl font-semibold text-foreground tracking-tight">
-          Welcome back
-        </h2>
-        <p className="text-sm text-muted-foreground/90">
-          {mode === 'broker'
-            ? 'Manage loads, carriers, and marketplace activity from a single view.'
-            : mode === 'hybrid'
-            ? 'Manage your fleet and marketplace loads from a single view.'
-            : 'Track performance, assets, and partner data from a single view.'}
-        </p>
+      {/* Premium Hero Header */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-accent/10 to-transparent border border-border/40 p-6">
+        <div className="absolute top-4 left-4">
+          <div className="px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20">
+            <span className="text-[10px] font-semibold text-primary uppercase tracking-wide">
+              Dashboard
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">
+            {company?.name || 'Welcome back'}
+          </h1>
+          <p className="text-sm text-muted-foreground/80 mt-1">
+            {mode === 'broker'
+              ? 'Broker Operations Center'
+              : mode === 'hybrid'
+              ? 'Hybrid Fleet & Brokerage Command'
+              : 'Carrier Fleet Management'}
+          </p>
+        </div>
+
+        {/* Operational Snapshot */}
+        <div className="mt-6 flex flex-wrap gap-3">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border/50">
+            <Truck className="h-3.5 w-3.5 text-primary" />
+            <span className="text-xs font-semibold text-foreground">
+              {statData.activeTrips}
+            </span>
+            <span className="text-[10px] text-muted-foreground">Active Trips</span>
+          </div>
+
+          {mode !== 'broker' && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border/50">
+              <Users className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-semibold text-foreground">
+                {statData.availableDrivers}
+              </span>
+              <span className="text-[10px] text-muted-foreground">Available</span>
+            </div>
+          )}
+
+          {(mode === 'broker' || mode === 'hybrid') && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border/50">
+              <Package className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-semibold text-foreground">
+                {statData.postedLoads}
+              </span>
+              <span className="text-[10px] text-muted-foreground">Posted Loads</span>
+            </div>
+          )}
+
+          {mode === 'hybrid' && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border/50">
+              <Boxes className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-semibold text-foreground">
+                {statData.openCapacity}
+              </span>
+              <span className="text-[10px] text-muted-foreground">Open Capacity</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {error && (
