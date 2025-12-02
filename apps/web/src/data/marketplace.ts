@@ -1047,13 +1047,14 @@ export async function getCarrierAssignedLoads(carrierOwnerId: string): Promise<
 > {
   const supabase = await createClient();
 
-  // Get user's company (can be carrier or 'both' type)
+  // Get user's workspace company that can haul loads (is_carrier = true)
   const { data: carrier } = await supabase
     .from('companies')
     .select('id')
     .eq('owner_id', carrierOwnerId)
-    .in('company_type', ['carrier', 'both'])
-    .single();
+    .eq('is_carrier', true)
+    .eq('is_workspace_company', true)
+    .maybeSingle();
 
   if (!carrier) {
     return [];
@@ -1158,13 +1159,14 @@ export async function getAssignedLoadDetails(
 } | null> {
   const supabase = await createClient();
 
-  // Get user's company (can be carrier or 'both' type)
+  // Get user's workspace company that can haul loads (is_carrier = true)
   const { data: carrier } = await supabase
     .from('companies')
     .select('id')
     .eq('owner_id', carrierOwnerId)
-    .in('company_type', ['carrier', 'both'])
-    .single();
+    .eq('is_carrier', true)
+    .eq('is_workspace_company', true)
+    .maybeSingle();
 
   if (!carrier) {
     return null;
