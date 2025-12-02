@@ -1067,7 +1067,7 @@ export async function getCarrierAssignedLoads(carrierOwnerId: string): Promise<
       id, load_number,
       pickup_city, pickup_state, pickup_postal_code,
       delivery_city, delivery_state, delivery_postal_code,
-      cubic_feet, carrier_rate, carrier_rate_type,
+      cubic_feet, cubic_feet_estimate, carrier_rate, carrier_rate_type,
       load_status, expected_load_date, assigned_driver_name,
       carrier_confirmed_at,
       company:companies!loads_company_id_fkey(id, name)
@@ -1083,6 +1083,7 @@ export async function getCarrierAssignedLoads(carrierOwnerId: string): Promise<
   }
 
   // Map DB field names to interface field names
+  // Use cubic_feet if set, otherwise fall back to cubic_feet_estimate
   return (data || []).map((load: any) => ({
     id: load.id,
     load_number: load.load_number,
@@ -1092,7 +1093,7 @@ export async function getCarrierAssignedLoads(carrierOwnerId: string): Promise<
     destination_city: load.delivery_city || '',
     destination_state: load.delivery_state || '',
     destination_zip: load.delivery_postal_code || '',
-    estimated_cuft: load.cubic_feet ? Number(load.cubic_feet) : null,
+    estimated_cuft: load.cubic_feet ? Number(load.cubic_feet) : (load.cubic_feet_estimate ? Number(load.cubic_feet_estimate) : null),
     carrier_rate: load.carrier_rate ? Number(load.carrier_rate) : null,
     carrier_rate_type: load.carrier_rate_type || 'per_cuft',
     load_status: load.load_status || 'pending',
@@ -1186,7 +1187,7 @@ export async function getAssignedLoadDetails(
       delivery_address_line1, delivery_address_line2,
       delivery_contact_name, delivery_contact_phone, delivery_contact_email,
       delivery_gate_code, delivery_notes,
-      cubic_feet, weight_lbs_estimate, pieces_count,
+      cubic_feet, cubic_feet_estimate, weight_lbs_estimate, pieces_count,
       carrier_rate, carrier_rate_type,
       load_status, posting_status, expected_load_date,
       carrier_confirmed_at, carrier_assigned_at,
@@ -1230,7 +1231,7 @@ export async function getAssignedLoadDetails(
     destination_contact_email: load.delivery_contact_email,
     destination_gate_code: load.delivery_gate_code,
     destination_notes: load.delivery_notes,
-    estimated_cuft: load.cubic_feet ? Number(load.cubic_feet) : null,
+    estimated_cuft: load.cubic_feet ? Number(load.cubic_feet) : (load.cubic_feet_estimate ? Number(load.cubic_feet_estimate) : null),
     estimated_weight_lbs: load.weight_lbs_estimate ? Number(load.weight_lbs_estimate) : null,
     pieces_count: load.pieces_count ? Number(load.pieces_count) : null,
     carrier_rate: load.carrier_rate ? Number(load.carrier_rate) : null,

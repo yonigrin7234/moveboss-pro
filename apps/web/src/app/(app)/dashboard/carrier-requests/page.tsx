@@ -230,6 +230,9 @@ function RequestCard({ request, balance }: { request: CarrierRequest; balance?: 
                 carrierId={carrier.id}
                 carrierName={carrier.name}
                 balance={balance}
+                carrierRate={offeredRatePerCuft}
+                carrierRateType="per_cuft"
+                cubicFeetEstimate={load.cubic_feet_estimate}
               />
             )}
           </div>

@@ -30,6 +30,10 @@ interface RequestActionsProps {
   carrierId: string;
   carrierName: string;
   balance?: BalanceInfo;
+  // Rate info for updating the load when accepting
+  carrierRate: number | null;
+  carrierRateType?: string;
+  cubicFeetEstimate?: number | null;
 }
 
 function formatCurrency(amount: number) {
@@ -41,7 +45,7 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
-export function RequestActions({ requestId, loadId, carrierId, carrierName, balance }: RequestActionsProps) {
+export function RequestActions({ requestId, loadId, carrierId, carrierName, balance, carrierRate, carrierRateType, cubicFeetEstimate }: RequestActionsProps) {
   const router = useRouter();
   const [isAccepting, setIsAccepting] = useState(false);
   const [isDeclining, setIsDeclining] = useState(false);
@@ -76,14 +80,28 @@ export function RequestActions({ requestId, loadId, carrierId, carrierName, bala
 
       if (requestError) throw requestError;
 
-      // 2. Update the load with assigned carrier
+      // 2. Update the load with assigned carrier and rate
+      const loadUpdate: Record<string, unknown> = {
+        assigned_carrier_id: carrierId,
+        assigned_at: new Date().toISOString(),
+        posting_status: 'assigned',
+        is_marketplace_visible: false,
+      };
+
+      // Set the carrier rate from the request
+      if (carrierRate !== null) {
+        loadUpdate.carrier_rate = carrierRate;
+        loadUpdate.carrier_rate_type = carrierRateType || 'per_cuft';
+      }
+
+      // Copy cubic_feet_estimate to cubic_feet if not already set
+      if (cubicFeetEstimate) {
+        loadUpdate.cubic_feet = cubicFeetEstimate;
+      }
+
       const { error: loadError } = await supabase
         .from('loads')
-        .update({
-          assigned_carrier_id: carrierId,
-          assigned_at: new Date().toISOString(),
-          posting_status: 'assigned',
-        })
+        .update(loadUpdate)
         .eq('id', loadId);
 
       if (loadError) throw loadError;
