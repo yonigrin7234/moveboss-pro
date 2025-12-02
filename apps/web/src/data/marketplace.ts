@@ -1824,8 +1824,16 @@ export async function assignLoadToTrip(
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
 
+  // Get current user to verify ownership
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: 'Not authenticated' };
+  }
+
+  console.log('assignLoadToTrip: Starting', { loadId, tripId, userId: user.id });
+
   // Get trip details for driver info and owner_id
-  const { data: trip } = await supabase
+  const { data: trip, error: tripError } = await supabase
     .from('trips')
     .select(`
       id,
@@ -1836,8 +1844,22 @@ export async function assignLoadToTrip(
     .eq('id', tripId)
     .single();
 
+  console.log('assignLoadToTrip: Trip query result', {
+    tripFound: !!trip,
+    tripOwnerId: trip?.owner_id,
+    currentUserId: user.id,
+    ownerMatch: trip?.owner_id === user.id,
+    tripError
+  });
+
   if (!trip) {
     return { success: false, error: 'Trip not found' };
+  }
+
+  // Verify user owns the trip
+  if (trip.owner_id !== user.id) {
+    console.error('assignLoadToTrip: User does not own trip', { tripOwnerId: trip.owner_id, userId: user.id });
+    return { success: false, error: 'You do not own this trip' };
   }
 
   const driver = Array.isArray(trip.driver) ? trip.driver[0] : trip.driver;
@@ -1870,10 +1892,17 @@ export async function assignLoadToTrip(
   const sequenceIndex = existingLoadsCount ?? 0;
 
   // Insert into trip_loads junction table
+  console.log('assignLoadToTrip: Inserting into trip_loads', {
+    owner_id: user.id,
+    trip_id: tripId,
+    load_id: loadId,
+    sequence_index: sequenceIndex,
+  });
+
   const { error: tripLoadsError } = await supabase
     .from('trip_loads')
     .insert({
-      owner_id: trip.owner_id,
+      owner_id: user.id, // Use current user ID to satisfy RLS
       trip_id: tripId,
       load_id: loadId,
       sequence_index: sequenceIndex,
@@ -1881,9 +1910,11 @@ export async function assignLoadToTrip(
     });
 
   if (tripLoadsError) {
-    console.error('Error inserting into trip_loads:', tripLoadsError);
+    console.error('assignLoadToTrip: Error inserting into trip_loads:', tripLoadsError);
     return { success: false, error: tripLoadsError.message };
   }
+
+  console.log('assignLoadToTrip: Successfully inserted into trip_loads');
 
   // Update the load with trip info and driver
   const { error: loadError } = await supabase
@@ -1902,10 +1933,11 @@ export async function assignLoadToTrip(
     .eq('id', loadId);
 
   if (loadError) {
-    console.error('Error updating load:', loadError);
+    console.error('assignLoadToTrip: Error updating load:', loadError);
     return { success: false, error: loadError.message };
   }
 
+  console.log('assignLoadToTrip: SUCCESS - Load assigned to trip', { loadId, tripId });
   return { success: true };
 }
 

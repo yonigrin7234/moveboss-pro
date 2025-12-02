@@ -232,13 +232,22 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
     if (!currentUser) redirect('/login');
 
     const tripId = formData.get('trip_id') as string;
-    if (!tripId) return;
+    console.log('assignToTripAction: Called with', { loadId: id, tripId, userId: currentUser.id });
+
+    if (!tripId) {
+      console.error('assignToTripAction: No tripId provided');
+      return;
+    }
 
     const result = await assignLoadToTrip(id, tripId, 1);
+    console.log('assignToTripAction: Result', result);
 
     if (result.success) {
       revalidatePath(`/dashboard/assigned-loads/${id}`);
       revalidatePath('/dashboard/assigned-loads');
+      revalidatePath(`/dashboard/trips/${tripId}`);
+    } else {
+      console.error('assignToTripAction: Failed', result.error);
     }
   }
 
