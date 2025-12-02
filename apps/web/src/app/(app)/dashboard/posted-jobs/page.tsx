@@ -62,10 +62,10 @@ export default async function PostedJobsPage() {
     .from('loads')
     .select(`
       id, job_number, load_number, load_type, posting_type, posting_status, posted_at,
-      pickup_date_start, pickup_date_end, pickup_date,
+      pickup_date_start, pickup_date_end, pickup_date, rfd_date,
       pickup_city, pickup_state,
       dropoff_city, dropoff_state, delivery_city, delivery_state,
-      cubic_feet, rate_per_cuft, balance_due, linehaul_amount,
+      cubic_feet, cubic_feet_estimate, rate_per_cuft, balance_due, linehaul_amount,
       current_storage_location, loading_city, loading_state,
       truck_requirement,
       assigned_carrier:assigned_carrier_id(id, name)

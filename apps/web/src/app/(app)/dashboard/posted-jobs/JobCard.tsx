@@ -28,6 +28,7 @@ export interface PostedJob {
   pickup_date_start: string | null;
   pickup_date_end: string | null;
   pickup_date: string | null;
+  rfd_date: string | null;
   pickup_city: string | null;
   pickup_state: string | null;
   dropoff_city: string | null;
@@ -38,6 +39,7 @@ export interface PostedJob {
   loading_city: string | null;
   loading_state: string | null;
   cubic_feet: number | null;
+  cubic_feet_estimate: number | null;
   rate_per_cuft: number | null;
   balance_due: number | null;
   linehaul_amount: number | null;
@@ -165,9 +167,10 @@ function getRoute(job: PostedJob) {
 export function JobCard({ job, requestCount }: { job: PostedJob; requestCount: number }) {
   const price = job.posting_type === 'pickup' ? job.balance_due : job.linehaul_amount;
   const priceLabel = job.posting_type === 'pickup' ? 'Balance Due' : 'Linehaul';
+  const cuft = job.cubic_feet || job.cubic_feet_estimate;
   const dateDisplay = job.pickup_date_start && job.pickup_date_end
     ? `${formatDate(job.pickup_date_start)} - ${formatDate(job.pickup_date_end)}`
-    : formatDate(job.pickup_date);
+    : formatDate(job.pickup_date || job.rfd_date);
 
   return (
     <Link href={`/dashboard/posted-jobs/${job.id}`}>
@@ -208,7 +211,7 @@ export function JobCard({ job, requestCount }: { job: PostedJob; requestCount: n
                 </span>
                 <span className="flex items-center gap-1">
                   <Package className="h-3.5 w-3.5" />
-                  {job.cubic_feet ?? '-'} CUFT
+                  {cuft ?? '-'} CUFT
                 </span>
                 <span className="flex items-center gap-1">
                   <DollarSign className="h-3.5 w-3.5" />

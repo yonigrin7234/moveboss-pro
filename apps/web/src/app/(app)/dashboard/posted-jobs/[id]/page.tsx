@@ -61,6 +61,7 @@ interface PostedJob {
   delivery_state: string | null;
   // Size & Rate
   cubic_feet: number | null;
+  cubic_feet_estimate: number | null;
   rate_per_cuft: number | null;
   company_rate: number | null;
   balance_due: number | null;
@@ -254,7 +255,7 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
       loading_city, loading_state,
       dropoff_city, dropoff_state, dropoff_postal_code,
       delivery_city, delivery_state,
-      cubic_feet, rate_per_cuft, company_rate,
+      cubic_feet, cubic_feet_estimate, rate_per_cuft, company_rate,
       balance_due, linehaul_amount,
       truck_requirement, is_open_to_counter,
       current_storage_location,
@@ -327,7 +328,7 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
   // Calculated values
   const origin = getOrigin(postedJob);
   const destination = getDestination(postedJob);
-  const cuft = postedJob.cubic_feet;
+  const cuft = postedJob.cubic_feet || postedJob.cubic_feet_estimate;
   const rate = postedJob.rate_per_cuft || postedJob.company_rate;
   const totalValue = rate && cuft ? rate * cuft : null;
   const price = postedJob.posting_type === 'pickup' ? postedJob.balance_due : postedJob.linehaul_amount;
