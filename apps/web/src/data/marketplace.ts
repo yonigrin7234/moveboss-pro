@@ -1074,17 +1074,19 @@ export async function getCarrierAssignedLoads(carrierOwnerId: string): Promise<
     return [];
   }
 
+  // Query loads WITHOUT company join to avoid RLS issues
+  // The carrier can read the load but may not be able to read the broker's company
   const { data, error } = await supabase
     .from('loads')
     .select(
       `
-      id, load_number,
+      id, load_number, company_id,
       pickup_city, pickup_state, pickup_postal_code,
       delivery_city, delivery_state, delivery_postal_code,
       cubic_feet, cubic_feet_estimate, carrier_rate, carrier_rate_type,
       load_status, expected_load_date, assigned_driver_name,
       carrier_confirmed_at, carrier_assigned_at,
-      company:companies!loads_company_id_fkey(id, name)
+      source_company_name
     `
     )
     .eq('assigned_carrier_id', carrier.id)
@@ -1096,26 +1098,51 @@ export async function getCarrierAssignedLoads(carrierOwnerId: string): Promise<
     return [];
   }
 
+  // Fetch company data separately to avoid RLS issues
+  const companyIds = [...new Set((data || []).map(l => l.company_id).filter(Boolean))] as string[];
+  const companyMap = new Map<string, { id: string; name: string }>();
+
+  if (companyIds.length > 0) {
+    const { data: companies } = await supabase
+      .from('companies')
+      .select('id, name')
+      .in('id', companyIds);
+
+    if (companies) {
+      for (const c of companies) {
+        companyMap.set(c.id, c);
+      }
+    }
+  }
+
   // Map DB field names to interface field names
   // Use cubic_feet if set, otherwise fall back to cubic_feet_estimate
-  return (data || []).map((load: any) => ({
-    id: load.id,
-    load_number: load.load_number,
-    origin_city: load.pickup_city || '',
-    origin_state: load.pickup_state || '',
-    origin_zip: load.pickup_postal_code || '',
-    destination_city: load.delivery_city || '',
-    destination_state: load.delivery_state || '',
-    destination_zip: load.delivery_postal_code || '',
-    estimated_cuft: load.cubic_feet ? Number(load.cubic_feet) : (load.cubic_feet_estimate ? Number(load.cubic_feet_estimate) : null),
-    carrier_rate: load.carrier_rate ? Number(load.carrier_rate) : null,
-    carrier_rate_type: load.carrier_rate_type || 'per_cuft',
-    load_status: load.load_status || 'pending',
-    expected_load_date: load.expected_load_date,
-    assigned_driver_name: load.assigned_driver_name,
-    carrier_confirmed_at: load.carrier_confirmed_at,
-    company: Array.isArray(load.company) ? load.company[0] : load.company,
-  }));
+  return (data || []).map((load: any) => {
+    // Try to get company from map, fall back to source_company_name
+    let company = companyMap.get(load.company_id) || null;
+    if (!company && load.source_company_name) {
+      company = { id: load.company_id, name: load.source_company_name };
+    }
+
+    return {
+      id: load.id,
+      load_number: load.load_number,
+      origin_city: load.pickup_city || '',
+      origin_state: load.pickup_state || '',
+      origin_zip: load.pickup_postal_code || '',
+      destination_city: load.delivery_city || '',
+      destination_state: load.delivery_state || '',
+      destination_zip: load.delivery_postal_code || '',
+      estimated_cuft: load.cubic_feet ? Number(load.cubic_feet) : (load.cubic_feet_estimate ? Number(load.cubic_feet_estimate) : null),
+      carrier_rate: load.carrier_rate ? Number(load.carrier_rate) : null,
+      carrier_rate_type: load.carrier_rate_type || 'per_cuft',
+      load_status: load.load_status || 'pending',
+      expected_load_date: load.expected_load_date,
+      assigned_driver_name: load.assigned_driver_name,
+      carrier_confirmed_at: load.carrier_confirmed_at,
+      company: company,
+    };
+  });
 }
 
 // Get single assigned load with full details (for carrier)
@@ -1191,11 +1218,13 @@ export async function getAssignedLoadDetails(
 
   console.log('getAssignedLoadDetails: Looking for load', loadId, 'with carrier', carrier.id);
 
+  // Query load data WITHOUT company join to avoid RLS issues
+  // The carrier can read the load but may not be able to read the broker's company
   const { data, error } = await supabase
     .from('loads')
     .select(
       `
-      id, load_number,
+      id, load_number, company_id,
       pickup_city, pickup_state, pickup_postal_code,
       pickup_address_line1, pickup_address_line2,
       pickup_contact_name, pickup_contact_phone, pickup_contact_email,
@@ -1211,7 +1240,7 @@ export async function getAssignedLoadDetails(
       loading_started_at, loaded_at, in_transit_at, delivered_at,
       assigned_driver_id, assigned_driver_name, assigned_driver_phone,
       special_instructions,
-      company:companies!loads_company_id_fkey(id, name, phone)
+      source_company_name
     `
     )
     .eq('id', loadId)
@@ -1221,6 +1250,24 @@ export async function getAssignedLoadDetails(
   if (error || !data) {
     console.error('getAssignedLoadDetails: Error or no data for load', loadId, 'carrier', carrier.id, 'error:', error);
     return null;
+  }
+
+  // Fetch company data separately to avoid RLS join issues
+  // Use source_company_name as fallback if company fetch fails
+  let companyData: { id: string; name: string; phone: string | null } | null = null;
+  if (data.company_id) {
+    const { data: company } = await supabase
+      .from('companies')
+      .select('id, name, phone')
+      .eq('id', data.company_id)
+      .maybeSingle();
+
+    if (company) {
+      companyData = company;
+    } else if (data.source_company_name) {
+      // Use source_company_name as fallback (stored when load was assigned)
+      companyData = { id: data.company_id, name: data.source_company_name, phone: null };
+    }
   }
 
   // Map DB field names to interface field names
@@ -1266,7 +1313,7 @@ export async function getAssignedLoadDetails(
     assigned_driver_name: load.assigned_driver_name,
     assigned_driver_phone: load.assigned_driver_phone,
     special_instructions: load.special_instructions,
-    company: Array.isArray(load.company) ? load.company[0] : load.company,
+    company: companyData,
   };
 }
 
