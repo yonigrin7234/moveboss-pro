@@ -312,101 +312,94 @@ export default async function DashboardPage() {
       {/* Stat Cards - Role Aware */}
       <StatRow mode={mode} data={statData} />
 
-      {/* Status Insight Bar - Merged FMCSA + Compliance */}
+      {/* Premium Status Alert Bar - Thin inline insight */}
       {(verificationState || mode !== 'broker') && (
-        <Card className="rounded-xl border-l-4 border-l-primary/30 shadow-sm bg-gradient-to-r from-accent/20 to-transparent">
-          <CardContent className="py-3 px-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* FMCSA Verification */}
-              {verificationState && (
-                <div className="flex items-center gap-3">
-                  {verificationState.status === 'verified' ? (
-                    <>
-                      <div className="p-2 rounded-lg bg-success/10 ring-1 ring-success/20">
-                        <BadgeCheck className="h-4 w-4 text-success" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-success">FMCSA Verified</p>
-                        {verificationState.fmcsa?.legalName && (
-                          <p className="text-[11px] text-muted-foreground truncate">
-                            {verificationState.fmcsa.legalName}
-                          </p>
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="p-2 rounded-lg bg-muted">
-                        <BadgeCheck className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-foreground">Get Verified</p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {verificationState.completedCount}/{verificationState.requirements.length} steps
-                        </p>
-                      </div>
-                      <Link
-                        href="/dashboard/settings/company-profile"
-                        className="text-[11px] text-primary hover:underline"
-                      >
-                        Start →
-                      </Link>
-                    </>
-                  )}
-                </div>
-              )}
+        <div className="relative h-14 rounded-xl border-l-4 border-l-primary shadow-md bg-gradient-to-r from-accent/10 to-transparent border border-border/30 overflow-hidden">
+          <div className="h-full px-6 flex items-center gap-6">
+            {/* FMCSA Verification Status */}
+            {verificationState && (
+              <div className="flex items-center gap-2.5">
+                {verificationState.status === 'verified' ? (
+                  <>
+                    <div className="relative">
+                      <BadgeCheck className="h-4 w-4 text-success" />
+                      {/* Animated pulse ring */}
+                      <span className="absolute inset-0 rounded-full bg-success/30 animate-ping" />
+                    </div>
+                    <span className="text-xs font-semibold text-success">FMCSA Verified</span>
+                    {verificationState.fmcsa?.legalName && (
+                      <>
+                        <span className="text-xs text-muted-foreground">•</span>
+                        <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                          {verificationState.fmcsa.legalName}
+                        </span>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <BadgeCheck className="h-4 w-4 text-muted-foreground opacity-50" />
+                    <span className="text-xs font-medium text-foreground">Get Verified</span>
+                    <span className="text-xs text-muted-foreground">
+                      {verificationState.completedCount}/{verificationState.requirements.length}
+                    </span>
+                    <Link
+                      href="/dashboard/settings/company-profile"
+                      className="text-xs text-primary hover:underline ml-1"
+                    >
+                      Start →
+                    </Link>
+                  </>
+                )}
+              </div>
+            )}
 
-              {/* Compliance Status */}
-              {mode !== 'broker' && (
-                <div className="flex items-center gap-3">
-                  {complianceCounts.warning + complianceCounts.urgent + complianceCounts.critical + complianceCounts.expired === 0 ? (
-                    <>
-                      <div className="p-2 rounded-lg bg-success/10 ring-1 ring-success/20">
-                        <CheckCircle className="h-4 w-4 text-success" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-success">All Compliant</p>
-                        <p className="text-[11px] text-muted-foreground">No issues</p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="p-2 rounded-lg bg-destructive/10 ring-1 ring-destructive/20">
-                        <AlertTriangle className="h-4 w-4 text-destructive" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-foreground">Compliance Alerts</p>
-                        <div className="flex gap-1.5 mt-0.5">
-                          {complianceCounts.expired > 0 && (
-                            <Badge variant="destructive" className="text-[9px] h-4 px-1.5">
-                              {complianceCounts.expired} Expired
-                            </Badge>
-                          )}
-                          {complianceCounts.critical > 0 && (
-                            <Badge variant="pill-destructive" className="text-[9px] h-4 px-1.5">
-                              {complianceCounts.critical} Critical
-                            </Badge>
-                          )}
-                          {complianceCounts.urgent > 0 && (
-                            <Badge variant="pill-warning" className="text-[9px] h-4 px-1.5">
-                              {complianceCounts.urgent} Urgent
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <Link
-                        href="/dashboard/compliance/alerts"
-                        className="text-[11px] text-primary hover:underline"
-                      >
-                        View →
-                      </Link>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+            {/* Vertical divider */}
+            {verificationState && mode !== 'broker' && (
+              <div className="h-8 w-px bg-border/40" />
+            )}
+
+            {/* Compliance Status */}
+            {mode !== 'broker' && (
+              <div className="flex items-center gap-2.5">
+                {complianceCounts.warning + complianceCounts.urgent + complianceCounts.critical + complianceCounts.expired === 0 ? (
+                  <>
+                    <CheckCircle className="h-4 w-4 text-success" />
+                    <span className="text-xs font-semibold text-success">All Compliant</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <span className="text-xs font-medium text-foreground">Compliance Alerts</span>
+                    <div className="flex gap-1.5">
+                      {complianceCounts.expired > 0 && (
+                        <Badge variant="destructive" className="text-[9px] h-4 px-1.5">
+                          {complianceCounts.expired} Expired
+                        </Badge>
+                      )}
+                      {complianceCounts.critical > 0 && (
+                        <Badge variant="pill-destructive" className="text-[9px] h-4 px-1.5">
+                          {complianceCounts.critical} Critical
+                        </Badge>
+                      )}
+                      {complianceCounts.urgent > 0 && (
+                        <Badge variant="pill-warning" className="text-[9px] h-4 px-1.5">
+                          {complianceCounts.urgent} Urgent
+                        </Badge>
+                      )}
+                    </div>
+                    <Link
+                      href="/dashboard/compliance/alerts"
+                      className="text-xs text-primary hover:underline ml-1"
+                    >
+                      View →
+                    </Link>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Today's Focus Widget */}
@@ -414,23 +407,21 @@ export default async function DashboardPage() {
         <TodaysFocus mode={mode} items={focusItems} />
       )}
 
-      {/* Combined Companies + Drivers Widget */}
-      <Card className="rounded-xl shadow-sm">
-        <CardContent className="p-4">
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Recent Companies */}
+      {/* Live Ops Panel - 3-Column Grid */}
+      <Card className="rounded-2xl shadow-sm border-border/20 bg-card/50">
+        <CardHeader className="py-3 px-6 border-b border-border/20">
+          <CardTitle className="text-sm font-semibold tracking-tight">Live Operations</CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Column 1: Recent Companies */}
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h3 className="text-sm font-semibold tracking-tight">
-                    {mode === 'broker' ? 'Recent Carriers' : 'Recent Companies'}
-                  </h3>
-                  <p className="text-[10px] text-muted-foreground">
-                    {mode === 'broker' ? 'Handling your loads' : 'Last five accounts'}
-                  </p>
-                </div>
-                <Link href="/dashboard/companies" className="text-[11px] text-primary hover:underline">
-                  View all
+              <div className="flex items-center justify-between mb-2.5">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  {mode === 'broker' ? 'Recent Carriers' : 'Recent Companies'}
+                </h3>
+                <Link href="/dashboard/companies" className="text-[10px] text-primary hover:underline">
+                  View all →
                 </Link>
               </div>
               {companies.length === 0 ? (
@@ -438,19 +429,20 @@ export default async function DashboardPage() {
                   No companies yet
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {companies.map((company) => (
+                <div className="space-y-1.5">
+                  {companies.slice(0, 3).map((company) => (
                     <Link
                       key={company.id}
                       href={`/dashboard/companies/${company.id}`}
-                      className="flex items-center justify-between p-2 rounded-lg hover:bg-accent transition-colors group"
+                      className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-accent/50 transition-colors group"
                     >
+                      <Building2 className="h-3.5 w-3.5 text-muted-foreground opacity-60" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-foreground group-hover:text-primary truncate">
                           {company.name}
                         </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          DOT: {company.dot_number ?? '—'} • MC: {company.mc_number ?? '—'}
+                        <p className="text-[10px] text-muted-foreground/70">
+                          DOT: {company.dot_number ?? '—'}
                         </p>
                       </div>
                     </Link>
@@ -459,16 +451,15 @@ export default async function DashboardPage() {
               )}
             </div>
 
-            {/* Driver Roster - Only show if has fleet */}
-            {mode !== 'broker' && (
-              <div className="lg:border-l lg:pl-6 border-border/50">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h3 className="text-sm font-semibold tracking-tight">Driver Roster</h3>
-                    <p className="text-[10px] text-muted-foreground">Ready for dispatch</p>
-                  </div>
-                  <Link href="/dashboard/drivers" className="text-[11px] text-primary hover:underline">
-                    View all
+            {/* Column 2: Driver Roster (for carriers/hybrid) or divider for broker */}
+            {mode !== 'broker' ? (
+              <div className="lg:border-l lg:pl-6 border-border/20">
+                <div className="flex items-center justify-between mb-2.5">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Driver Roster
+                  </h3>
+                  <Link href="/dashboard/drivers" className="text-[10px] text-primary hover:underline">
+                    View all →
                   </Link>
                 </div>
                 {drivers.length === 0 ? (
@@ -476,16 +467,19 @@ export default async function DashboardPage() {
                     No drivers yet
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {drivers.map((driver) => (
+                  <div className="space-y-1.5">
+                    {drivers.slice(0, 3).map((driver) => (
                       <Link
                         key={driver.id}
                         href={`/dashboard/drivers/${driver.id}`}
-                        className="flex items-center justify-between p-2 rounded-lg hover:bg-accent transition-colors group"
+                        className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-accent/50 transition-colors group"
                       >
-                        <p className="text-xs font-medium text-foreground group-hover:text-primary truncate">
-                          {driver.first_name} {driver.last_name}
-                        </p>
+                        <Users className="h-3.5 w-3.5 text-muted-foreground opacity-60" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-foreground group-hover:text-primary truncate">
+                            {driver.first_name} {driver.last_name}
+                          </p>
+                        </div>
                         <Badge variant="secondary" className="capitalize text-[9px] h-4">
                           {driver.status}
                         </Badge>
@@ -494,54 +488,82 @@ export default async function DashboardPage() {
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent Activity - Compact Footer */}
-      <Card className="rounded-xl shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary"></span>
-              </span>
-              <h3 className="text-sm font-semibold tracking-tight">Recent Activity</h3>
-            </div>
-            <Link href="/dashboard/activity" className="text-[11px] text-primary hover:underline">
-              View all
-            </Link>
-          </div>
-          {recentActivities.length === 0 ? (
-            <div className="py-6 text-center">
-              <Clock className="h-6 w-6 mx-auto mb-2 text-muted-foreground opacity-30" />
-              <p className="text-[11px] text-muted-foreground">
-                {mode !== 'broker' ? 'Activity from drivers will appear here' : 'Activity from carriers will appear here'}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              {recentActivities.map((activity) => {
-                const config = activityIcons[activity.activity_type] || activityIcons.load_accepted;
-                const Icon = config.icon;
-                return (
-                  <div key={activity.id} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-accent transition-colors">
-                    <div className={`${config.color}`}>
-                      <Icon className="h-3 w-3" />
+            ) : (
+              <div className="lg:border-l lg:pl-6 border-border/20">
+                <div className="flex items-center justify-between mb-2.5">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Marketplace Stats
+                  </h3>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2.5 p-2">
+                    <Package className="h-3.5 w-3.5 text-muted-foreground opacity-60" />
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-foreground">{statData.postedLoads} Posted Loads</p>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-foreground truncate">{activity.title}</p>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                      {timeAgo(activity.created_at)}
-                    </span>
                   </div>
-                );
-              })}
+                  <div className="flex items-center gap-2.5 p-2">
+                    <Truck className="h-3.5 w-3.5 text-muted-foreground opacity-60" />
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-foreground">{statData.activeCarriers} Active Carriers</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2.5 p-2">
+                    <DollarSign className="h-3.5 w-3.5 text-muted-foreground opacity-60" />
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-foreground">{statData.outstandingBalance} Outstanding</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Column 3: Recent Activity */}
+            <div className="lg:border-l lg:pl-6 border-border/20">
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary"></span>
+                  </span>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Recent Activity
+                  </h3>
+                </div>
+                <Link href="/dashboard/activity" className="text-[10px] text-primary hover:underline">
+                  View all →
+                </Link>
+              </div>
+              {recentActivities.length === 0 ? (
+                <div className="py-4 text-center">
+                  <Clock className="h-5 w-5 mx-auto mb-1.5 text-muted-foreground opacity-20" />
+                  <p className="text-[10px] text-muted-foreground">
+                    {mode !== 'broker' ? 'Activity from drivers will appear here' : 'Activity from carriers will appear here'}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {recentActivities.slice(0, 3).map((activity) => {
+                    const config = activityIcons[activity.activity_type] || activityIcons.load_accepted;
+                    const Icon = config.icon;
+                    return (
+                      <div key={activity.id} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-accent/50 transition-colors">
+                        <div className={`${config.color}`}>
+                          <Icon className="h-3.5 w-3.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-foreground truncate">{activity.title}</p>
+                          <span className="text-[9px] text-muted-foreground/70">
+                            {timeAgo(activity.created_at)}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </CardContent>
       </Card>
     </div>

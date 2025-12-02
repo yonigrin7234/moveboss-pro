@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Building2, Truck, Users, Boxes, Package, Clipboard, DollarSign } from 'lucide-react';
+import { Truck, Package } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { DashboardMode } from '@/lib/dashboardMode';
 
@@ -17,30 +17,26 @@ interface StatRowProps {
   };
 }
 
-interface StatItemProps {
+interface PremiumStatItemProps {
   label: string;
   value: string | number;
   description: string;
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
 }
 
-function StatItem({ label, value, description, href, icon: Icon }: StatItemProps) {
+function PremiumStatItem({ label, value, description, href }: PremiumStatItemProps) {
   return (
     <Link href={href} className="group block">
-      <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-primary/5 ring-1 ring-primary/10 group-hover:bg-primary/10 transition-colors">
-          <Icon className="h-4 w-4 text-primary" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-2xl font-bold text-foreground tracking-tight group-hover:text-primary transition-colors">
-            {value}
-          </p>
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide truncate">
-            {label}
-          </p>
-          <p className="text-[11px] text-muted-foreground/70 truncate">{description}</p>
-        </div>
+      <div className="space-y-1">
+        <p className="text-4xl font-bold text-foreground tracking-tight group-hover:text-primary transition-colors">
+          {value}
+        </p>
+        <p className="text-xs font-semibold text-foreground/90 tracking-tight">
+          {label}
+        </p>
+        <p className="text-xs text-muted-foreground/70">
+          {description}
+        </p>
       </div>
     </Link>
   );
@@ -49,39 +45,40 @@ function StatItem({ label, value, description, href, icon: Icon }: StatItemProps
 export function StatRow({ mode, data }: StatRowProps) {
   if (mode === 'carrier') {
     return (
-      <Card className="rounded-xl bg-accent/30">
-        <CardHeader className="py-3 px-4">
-          <CardTitle className="text-sm font-semibold tracking-tight">My Jobs Summary</CardTitle>
+      <Card className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-accent/5 to-transparent shadow-md border-border/30">
+        {/* Floating Icon */}
+        <div className="absolute top-6 right-6 opacity-20 pointer-events-none">
+          <Truck className="h-16 w-16 text-primary" />
+        </div>
+
+        <CardHeader className="py-4 px-6">
+          <CardTitle className="text-sm font-semibold tracking-tight">Fleet Health</CardTitle>
         </CardHeader>
-        <CardContent className="px-4 pb-4">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatItem
+        <CardContent className="px-6 pb-6">
+          <div className="grid grid-cols-2 gap-6">
+            <PremiumStatItem
               label="Active Trips"
               value={data.activeTrips || 0}
               description="Trips in progress"
               href="/dashboard/trips?status=active"
-              icon={Truck}
             />
-            <StatItem
+            <PremiumStatItem
               label="Available Drivers"
               value={data.availableDrivers || 0}
               description="Ready for dispatch"
               href="/dashboard/drivers?status=available"
-              icon={Users}
             />
-            <StatItem
+            <PremiumStatItem
               label="Open Capacity"
               value={data.openCapacity || '0'}
               description="Cubic ft. available"
               href="/dashboard/load-board"
-              icon={Boxes}
             />
-            <StatItem
-              label="Companies"
+            <PremiumStatItem
+              label="Partner Companies"
               value={data.companiesCount || 0}
-              description="Partner companies"
+              description="Active partnerships"
               href="/dashboard/companies"
-              icon={Building2}
             />
           </div>
         </CardContent>
@@ -91,39 +88,40 @@ export function StatRow({ mode, data }: StatRowProps) {
 
   if (mode === 'broker') {
     return (
-      <Card className="rounded-xl bg-accent/30">
-        <CardHeader className="py-3 px-4">
-          <CardTitle className="text-sm font-semibold tracking-tight">Posted Jobs Summary</CardTitle>
+      <Card className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-accent/5 to-transparent shadow-lg border-border/30">
+        {/* Floating Icon */}
+        <div className="absolute top-6 right-6 opacity-20 pointer-events-none">
+          <Package className="h-16 w-16 text-primary" />
+        </div>
+
+        <CardHeader className="py-4 px-6">
+          <CardTitle className="text-sm font-semibold tracking-tight">Marketplace Health</CardTitle>
         </CardHeader>
-        <CardContent className="px-4 pb-4">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatItem
+        <CardContent className="px-6 pb-6">
+          <div className="grid grid-cols-2 gap-6">
+            <PremiumStatItem
               label="Posted Loads"
               value={data.postedLoads || 0}
-              description="Loads posted to marketplace"
+              description="On marketplace"
               href="/dashboard/posted-jobs"
-              icon={Package}
             />
-            <StatItem
+            <PremiumStatItem
               label="Pending Requests"
               value={data.pendingRequests || 0}
               description="Carrier requests"
               href="/dashboard/carrier-requests"
-              icon={Clipboard}
             />
-            <StatItem
+            <PremiumStatItem
               label="Outstanding Balance"
               value={data.outstandingBalance || '$0'}
               description="Receivables"
               href="/dashboard/finance/receivables"
-              icon={DollarSign}
             />
-            <StatItem
+            <PremiumStatItem
               label="Active Carriers"
               value={data.activeCarriers || 0}
-              description="Carriers working"
+              description="Working carriers"
               href="/dashboard/companies"
-              icon={Building2}
             />
           </div>
         </CardContent>
@@ -131,84 +129,84 @@ export function StatRow({ mode, data }: StatRowProps) {
     );
   }
 
-  // Hybrid mode - show both summary cards
+  // Hybrid mode - show both premium cards side by side
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      {/* My Jobs Summary */}
-      <Card className="rounded-xl bg-accent/30">
-        <CardHeader className="py-3 px-4">
-          <CardTitle className="text-sm font-semibold tracking-tight">My Jobs Summary</CardTitle>
-          <p className="text-[11px] text-muted-foreground">Jobs my trucks are running</p>
+    <div className="grid gap-6 lg:grid-cols-2">
+      {/* Fleet Health Card */}
+      <Card className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-accent/5 to-transparent shadow-md border-border/30">
+        {/* Floating Icon */}
+        <div className="absolute top-6 right-6 opacity-20 pointer-events-none">
+          <Truck className="h-16 w-16 text-primary" />
+        </div>
+
+        <CardHeader className="py-4 px-6">
+          <CardTitle className="text-sm font-semibold tracking-tight">Fleet Health</CardTitle>
         </CardHeader>
-        <CardContent className="px-4 pb-4">
-          <div className="grid gap-4 grid-cols-2">
-            <StatItem
+        <CardContent className="px-6 pb-6">
+          <div className="grid grid-cols-2 gap-6">
+            <PremiumStatItem
               label="Active Trips"
               value={data.activeTrips || 0}
               description="In progress"
               href="/dashboard/trips?status=active"
-              icon={Truck}
             />
-            <StatItem
+            <PremiumStatItem
               label="Drivers"
               value={data.availableDrivers || 0}
               description="Available"
               href="/dashboard/drivers?status=available"
-              icon={Users}
             />
-            <StatItem
+            <PremiumStatItem
               label="Capacity"
               value={data.openCapacity || '0'}
               description="Cubic ft."
               href="/dashboard/load-board"
-              icon={Boxes}
             />
-            <StatItem
+            <PremiumStatItem
               label="Companies"
               value={data.companiesCount || 0}
               description="Partners"
               href="/dashboard/companies"
-              icon={Building2}
             />
           </div>
         </CardContent>
       </Card>
 
-      {/* Posted Jobs Summary */}
-      <Card className="rounded-xl bg-accent/30">
-        <CardHeader className="py-3 px-4">
-          <CardTitle className="text-sm font-semibold tracking-tight">Posted Jobs Summary</CardTitle>
-          <p className="text-[11px] text-muted-foreground">Jobs for other carriers</p>
+      {/* Marketplace Health Card */}
+      <Card className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-accent/5 to-transparent shadow-lg border-border/30">
+        {/* Floating Icon */}
+        <div className="absolute top-6 right-6 opacity-20 pointer-events-none">
+          <Package className="h-16 w-16 text-primary" />
+        </div>
+
+        <CardHeader className="py-4 px-6">
+          <CardTitle className="text-sm font-semibold tracking-tight">Marketplace Health</CardTitle>
         </CardHeader>
-        <CardContent className="px-4 pb-4">
-          <div className="grid gap-4 grid-cols-2">
-            <StatItem
+        <CardContent className="px-6 pb-6">
+          <div className="grid grid-cols-2 gap-6">
+            <PremiumStatItem
               label="Posted Loads"
               value={data.postedLoads || 0}
               description="On marketplace"
               href="/dashboard/posted-jobs"
-              icon={Package}
             />
-            <StatItem
+            <PremiumStatItem
               label="Requests"
               value={data.pendingRequests || 0}
               description="Pending"
               href="/dashboard/carrier-requests"
-              icon={Clipboard}
             />
-            <StatItem
+            <PremiumStatItem
               label="Balance"
               value={data.outstandingBalance || '$0'}
               description="Outstanding"
               href="/dashboard/finance/receivables"
-              icon={DollarSign}
             />
-            <StatItem
+            <PremiumStatItem
               label="Carriers"
               value={data.activeCarriers || 0}
               description="Active"
               href="/dashboard/companies"
-              icon={Building2}
             />
           </div>
         </CardContent>
