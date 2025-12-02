@@ -1824,11 +1824,13 @@ export async function assignLoadToTrip(
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
 
-  // Get trip details for driver info
+  // Get trip details for driver info and owner_id
   const { data: trip } = await supabase
     .from('trips')
     .select(`
       id,
+      owner_id,
+      driver_id,
       driver:drivers(id, first_name, last_name)
     `)
     .eq('id', tripId)
@@ -1841,12 +1843,55 @@ export async function assignLoadToTrip(
   const driver = Array.isArray(trip.driver) ? trip.driver[0] : trip.driver;
   const driverName = driver ? `${driver.first_name} ${driver.last_name}` : null;
 
-  // Update the load
-  const { error } = await supabase
+  // Check if load is already on another trip
+  const { data: existingAssignment } = await supabase
+    .from('trip_loads')
+    .select('id, trip_id')
+    .eq('load_id', loadId)
+    .maybeSingle();
+
+  if (existingAssignment) {
+    if (existingAssignment.trip_id === tripId) {
+      return { success: false, error: 'This load is already on this trip' };
+    }
+    // Remove from previous trip
+    await supabase
+      .from('trip_loads')
+      .delete()
+      .eq('id', existingAssignment.id);
+  }
+
+  // Count existing loads on this trip to set sequence_index
+  const { count: existingLoadsCount } = await supabase
+    .from('trip_loads')
+    .select('id', { count: 'exact', head: true })
+    .eq('trip_id', tripId);
+
+  const sequenceIndex = existingLoadsCount ?? 0;
+
+  // Insert into trip_loads junction table
+  const { error: tripLoadsError } = await supabase
+    .from('trip_loads')
+    .insert({
+      owner_id: trip.owner_id,
+      trip_id: tripId,
+      load_id: loadId,
+      sequence_index: sequenceIndex,
+      role: 'primary',
+    });
+
+  if (tripLoadsError) {
+    console.error('Error inserting into trip_loads:', tripLoadsError);
+    return { success: false, error: tripLoadsError.message };
+  }
+
+  // Update the load with trip info and driver
+  const { error: loadError } = await supabase
     .from('loads')
     .update({
       trip_id: tripId,
       trip_load_order: loadOrder,
+      delivery_order: sequenceIndex + 1,
       assigned_driver_id: driver?.id || null,
       assigned_driver_name: driverName,
       marketplace_driver_name: driverName,
@@ -1856,9 +1901,9 @@ export async function assignLoadToTrip(
     })
     .eq('id', loadId);
 
-  if (error) {
-    console.error('Error assigning load to trip:', error);
-    return { success: false, error: error.message };
+  if (loadError) {
+    console.error('Error updating load:', loadError);
+    return { success: false, error: loadError.message };
   }
 
   return { success: true };
