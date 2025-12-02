@@ -12,13 +12,13 @@ export async function withdrawLoadRequest(
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
 
-  // Get request details
+  // Get request details - use explicit FK syntax
   const { data: request } = await supabase
     .from('load_requests')
     .select(
       `
       *,
-      load:loads(
+      load:loads!load_requests_load_id_fkey(
         id,
         load_number,
         owner_id,
