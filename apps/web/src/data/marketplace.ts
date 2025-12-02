@@ -1199,6 +1199,8 @@ export async function getAssignedLoadDetails(
   special_instructions: string | null;
   // Company
   company: { id: string; name: string; phone: string | null } | null;
+  // Trip assignment
+  trip_id: string | null;
 } | null> {
   const supabase = await createClient();
 
@@ -1303,6 +1305,7 @@ export async function getAssignedLoadDetails(
     assigned_driver_phone: load.assigned_driver_phone,
     special_instructions: load.special_instructions,
     company: companyData,
+    trip_id: load.trip_id || null,
   };
 }
 

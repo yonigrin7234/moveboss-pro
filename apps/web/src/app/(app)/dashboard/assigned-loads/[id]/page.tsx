@@ -1,8 +1,9 @@
 import { redirect, notFound } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/lib/supabase-server';
-import { getAssignedLoadDetails, updateLoadDriver } from '@/data/marketplace';
+import { getAssignedLoadDetails, updateLoadDriver, assignLoadToTrip } from '@/data/marketplace';
 import { getDriversForUser } from '@/data/drivers';
+import { getTripsForLoadAssignment } from '@/data/trips';
 import { updateLoadStatus, getLoadStatusHistory } from '@/data/load-status';
 import { getRatingForLoad, submitRating } from '@/data/ratings';
 import { getWorkspaceCompanyForUser } from '@/data/companies';
@@ -46,6 +47,7 @@ import {
   Truck,
   Star,
   Camera,
+  Route,
 } from 'lucide-react';
 import { MarketplaceActions } from '@/components/marketplace/marketplace-actions';
 
@@ -89,13 +91,14 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
     redirect(`/dashboard/assigned-loads/${id}/confirm`);
   }
 
-  // Get carrier's drivers for assignment, status history, company info, existing rating, and photos
+  // Get carrier's drivers for assignment, status history, company info, existing rating, photos, and trips
   const carrierCompany = await getWorkspaceCompanyForUser(user.id);
-  const [drivers, statusHistory, existingRating, photos] = await Promise.all([
+  const [drivers, statusHistory, existingRating, photos, availableTrips] = await Promise.all([
     getDriversForUser(user.id),
     getLoadStatusHistory(id),
     carrierCompany ? getRatingForLoad(id, carrierCompany.id) : Promise.resolve(null),
     getLoadPhotos(id),
+    getTripsForLoadAssignment(user.id),
   ]);
 
   // Filter photos by type
@@ -220,6 +223,23 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
     }
 
     revalidatePath(`/dashboard/assigned-loads/${loadId}`);
+  }
+
+  async function assignToTripAction(formData: FormData) {
+    'use server';
+
+    const currentUser = await getCurrentUser();
+    if (!currentUser) redirect('/login');
+
+    const tripId = formData.get('trip_id') as string;
+    if (!tripId) return;
+
+    const result = await assignLoadToTrip(id, tripId, 1);
+
+    if (result.success) {
+      revalidatePath(`/dashboard/assigned-loads/${id}`);
+      revalidatePath('/dashboard/assigned-loads');
+    }
   }
 
   const company = Array.isArray(load.company) ? load.company[0] : load.company;
@@ -569,6 +589,83 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
                 <User className="h-4 w-4 mr-2" />
                 Assign Driver
               </Button>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Trip Assignment */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Route className="h-5 w-5" />
+            Trip Assignment
+          </CardTitle>
+          {load.trip_id ? (
+            <CardDescription className="flex items-center gap-1 text-green-500">
+              <CheckCircle className="h-4 w-4" />
+              Assigned to trip
+            </CardDescription>
+          ) : (
+            <CardDescription className="flex items-center gap-1 text-yellow-500">
+              <AlertCircle className="h-4 w-4" />
+              Not assigned to a trip
+            </CardDescription>
+          )}
+        </CardHeader>
+        <CardContent>
+          {load.trip_id ? (
+            <div className="space-y-3">
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <p className="text-sm text-muted-foreground">This load is assigned to a trip.</p>
+              </div>
+              <Button variant="outline" asChild className="w-full">
+                <Link href={`/dashboard/trips/${load.trip_id}`}>
+                  <Route className="h-4 w-4 mr-2" />
+                  View Trip
+                </Link>
+              </Button>
+            </div>
+          ) : (
+            <form action={assignToTripAction} className="space-y-4">
+              {availableTrips.length > 0 ? (
+                <>
+                  <div className="space-y-2">
+                    <Label>Select Trip</Label>
+                    <Select name="trip_id">
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a trip..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableTrips.map((trip) => {
+                          const driver = Array.isArray(trip.driver) ? trip.driver[0] : trip.driver;
+                          return (
+                            <SelectItem key={trip.id} value={trip.id}>
+                              #{trip.trip_number}
+                              {driver && ` - ${driver.first_name} ${driver.last_name}`}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button type="submit" className="w-full">
+                    <Truck className="h-4 w-4 mr-2" />
+                    Assign to Trip
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    No active trips available. Create a trip first to assign this load.
+                  </p>
+                  <Button asChild className="w-full">
+                    <Link href="/dashboard/trips/new">
+                      Create New Trip
+                    </Link>
+                  </Button>
+                </>
+              )}
             </form>
           )}
         </CardContent>
