@@ -22,6 +22,7 @@ import {
   Calendar,
   CheckCircle,
   BadgeCheck,
+  RefreshCw,
 } from 'lucide-react';
 
 // US States for filtering
@@ -356,11 +357,18 @@ export default async function LoadBoardPage({ searchParams }: PageProps) {
             Browse available loads from the marketplace
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link href="/dashboard/my-requests">
-            View My Requests
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="ghost" size="icon" title="Refresh">
+            <Link href={`/dashboard/load-board${Object.keys(params).length > 0 ? `?${new URLSearchParams(params as Record<string, string>).toString()}` : ''}`}>
+              <RefreshCw className="h-4 w-4" />
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/dashboard/my-requests">
+              View My Requests
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Tabs */}
