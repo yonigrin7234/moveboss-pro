@@ -39,7 +39,21 @@ export async function GET(request: Request) {
           .eq('id', loadId)
           .maybeSingle();
 
-        rawLoadQuery = { data: rawLoad, error: rawError };
+        // Try the exact same query as getAssignedLoadDetails
+        const { data: detailQuery, error: detailError } = await supabase
+          .from('loads')
+          .select(`
+            id, load_number, company_id,
+            company:companies!loads_company_id_fkey(id, name, phone)
+          `)
+          .eq('id', loadId)
+          .eq('assigned_carrier_id', carrier.id)
+          .single();
+
+        rawLoadQuery = {
+          simpleQuery: { data: rawLoad, error: rawError },
+          detailQuery: { data: detailQuery, error: detailError }
+        };
       }
     }
 
