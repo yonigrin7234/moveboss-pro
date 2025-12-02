@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { RequestActions } from './request-actions';
 import { getCompanyBalancesBatch } from '@/data/company-ledger';
+import { checkCarrierCompliance, type ComplianceIssue } from '@/data/compliance-alerts';
 
 interface CarrierRequest {
   id: string;
@@ -139,7 +140,7 @@ interface BalanceInfo {
   netBalance: number; // Positive = they owe us
 }
 
-function RequestCard({ request, balance }: { request: CarrierRequest; balance?: BalanceInfo }) {
+function RequestCard({ request, balance, complianceIssues }: { request: CarrierRequest; balance?: BalanceInfo; complianceIssues?: ComplianceIssue[] }) {
   const load = request.load;
   const carrier = request.carrier;
 
@@ -238,6 +239,7 @@ function RequestCard({ request, balance }: { request: CarrierRequest; balance?: 
                 carrierRate={offeredRatePerCuft}
                 carrierRateType="per_cuft"
                 cubicFeetEstimate={load.cubic_feet_estimate}
+                complianceIssues={complianceIssues}
               />
             )}
           </div>
@@ -364,6 +366,14 @@ export default async function CarrierRequestsPage() {
   const acceptedRequests = allRequests.filter((r) => r.status === 'accepted');
   const declinedRequests = allRequests.filter((r) => ['declined', 'withdrawn'].includes(r.status));
 
+  // Get user's workspace company for compliance checks
+  const { data: workspaceCompany } = await supabase
+    .from('companies')
+    .select('id')
+    .eq('owner_id', user.id)
+    .eq('is_workspace_company', true)
+    .maybeSingle();
+
   // Get unique carrier IDs from pending requests to fetch balances
   const pendingCarrierIds = [...new Set(
     pendingRequests
@@ -379,6 +389,15 @@ export default async function CarrierRequestsPage() {
   balances.forEach((value, key) => {
     balancesMap[key] = value;
   });
+
+  // Fetch compliance issues for each pending request's carrier
+  const complianceMap: Record<string, ComplianceIssue[]> = {};
+  if (workspaceCompany) {
+    for (const carrierId of pendingCarrierIds) {
+      const { issues } = await checkCarrierCompliance(workspaceCompany.id, carrierId);
+      complianceMap[carrierId] = issues;
+    }
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-6 pt-4 space-y-4">
@@ -464,6 +483,7 @@ export default async function CarrierRequestsPage() {
                 key={request.id}
                 request={request}
                 balance={request.carrier?.id ? balancesMap[request.carrier.id] : undefined}
+                complianceIssues={request.carrier?.id ? complianceMap[request.carrier.id] : undefined}
               />
             ))
           )}

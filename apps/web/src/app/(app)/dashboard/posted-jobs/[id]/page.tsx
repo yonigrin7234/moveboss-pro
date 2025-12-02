@@ -59,6 +59,7 @@ interface PostedJob {
   dropoff_postal_code: string | null;
   delivery_city: string | null;
   delivery_state: string | null;
+  delivery_postal_code: string | null;
   // Size & Rate
   cubic_feet: number | null;
   cubic_feet_estimate: number | null;
@@ -198,6 +199,18 @@ function formatDate(date: string | null) {
   });
 }
 
+function formatDateTime(date: string | null) {
+  if (!date) return '-';
+  return new Date(date).toLocaleDateString('en-US', {
+    timeZone: 'America/Los_Angeles',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 function getOrigin(job: PostedJob) {
   // For RFD loads, use loading/storage location
   if (job.load_type === 'rfd' || job.posting_type === 'load') {
@@ -217,7 +230,7 @@ function getOrigin(job: PostedJob) {
 function getDestination(job: PostedJob) {
   const city = job.dropoff_city || job.delivery_city;
   const state = job.dropoff_state || job.delivery_state;
-  const zip = job.dropoff_postal_code;
+  const zip = job.dropoff_postal_code || job.delivery_postal_code;
   return { city, state, zip };
 }
 
@@ -254,7 +267,7 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
       pickup_city, pickup_state, pickup_zip,
       loading_city, loading_state,
       dropoff_city, dropoff_state, dropoff_postal_code,
-      delivery_city, delivery_state,
+      delivery_city, delivery_state, delivery_postal_code,
       cubic_feet, cubic_feet_estimate, rate_per_cuft, company_rate,
       balance_due, linehaul_amount,
       truck_requirement, is_open_to_counter,
@@ -354,7 +367,7 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
             {getTypeBadge(postedJob.posting_type, postedJob.load_type)}
             {getStatusBadge(postedJob.posting_status)}
           </div>
-          <p className="text-muted-foreground">Posted {formatDate(postedJob.posted_at)}</p>
+          <p className="text-muted-foreground">Posted {formatDateTime(postedJob.posted_at)}</p>
         </div>
         <div className="flex items-center gap-2">
           <MarketplaceActions
@@ -522,8 +535,8 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
                         </div>
                         <p className="text-sm text-muted-foreground">
                           {request.carrier?.city}, {request.carrier?.state}
-                          {request.carrier?.mc_number && ` • MC# ${request.carrier.mc_number}`}
                           {request.carrier?.dot_number && ` • DOT# ${request.carrier.dot_number}`}
+                          {request.carrier?.mc_number && ` • MC# ${request.carrier.mc_number}`}
                         </p>
                       </div>
                     </div>

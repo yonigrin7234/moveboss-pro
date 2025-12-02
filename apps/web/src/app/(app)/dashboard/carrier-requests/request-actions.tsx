@@ -16,12 +16,23 @@ import {
   DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Loader2, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, AlertTriangle, Shield, ChevronDown, ChevronUp } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface BalanceInfo {
   totalOwed: number;  // They owe us
   totalOwing: number; // We owe them
   netBalance: number; // Positive = they owe us
+}
+
+interface ComplianceIssue {
+  type: string;
+  item: string;
+  itemId: string;
+  expiryDate: string | null;
+  daysUntil: number | null;
+  severity: 'warning' | 'urgent' | 'critical' | 'expired';
+  message: string;
 }
 
 interface RequestActionsProps {
@@ -34,6 +45,7 @@ interface RequestActionsProps {
   carrierRate: number | null;
   carrierRateType?: string;
   cubicFeetEstimate?: number | null;
+  complianceIssues?: ComplianceIssue[];
 }
 
 function formatCurrency(amount: number) {
@@ -45,16 +57,22 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
-export function RequestActions({ requestId, loadId, carrierId, carrierName, balance, carrierRate, carrierRateType, cubicFeetEstimate }: RequestActionsProps) {
+export function RequestActions({ requestId, loadId, carrierId, carrierName, balance, carrierRate, carrierRateType, cubicFeetEstimate, complianceIssues }: RequestActionsProps) {
   const router = useRouter();
   const [isAccepting, setIsAccepting] = useState(false);
   const [isDeclining, setIsDeclining] = useState(false);
   const [acceptDialogOpen, setAcceptDialogOpen] = useState(false);
   const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
   const [acknowledgedBalance, setAcknowledgedBalance] = useState(false);
+  const [complianceExpanded, setComplianceExpanded] = useState(true);
 
   // Check if there's an open balance
   const hasOpenBalance = balance && (balance.totalOwed > 0 || balance.totalOwing > 0);
+
+  // Check for compliance issues
+  const hasComplianceIssues = complianceIssues && complianceIssues.length > 0;
+  const isNewCarrier = complianceIssues?.some(i => i.type === 'partner_new');
+  const hasExpiredCompliance = complianceIssues?.some(i => i.severity === 'expired');
 
   // Reset acknowledgment when dialog closes
   const handleAcceptDialogChange = (open: boolean) => {
@@ -222,13 +240,79 @@ export function RequestActions({ requestId, loadId, carrierId, carrierName, bala
             </div>
           )}
 
+          {/* Compliance Warnings */}
+          {hasComplianceIssues && (
+            <div className={`rounded-lg border p-4 space-y-3 ${
+              hasExpiredCompliance
+                ? 'border-red-500/30 bg-red-500/10'
+                : isNewCarrier
+                  ? 'border-yellow-500/30 bg-yellow-500/10'
+                  : 'border-orange-500/30 bg-orange-500/10'
+            }`}>
+              <div
+                className="flex items-center justify-between cursor-pointer"
+                onClick={() => setComplianceExpanded(!complianceExpanded)}
+              >
+                <div className="flex items-center gap-2">
+                  <Shield className={`h-5 w-5 ${
+                    hasExpiredCompliance ? 'text-red-500' : isNewCarrier ? 'text-yellow-500' : 'text-orange-500'
+                  }`} />
+                  <span className={`font-medium ${
+                    hasExpiredCompliance ? 'text-red-700 dark:text-red-300' : isNewCarrier ? 'text-yellow-700 dark:text-yellow-300' : 'text-orange-700 dark:text-orange-300'
+                  }`}>
+                    {isNewCarrier ? 'First time working together' : 'Compliance Warnings'}
+                  </span>
+                  <Badge variant="outline" className="text-xs">
+                    {complianceIssues!.length}
+                  </Badge>
+                </div>
+                {complianceExpanded ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
+              </div>
+
+              {complianceExpanded && (
+                <div className="space-y-2 pt-2">
+                  {complianceIssues!.map((issue, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex items-start gap-2 p-2 rounded text-sm ${
+                        issue.severity === 'expired' ? 'bg-red-500/10' :
+                        issue.severity === 'critical' ? 'bg-red-500/10' :
+                        issue.severity === 'urgent' ? 'bg-orange-500/10' :
+                        'bg-yellow-500/10'
+                      }`}
+                    >
+                      <AlertTriangle className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
+                        issue.severity === 'expired' || issue.severity === 'critical' ? 'text-red-500' :
+                        issue.severity === 'urgent' ? 'text-orange-500' :
+                        'text-yellow-500'
+                      }`} />
+                      <div>
+                        <p className="font-medium">{issue.item}</p>
+                        <p className="text-muted-foreground">{issue.message}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {isNewCarrier && (
+                    <p className="text-sm text-muted-foreground pt-2">
+                      Accepting will automatically add them as a partner and request compliance documents (W-9, Hauling Agreement).
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>
             </DialogClose>
             <Button onClick={handleAccept} disabled={acceptDisabled}>
               {isAccepting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Accept Carrier
+              {hasComplianceIssues ? 'Accept Anyway' : 'Accept Carrier'}
             </Button>
           </DialogFooter>
         </DialogContent>
