@@ -83,8 +83,9 @@ export function RequestActions({ requestId, loadId, carrierId, carrierName, bala
       // 2. Update the load with assigned carrier and rate
       const loadUpdate: Record<string, unknown> = {
         assigned_carrier_id: carrierId,
-        assigned_at: new Date().toISOString(),
+        carrier_assigned_at: new Date().toISOString(),
         posting_status: 'assigned',
+        load_status: 'pending', // Carrier needs to confirm
         is_marketplace_visible: false,
       };
 

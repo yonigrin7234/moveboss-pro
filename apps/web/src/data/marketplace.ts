@@ -1048,12 +1048,12 @@ export async function getCarrierAssignedLoads(carrierOwnerId: string): Promise<
 > {
   const supabase = await createClient();
 
-  // Get user's workspace company that can haul loads (is_carrier = true)
+  // Get user's workspace company - use same lookup as createLoadRequest
+  // (only requires is_workspace_company, not is_carrier)
   const { data: carrier } = await supabase
     .from('companies')
     .select('id')
     .eq('owner_id', carrierOwnerId)
-    .eq('is_carrier', true)
     .eq('is_workspace_company', true)
     .maybeSingle();
 
@@ -1070,13 +1070,13 @@ export async function getCarrierAssignedLoads(carrierOwnerId: string): Promise<
       delivery_city, delivery_state, delivery_postal_code,
       cubic_feet, cubic_feet_estimate, carrier_rate, carrier_rate_type,
       load_status, expected_load_date, assigned_driver_name,
-      carrier_confirmed_at,
+      carrier_confirmed_at, carrier_assigned_at,
       company:companies!loads_company_id_fkey(id, name)
     `
     )
     .eq('assigned_carrier_id', carrier.id)
     .not('load_status', 'eq', 'cancelled')
-    .order('carrier_assigned_at', { ascending: false });
+    .order('carrier_assigned_at', { ascending: false, nullsFirst: false });
 
   if (error) {
     console.error('Error fetching assigned loads:', error);
@@ -1162,12 +1162,12 @@ export async function getAssignedLoadDetails(
 } | null> {
   const supabase = await createClient();
 
-  // Get user's workspace company that can haul loads (is_carrier = true)
+  // Get user's workspace company - use same lookup as createLoadRequest
+  // (only requires is_workspace_company, not is_carrier)
   const { data: carrier } = await supabase
     .from('companies')
     .select('id')
     .eq('owner_id', carrierOwnerId)
-    .eq('is_carrier', true)
     .eq('is_workspace_company', true)
     .maybeSingle();
 
