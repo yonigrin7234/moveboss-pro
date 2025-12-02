@@ -163,6 +163,14 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
         icon: ClipboardCheck,
         section: "posting",
       })
+
+      // Loads Given Out - Loads assigned to external carriers
+      items.push({
+        label: "Loads Given Out",
+        href: "/dashboard/loads-given-out",
+        icon: Send,
+        section: "posting",
+      })
     }
 
     // Carrier section - only show when canHaulLoads

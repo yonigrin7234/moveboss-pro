@@ -1801,3 +1801,79 @@ export async function assignLoadToTrip(
 
   return { success: true };
 }
+
+// Types for loads given out
+export interface LoadGivenOut {
+  id: string;
+  load_number: string | null;
+  origin_city: string | null;
+  origin_state: string | null;
+  destination_city: string | null;
+  destination_state: string | null;
+  estimated_cuft: number | null;
+  carrier_rate: number | null;
+  load_status: string;
+  posting_status: string;
+  expected_load_date: string | null;
+  expected_delivery_date: string | null;
+  assigned_at: string | null;
+  carrier_confirmed_at: string | null;
+  carrier: {
+    id: string;
+    name: string;
+  } | null;
+}
+
+/**
+ * Get loads that the current user has given out to external carriers
+ * These are loads owned by the user that have been assigned to carriers via marketplace
+ */
+export async function getLoadsGivenOut(userId: string): Promise<LoadGivenOut[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('loads')
+    .select(`
+      id,
+      load_number,
+      origin_city,
+      origin_state,
+      destination_city,
+      destination_state,
+      estimated_cuft,
+      carrier_rate,
+      load_status,
+      posting_status,
+      expected_load_date,
+      expected_delivery_date,
+      assigned_at,
+      carrier_confirmed_at,
+      carrier:companies!loads_assigned_carrier_id_fkey(id, name)
+    `)
+    .eq('owner_id', userId)
+    .not('assigned_carrier_id', 'is', null)
+    .order('assigned_at', { ascending: false, nullsFirst: false });
+
+  if (error) {
+    console.error('Error fetching loads given out:', error);
+    return [];
+  }
+
+  return (data || []).map((load: any) => ({
+    id: load.id,
+    load_number: load.load_number,
+    origin_city: load.origin_city,
+    origin_state: load.origin_state,
+    destination_city: load.destination_city,
+    destination_state: load.destination_state,
+    estimated_cuft: load.estimated_cuft ? Number(load.estimated_cuft) : null,
+    carrier_rate: load.carrier_rate ? Number(load.carrier_rate) : null,
+    load_status: load.load_status || 'pending',
+    posting_status: load.posting_status || 'assigned',
+    expected_load_date: load.expected_load_date,
+    expected_delivery_date: load.expected_delivery_date,
+    assigned_at: load.assigned_at,
+    carrier_confirmed_at: load.carrier_confirmed_at,
+    carrier: Array.isArray(load.carrier) ? load.carrier[0] : load.carrier,
+  }));
+}
