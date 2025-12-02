@@ -1065,9 +1065,9 @@ export async function getCarrierAssignedLoads(carrierOwnerId: string): Promise<
     .select(
       `
       id, load_number,
-      origin_city, origin_state, origin_zip,
-      destination_city, destination_state, destination_zip,
-      estimated_cuft, carrier_rate, carrier_rate_type,
+      pickup_city, pickup_state, pickup_postal_code,
+      delivery_city, delivery_state, delivery_postal_code,
+      cubic_feet, carrier_rate, carrier_rate_type,
       load_status, expected_load_date, assigned_driver_name,
       carrier_confirmed_at,
       company:companies!loads_company_id_fkey(id, name)
@@ -1082,24 +1082,25 @@ export async function getCarrierAssignedLoads(carrierOwnerId: string): Promise<
     return [];
   }
 
-  return (data || []) as unknown as Array<{
-    id: string;
-    load_number: string;
-    origin_city: string;
-    origin_state: string;
-    origin_zip: string;
-    destination_city: string;
-    destination_state: string;
-    destination_zip: string;
-    estimated_cuft: number | null;
-    carrier_rate: number | null;
-    carrier_rate_type: string;
-    load_status: string;
-    expected_load_date: string | null;
-    assigned_driver_name: string | null;
-    carrier_confirmed_at: string | null;
-    company: { id: string; name: string } | null;
-  }>;
+  // Map DB field names to interface field names
+  return (data || []).map((load: any) => ({
+    id: load.id,
+    load_number: load.load_number,
+    origin_city: load.pickup_city || '',
+    origin_state: load.pickup_state || '',
+    origin_zip: load.pickup_postal_code || '',
+    destination_city: load.delivery_city || '',
+    destination_state: load.delivery_state || '',
+    destination_zip: load.delivery_postal_code || '',
+    estimated_cuft: load.cubic_feet ? Number(load.cubic_feet) : null,
+    carrier_rate: load.carrier_rate ? Number(load.carrier_rate) : null,
+    carrier_rate_type: load.carrier_rate_type || 'per_cuft',
+    load_status: load.load_status || 'pending',
+    expected_load_date: load.expected_load_date,
+    assigned_driver_name: load.assigned_driver_name,
+    carrier_confirmed_at: load.carrier_confirmed_at,
+    company: Array.isArray(load.company) ? load.company[0] : load.company,
+  }));
 }
 
 // Get single assigned load with full details (for carrier)
@@ -1177,15 +1178,15 @@ export async function getAssignedLoadDetails(
     .select(
       `
       id, load_number,
-      origin_city, origin_state, origin_zip,
-      origin_address, origin_address2,
-      origin_contact_name, origin_contact_phone, origin_contact_email,
-      origin_gate_code, origin_notes,
-      destination_city, destination_state, destination_zip,
-      destination_address, destination_address2,
-      destination_contact_name, destination_contact_phone, destination_contact_email,
-      destination_gate_code, destination_notes,
-      estimated_cuft, estimated_weight_lbs, pieces_count,
+      pickup_city, pickup_state, pickup_postal_code,
+      pickup_address_line1, pickup_address_line2,
+      pickup_contact_name, pickup_contact_phone, pickup_contact_email,
+      pickup_gate_code, pickup_notes,
+      delivery_city, delivery_state, delivery_postal_code,
+      delivery_address_line1, delivery_address_line2,
+      delivery_contact_name, delivery_contact_phone, delivery_contact_email,
+      delivery_gate_code, delivery_notes,
+      cubic_feet, weight_lbs_estimate, pieces_count,
       carrier_rate, carrier_rate_type,
       load_status, posting_status, expected_load_date,
       carrier_confirmed_at, carrier_assigned_at,
@@ -1204,48 +1205,50 @@ export async function getAssignedLoadDetails(
     return null;
   }
 
-  return data as unknown as {
-    id: string;
-    load_number: string;
-    origin_city: string;
-    origin_state: string;
-    origin_zip: string;
-    origin_address: string | null;
-    origin_address2: string | null;
-    origin_contact_name: string | null;
-    origin_contact_phone: string | null;
-    origin_contact_email: string | null;
-    origin_gate_code: string | null;
-    origin_notes: string | null;
-    destination_city: string;
-    destination_state: string;
-    destination_zip: string;
-    destination_address: string | null;
-    destination_address2: string | null;
-    destination_contact_name: string | null;
-    destination_contact_phone: string | null;
-    destination_contact_email: string | null;
-    destination_gate_code: string | null;
-    destination_notes: string | null;
-    estimated_cuft: number | null;
-    estimated_weight_lbs: number | null;
-    pieces_count: number | null;
-    carrier_rate: number | null;
-    carrier_rate_type: string;
-    load_status: string;
-    posting_status: string | null;
-    expected_load_date: string | null;
-    carrier_confirmed_at: string | null;
-    carrier_assigned_at: string | null;
-    loading_started_at: string | null;
-    loaded_at: string | null;
-    in_transit_at: string | null;
-    delivered_at: string | null;
-    assigned_driver_id: string | null;
-    assigned_driver_name: string | null;
-    assigned_driver_phone: string | null;
-    special_instructions: string | null;
-    company: { id: string; name: string; phone: string | null } | null;
+  // Map DB field names to interface field names
+  const load = data as any;
+  return {
+    id: load.id,
+    load_number: load.load_number,
+    origin_city: load.pickup_city || '',
+    origin_state: load.pickup_state || '',
+    origin_zip: load.pickup_postal_code || '',
+    origin_address: load.pickup_address_line1,
+    origin_address2: load.pickup_address_line2,
+    origin_contact_name: load.pickup_contact_name,
+    origin_contact_phone: load.pickup_contact_phone,
+    origin_contact_email: load.pickup_contact_email,
+    origin_gate_code: load.pickup_gate_code,
+    origin_notes: load.pickup_notes,
+    destination_city: load.delivery_city || '',
+    destination_state: load.delivery_state || '',
+    destination_zip: load.delivery_postal_code || '',
+    destination_address: load.delivery_address_line1,
+    destination_address2: load.delivery_address_line2,
+    destination_contact_name: load.delivery_contact_name,
+    destination_contact_phone: load.delivery_contact_phone,
+    destination_contact_email: load.delivery_contact_email,
+    destination_gate_code: load.delivery_gate_code,
+    destination_notes: load.delivery_notes,
+    estimated_cuft: load.cubic_feet ? Number(load.cubic_feet) : null,
+    estimated_weight_lbs: load.weight_lbs_estimate ? Number(load.weight_lbs_estimate) : null,
+    pieces_count: load.pieces_count ? Number(load.pieces_count) : null,
+    carrier_rate: load.carrier_rate ? Number(load.carrier_rate) : null,
+    carrier_rate_type: load.carrier_rate_type || 'per_cuft',
+    load_status: load.load_status || 'pending',
+    posting_status: load.posting_status,
+    expected_load_date: load.expected_load_date,
+    carrier_confirmed_at: load.carrier_confirmed_at,
+    carrier_assigned_at: load.carrier_assigned_at,
+    loading_started_at: load.loading_started_at,
+    loaded_at: load.loaded_at,
+    in_transit_at: load.in_transit_at,
+    delivered_at: load.delivered_at,
+    assigned_driver_id: load.assigned_driver_id,
+    assigned_driver_name: load.assigned_driver_name,
+    assigned_driver_phone: load.assigned_driver_phone,
+    special_instructions: load.special_instructions,
+    company: Array.isArray(load.company) ? load.company[0] : load.company,
   };
 }
 

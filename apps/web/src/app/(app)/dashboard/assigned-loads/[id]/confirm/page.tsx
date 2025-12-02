@@ -129,9 +129,12 @@ export default async function ConfirmLoadPage({ params }: PageProps) {
   }
 
   const company = Array.isArray(load.company) ? load.company[0] : load.company;
+
+  // Map DB fields to display - DB uses pickup_*/delivery_*/cubic_feet
+  const cuft = load.cubic_feet || load.estimated_cuft;
   const totalValue =
-    load.carrier_rate && load.estimated_cuft
-      ? load.carrier_rate * load.estimated_cuft
+    load.carrier_rate && cuft
+      ? load.carrier_rate * cuft
       : null;
 
   return (
@@ -168,19 +171,19 @@ export default async function ConfirmLoadPage({ params }: PageProps) {
 
           <div className="flex items-center gap-2 mb-3">
             <p className="font-semibold text-lg">
-              {load.origin_city}, {load.origin_state} {load.origin_zip}
+              {load.pickup_city || load.origin_city}, {load.pickup_state || load.origin_state} {load.pickup_postal_code || load.origin_zip}
             </p>
             <ArrowRight className="h-4 w-4 text-muted-foreground" />
             <p className="font-semibold text-lg">
-              {load.destination_city}, {load.destination_state}{' '}
-              {load.destination_zip}
+              {load.delivery_city || load.destination_city}, {load.delivery_state || load.destination_state}{' '}
+              {load.delivery_postal_code || load.destination_zip}
             </p>
           </div>
 
           <div className="flex items-center gap-4 text-sm">
             <span className="flex items-center gap-1">
               <Package className="h-4 w-4 text-muted-foreground" />
-              {load.estimated_cuft} CUFT
+              {cuft} CUFT
             </span>
             <span className="flex items-center gap-1 text-green-500 font-semibold">
               <DollarSign className="h-4 w-4" />$
