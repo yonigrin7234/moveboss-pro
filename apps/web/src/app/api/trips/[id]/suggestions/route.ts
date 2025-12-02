@@ -76,18 +76,28 @@ export async function GET(
       .from('trips')
       .select(`
         id,
+        owner_id,
         origin_city, origin_state, origin_postal_code,
         destination_city, destination_state, destination_postal_code,
         truck:trucks(id, cubic_capacity),
         trailer:trailers(id, capacity_cuft)
       `)
       .eq('id', tripId)
-      .eq('owner_id', user.id)
       .single();
 
     if (tripError || !trip) {
+      console.error('Trip suggestions: Trip not found', { tripId, tripError });
       return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
     }
+
+    // Log ownership info for debugging
+    console.log('Trip suggestions debug:', {
+      tripId,
+      tripOwnerId: trip.owner_id,
+      userId: user.id,
+      userCompanyId,
+      ownerMatch: trip.owner_id === user.id,
+    });
 
     // Geocode trip origin and destination
     const [originResult, destResult] = await Promise.all([
@@ -262,6 +272,13 @@ export async function GET(
       },
       maxDetour,
       suggestions,
+      // Debug info
+      _debug: {
+        userId: user.id,
+        tripOwnerId: trip.owner_id,
+        userCompanyId,
+        marketplaceLoadsFound: marketplaceLoads?.length || 0,
+      },
     });
   } catch (error) {
     console.error('Error in trip suggestions:', error);
