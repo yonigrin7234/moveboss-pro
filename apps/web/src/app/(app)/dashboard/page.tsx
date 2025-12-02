@@ -135,13 +135,31 @@ export default async function DashboardPage() {
 
   // Fetch company to determine dashboard mode
   const supabase = await createClient();
-  const { data: company } = await supabase
+  const { data: company, error: companyError } = await supabase
     .from('companies')
     .select('id, is_carrier, is_broker')
     .eq('owner_id', user.id)
+    .eq('is_workspace_company', true)
     .single();
 
+  // Debug logging
+  console.log('[Dashboard] Company query result:', {
+    company,
+    companyError,
+    user_id: user.id,
+  });
+
+  if (companyError) {
+    console.error('[Dashboard] Error fetching company:', companyError);
+  }
+
   const mode: DashboardMode = getDashboardMode(company || {});
+
+  console.log('[Dashboard] Computed mode:', {
+    mode,
+    is_carrier: company?.is_carrier,
+    is_broker: company?.is_broker,
+  });
 
   try {
     const promises: Promise<any>[] = [
