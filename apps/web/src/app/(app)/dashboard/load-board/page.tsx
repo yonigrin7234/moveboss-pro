@@ -178,18 +178,21 @@ function LoadCard({ load }: { load: MarketplaceLoad }) {
     <Link href={`/dashboard/load-board/${load.id}`}>
       <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
         <CardContent className="p-4">
-          {/* Type Badge & Route */}
-          <div className="flex items-start justify-between mb-3">
+          {/* Type Badge, Load # & Route */}
+          <div className="flex items-start justify-between mb-2">
             <div className="flex items-center gap-2 flex-wrap">
               <LoadTypeBadge load={load} />
-              <span className="text-lg font-semibold">
-                {load.origin_city}, {load.origin_state} {load.origin_zip}
-              </span>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
-              <span className="text-lg font-semibold">
-                {load.destination_city}, {load.destination_state} {load.destination_zip}
-              </span>
+              <span className="font-mono text-sm text-muted-foreground">{load.load_number}</span>
             </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            <span className="text-lg font-semibold">
+              {load.origin_city}, {load.origin_state} {load.origin_zip}
+            </span>
+            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            <span className="text-lg font-semibold">
+              {load.destination_city}, {load.destination_state} {load.destination_zip}
+            </span>
           </div>
 
           {/* Company Info */}
@@ -321,7 +324,7 @@ export default async function LoadBoardPage({ searchParams }: PageProps) {
 
   const [loads, counts] = await Promise.all([
     getMarketplaceLoads(filters),
-    getMarketplaceLoadCounts(),
+    getMarketplaceLoadCounts(workspaceCompany.id),
   ]);
 
   // Count active filters (excluding type)

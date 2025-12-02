@@ -54,6 +54,7 @@ interface CarrierRequest {
     pickup_state: string | null;
     delivery_city: string | null;
     delivery_state: string | null;
+    cubic_feet: number | null;
     cubic_feet_estimate: number | null;
     balance_due: number | null;
     linehaul_amount: number | null;
@@ -156,9 +157,9 @@ function RequestCard({ request, balance }: { request: CarrierRequest; balance?: 
   const hasDot = carrier.dot_number && carrier.dot_number.trim() !== '';
   const hasMc = carrier.mc_number && carrier.mc_number.trim() !== '';
 
-  // Posted rate info
+  // Posted rate info - use cubic_feet if set, otherwise cubic_feet_estimate
   const postedRatePerCuft = load.rate_per_cuft;
-  const cuft = load.cubic_feet_estimate || 0;
+  const cuft = load.cubic_feet || load.cubic_feet_estimate || 0;
   const postedLinehaul = postedRatePerCuft && cuft ? postedRatePerCuft * cuft : (load.posting_type === 'pickup' ? load.balance_due : load.linehaul_amount);
 
   // Offered rate - check request_type and counter_offer_rate
@@ -245,7 +246,7 @@ function RequestCard({ request, balance }: { request: CarrierRequest; balance?: 
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Package className="h-4 w-4" />
-              <span>{load.cubic_feet_estimate ? `${load.cubic_feet_estimate.toLocaleString()} CF` : '-'}</span>
+              <span>{cuft ? `${cuft.toLocaleString()} CF` : '-'}</span>
             </div>
           </div>
 
@@ -342,7 +343,7 @@ export default async function CarrierRequestsPage() {
       load:load_id(
         id, load_number, load_type, posting_type, owner_id,
         pickup_city, pickup_state, delivery_city, delivery_state,
-        cubic_feet_estimate, balance_due, linehaul_amount, company_rate, rate_per_cuft
+        cubic_feet, cubic_feet_estimate, balance_due, linehaul_amount, company_rate, rate_per_cuft
       )
     `)
     .order('created_at', { ascending: false });

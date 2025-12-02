@@ -369,7 +369,7 @@ export async function getMarketplaceLoads(filters?: {
 }
 
 // Get counts for load board tabs
-export async function getMarketplaceLoadCounts(): Promise<{
+export async function getMarketplaceLoadCounts(excludeCompanyId?: string): Promise<{
   all: number;
   pickups: number;
   loads: number;
@@ -377,30 +377,42 @@ export async function getMarketplaceLoadCounts(): Promise<{
   const supabase = await createClient();
 
   // Get total count - use posting_status='posted' (the actual DB column)
-  const { count: allCount } = await supabase
+  let allQuery = supabase
     .from('loads')
     .select('*', { count: 'exact', head: true })
     .eq('is_marketplace_visible', true)
     .eq('posting_status', 'posted')
     .is('assigned_carrier_id', null);
+  if (excludeCompanyId) {
+    allQuery = allQuery.neq('posted_by_company_id', excludeCompanyId);
+  }
+  const { count: allCount } = await allQuery;
 
   // Get pickup count
-  const { count: pickupCount } = await supabase
+  let pickupQuery = supabase
     .from('loads')
     .select('*', { count: 'exact', head: true })
     .eq('is_marketplace_visible', true)
     .eq('posting_status', 'posted')
     .is('assigned_carrier_id', null)
     .eq('posting_type', 'pickup');
+  if (excludeCompanyId) {
+    pickupQuery = pickupQuery.neq('posted_by_company_id', excludeCompanyId);
+  }
+  const { count: pickupCount } = await pickupQuery;
 
   // Get load count
-  const { count: loadCount } = await supabase
+  let loadQuery = supabase
     .from('loads')
     .select('*', { count: 'exact', head: true })
     .eq('is_marketplace_visible', true)
     .eq('posting_status', 'posted')
     .is('assigned_carrier_id', null)
     .eq('posting_type', 'load');
+  if (excludeCompanyId) {
+    loadQuery = loadQuery.neq('posted_by_company_id', excludeCompanyId);
+  }
+  const { count: loadCount } = await loadQuery;
 
   return {
     all: allCount || 0,
