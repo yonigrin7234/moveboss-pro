@@ -6,6 +6,45 @@ import { revalidatePath } from 'next/cache';
 import { randomBytes } from 'crypto';
 import type { PermissionKey, PermissionPreset } from '@/lib/permissions';
 
+// Helper to get user's company - checks workspace company (owner) or membership (team member)
+async function getUserCompanyId(userId: string): Promise<{ companyId: string | null; isAdmin: boolean }> {
+  const supabase = await createClient();
+
+  // First check if user owns a workspace company
+  const { data: ownedCompany } = await supabase
+    .from('companies')
+    .select('id')
+    .eq('owner_id', userId)
+    .eq('is_workspace_company', true)
+    .maybeSingle();
+
+  if (ownedCompany) {
+    // Company owners are always admins
+    return { companyId: ownedCompany.id, isAdmin: true };
+  }
+
+  // Check company_memberships for team members
+  const { data: membership } = await supabase
+    .from('company_memberships')
+    .select('company_id')
+    .eq('user_id', userId)
+    .eq('is_primary', true)
+    .maybeSingle();
+
+  if (membership?.company_id) {
+    // Check if user is admin via profiles
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', userId)
+      .single();
+
+    return { companyId: membership.company_id, isAdmin: profile?.is_admin === true };
+  }
+
+  return { companyId: null, isAdmin: false };
+}
+
 export interface TeamMember {
   id: string;
   email: string;
@@ -46,18 +85,41 @@ export async function getTeamMembers(): Promise<{ members: TeamMember[]; error?:
     return { members: [], error: 'Not authenticated' };
   }
 
-  // Get user's company_id from profile
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('company_id, is_admin')
-    .eq('id', user.id)
-    .single();
+  // Get user's company using workspace company model
+  const { companyId } = await getUserCompanyId(user.id);
 
-  if (!profile?.company_id) {
+  if (!companyId) {
     return { members: [], error: 'No company found' };
   }
 
-  // Get all team members for this company
+  // Get all team members via company_memberships
+  const { data: memberships, error: membershipError } = await supabase
+    .from('company_memberships')
+    .select('user_id')
+    .eq('company_id', companyId);
+
+  if (membershipError) {
+    return { members: [], error: membershipError.message };
+  }
+
+  const userIds = memberships?.map(m => m.user_id) || [];
+
+  // Also include the company owner
+  const { data: company } = await supabase
+    .from('companies')
+    .select('owner_id')
+    .eq('id', companyId)
+    .single();
+
+  if (company?.owner_id && !userIds.includes(company.owner_id)) {
+    userIds.push(company.owner_id);
+  }
+
+  if (userIds.length === 0) {
+    return { members: [] };
+  }
+
+  // Get profile details for all team members
   const { data: members, error } = await supabase
     .from('profiles')
     .select(`
@@ -80,7 +142,7 @@ export async function getTeamMembers(): Promise<{ members: TeamMember[]; error?:
       invited_at,
       invited_by
     `)
-    .eq('company_id', profile.company_id)
+    .in('id', userIds)
     .order('is_admin', { ascending: false })
     .order('created_at', { ascending: true });
 
@@ -88,7 +150,13 @@ export async function getTeamMembers(): Promise<{ members: TeamMember[]; error?:
     return { members: [], error: error.message };
   }
 
-  return { members: members || [] };
+  // Mark company owner as admin
+  const membersWithOwnerFlag = (members || []).map(m => ({
+    ...m,
+    is_admin: m.id === company?.owner_id ? true : m.is_admin,
+  }));
+
+  return { members: membersWithOwnerFlag };
 }
 
 // Get pending invitations for the current user's company
@@ -100,20 +168,18 @@ export async function getPendingInvitations(): Promise<{ invitations: PendingInv
     return { invitations: [], error: 'Not authenticated' };
   }
 
-  // Get user's company_id
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('company_id, is_admin')
-    .eq('id', user.id)
-    .single();
+  // Get user's company using workspace company model
+  const { companyId, isAdmin } = await getUserCompanyId(user.id);
 
-  if (!profile?.company_id) {
+  if (!companyId) {
     return { invitations: [], error: 'No company found' };
   }
 
-  if (!profile.is_admin) {
+  if (!isAdmin) {
     return { invitations: [], error: 'Not authorized' };
   }
+
+  const profile = { company_id: companyId };
 
   // Get pending invitations (not yet accepted, not expired)
   const { data: invitations, error } = await supabase
@@ -167,20 +233,18 @@ export async function inviteTeamMember(
     return { success: false, error: 'Not authenticated' };
   }
 
-  // Check if user is admin
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('company_id, is_admin')
-    .eq('id', user.id)
-    .single();
+  // Get user's company using workspace company model
+  const { companyId, isAdmin } = await getUserCompanyId(user.id);
 
-  if (!profile?.company_id) {
+  if (!companyId) {
     return { success: false, error: 'No company found' };
   }
 
-  if (!profile.is_admin) {
+  if (!isAdmin) {
     return { success: false, error: 'Only admins can invite team members' };
   }
+
+  const profile = { company_id: companyId };
 
   // Check if user is already a member
   const { data: existingMember } = await supabase
@@ -250,38 +314,42 @@ export async function updateMemberPermissions(
     return { success: false, error: 'Not authenticated' };
   }
 
-  // Check if user is admin
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('company_id, is_admin')
-    .eq('id', user.id)
-    .single();
+  // Get user's company using workspace company model
+  const { companyId, isAdmin } = await getUserCompanyId(user.id);
 
-  if (!profile?.company_id || !profile.is_admin) {
+  if (!companyId || !isAdmin) {
     return { success: false, error: 'Not authorized' };
   }
 
-  // Make sure member belongs to same company
-  const { data: member } = await supabase
-    .from('profiles')
-    .select('company_id, is_admin')
-    .eq('id', memberId)
-    .single();
+  // Make sure member belongs to same company (via membership or ownership)
+  const { data: memberCompany } = await supabase
+    .from('companies')
+    .select('id')
+    .eq('id', companyId)
+    .eq('owner_id', memberId)
+    .maybeSingle();
 
-  if (!member || member.company_id !== profile.company_id) {
+  const { data: memberMembership } = await supabase
+    .from('company_memberships')
+    .select('company_id')
+    .eq('user_id', memberId)
+    .eq('company_id', companyId)
+    .maybeSingle();
+
+  if (!memberCompany && !memberMembership) {
     return { success: false, error: 'Member not found' };
   }
 
-  // Don't allow demoting yourself if you're the only admin
-  if (memberId === user.id && !permissions.can_post_pickups) {
-    const { count } = await supabase
-      .from('profiles')
-      .select('*', { count: 'exact', head: true })
-      .eq('company_id', profile.company_id)
-      .eq('is_admin', true);
+  // Don't allow demoting yourself if you're the company owner
+  if (memberId === user.id) {
+    const { data: company } = await supabase
+      .from('companies')
+      .select('owner_id')
+      .eq('id', companyId)
+      .single();
 
-    if (count === 1) {
-      return { success: false, error: 'Cannot demote the only admin' };
+    if (company?.owner_id === user.id) {
+      return { success: false, error: 'Cannot change permissions for the company owner' };
     }
   }
 
@@ -320,14 +388,10 @@ export async function removeTeamMember(memberId: string): Promise<{ success: boo
     return { success: false, error: 'Not authenticated' };
   }
 
-  // Check if user is admin
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('company_id, is_admin')
-    .eq('id', user.id)
-    .single();
+  // Get user's company using workspace company model
+  const { companyId, isAdmin } = await getUserCompanyId(user.id);
 
-  if (!profile?.company_id || !profile.is_admin) {
+  if (!companyId || !isAdmin) {
     return { success: false, error: 'Not authorized' };
   }
 
@@ -336,22 +400,44 @@ export async function removeTeamMember(memberId: string): Promise<{ success: boo
     return { success: false, error: 'Cannot remove yourself from the team' };
   }
 
-  // Make sure member belongs to same company
-  const { data: member } = await supabase
-    .from('profiles')
-    .select('company_id')
-    .eq('id', memberId)
+  // Can't remove the company owner
+  const { data: company } = await supabase
+    .from('companies')
+    .select('owner_id')
+    .eq('id', companyId)
     .single();
 
-  if (!member || member.company_id !== profile.company_id) {
+  if (company?.owner_id === memberId) {
+    return { success: false, error: 'Cannot remove the company owner' };
+  }
+
+  // Make sure member belongs to same company (via membership)
+  const { data: membership } = await supabase
+    .from('company_memberships')
+    .select('id')
+    .eq('user_id', memberId)
+    .eq('company_id', companyId)
+    .maybeSingle();
+
+  if (!membership) {
     return { success: false, error: 'Member not found' };
   }
 
-  // Remove from company by setting company_id to null
+  // Remove membership
+  const { error: deleteError } = await supabase
+    .from('company_memberships')
+    .delete()
+    .eq('user_id', memberId)
+    .eq('company_id', companyId);
+
+  if (deleteError) {
+    return { success: false, error: deleteError.message };
+  }
+
+  // Reset profile permissions
   const { error: updateError } = await supabase
     .from('profiles')
     .update({
-      company_id: null,
       is_admin: false,
       permission_preset: null,
       can_post_pickups: false,
@@ -367,7 +453,8 @@ export async function removeTeamMember(memberId: string): Promise<{ success: boo
     .eq('id', memberId);
 
   if (updateError) {
-    return { success: false, error: updateError.message };
+    console.error('Error resetting profile permissions:', updateError);
+    // Don't fail - membership was already removed
   }
 
   revalidatePath('/dashboard/settings/team');
@@ -383,14 +470,10 @@ export async function cancelInvitation(invitationId: string): Promise<{ success:
     return { success: false, error: 'Not authenticated' };
   }
 
-  // Check if user is admin
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('company_id, is_admin')
-    .eq('id', user.id)
-    .single();
+  // Get user's company using workspace company model
+  const { companyId, isAdmin } = await getUserCompanyId(user.id);
 
-  if (!profile?.company_id || !profile.is_admin) {
+  if (!companyId || !isAdmin) {
     return { success: false, error: 'Not authorized' };
   }
 
@@ -399,7 +482,7 @@ export async function cancelInvitation(invitationId: string): Promise<{ success:
     .from('team_invitations')
     .delete()
     .eq('id', invitationId)
-    .eq('company_id', profile.company_id);
+    .eq('company_id', companyId);
 
   if (deleteError) {
     return { success: false, error: deleteError.message };
@@ -418,14 +501,10 @@ export async function resendInvitation(invitationId: string): Promise<{ success:
     return { success: false, error: 'Not authenticated' };
   }
 
-  // Check if user is admin
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('company_id, is_admin')
-    .eq('id', user.id)
-    .single();
+  // Get user's company using workspace company model
+  const { companyId, isAdmin } = await getUserCompanyId(user.id);
 
-  if (!profile?.company_id || !profile.is_admin) {
+  if (!companyId || !isAdmin) {
     return { success: false, error: 'Not authorized' };
   }
 
@@ -441,7 +520,7 @@ export async function resendInvitation(invitationId: string): Promise<{ success:
       expires_at: expiresAt.toISOString(),
     })
     .eq('id', invitationId)
-    .eq('company_id', profile.company_id);
+    .eq('company_id', companyId);
 
   if (updateError) {
     return { success: false, error: updateError.message };
@@ -576,16 +655,10 @@ export async function acceptInvitation(token: string): Promise<{ success: boolea
 
 // Check if current user is admin
 export async function checkIsAdmin(): Promise<boolean> {
-  const supabase = await createClient();
   const user = await getCurrentUser();
 
   if (!user) return false;
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('is_admin')
-    .eq('id', user.id)
-    .single();
-
-  return profile?.is_admin === true;
+  const { isAdmin } = await getUserCompanyId(user.id);
+  return isAdmin;
 }
