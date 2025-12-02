@@ -571,7 +571,8 @@ export async function getLoadRequests(loadId: string): Promise<LoadRequest[]> {
       *,
       carrier:companies!load_requests_carrier_id_fkey(
         id, name, city, state, mc_number, dot_number,
-        platform_loads_completed, platform_rating
+        platform_loads_completed, platform_rating,
+        loads_given_back, loads_accepted_total
       )
     `)
     .eq('load_id', loadId)
