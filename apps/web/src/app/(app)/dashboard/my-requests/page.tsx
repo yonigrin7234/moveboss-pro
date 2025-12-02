@@ -100,6 +100,10 @@ function RequestCard({ request, withdrawAction }: RequestCardProps) {
   const status = statusConfig[request.status] || statusConfig.pending;
   const StatusIcon = status.icon;
   const load = request.load;
+
+  // Safety check - skip rendering if load data is missing
+  if (!load) return null;
+
   const company = Array.isArray(load.company) ? load.company[0] : load.company;
   const isPending = request.status === 'pending';
   const isVerified = company?.fmcsa_verified === true;

@@ -1302,7 +1302,7 @@ export async function getCarrierRequests(
   const supabase = await createClient();
 
   // Use correct DB column names: pickup_*, delivery_*, cubic_feet_estimate
-  // Use load_id foreign key syntax (same as carrier-requests page)
+  // Use explicit foreign key syntax to ensure joins work correctly
   const { data, error } = await supabase
     .from('load_requests')
     .select(
@@ -1318,12 +1318,12 @@ export async function getCarrierRequests(
       proposed_load_date_end,
       proposed_delivery_date_start,
       proposed_delivery_date_end,
-      load:load_id(
+      load:loads!load_requests_load_id_fkey(
         id, load_number,
         pickup_city, pickup_state, pickup_zip,
         delivery_city, delivery_state, delivery_postal_code,
         cubic_feet_estimate, rate_per_cuft, company_rate, company_rate_type,
-        company:company_id(id, name, fmcsa_verified)
+        company:companies!loads_company_id_fkey(id, name, fmcsa_verified)
       )
     `
     )
