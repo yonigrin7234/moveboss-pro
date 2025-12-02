@@ -695,6 +695,7 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
 
             {respondedRequests.map((request) => {
               const isAccepted = request.status === 'accepted';
+              const isWithdrawn = request.status === 'withdrawn';
 
               return (
                 <Card key={request.id} className="opacity-60">
@@ -719,13 +720,20 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
                         className={
                           isAccepted
                             ? 'bg-green-500/20 text-green-500'
-                            : 'bg-red-500/20 text-red-500'
+                            : isWithdrawn
+                              ? 'bg-gray-500/20 text-gray-500'
+                              : 'bg-red-500/20 text-red-500'
                         }
                       >
                         {isAccepted ? (
                           <>
                             <CheckCircle2 className="h-3 w-3 mr-1" />
                             Accepted
+                          </>
+                        ) : isWithdrawn ? (
+                          <>
+                            <XCircle className="h-3 w-3 mr-1" />
+                            Withdrawn
                           </>
                         ) : (
                           <>

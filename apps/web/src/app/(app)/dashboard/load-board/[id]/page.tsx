@@ -152,7 +152,10 @@ export default async function LoadDetailPage({ params }: PageProps) {
 
   const hasExistingRequest = load.my_request_status === 'pending';
   const requestAccepted = load.my_request_status === 'accepted';
-  const requestDeclined = load.my_request_status === 'declined' || load.my_request_status === 'withdrawn';
+  const requestDeclined = load.my_request_status === 'declined';
+  const requestWithdrawn = load.my_request_status === 'withdrawn';
+  // Carriers can re-request after withdrawing their own request
+  const canRequestAgain = requestWithdrawn;
 
   return (
     <div className="space-y-6">
@@ -597,11 +600,9 @@ export default async function LoadDetailPage({ params }: PageProps) {
             <Card className="border-red-500/30 bg-red-500/5">
               <CardContent className="p-6 text-center">
                 <XCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Request {load.my_request_status === 'withdrawn' ? 'Withdrawn' : 'Declined'}</h3>
+                <h3 className="text-lg font-semibold mb-2">Request Declined</h3>
                 <p className="text-sm text-muted-foreground">
-                  {load.my_request_status === 'withdrawn'
-                    ? 'You withdrew your request for this load.'
-                    : 'Your request was not accepted for this load.'}
+                  Your request was not accepted for this load.
                 </p>
               </CardContent>
             </Card>
