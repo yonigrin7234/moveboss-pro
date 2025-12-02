@@ -338,6 +338,7 @@ export default async function CarrierRequestsPage() {
 
   // Get requests on loads posted by this user
   // Include owner_id so we can filter to only the user's loads
+  // Use explicit foreign key syntax for the carrier join to ensure it works correctly
   const { data: requests, error } = await supabase
     .from('load_requests')
     .select(`
@@ -345,8 +346,8 @@ export default async function CarrierRequestsPage() {
       accepted_company_rate, message, created_at,
       proposed_load_date_start, proposed_load_date_end,
       proposed_delivery_date_start, proposed_delivery_date_end,
-      carrier:carrier_id(id, name, city, state, mc_number, dot_number, fmcsa_verified, platform_rating, platform_loads_completed),
-      load:load_id(
+      carrier:companies!load_requests_carrier_id_fkey(id, name, city, state, mc_number, dot_number, fmcsa_verified, platform_rating, platform_loads_completed),
+      load:loads!load_requests_load_id_fkey(
         id, load_number, load_type, posting_type, owner_id,
         pickup_city, pickup_state, pickup_zip,
         delivery_city, delivery_state, delivery_postal_code,
