@@ -608,7 +608,7 @@ export function TripPlannerMap({
                         eventHandlers={{
                           click: () => {
                             setSelectedLoad(marker.load);
-                            onLoadClick?.(marker.load);
+                            // Don't navigate on marker click - let user click "View Details" button in popup
                           },
                         }}
                       >
