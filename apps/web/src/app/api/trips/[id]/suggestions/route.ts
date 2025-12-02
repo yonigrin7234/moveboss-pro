@@ -156,7 +156,7 @@ export async function GET(
         balance_due
       `)
       .eq('is_marketplace_visible', true)
-      .eq('load_status', 'pending')
+      .eq('posting_status', 'posted')
       .is('assigned_carrier_id', null);
 
     // Filter out user's own company's loads
