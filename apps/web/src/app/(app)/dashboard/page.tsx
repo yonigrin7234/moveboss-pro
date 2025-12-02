@@ -227,7 +227,7 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="max-w-7xl w-full mx-auto px-6 space-y-4 pt-4">
+    <div className="max-w-7xl w-full mx-auto px-6 space-y-6 pt-4">
       <div className="space-y-1 pb-2">
         <h2 className="text-2xl font-semibold text-foreground tracking-tight">
           Welcome back
@@ -259,7 +259,7 @@ export default async function DashboardPage() {
       <StatRow mode={mode} data={statData} />
 
       {/* Status Widgets - Conditional */}
-      <div className="grid gap-4 md:grid-cols-2 pt-3 border-t border-border/30">
+      <div className="grid gap-4 md:grid-cols-2 pt-4 border-t border-border/50">
         {verificationState && (
           <VerificationStatusWidget state={verificationState} />
         )}
@@ -275,7 +275,7 @@ export default async function DashboardPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Recent Companies Widget */}
-        <Card className="lg:col-span-2 h-full rounded-lg">
+        <Card className="lg:col-span-2 h-full rounded-xl">
           <CardHeader className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between py-3 px-4">
             <div>
               <CardTitle className="text-base tracking-tight">
@@ -340,7 +340,7 @@ export default async function DashboardPage() {
 
         {/* Driver Roster Widget - Only show if has fleet */}
         {mode !== 'broker' && (
-          <Card className="h-full rounded-lg">
+          <Card className="h-full rounded-xl">
             <CardHeader className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between py-3 px-4">
               <div>
                 <CardTitle className="text-base tracking-tight">Driver roster</CardTitle>
@@ -397,7 +397,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Recent Activity Widget */}
-      <Card className="rounded-lg">
+      <Card className="rounded-xl">
         <CardHeader className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between py-3 px-4">
           <div>
             <CardTitle className="text-base tracking-tight flex items-center gap-2">

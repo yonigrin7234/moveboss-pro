@@ -94,7 +94,7 @@ export function TodaysFocus({ mode, items }: TodaysFocusProps) {
     const brokerItems = items.filter(isBrokerItem);
 
     return (
-      <Card className="rounded-lg">
+      <Card className="rounded-xl">
         <CardHeader className="py-3 px-4">
           <div className="flex items-center justify-between">
             <div>
@@ -113,7 +113,7 @@ export function TodaysFocus({ mode, items }: TodaysFocusProps) {
             {/* My Jobs Subsection */}
             <div className="space-y-2">
               <div className="flex items-center gap-2 px-1">
-                <h4 className="text-xs font-medium text-foreground tracking-tight">My Jobs</h4>
+                <h4 className="text-xs font-semibold text-foreground tracking-tight">My Jobs</h4>
                 <span className="text-[10px] text-muted-foreground">Jobs my trucks are running</span>
               </div>
               {fleetItems.length === 0 ? (
@@ -160,9 +160,9 @@ export function TodaysFocus({ mode, items }: TodaysFocusProps) {
             </div>
 
             {/* Posted Jobs Subsection */}
-            <div className="space-y-2 pt-2 border-t border-border/30">
+            <div className="space-y-2 pt-4 border-t border-border/50">
               <div className="flex items-center gap-2 px-1">
-                <h4 className="text-xs font-medium text-foreground tracking-tight">Posted Jobs</h4>
+                <h4 className="text-xs font-semibold text-foreground tracking-tight">Posted Jobs</h4>
                 <span className="text-[10px] text-muted-foreground">Jobs available for other carriers</span>
               </div>
               {brokerItems.length === 0 ? (
@@ -216,7 +216,7 @@ export function TodaysFocus({ mode, items }: TodaysFocusProps) {
   // Carrier and Broker modes - single list
   if (visibleItems.length === 0) {
     return (
-      <Card className="rounded-lg">
+      <Card className="rounded-xl">
         <CardHeader className="py-3 px-4">
           <CardTitle className="text-base tracking-tight">Today's Focus</CardTitle>
           <p className="text-[11.5px] text-muted-foreground">
@@ -237,7 +237,7 @@ export function TodaysFocus({ mode, items }: TodaysFocusProps) {
   }
 
   return (
-    <Card className="rounded-lg">
+    <Card className="rounded-xl">
       <CardHeader className="py-3 px-4">
         <div className="flex items-center justify-between">
           <div>

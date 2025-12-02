@@ -93,8 +93,8 @@ export function StatRow({ mode, data }: StatRowProps) {
       {/* My Jobs Overview Section */}
       <div className="space-y-3">
         <div>
-          <h3 className="text-sm font-medium text-foreground tracking-tight">My Jobs Overview</h3>
-          <p className="text-xs text-muted-foreground/70 mt-0.5">
+          <h3 className="text-sm font-semibold text-foreground tracking-tight">My Jobs Overview</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
             Stats for jobs my trucks are running
           </p>
         </div>
@@ -131,10 +131,10 @@ export function StatRow({ mode, data }: StatRowProps) {
       </div>
 
       {/* Posted Jobs Overview Section */}
-      <div className="space-y-3 pt-3 border-t border-border/30">
+      <div className="space-y-3 pt-4 border-t border-border/50">
         <div>
-          <h3 className="text-sm font-medium text-foreground tracking-tight">Posted Jobs Overview</h3>
-          <p className="text-xs text-muted-foreground/70 mt-0.5">
+          <h3 className="text-sm font-semibold text-foreground tracking-tight">Posted Jobs Overview</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
             Stats for jobs available to other carriers
           </p>
         </div>

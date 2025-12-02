@@ -25,15 +25,15 @@ export function StatCard({
   trend,
 }: StatCardProps) {
   const content = (
-    <CardContent className="p-4">
-      <div className="flex items-start justify-between">
+    <CardContent className="p-5">
+      <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
-          <p className="text-3xl font-semibold text-foreground tracking-tight">{value}</p>
+          <p className="text-3xl font-bold text-foreground tracking-tight">{value}</p>
           {trend && (
-            <div className="flex items-center gap-1 mt-1">
+            <div className="flex items-center gap-1 mt-1.5">
               <span
                 className={cn(
-                  'text-xs font-medium',
+                  'text-xs font-semibold',
                   trend.positive ? 'text-success' : 'text-destructive'
                 )}
               >
@@ -44,21 +44,21 @@ export function StatCard({
           )}
         </div>
         {Icon && (
-          <div className="p-2 rounded-lg bg-primary/10">
+          <div className="p-2.5 rounded-xl bg-primary/10 ring-1 ring-primary/20">
             <Icon className="h-5 w-5 text-primary" />
           </div>
         )}
       </div>
-      <div className="border-t border-border/40 mt-3 pt-3">
+      <div className="border-t border-border/50 pt-3">
         <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wide">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide truncate">
               {label}
             </p>
-            <p className="text-[11px] text-muted-foreground/70 mt-0.5">{description}</p>
+            <p className="text-xs text-muted-foreground/70 mt-0.5 truncate">{description}</p>
           </div>
           {href && (
-            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            <ArrowRight className="h-4 w-4 ml-2 text-muted-foreground/70 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
           )}
         </div>
       </div>
@@ -67,8 +67,8 @@ export function StatCard({
 
   if (href) {
     return (
-      <Link href={href} className="block">
-        <Card className="group h-full rounded-lg hover:shadow-lg hover:border-primary/50 transition-all hover:-translate-y-0.5 cursor-pointer">
+      <Link href={href} className="block h-full">
+        <Card className="group h-full rounded-xl border-border bg-card shadow-sm hover:shadow-md hover:border-primary/50 transition-all duration-200 hover:-translate-y-1 cursor-pointer">
           {content}
         </Card>
       </Link>
@@ -76,7 +76,7 @@ export function StatCard({
   }
 
   return (
-    <Card className="h-full rounded-lg">
+    <Card className="h-full rounded-xl border-border bg-card shadow-sm">
       {content}
     </Card>
   );

@@ -24,18 +24,18 @@ interface QuickActionsProps {
 
 function QuickActionButton({ label, href, icon: Icon }: QuickAction) {
   return (
-    <Button
-      asChild
-      variant="secondary"
-      className="h-auto flex-col items-start gap-2 p-4 transition-all hover:scale-[1.02] hover:shadow-md"
-    >
-      <Link href={href}>
-        <div className="flex items-center gap-2 w-full">
-          <Icon className="h-4 w-4" />
-          <span className="font-medium text-sm">{label}</span>
+    <Link href={href} className="block">
+      <div className="group h-full rounded-xl border border-border bg-card p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/50 hover:-translate-y-0.5 cursor-pointer">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10 ring-1 ring-primary/20 group-hover:bg-primary/15 transition-colors">
+            <Icon className="h-4 w-4 text-primary" />
+          </div>
+          <span className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
+            {label}
+          </span>
         </div>
-      </Link>
-    </Button>
+      </div>
+    </Link>
   );
 }
 
@@ -63,12 +63,12 @@ export function QuickActions({ mode }: QuickActionsProps) {
         {/* My Jobs Section */}
         <div className="space-y-3">
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-medium text-foreground tracking-tight">My Jobs</h3>
-              <span className="text-xs text-muted-foreground">Jobs my trucks are running</span>
-            </div>
+            <h3 className="text-sm font-semibold text-foreground tracking-tight">My Jobs</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Jobs my trucks are running
+            </p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {fleetActions.map((action) => (
               <QuickActionButton key={action.label} {...action} />
             ))}
@@ -76,14 +76,14 @@ export function QuickActions({ mode }: QuickActionsProps) {
         </div>
 
         {/* Posted Jobs Section */}
-        <div className="space-y-3 pt-3 border-t border-border/30">
+        <div className="space-y-3 pt-4 border-t border-border/50">
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-medium text-foreground tracking-tight">Posted Jobs</h3>
-              <span className="text-xs text-muted-foreground">Jobs available for other carriers</span>
-            </div>
+            <h3 className="text-sm font-semibold text-foreground tracking-tight">Posted Jobs</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Jobs available for other carriers
+            </p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {overflowActions.map((action) => (
               <QuickActionButton key={action.label} {...action} />
             ))}
@@ -98,12 +98,12 @@ export function QuickActions({ mode }: QuickActionsProps) {
     return (
       <div className="space-y-3">
         <div>
-          <h3 className="text-sm font-medium text-muted-foreground tracking-tight">Quick Actions</h3>
-          <p className="text-xs text-muted-foreground/70 mt-0.5">
+          <h3 className="text-sm font-semibold text-foreground tracking-tight">Quick Actions</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
             Jump to common tasks
           </p>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {fleetActions.map((action) => (
             <QuickActionButton key={action.label} {...action} />
           ))}
@@ -116,12 +116,12 @@ export function QuickActions({ mode }: QuickActionsProps) {
   return (
     <div className="space-y-3">
       <div>
-        <h3 className="text-sm font-medium text-muted-foreground tracking-tight">Quick Actions</h3>
-        <p className="text-xs text-muted-foreground/70 mt-0.5">
+        <h3 className="text-sm font-semibold text-foreground tracking-tight">Quick Actions</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">
           Jump to common tasks
         </p>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {overflowActions.map((action) => (
           <QuickActionButton key={action.label} {...action} />
         ))}
