@@ -52,8 +52,10 @@ interface CarrierRequest {
     posting_type: string;
     pickup_city: string | null;
     pickup_state: string | null;
+    pickup_zip: string | null;
     delivery_city: string | null;
     delivery_state: string | null;
+    delivery_postal_code: string | null;
     cubic_feet: number | null;
     cubic_feet_estimate: number | null;
     balance_due: number | null;
@@ -146,10 +148,12 @@ function RequestCard({ request, balance }: { request: CarrierRequest; balance?: 
   // Check if there's an open balance
   const hasOpenBalance = balance && (balance.totalOwed > 0 || balance.totalOwing > 0);
 
+  const originZip = load.pickup_zip ? ` ${load.pickup_zip}` : '';
+  const destZip = load.delivery_postal_code ? ` ${load.delivery_postal_code}` : '';
   const route = load.pickup_city && load.pickup_state && load.delivery_city && load.delivery_state
-    ? `${load.pickup_city}, ${load.pickup_state} → ${load.delivery_city}, ${load.delivery_state}`
+    ? `${load.pickup_city}, ${load.pickup_state}${originZip} → ${load.delivery_city}, ${load.delivery_state}${destZip}`
     : load.pickup_city && load.pickup_state
-      ? `${load.pickup_city}, ${load.pickup_state}`
+      ? `${load.pickup_city}, ${load.pickup_state}${originZip}`
       : '-';
 
   // Only show verified if they completed FMCSA verification
@@ -342,7 +346,8 @@ export default async function CarrierRequestsPage() {
       carrier:carrier_id(id, name, city, state, mc_number, dot_number, fmcsa_verified, platform_rating, platform_loads_completed),
       load:load_id(
         id, load_number, load_type, posting_type, owner_id,
-        pickup_city, pickup_state, delivery_city, delivery_state,
+        pickup_city, pickup_state, pickup_zip,
+        delivery_city, delivery_state, delivery_postal_code,
         cubic_feet, cubic_feet_estimate, balance_due, linehaul_amount, company_rate, rate_per_cuft
       )
     `)
