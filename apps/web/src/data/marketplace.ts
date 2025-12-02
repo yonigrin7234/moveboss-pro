@@ -1185,8 +1185,11 @@ export async function getAssignedLoadDetails(
     .maybeSingle();
 
   if (!carrier) {
+    console.error('getAssignedLoadDetails: No carrier found for owner', carrierOwnerId);
     return null;
   }
+
+  console.log('getAssignedLoadDetails: Looking for load', loadId, 'with carrier', carrier.id);
 
   const { data, error } = await supabase
     .from('loads')
@@ -1216,7 +1219,7 @@ export async function getAssignedLoadDetails(
     .single();
 
   if (error || !data) {
-    console.error('Error fetching assigned load:', error);
+    console.error('getAssignedLoadDetails: Error or no data for load', loadId, 'carrier', carrier.id, 'error:', error);
     return null;
   }
 

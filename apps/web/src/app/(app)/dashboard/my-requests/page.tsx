@@ -132,10 +132,15 @@ function RequestCard({ request, withdrawAction }: RequestCardProps) {
     ? `${formatDateShort(request.proposed_delivery_date_start)}${request.proposed_delivery_date_end && request.proposed_delivery_date_end !== request.proposed_delivery_date_start ? ` - ${formatDateShort(request.proposed_delivery_date_end)}` : ''}`
     : null;
 
+  // For accepted requests, link to assigned-loads; otherwise link to load-board
+  const cardHref = request.status === 'accepted'
+    ? `/dashboard/assigned-loads/${load.id}`
+    : `/dashboard/load-board/${load.id}`;
+
   return (
     <Card className="hover:bg-muted/50 transition-colors">
       <CardContent className="p-4">
-        <Link href={`/dashboard/load-board/${load.id}`} className="block">
+        <Link href={cardHref} className="block">
           <div className="flex items-start justify-between mb-3">
             {/* Route with zip codes */}
             <div className="flex items-center gap-2 font-semibold">
