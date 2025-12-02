@@ -52,23 +52,168 @@ const severityConfig = {
 };
 
 export function TodaysFocus({ mode, items }: TodaysFocusProps) {
+  // Helper to determine if an item is fleet-related
+  const isFleetItem = (item: FocusItem) => {
+    return (
+      item.href.includes('/assigned-loads') ||
+      item.href.includes('/trips') ||
+      item.href.includes('/compliance') ||
+      item.href.includes('/drivers') ||
+      item.href.includes('/settlements') ||
+      item.id === 'outstanding-balance' // Carrier receivables
+    );
+  };
+
+  // Helper to determine if an item is broker-related
+  const isBrokerItem = (item: FocusItem) => {
+    return (
+      item.href.includes('/posted-jobs') ||
+      item.href.includes('/carrier-requests') ||
+      item.href.includes('/loads-given-out') ||
+      item.id === 'unpaid-invoices' // Broker receivables
+    );
+  };
+
+  // Filter items based on mode
   const visibleItems = items.filter(item => {
-    // Filter items based on mode
     if (mode === 'broker') {
-      // Brokers don't see driver/fleet related items
-      if (item.href.includes('/drivers')) return false;
-      if (item.href.includes('/trips')) return false;
-      if (item.href.includes('/compliance')) return false;
+      // Brokers only see broker items
+      return isBrokerItem(item);
     }
     if (mode === 'carrier') {
-      // Carriers don't see broker-specific items
-      if (item.href.includes('/posted-jobs')) return false;
-      if (item.href.includes('/carrier-requests')) return false;
+      // Carriers only see fleet items
+      return isFleetItem(item);
     }
     // Hybrid sees everything
     return true;
   });
 
+  // For hybrid mode, split items into subsections
+  if (mode === 'hybrid') {
+    const fleetItems = items.filter(isFleetItem);
+    const brokerItems = items.filter(isBrokerItem);
+
+    return (
+      <Card className="rounded-lg">
+        <CardHeader className="py-3 px-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base tracking-tight">Today's Focus</CardTitle>
+              <p className="text-[11.5px] text-muted-foreground">
+                Items needing attention
+              </p>
+            </div>
+            <Badge variant="secondary" className="text-xs">
+              {items.length} item{items.length !== 1 ? 's' : ''}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 pt-0">
+          <div className="space-y-4">
+            {/* My Jobs Subsection */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 px-1">
+                <h4 className="text-xs font-medium text-foreground tracking-tight">My Jobs</h4>
+                <span className="text-[10px] text-muted-foreground">Jobs my trucks are running</span>
+              </div>
+              {fleetItems.length === 0 ? (
+                <div className="py-4 px-3 text-center rounded-lg border border-dashed border-border/50">
+                  <CheckCircle2 className="h-6 w-6 mx-auto mb-1.5 text-success opacity-40" />
+                  <p className="text-xs font-medium text-muted-foreground">All clear</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {fleetItems.map((item) => {
+                    const Icon = item.icon;
+                    const config = severityConfig[item.severity];
+
+                    return (
+                      <Link
+                        key={item.id}
+                        href={item.href}
+                        className="flex items-center gap-3 p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-accent/50 transition-all group"
+                      >
+                        <div className={`${config.iconClass}`}>
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                            {item.label}
+                          </p>
+                          {item.description && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              {item.description}
+                            </p>
+                          )}
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={`${config.badgeClass} font-semibold text-xs`}
+                        >
+                          {item.count}
+                        </Badge>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Posted Jobs Subsection */}
+            <div className="space-y-2 pt-2 border-t border-border/30">
+              <div className="flex items-center gap-2 px-1">
+                <h4 className="text-xs font-medium text-foreground tracking-tight">Posted Jobs</h4>
+                <span className="text-[10px] text-muted-foreground">Jobs available for other carriers</span>
+              </div>
+              {brokerItems.length === 0 ? (
+                <div className="py-4 px-3 text-center rounded-lg border border-dashed border-border/50">
+                  <CheckCircle2 className="h-6 w-6 mx-auto mb-1.5 text-success opacity-40" />
+                  <p className="text-xs font-medium text-muted-foreground">All clear</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {brokerItems.map((item) => {
+                    const Icon = item.icon;
+                    const config = severityConfig[item.severity];
+
+                    return (
+                      <Link
+                        key={item.id}
+                        href={item.href}
+                        className="flex items-center gap-3 p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-accent/50 transition-all group"
+                      >
+                        <div className={`${config.iconClass}`}>
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                            {item.label}
+                          </p>
+                          {item.description && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              {item.description}
+                            </p>
+                          )}
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={`${config.badgeClass} font-semibold text-xs`}
+                        >
+                          {item.count}
+                        </Badge>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Carrier and Broker modes - single list
   if (visibleItems.length === 0) {
     return (
       <Card className="rounded-lg">
