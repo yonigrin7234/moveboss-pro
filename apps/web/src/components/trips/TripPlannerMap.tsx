@@ -624,8 +624,13 @@ export function TripPlannerMap({
                             <div className="mt-2 space-y-1">
                               <p className="flex items-center gap-1">
                                 <MapPin className="h-3 w-3" />
-                                {marker.load.originCity}, {marker.load.originState}
+                                {marker.load.originCity}, {marker.load.originState} {marker.load.originZip}
                               </p>
+                              {marker.load.destinationCity && (
+                                <p className="flex items-center gap-1 text-muted-foreground">
+                                  → {marker.load.destinationCity}, {marker.load.destinationState} {marker.load.destinationZip}
+                                </p>
+                              )}
                               {marker.load.cubicFeet && (
                                 <p className="flex items-center gap-1">
                                   <Package className="h-3 w-3" />

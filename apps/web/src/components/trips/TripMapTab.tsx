@@ -222,8 +222,8 @@ export function TripMapTab({
     if (onRequestLoad) {
       onRequestLoad(load.id);
     } else {
-      // Navigate to load details page
-      window.location.href = `/dashboard/load-board?load=${load.id}`;
+      // Navigate to specific load details page
+      window.location.href = `/dashboard/load-board/${load.id}`;
     }
   };
 
