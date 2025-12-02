@@ -227,6 +227,16 @@ export function TripMapTab({
     }
   };
 
+  const handleLoadClick = (load: TripLoad | MarketplaceLoad) => {
+    // For marketplace loads, use handleRequestLoad
+    if ('isMarketplace' in load && load.isMarketplace) {
+      handleRequestLoad(load as MarketplaceLoad);
+      return;
+    }
+    // For assigned loads, navigate to the assigned loads detail page
+    window.location.href = `/dashboard/assigned-loads/${load.id}`;
+  };
+
   if (!originCity || !originState || !destinationCity || !destinationState) {
     return (
       <Card>
@@ -328,6 +338,7 @@ export function TripMapTab({
         truckCapacity={truckCapacity || 0}
         assignedLoads={assignedLoads}
         marketplaceLoads={marketplaceLoads}
+        onLoadClick={handleLoadClick}
         onRequestLoad={handleRequestLoad}
         onRouteDistanceCalculated={handleRouteDistanceCalculated}
         onReorderLoads={onReorderLoads}

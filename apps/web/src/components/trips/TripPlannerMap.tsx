@@ -652,6 +652,16 @@ export function TripPlannerMap({
                                 Request Load
                               </Button>
                             )}
+                            {!marker.isMarketplace && onLoadClick && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full mt-2"
+                                onClick={() => onLoadClick(marker.load)}
+                              >
+                                View Details
+                              </Button>
+                            )}
                           </div>
                         </Popup>
                       </Marker>
