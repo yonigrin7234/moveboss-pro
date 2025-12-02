@@ -1899,7 +1899,7 @@ export async function assignLoadToTrip(
     sequence_index: sequenceIndex,
   });
 
-  const { error: tripLoadsError } = await supabase
+  const { data: insertedTripLoad, error: tripLoadsError } = await supabase
     .from('trip_loads')
     .insert({
       owner_id: user.id, // Use current user ID to satisfy RLS
@@ -1907,17 +1907,24 @@ export async function assignLoadToTrip(
       load_id: loadId,
       sequence_index: sequenceIndex,
       role: 'primary',
-    });
+    })
+    .select('id')
+    .single();
 
   if (tripLoadsError) {
     console.error('assignLoadToTrip: Error inserting into trip_loads:', tripLoadsError);
-    return { success: false, error: tripLoadsError.message };
+    return { success: false, error: `Failed to create trip_loads: ${tripLoadsError.message}` };
   }
 
-  console.log('assignLoadToTrip: Successfully inserted into trip_loads');
+  if (!insertedTripLoad) {
+    console.error('assignLoadToTrip: Insert returned no data - RLS may have blocked');
+    return { success: false, error: 'Failed to create trip assignment - check permissions' };
+  }
+
+  console.log('assignLoadToTrip: Successfully inserted into trip_loads', { id: insertedTripLoad.id });
 
   // Update the load with trip info and driver
-  const { error: loadError } = await supabase
+  const { data: updatedLoad, error: loadError } = await supabase
     .from('loads')
     .update({
       trip_id: tripId,
@@ -1930,14 +1937,21 @@ export async function assignLoadToTrip(
       last_status_update: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
-    .eq('id', loadId);
+    .eq('id', loadId)
+    .select('id, trip_id')
+    .single();
 
   if (loadError) {
     console.error('assignLoadToTrip: Error updating load:', loadError);
-    return { success: false, error: loadError.message };
+    return { success: false, error: `Failed to update load: ${loadError.message}` };
   }
 
-  console.log('assignLoadToTrip: SUCCESS - Load assigned to trip', { loadId, tripId });
+  if (!updatedLoad || updatedLoad.trip_id !== tripId) {
+    console.error('assignLoadToTrip: Load update failed or trip_id not set', { updatedLoad });
+    return { success: false, error: 'Failed to update load with trip assignment - check RLS policies' };
+  }
+
+  console.log('assignLoadToTrip: SUCCESS - Load assigned to trip', { loadId, tripId, tripLoadId: insertedTripLoad.id });
   return { success: true };
 }
 

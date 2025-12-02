@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -11,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Truck } from 'lucide-react';
+import { Truck, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface Trip {
   id: string;
@@ -26,9 +27,11 @@ interface TripAssignmentFormProps {
 }
 
 export function TripAssignmentForm({ loadId, availableTrips, assignToTrip }: TripAssignmentFormProps) {
+  const router = useRouter();
   const [selectedTripId, setSelectedTripId] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,14 +43,23 @@ export function TripAssignmentForm({ loadId, availableTrips, assignToTrip }: Tri
 
     setIsSubmitting(true);
     setError(null);
+    setSuccess(false);
 
     try {
+      console.log('TripAssignmentForm: Submitting', { loadId, tripId: selectedTripId });
       const result = await assignToTrip(loadId, selectedTripId);
-      if (!result.success) {
+      console.log('TripAssignmentForm: Result', result);
+
+      if (result.success) {
+        setSuccess(true);
+        // Refresh the page to show updated state
+        router.refresh();
+      } else {
         setError(result.error || 'Failed to assign load to trip');
       }
-    } catch (err) {
-      setError('An error occurred');
+    } catch (err: any) {
+      console.error('TripAssignmentForm: Error', err);
+      setError(err?.message || 'An error occurred');
     } finally {
       setIsSubmitting(false);
     }
@@ -91,10 +103,20 @@ export function TripAssignmentForm({ loadId, availableTrips, assignToTrip }: Tri
       </div>
 
       {error && (
-        <p className="text-sm text-red-500">{error}</p>
+        <div className="flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+          <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+          <p className="text-sm text-red-500">{error}</p>
+        </div>
       )}
 
-      <Button type="submit" className="w-full" disabled={isSubmitting || !selectedTripId}>
+      {success && (
+        <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+          <CheckCircle className="h-4 w-4 text-green-500" />
+          <p className="text-sm text-green-500">Load assigned to trip successfully!</p>
+        </div>
+      )}
+
+      <Button type="submit" className="w-full" disabled={isSubmitting || !selectedTripId || success}>
         <Truck className="h-4 w-4 mr-2" />
         {isSubmitting ? 'Assigning...' : 'Assign to Trip'}
       </Button>
