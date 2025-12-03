@@ -14,9 +14,8 @@ interface KeyMetricsProps {
 }
 
 export function KeyMetrics({ mode, data }: KeyMetricsProps) {
-  // Compact horizontal row - NOT squares
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <MetricCard
         number={data.activeTrips}
         label="Active Trips"
@@ -25,20 +24,20 @@ export function KeyMetrics({ mode, data }: KeyMetricsProps) {
       />
       <MetricCard
         number={data.needDrivers}
-        label="Need Drivers"
+        label="Loads Needing Drivers"
         href="/dashboard/assigned-loads?filter=unassigned"
         state={data.needDrivers > 5 ? 'critical' : data.needDrivers > 0 ? 'warning' : 'success'}
       />
       <MetricCard
         number={data.availableCF.toLocaleString()}
-        label="Capacity"
+        label="Available Capacity"
         href="/dashboard/drivers?status=available"
         state={data.availableCF < 1000 ? 'warning' : 'neutral'}
         suffix="CF"
       />
       <MetricCard
         number={data.outstandingReceivables}
-        label="Receivables"
+        label="Outstanding Receivables"
         href="/dashboard/finance/receivables"
         state="neutral"
       />
@@ -55,13 +54,12 @@ interface MetricCardProps {
 }
 
 function MetricCard({ number, label, href, state, suffix }: MetricCardProps) {
-  // Compact cards with readable numbers
   const stateClasses = {
-    active: 'border-l-emerald-500 bg-emerald-50/50',
-    success: 'border-l-emerald-500 bg-emerald-50/50',
-    warning: 'border-l-amber-500 bg-amber-50/50',
-    critical: 'border-l-red-500 bg-red-50/50',
-    neutral: 'border-l-border bg-white',
+    active: 'bg-white border-border/30',
+    success: 'bg-emerald-50/30 border-emerald-200/50',
+    warning: 'bg-amber-50/30 border-amber-200/50',
+    critical: 'bg-red-50/30 border-red-200/50',
+    neutral: 'bg-white border-border/30',
   };
 
   const numberClasses = {
@@ -75,13 +73,13 @@ function MetricCard({ number, label, href, state, suffix }: MetricCardProps) {
   return (
     <Link
       href={href}
-      className={`block px-4 py-3 rounded-lg border border-border/30 border-l-4 transition-all duration-150 hover:shadow-sm ${stateClasses[state]}`}
+      className={`block aspect-square p-4 rounded-lg border shadow-sm transition-all duration-150 hover:shadow-md ${stateClasses[state]}`}
     >
-      <p className={`text-2xl font-bold tabular-nums ${numberClasses[state]}`}>
+      <p className={`text-7xl font-bold tabular-nums leading-none ${numberClasses[state]}`}>
         {number}
-        {suffix && <span className="text-sm ml-1 font-medium text-muted-foreground">{suffix}</span>}
+        {suffix && <span className="text-2xl ml-1 font-medium text-muted-foreground">{suffix}</span>}
       </p>
-      <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+      <p className="text-xs text-muted-foreground mt-3 uppercase tracking-wider">{label}</p>
     </Link>
   );
 }

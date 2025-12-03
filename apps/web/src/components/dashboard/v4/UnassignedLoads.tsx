@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { MapPin, Calendar, Truck } from 'lucide-react';
+import { Truck } from 'lucide-react';
 
 export interface UnassignedLoad {
   id: string;
@@ -48,7 +48,7 @@ export function UnassignedLoads({ loads }: UnassignedLoadsProps) {
   });
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex items-center justify-between px-1">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           UNASSIGNED LOADS
@@ -61,28 +61,29 @@ export function UnassignedLoads({ loads }: UnassignedLoadsProps) {
         </Link>
       </div>
 
-      <div className="space-y-1.5">
+      {/* Apple Reminders style - compact vertical list */}
+      <div className="space-y-1">
         {sorted.slice(0, 6).map((load) => {
           const urgency = getUrgency(load.pickupDate);
           const pickupLabel = formatPickup(load.pickupDate);
-          const dotColor = urgency === 'critical' ? 'bg-red-500' : urgency === 'urgent' ? 'bg-amber-500' : 'bg-slate-300';
+          const borderColor = urgency === 'critical' ? 'border-red-500/50' : urgency === 'urgent' ? 'border-amber-500/50' : 'border-border/30';
+          const textColor = urgency === 'critical' ? 'text-red-700' : urgency === 'urgent' ? 'text-amber-700' : 'text-foreground';
 
           return (
             <Link
               key={load.id}
               href={`/dashboard/assigned-loads/${load.id}`}
-              className="flex items-center gap-3 p-3 rounded-lg bg-white border border-border/20 hover:border-border/40 hover:shadow-sm transition-all duration-150 group"
+              className={`flex items-center gap-3 px-3 py-2 rounded border-l-2 ${borderColor} bg-white hover:shadow-md transition-all duration-150 group`}
             >
-              <div className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${dotColor}`} />
-              <span className="text-xs font-semibold text-muted-foreground min-w-[60px]">{pickupLabel}</span>
               <div className="flex-1 flex items-center gap-2 min-w-0">
-                <span className="text-sm font-medium truncate">{load.origin}</span>
+                <span className={`text-sm font-medium truncate ${textColor}`}>{load.origin}</span>
                 <span className="text-muted-foreground">→</span>
-                <span className="text-sm font-medium truncate">{load.destination}</span>
+                <span className={`text-sm font-medium truncate ${textColor}`}>{load.destination}</span>
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1"><Truck className="h-3.5 w-3.5" />{load.cubicFeet} CF</span>
-                <span className="font-semibold text-foreground">\${load.value.toLocaleString()}</span>
+                <span className="text-xs text-muted-foreground min-w-[50px] text-right">{pickupLabel}</span>
+                <span className="flex items-center gap-1"><Truck className="h-5 w-5" />{load.cubicFeet} CF</span>
+                <span className="font-semibold text-foreground min-w-[60px] text-right">${load.value.toLocaleString()}</span>
               </div>
             </Link>
           );
