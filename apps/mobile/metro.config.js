@@ -6,10 +6,11 @@ const monorepoRoot = path.resolve(projectRoot, '../..');
 
 const config = getDefaultConfig(projectRoot);
 
-// Force React to resolve from mobile's node_modules
+// Force critical packages to resolve from mobile's node_modules
 config.resolver.extraNodeModules = {
   react: path.resolve(projectRoot, 'node_modules/react'),
   'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
+  'react-native-reanimated': path.resolve(projectRoot, 'node_modules/react-native-reanimated'),
 };
 
 // Watch folders for monorepo

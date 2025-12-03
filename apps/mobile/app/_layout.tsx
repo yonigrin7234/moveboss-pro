@@ -1,3 +1,6 @@
+// IMPORTANT: react-native-reanimated must be the first import
+import 'react-native-reanimated';
+
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
