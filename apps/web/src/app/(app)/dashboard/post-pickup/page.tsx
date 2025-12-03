@@ -134,6 +134,7 @@ export default function PostPickupPage() {
         load_type: 'pickup',
         posting_type: 'pickup',
         posting_status: 'posted',
+        status: 'pending', // Also set internal status so it appears in /dashboard/loads stats
         posted_at: new Date().toISOString(),
         service_type: formData.service_type,
         // Marketplace visibility - required for load to appear on load board

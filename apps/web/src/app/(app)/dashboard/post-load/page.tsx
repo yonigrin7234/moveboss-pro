@@ -322,6 +322,7 @@ export default function PostLoadPage() {
         load_subtype: loadType === 'rfd' ? 'rfd' : 'live',
         posting_type: 'load',
         posting_status: 'posted',
+        status: 'pending', // Also set internal status so it appears in /dashboard/loads stats
         posted_at: new Date().toISOString(),
         service_type: data.service_type,
         // Marketplace visibility - required for load to appear on load board

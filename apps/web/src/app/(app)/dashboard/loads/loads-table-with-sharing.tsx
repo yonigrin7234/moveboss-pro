@@ -46,6 +46,8 @@ interface Load {
   rate_per_cuft: number | null;
   linehaul_amount?: number | null;
   posting_status?: string | null;
+  is_marketplace_visible?: boolean | null;
+  posting_type?: string | null;
   company?: { name: string } | { name: string }[] | null;
 }
 
@@ -262,7 +264,7 @@ export function LoadsTableWithSharing({
                     const cuft = load.cubic_feet || load.cubic_feet_estimate;
                     const ratePerCuft = load.rate_per_cuft;
                     const linehaulTotal = load.linehaul_amount || (cuft && ratePerCuft ? cuft * ratePerCuft : null);
-                    const isPosted = load.posting_status === 'posted';
+                    const isPosted = load.is_marketplace_visible || load.posting_status === 'posted';
                     const isShareable = load.status === 'pending';
                     const isSelected = selectedLoads.has(load.id);
 
@@ -333,22 +335,33 @@ export function LoadsTableWithSharing({
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant="secondary"
-                            className={
-                              load.status === 'delivered'
-                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                : load.status === 'canceled'
-                                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                                  : load.status === 'in_transit'
-                                    ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                                    : load.status === 'assigned'
-                                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                            }
-                          >
-                            {formatStatus(load.status)}
-                          </Badge>
+                          <div className="flex flex-col gap-1">
+                            <Badge
+                              variant="secondary"
+                              className={
+                                load.status === 'delivered'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                  : load.status === 'canceled'
+                                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                    : load.status === 'in_transit'
+                                      ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                                      : load.status === 'assigned'
+                                        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                              }
+                            >
+                              {formatStatus(load.status)}
+                            </Badge>
+                            {isPosted && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] px-1.5 py-0 h-4 bg-primary/5 text-primary border-primary/20"
+                              >
+                                <Globe className="h-2.5 w-2.5 mr-1" />
+                                Load Board
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
