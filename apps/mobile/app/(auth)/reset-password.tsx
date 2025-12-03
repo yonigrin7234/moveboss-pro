@@ -3,32 +3,34 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
+import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
+import { ScreenContainer, Icon } from '../../components/ui';
+import { haptics } from '../../lib/haptics';
 
 export default function ResetPasswordScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const params = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
 
   // Handle the access_token from the deep link
   useEffect(() => {
     const handleDeepLink = async () => {
-      // The token comes from the URL fragment or query params
       const accessToken = params.access_token as string;
       const refreshToken = params.refresh_token as string;
 
       if (accessToken && refreshToken) {
-        // Set the session from the tokens
         await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
@@ -41,169 +43,229 @@ export default function ResetPasswordScreen() {
 
   const handleResetPassword = async () => {
     if (!password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
+      setError('Please fill in all fields');
+      haptics.warning();
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      setError('Passwords do not match');
+      haptics.warning();
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      setError('Password must be at least 6 characters');
+      haptics.warning();
       return;
     }
 
+    setError(null);
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({
+    const { error: updateError } = await supabase.auth.updateUser({
       password: password,
     });
     setLoading(false);
 
-    if (error) {
-      Alert.alert('Error', error.message);
+    if (updateError) {
+      setError(updateError.message);
+      haptics.error();
     } else {
       setSuccess(true);
+      haptics.success();
     }
   };
 
   if (success) {
     return (
-      <View style={styles.container}>
-        <View style={styles.inner}>
+      <ScreenContainer edges={['top', 'bottom']}>
+        <View style={[styles.inner, { paddingTop: insets.top + spacing.xxxl }]}>
+          <View style={styles.successIcon}>
+            <Icon name="check-circle" size={48} color={colors.success} />
+          </View>
           <Text style={styles.title}>Password Updated</Text>
           <Text style={styles.message}>
             Your password has been successfully reset. You can now sign in with your new password.
           </Text>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => router.replace('/(auth)/login')}
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              pressed && styles.buttonPressed,
+            ]}
+            onPress={() => {
+              haptics.selection();
+              router.replace('/(auth)/login');
+            }}
           >
             <Text style={styles.buttonText}>Go to Login</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
-      </View>
+      </ScreenContainer>
     );
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <View style={styles.inner}>
+    <ScreenContainer keyboardAvoiding edges={['top', 'bottom']}>
+      <View style={[styles.inner, { paddingTop: insets.top + spacing.xxxl }]}>
         <Text style={styles.title}>Set New Password</Text>
         <Text style={styles.subtitle}>
           Enter your new password below
         </Text>
 
         <View style={styles.form}>
+          {error && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
           <TextInput
             style={styles.input}
             placeholder="New Password"
-            placeholderTextColor="#666"
+            placeholderTextColor={colors.textMuted}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             autoComplete="new-password"
+            returnKeyType="next"
           />
 
           <TextInput
             style={styles.input}
             placeholder="Confirm Password"
-            placeholderTextColor="#666"
+            placeholderTextColor={colors.textMuted}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry
             autoComplete="new-password"
+            returnKeyType="done"
+            onSubmitEditing={handleResetPassword}
           />
 
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              loading && styles.buttonDisabled,
+              pressed && styles.buttonPressed,
+            ]}
             onPress={handleResetPassword}
             disabled={loading}
           >
-            <Text style={styles.buttonText}>
-              {loading ? 'Updating...' : 'Update Password'}
-            </Text>
-          </TouchableOpacity>
+            {loading ? (
+              <ActivityIndicator color={colors.white} />
+            ) : (
+              <Text style={styles.buttonText}>Update Password</Text>
+            )}
+          </Pressable>
 
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.replace('/(auth)/login')}
+          <Pressable
+            style={({ pressed }) => [
+              styles.backButton,
+              pressed && styles.backButtonPressed,
+            ]}
+            onPress={() => {
+              haptics.selection();
+              router.replace('/(auth)/login');
+            }}
           >
             <Text style={styles.backButtonText}>Back to Login</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </View>
-    </KeyboardAvoidingView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1a1a2e',
-  },
   inner: {
     flex: 1,
     justifyContent: 'center',
-    padding: 24,
+    paddingHorizontal: spacing.screenPadding,
+  },
+  successIcon: {
+    alignSelf: 'center',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.successSoft,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.xl,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#fff',
+    ...typography.hero,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#888',
+    ...typography.body,
+    color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: spacing.xxl,
   },
   message: {
-    fontSize: 16,
-    color: '#888',
+    ...typography.body,
+    color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: spacing.xxl,
     lineHeight: 24,
   },
   form: {
-    gap: 16,
+    gap: spacing.lg,
+  },
+  errorContainer: {
+    backgroundColor: colors.errorSoft,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.error,
+  },
+  errorText: {
+    ...typography.bodySmall,
+    color: colors.error,
+    textAlign: 'center',
   },
   input: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: '#fff',
+    ...typography.body,
+    backgroundColor: colors.inputBackground,
+    borderRadius: radius.input,
+    padding: spacing.inputPadding,
+    color: colors.textPrimary,
     borderWidth: 1,
-    borderColor: '#3a3a4e',
+    borderColor: colors.border,
+    minHeight: 56,
   },
   button: {
-    backgroundColor: '#0066CC',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: colors.primary,
+    borderRadius: radius.button,
+    padding: spacing.lg,
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+    minHeight: 56,
+    ...shadows.glow,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
+  buttonPressed: {
+    backgroundColor: colors.primaryMuted,
+  },
   buttonText: {
-    color: '#fff',
+    ...typography.button,
     fontSize: 18,
-    fontWeight: '600',
   },
   backButton: {
-    padding: 16,
+    padding: spacing.md,
     alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  backButtonPressed: {
+    opacity: 0.7,
   },
   backButtonText: {
-    color: '#0066CC',
-    fontSize: 16,
+    ...typography.button,
+    color: colors.primary,
   },
 });

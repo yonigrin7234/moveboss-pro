@@ -1,8 +1,21 @@
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from '@expo-google-fonts/inter';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
 import { NotificationProvider } from '../providers/NotificationProvider';
+import { ToastProvider } from '../components/ui/Toast';
+import { colors } from '../lib/theme';
 
 function RootLayoutNav() {
   const { session, loading } = useAuth();
@@ -26,8 +39,11 @@ function RootLayoutNav() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#0066CC" />
+      <View style={styles.loadingContainer}>
+        <Animated.View entering={FadeIn.duration(300)} style={styles.logoContainer}>
+          <Animated.Text style={styles.logoText}>MoveBoss</Animated.Text>
+          <Animated.Text style={styles.logoSubtext}>Loading...</Animated.Text>
+        </Animated.View>
       </View>
     );
   }
@@ -36,11 +52,69 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+  });
+
+  // Show loading while fonts are loading
+  if (!fontsLoaded) {
+    return (
+      <View style={styles.loadingContainer}>
+        <View style={styles.logoContainer}>
+          <View style={styles.logoPlaceholder} />
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <AuthProvider>
-      <NotificationProvider>
-        <RootLayoutNav />
-      </NotificationProvider>
-    </AuthProvider>
+    <GestureHandlerRootView style={styles.gestureRoot}>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <NotificationProvider>
+            <BottomSheetModalProvider>
+              <ToastProvider>
+                <RootLayoutNav />
+              </ToastProvider>
+            </BottomSheetModalProvider>
+          </NotificationProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  gestureRoot: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+  },
+  logoContainer: {
+    alignItems: 'center',
+  },
+  logoText: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: colors.primary,
+    letterSpacing: -1,
+  },
+  logoSubtext: {
+    fontSize: 14,
+    color: colors.textMuted,
+    marginTop: 8,
+  },
+  logoPlaceholder: {
+    width: 120,
+    height: 40,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+  },
+});

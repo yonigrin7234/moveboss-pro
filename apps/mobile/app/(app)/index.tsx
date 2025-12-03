@@ -1,329 +1,512 @@
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+/**
+ * Driver Dashboard - Action-First Design
+ *
+ * Shows THE ONE THING the driver needs to do right now.
+ * Every common action is 1-2 taps max.
+ */
+
+import React, { useCallback, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  Pressable,
+} from 'react-native';
 import { useRouter } from 'expo-router';
+import Animated, {
+  FadeInDown,
+  FadeInUp,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../providers/AuthProvider';
-import { useActiveTrip } from '../../hooks/useDriverTrips';
 import { useDriverProfile } from '../../hooks/useDriverProfile';
+import { useDriverDashboard } from '../../hooks/useDriverDashboard';
 import { useVehicleDocuments } from '../../hooks/useVehicleDocuments';
-import { TripCard } from '../../components/TripCard';
+import {
+  NextActionCard,
+  QuickStats,
+  SwipeableActionCard,
+  Icon,
+  IconName,
+} from '../../components/ui';
+import { colors, typography, spacing, radius } from '../../lib/theme';
+import { TripWithLoads } from '../../types';
 
 export default function HomeScreen() {
   const { signOut } = useAuth();
   const { fullName } = useDriverProfile();
-  const { activeTrip, upcomingTrips, recentTrips, loading, error, refetch } = useActiveTrip();
-  const { hasActiveTrip, truck, trailer, expiringCount, expiredCount } = useVehicleDocuments();
+  const {
+    nextAction,
+    pendingActions,
+    upcomingTrips,
+    stats,
+    loading,
+    error,
+    refetch,
+  } = useDriverDashboard();
+  const { hasActiveTrip, truck, trailer, expiredCount } =
+    useVehicleDocuments();
   const router = useRouter();
+  const [showUpcoming, setShowUpcoming] = useState(true);
+
+  const handleRefresh = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await refetch();
+  }, [refetch]);
+
+  const handleSignOut = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    signOut();
+  }, [signOut]);
+
+  const navigateToTrip = useCallback(
+    (trip: TripWithLoads) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      router.push(`/(app)/trips/${trip.id}`);
+    },
+    [router]
+  );
 
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
       refreshControl={
-        <RefreshControl refreshing={loading} onRefresh={refetch} tintColor="#0066CC" />
+        <RefreshControl
+          refreshing={loading}
+          onRefresh={handleRefresh}
+          tintColor={colors.primary}
+        />
       }
+      showsVerticalScrollIndicator={false}
     >
       {/* Header */}
-      <View style={styles.header}>
+      <Animated.View entering={FadeInDown.delay(100)} style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Welcome back{fullName ? ',' : ''}</Text>
+          <Text style={styles.greeting}>
+            {getGreeting()}
+            {fullName ? ',' : ''}
+          </Text>
           {fullName && <Text style={styles.driverName}>{fullName}</Text>}
         </View>
-        <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
+        <Pressable style={styles.signOutButton} onPress={handleSignOut}>
           <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
-      </View>
+        </Pressable>
+      </Animated.View>
 
-      {/* Quick Actions */}
-      <View style={styles.quickActions}>
-        <TouchableOpacity
-          style={styles.quickActionButton}
+      {/* Error State */}
+      {error && (
+        <Animated.View entering={FadeInDown} style={styles.errorCard}>
+          <Text style={styles.errorText}>{error}</Text>
+        </Animated.View>
+      )}
+
+      {/* THE ONE ACTION - Most prominent */}
+      <Animated.View entering={FadeInUp.delay(200)}>
+        <NextActionCard action={nextAction} />
+      </Animated.View>
+
+      {/* Quick Stats Row */}
+      <Animated.View entering={FadeInUp.delay(300)}>
+        <QuickStats
+          earnings={stats.todayEarnings}
+          miles={stats.todayMiles}
+          loadsCompleted={stats.loadsCompleted}
+          loadsTotal={stats.loadsTotal > 0 ? stats.loadsTotal : undefined}
+        />
+      </Animated.View>
+
+      {/* Quick Actions Row */}
+      <Animated.View entering={FadeInUp.delay(400)} style={styles.quickActions}>
+        <QuickActionButton
+          icon="truck"
+          label="Trips"
           onPress={() => router.push('/(app)/trips')}
-        >
-          <Text style={styles.quickActionIcon}>🚛</Text>
-          <Text style={styles.quickActionLabel}>All Trips</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickActionButton}
+        />
+        <QuickActionButton
+          icon="clipboard-list"
+          label="Docs"
+          badge={expiredCount > 0 ? expiredCount : undefined}
+          badgeVariant={expiredCount > 0 ? 'error' : 'warning'}
           onPress={() => router.push('/(app)/documents')}
-        >
-          <Text style={styles.quickActionIcon}>📋</Text>
-          <Text style={styles.quickActionLabel}>Documents</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickActionButton}
+        />
+        <QuickActionButton
+          icon="dollar"
+          label="Earnings"
           onPress={() => router.push('/(app)/earnings')}
-        >
-          <Text style={styles.quickActionIcon}>💰</Text>
-          <Text style={styles.quickActionLabel}>Earnings</Text>
-        </TouchableOpacity>
-      </View>
+        />
+      </Animated.View>
 
-      {/* Vehicle Documents Card - shown when has active trip */}
-      {hasActiveTrip && (truck || trailer) && (
-        <TouchableOpacity
-          style={styles.documentsCard}
-          onPress={() => router.push('/(app)/documents')}
-        >
-          <View style={styles.documentsCardContent}>
-            <View style={styles.documentsCardHeader}>
-              <Text style={styles.documentsCardIcon}>📋</Text>
-              <View style={styles.documentsCardInfo}>
-                <Text style={styles.documentsCardTitle}>Vehicle Documents</Text>
-                <Text style={styles.documentsCardSubtitle}>
+      {/* Document Alert - if expired */}
+      {hasActiveTrip && expiredCount > 0 && (
+        <Animated.View entering={FadeInUp.delay(500)}>
+          <Pressable
+            style={styles.alertCard}
+            onPress={() => router.push('/(app)/documents')}
+          >
+            <View style={styles.alertContent}>
+              <Icon name="alert-triangle" size="lg" color={colors.warning} />
+              <View style={styles.alertText}>
+                <Text style={styles.alertTitle}>
+                  {expiredCount} Document{expiredCount > 1 ? 's' : ''} Expired
+                </Text>
+                <Text style={styles.alertSubtitle}>
                   {truck?.unit_number}
-                  {trailer ? ` + ${trailer.unit_number}` : ''}
+                  {trailer ? ` + ${trailer.unit_number}` : ''} - Tap to view
                 </Text>
               </View>
+              <Icon name="chevron-right" size="md" color={colors.textMuted} />
             </View>
-            <View style={styles.documentsCardStatus}>
-              {expiredCount > 0 ? (
-                <Text style={styles.documentsCardExpired}>🔴 {expiredCount} expired</Text>
-              ) : expiringCount > 0 ? (
-                <Text style={styles.documentsCardExpiring}>⚠️ {expiringCount} expiring soon</Text>
-              ) : (
-                <Text style={styles.documentsCardValid}>✅ All current</Text>
-              )}
-              <Text style={styles.documentsCardArrow}>→</Text>
-            </View>
-          </View>
-        </TouchableOpacity>
+          </Pressable>
+        </Animated.View>
       )}
 
-      {error && (
-        <View style={styles.errorCard}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
-
-      {/* Active Trip Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Active Trip</Text>
-        {activeTrip ? (
-          <TripCard trip={activeTrip} />
-        ) : (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>No active trip</Text>
-            <Text style={styles.emptySubtext}>
-              Your current trip will appear here when started
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Upcoming Trips Section */}
+      {/* Upcoming Section (Collapsible) */}
       {upcomingTrips.length > 0 && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Upcoming Trips</Text>
-            <TouchableOpacity onPress={() => router.push('/(app)/trips')}>
-              <Text style={styles.seeAll}>See All</Text>
-            </TouchableOpacity>
-          </View>
-          {upcomingTrips.slice(0, 3).map(trip => (
-            <TripCard key={trip.id} trip={trip} variant="compact" />
-          ))}
-        </View>
+        <Animated.View entering={FadeInUp.delay(600)} style={styles.section}>
+          <Pressable
+            style={styles.sectionHeader}
+            onPress={() => setShowUpcoming(!showUpcoming)}
+          >
+            <Text style={styles.sectionTitle}>
+              Upcoming ({upcomingTrips.length})
+            </Text>
+            <Text style={styles.collapseIcon}>
+              {showUpcoming ? '▼' : '▶'}
+            </Text>
+          </Pressable>
+
+          {showUpcoming && (
+            <View style={styles.upcomingList}>
+              {upcomingTrips.slice(0, 3).map((trip) => (
+                <SwipeableActionCard
+                  key={trip.id}
+                  onSwipeRight={() => navigateToTrip(trip)}
+                  onPress={() => navigateToTrip(trip)}
+                  rightActionLabel="Open"
+                  rightActionIcon="→"
+                  rightActionColor={colors.primary}
+                >
+                  <UpcomingTripCard trip={trip} />
+                </SwipeableActionCard>
+              ))}
+            </View>
+          )}
+        </Animated.View>
       )}
 
-      {/* Recent Trips Section */}
-      {recentTrips.length > 0 && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Trips</Text>
-            <TouchableOpacity onPress={() => router.push('/(app)/trips')}>
-              <Text style={styles.seeAll}>See All</Text>
-            </TouchableOpacity>
-          </View>
-          {recentTrips.slice(0, 3).map(trip => (
-            <TripCard key={trip.id} trip={trip} variant="compact" />
-          ))}
-        </View>
+      {/* More Actions Hint */}
+      {pendingActions.length > 1 && (
+        <Animated.View entering={FadeInUp.delay(700)} style={styles.moreActions}>
+          <Text style={styles.moreActionsText}>
+            {pendingActions.length - 1} more action
+            {pendingActions.length > 2 ? 's' : ''} pending
+          </Text>
+        </Animated.View>
       )}
 
       {/* Empty State */}
-      {!loading && !activeTrip && upcomingTrips.length === 0 && recentTrips.length === 0 && !error && (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyStateTitle}>No trips yet</Text>
-          <Text style={styles.emptyStateText}>
-            Trips assigned to you will appear here
+      {!loading && upcomingTrips.length === 0 && nextAction.type === 'no_action' && (
+        <Animated.View entering={FadeInUp.delay(500)} style={styles.emptyState}>
+          <Icon name="truck" size={48} color={colors.textMuted} />
+          <Text style={styles.emptyTitle}>No Active Trips</Text>
+          <Text style={styles.emptySubtitle}>
+            New assignments will appear here automatically
           </Text>
-        </View>
+        </Animated.View>
       )}
     </ScrollView>
   );
 }
 
+// === Sub-components ===
+
+interface QuickActionButtonProps {
+  icon: IconName;
+  label: string;
+  badge?: number;
+  badgeVariant?: 'error' | 'warning';
+  onPress: () => void;
+}
+
+function QuickActionButton({
+  icon,
+  label,
+  badge,
+  badgeVariant,
+  onPress,
+}: QuickActionButtonProps) {
+  const handlePress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  }, [onPress]);
+
+  return (
+    <Pressable style={styles.quickActionButton} onPress={handlePress}>
+      <View style={styles.quickActionIconContainer}>
+        <Icon name={icon} size="lg" color={colors.textPrimary} />
+        {badge !== undefined && (
+          <View
+            style={[
+              styles.quickActionBadge,
+              badgeVariant === 'error'
+                ? styles.badgeError
+                : styles.badgeWarning,
+            ]}
+          >
+            <Text style={styles.quickActionBadgeText}>{badge}</Text>
+          </View>
+        )}
+      </View>
+      <Text style={styles.quickActionLabel}>{label}</Text>
+    </Pressable>
+  );
+}
+
+interface UpcomingTripCardProps {
+  trip: TripWithLoads;
+}
+
+function UpcomingTripCard({ trip }: UpcomingTripCardProps) {
+  const route = `${trip.origin_city || '?'}, ${trip.origin_state || ''} → ${trip.destination_city || '?'}, ${trip.destination_state || ''}`;
+  const loadCount = trip.trip_loads?.length || 0;
+  const dateStr = trip.start_date
+    ? new Date(trip.start_date).toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      })
+    : 'TBD';
+
+  return (
+    <View style={styles.upcomingCard}>
+      <View style={styles.upcomingCardLeft}>
+        <Text style={styles.upcomingTripNumber}>Trip #{trip.trip_number}</Text>
+        <Text style={styles.upcomingRoute} numberOfLines={1}>
+          {route}
+        </Text>
+      </View>
+      <View style={styles.upcomingCardRight}>
+        <Text style={styles.upcomingDate}>{dateStr}</Text>
+        <Text style={styles.upcomingLoads}>
+          {loadCount} load{loadCount !== 1 ? 's' : ''}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// === Helpers ===
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+// === Styles ===
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.background,
   },
   content: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: spacing.screenPadding,
+    paddingBottom: spacing.xxxl,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: spacing.xl,
   },
   greeting: {
-    fontSize: 18,
-    color: '#888',
+    ...typography.body,
+    color: colors.textSecondary,
   },
   driverName: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 2,
+    ...typography.title,
+    color: colors.textPrimary,
+    marginTop: spacing.xxs,
   },
   signOutButton: {
-    backgroundColor: '#3a3a4e',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    backgroundColor: colors.surfaceElevated,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
   },
   signOutText: {
-    color: '#ff6b6b',
-    fontSize: 14,
-    fontWeight: '500',
+    ...typography.caption,
+    color: colors.error,
+  },
+  errorCard: {
+    backgroundColor: colors.errorSoft,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.error,
+  },
+  errorText: {
+    ...typography.bodySmall,
+    color: colors.error,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  quickActionButton: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  quickActionIconContainer: {
+    position: 'relative',
+    marginBottom: spacing.sm,
+  },
+  quickActionIcon: {
+    fontSize: 24,
+  },
+  quickActionBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -10,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeError: {
+    backgroundColor: colors.error,
+  },
+  badgeWarning: {
+    backgroundColor: colors.warning,
+  },
+  quickActionBadgeText: {
+    color: colors.white,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  quickActionLabel: {
+    ...typography.caption,
+    color: colors.textPrimary,
+  },
+  alertCard: {
+    backgroundColor: colors.errorSoft,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.error,
+  },
+  alertContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  alertIcon: {
+    fontSize: 24,
+    marginRight: spacing.md,
+  },
+  alertText: {
+    flex: 1,
+  },
+  alertTitle: {
+    ...typography.subheadline,
+    color: colors.error,
+  },
+  alertSubtitle: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.xxs,
+  },
+  alertArrow: {
+    color: colors.error,
+    fontSize: 18,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: spacing.lg,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 12,
+    ...typography.headline,
+    color: colors.textPrimary,
   },
-  seeAll: {
-    color: '#0066CC',
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 12,
+  collapseIcon: {
+    color: colors.textMuted,
+    fontSize: 12,
   },
-  emptyCard: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 16,
-    padding: 32,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#888',
-    marginBottom: 4,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#888',
-    marginBottom: 8,
-  },
-  emptyStateText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-  },
-  errorCard: {
-    backgroundColor: '#fee2e2',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-  },
-  errorText: {
-    color: '#991b1b',
-    fontSize: 14,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
-  },
-  quickActionButton: {
-    flex: 1,
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-  },
-  quickActionIcon: {
-    fontSize: 24,
-    marginBottom: 8,
-  },
-  quickActionLabel: {
-    fontSize: 14,
-    color: '#fff',
-    fontWeight: '500',
-  },
-  // Documents Card
-  documentsCard: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-  },
-  documentsCardContent: {
+  upcomingList: {},
+  upcomingCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    padding: spacing.lg,
   },
-  documentsCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  upcomingCardLeft: {
     flex: 1,
   },
-  documentsCardIcon: {
-    fontSize: 24,
-    marginRight: 12,
+  upcomingCardRight: {
+    alignItems: 'flex-end',
   },
-  documentsCardInfo: {},
-  documentsCardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 2,
+  upcomingTripNumber: {
+    ...typography.subheadline,
+    color: colors.textPrimary,
+    marginBottom: spacing.xxs,
   },
-  documentsCardSubtitle: {
-    fontSize: 13,
-    color: '#888',
+  upcomingRoute: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
-  documentsCardStatus: {
-    flexDirection: 'row',
+  upcomingDate: {
+    ...typography.caption,
+    color: colors.primary,
+    marginBottom: spacing.xxs,
+  },
+  upcomingLoads: {
+    ...typography.caption,
+    color: colors.textMuted,
+  },
+  moreActions: {
     alignItems: 'center',
+    paddingVertical: spacing.lg,
   },
-  documentsCardValid: {
-    fontSize: 13,
-    color: '#22c55e',
+  moreActionsText: {
+    ...typography.caption,
+    color: colors.textMuted,
+    fontStyle: 'italic',
   },
-  documentsCardExpiring: {
-    fontSize: 13,
-    color: '#f59e0b',
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: spacing.xxxl,
   },
-  documentsCardExpired: {
-    fontSize: 13,
-    color: '#ef4444',
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: spacing.lg,
   },
-  documentsCardArrow: {
-    fontSize: 18,
-    color: '#888',
-    marginLeft: 8,
+  emptyTitle: {
+    ...typography.headline,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  emptySubtitle: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
   },
 });

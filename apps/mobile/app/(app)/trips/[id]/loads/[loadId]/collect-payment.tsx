@@ -1,80 +1,84 @@
-import { useState } from 'react';
+/**
+ * Collect Payment - Simplified Single-Screen Experience
+ *
+ * Flow: Big amount → 4 payment buttons → Confirm → Done
+ * Every action is 1-2 taps max.
+ */
+
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  TouchableOpacity,
+  Pressable,
   Image,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import Animated, {
+  FadeIn,
+  FadeInUp,
+  FadeOut,
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { useLoadDetail } from '../../../../../../hooks/useLoadDetail';
 import { useLoadActions } from '../../../../../../hooks/useLoadActions';
 import { useImageUpload } from '../../../../../../hooks/useImageUpload';
+import { useToast } from '../../../../../../components/ui/Toast';
+import { SuccessCelebration } from '../../../../../../components/ui/SuccessCelebration';
+import { PaymentCardSkeleton } from '../../../../../../components/ui/Skeleton';
+import { Icon, IconName, IconWithBackground } from '../../../../../../components/ui/Icon';
+import { colors, typography, spacing, radius, shadows } from '../../../../../../lib/theme';
 import { PaymentMethod, ZelleRecipient } from '../../../../../../types';
 
-const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: string }[] = [
-  { value: 'cash', label: 'Cash', icon: '💵' },
-  { value: 'cashier_check', label: "Cashier's Check", icon: '🏦' },
-  { value: 'money_order', label: 'Money Order', icon: '📄' },
-  { value: 'personal_check', label: 'Personal Check', icon: '✍️' },
-  { value: 'zelle', label: 'Zelle', icon: '📱' },
-  { value: 'already_paid', label: 'Already Paid', icon: '✅' },
+type Step = 'select' | 'zelle' | 'photo' | 'confirm' | 'success';
+
+const PAYMENT_OPTIONS: { value: PaymentMethod; label: string; icon: IconName; color: string }[] = [
+  { value: 'cash', label: 'Cash', icon: 'banknote', color: '#22C55E' },
+  { value: 'zelle', label: 'Zelle', icon: 'phone', color: '#6366F1' },
+  { value: 'cashier_check', label: 'Check', icon: 'file-text', color: '#3B82F6' },
+  { value: 'already_paid', label: 'Already Paid', icon: 'check-circle', color: '#71717A' },
 ];
 
-const ZELLE_RECIPIENTS: { value: ZelleRecipient; label: string }[] = [
-  { value: 'owner', label: 'Owner' },
-  { value: 'driver', label: 'Driver (Me)' },
-  { value: 'original_company', label: 'Original Company' },
+const ZELLE_OPTIONS = [
+  { value: 'owner' as ZelleRecipient, label: 'Owner' },
+  { value: 'driver' as ZelleRecipient, label: 'Me (Driver)' },
+  { value: 'original_company' as ZelleRecipient, label: 'Company' },
 ];
 
 export default function CollectPaymentScreen() {
   const { id: tripId, loadId } = useLocalSearchParams<{ id: string; loadId: string }>();
   const router = useRouter();
+  const toast = useToast();
   const { load, loading, error, refetch } = useLoadDetail(loadId);
   const actions = useLoadActions(loadId, refetch);
   const { uploading, progress, uploadLoadPhoto } = useImageUpload();
 
-  // Form state
+  // State
+  const [step, setStep] = useState<Step>('select');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [zelleRecipient, setZelleRecipient] = useState<ZelleRecipient | null>(null);
-  const [photoFront, setPhotoFront] = useState<string | null>(null);
-  const [photoBack, setPhotoBack] = useState<string | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
+  const [photo, setPhoto] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // For pickups: use remaining_balance_for_delivery (balance minus what was collected at pickup)
-  // For other loads: use balance_due_on_delivery or contract_balance_due
-  const balanceDue = load?.remaining_balance_for_delivery
-    ?? load?.balance_due_on_delivery
-    ?? load?.contract_balance_due
-    ?? 0;
+  // Balance calculation
+  const balanceDue =
+    load?.remaining_balance_for_delivery ??
+    load?.balance_due_on_delivery ??
+    load?.contract_balance_due ??
+    0;
 
-  // Check if payment method requires photos
-  const requiresPhotos = paymentMethod === 'cashier_check' ||
-                         paymentMethod === 'money_order' ||
-                         paymentMethod === 'personal_check';
+  const customerName = load?.customer_name || load?.companies?.name || 'Customer';
 
-  // Check if payment method requires Zelle recipient
-  const requiresZelleRecipient = paymentMethod === 'zelle';
-
-  // Validation
-  const isValid =
-    paymentMethod !== null &&
-    confirmed &&
-    (!requiresPhotos || photoFront !== null) &&
-    (!requiresZelleRecipient || zelleRecipient !== null);
-
-  const canSubmit = isValid && !submitting && !uploading;
-
-  // Take photo helper
-  const takePhoto = async (type: 'front' | 'back') => {
+  // Take photo
+  const takePhoto = useCallback(async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Camera permission is needed to take photos');
+      toast.error('Camera permission needed');
       return;
     }
 
@@ -85,75 +89,116 @@ export default function CollectPaymentScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      if (type === 'front') {
-        setPhotoFront(result.assets[0].uri);
-      } else {
-        setPhotoBack(result.assets[0].uri);
-      }
+      setPhoto(result.assets[0].uri);
     }
-  };
+  }, [toast]);
 
-  const handleSubmit = async () => {
-    if (!canSubmit || !paymentMethod) return;
+  // Handle payment method selection
+  const handleSelectPayment = useCallback(
+    async (method: PaymentMethod) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setPaymentMethod(method);
 
+      if (method === 'zelle') {
+        setStep('zelle');
+      } else if (method === 'cashier_check' || method === 'money_order' || method === 'personal_check') {
+        // Open camera immediately for check
+        await takePhoto();
+        setStep('photo');
+      } else {
+        setStep('confirm');
+      }
+    },
+    [takePhoto]
+  );
+
+  // Handle Zelle recipient selection
+  const handleSelectZelle = useCallback((recipient: ZelleRecipient) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setZelleRecipient(recipient);
+    setStep('confirm');
+  }, []);
+
+  // Confirm and submit
+  const handleConfirm = async () => {
+    if (!paymentMethod) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setSubmitting(true);
+
     try {
-      // Upload photos if taken
-      let photoFrontUrl: string | null = null;
-      let photoBackUrl: string | null = null;
-
-      if (photoFront) {
-        const result = await uploadLoadPhoto(photoFront, loadId, 'document');
+      // Upload photo if taken
+      let photoUrl: string | null = null;
+      if (photo) {
+        const result = await uploadLoadPhoto(photo, loadId, 'document');
         if (result.success && result.url) {
-          photoFrontUrl = result.url;
+          photoUrl = result.url;
         } else {
-          Alert.alert('Upload Error', 'Failed to upload front photo');
+          toast.error('Failed to upload photo');
+          setSubmitting(false);
           return;
         }
       }
 
-      if (photoBack) {
-        const result = await uploadLoadPhoto(photoBack, loadId, 'document');
-        if (result.success && result.url) {
-          photoBackUrl = result.url;
-        } else {
-          Alert.alert('Upload Error', 'Failed to upload back photo');
-          return;
-        }
-      }
-
-      // Start delivery with payment collected
+      // Submit payment and start delivery
       const result = await actions.collectPaymentAndStartDelivery({
         paymentMethod,
         amountCollected: balanceDue,
-        zelleRecipient: zelleRecipient,
-        paymentPhotoFrontUrl: photoFrontUrl,
-        paymentPhotoBackUrl: photoBackUrl,
+        zelleRecipient,
+        paymentPhotoFrontUrl: photoUrl,
+        paymentPhotoBackUrl: null,
       });
 
       if (!result.success) {
-        Alert.alert('Error', result.error || 'Failed to start delivery');
+        toast.error(result.error || 'Failed to start delivery');
+        setSubmitting(false);
         return;
       }
 
-      // Navigate back to load detail
-      Alert.alert('Payment Collected', 'Delivery started! Proceed to unload.', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
+      // Show success celebration
+      setStep('success');
     } catch (err) {
-      Alert.alert('Error', 'Failed to start delivery');
-    } finally {
+      toast.error('Something went wrong');
       setSubmitting(false);
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return `$${amount.toFixed(2)}`;
-  };
+  // Handle success completion
+  const handleSuccessComplete = useCallback(() => {
+    router.back();
+  }, [router]);
 
+  // Go back one step
+  const handleBack = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (step === 'zelle') setStep('select');
+    else if (step === 'photo') setStep('select');
+    else if (step === 'confirm') {
+      if (paymentMethod === 'zelle') setStep('zelle');
+      else if (photo) setStep('photo');
+      else setStep('select');
+    }
+  }, [step, paymentMethod, photo]);
+
+  // Loading state
+  if (loading || !load) {
+    return (
+      <>
+        <Stack.Screen
+          options={{
+            title: 'Collect Payment',
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.textPrimary,
+          }}
+        />
+        <View style={styles.container}>
+          <PaymentCardSkeleton style={{ padding: 24 }} />
+        </View>
+      </>
+    );
+  }
+
+  // Error state
   if (error) {
     return (
       <>
@@ -167,440 +212,441 @@ export default function CollectPaymentScreen() {
     );
   }
 
-  if (loading || !load) {
-    return (
-      <>
-        <Stack.Screen options={{ title: 'Collect Payment' }} />
-        <View style={[styles.container, styles.centered]}>
-          <ActivityIndicator size="large" color="#0066CC" />
-        </View>
-      </>
-    );
-  }
-
   return (
     <>
       <Stack.Screen
         options={{
-          title: 'Collect Payment',
-          headerStyle: { backgroundColor: '#1a1a2e' },
-          headerTintColor: '#fff',
+          title: '',
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.textPrimary,
+          headerShadowVisible: false,
         }}
       />
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        {/* Header with balance */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Balance Due</Text>
-          <Text style={styles.balanceAmount}>{formatCurrency(balanceDue)}</Text>
-          {load.companies?.name && (
-            <Text style={styles.companyName}>{load.companies.name}</Text>
-          )}
-        </View>
 
-        {/* Payment Method Selection */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Select Payment Method</Text>
-          <View style={styles.paymentGrid}>
-            {PAYMENT_METHODS.map((method) => (
-              <TouchableOpacity
-                key={method.value}
-                style={[
-                  styles.paymentOption,
-                  paymentMethod === method.value && styles.paymentOptionSelected,
-                ]}
-                onPress={() => {
-                  setPaymentMethod(method.value);
-                  // Reset dependent fields
-                  if (method.value !== 'zelle') setZelleRecipient(null);
-                  if (!['cashier_check', 'money_order', 'personal_check'].includes(method.value)) {
-                    setPhotoFront(null);
-                    setPhotoBack(null);
-                  }
-                }}
-              >
-                <Text style={styles.paymentIcon}>{method.icon}</Text>
-                <Text
-                  style={[
-                    styles.paymentLabel,
-                    paymentMethod === method.value && styles.paymentLabelSelected,
-                  ]}
-                >
-                  {method.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+      <View style={styles.container}>
+        {/* Big Amount Header */}
+        <Animated.View entering={FadeInUp.delay(100)} style={styles.header}>
+          <Text style={styles.headerLabel}>AMOUNT DUE</Text>
+          <Text style={styles.amount}>${balanceDue.toLocaleString()}</Text>
+          <Text style={styles.customerName}>{customerName}</Text>
+        </Animated.View>
 
-        {/* Conditional: Zelle Recipient */}
-        {requiresZelleRecipient && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Who Received the Zelle?</Text>
-            <View style={styles.zelleOptions}>
-              {ZELLE_RECIPIENTS.map((recipient) => (
-                <TouchableOpacity
-                  key={recipient.value}
-                  style={[
-                    styles.zelleOption,
-                    zelleRecipient === recipient.value && styles.zelleOptionSelected,
-                  ]}
-                  onPress={() => setZelleRecipient(recipient.value)}
-                >
-                  <View style={styles.radioOuter}>
-                    {zelleRecipient === recipient.value && (
-                      <View style={styles.radioInner} />
-                    )}
-                  </View>
-                  <Text
-                    style={[
-                      styles.zelleLabel,
-                      zelleRecipient === recipient.value && styles.zelleLabelSelected,
-                    ]}
-                  >
-                    {recipient.label}
-                  </Text>
-                </TouchableOpacity>
+        {/* Step: Select Payment Method */}
+        {step === 'select' && (
+          <Animated.View
+            entering={FadeIn}
+            exiting={FadeOut}
+            style={styles.content}
+          >
+            <Text style={styles.stepTitle}>How did they pay?</Text>
+            <View style={styles.paymentGrid}>
+              {PAYMENT_OPTIONS.map((option, index) => (
+                <PaymentButton
+                  key={option.value}
+                  {...option}
+                  index={index}
+                  onPress={() => handleSelectPayment(option.value)}
+                />
               ))}
             </View>
-          </View>
+          </Animated.View>
         )}
 
-        {/* Conditional: Photo Capture */}
-        {requiresPhotos && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Photo of Payment</Text>
-            <Text style={styles.sectionSubtitle}>
-              Take a clear photo of the {paymentMethod === 'cashier_check' ? "cashier's check" :
-                paymentMethod === 'money_order' ? 'money order' : 'check'}
-            </Text>
-
-            <View style={styles.photoRow}>
-              {/* Front Photo (Required) */}
-              <View style={styles.photoContainer}>
-                <Text style={styles.photoLabel}>Front *</Text>
-                <TouchableOpacity
-                  style={styles.photoButton}
-                  onPress={() => takePhoto('front')}
-                  disabled={submitting || uploading}
-                >
-                  {photoFront ? (
-                    <Image source={{ uri: photoFront }} style={styles.photoPreview} />
-                  ) : (
-                    <Text style={styles.photoButtonText}>Take Photo</Text>
-                  )}
-                </TouchableOpacity>
-                {photoFront && (
-                  <TouchableOpacity
-                    onPress={() => setPhotoFront(null)}
-                    disabled={submitting || uploading}
-                  >
-                    <Text style={styles.removePhotoText}>Remove</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {/* Back Photo (Optional) */}
-              <View style={styles.photoContainer}>
-                <Text style={styles.photoLabel}>Back (optional)</Text>
-                <TouchableOpacity
-                  style={styles.photoButton}
-                  onPress={() => takePhoto('back')}
-                  disabled={submitting || uploading}
-                >
-                  {photoBack ? (
-                    <Image source={{ uri: photoBack }} style={styles.photoPreview} />
-                  ) : (
-                    <Text style={styles.photoButtonText}>Take Photo</Text>
-                  )}
-                </TouchableOpacity>
-                {photoBack && (
-                  <TouchableOpacity
-                    onPress={() => setPhotoBack(null)}
-                    disabled={submitting || uploading}
-                  >
-                    <Text style={styles.removePhotoText}>Remove</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Confirmation Checkbox */}
-        <TouchableOpacity
-          style={styles.confirmationRow}
-          onPress={() => setConfirmed(!confirmed)}
-          disabled={submitting || uploading}
-        >
-          <View style={[styles.checkbox, confirmed && styles.checkboxChecked]}>
-            {confirmed && <Text style={styles.checkmark}>✓</Text>}
-          </View>
-          <Text style={styles.confirmationText}>
-            I confirm I have collected {formatCurrency(balanceDue)} from the customer
-            {paymentMethod && paymentMethod !== 'already_paid' && ` via ${PAYMENT_METHODS.find(m => m.value === paymentMethod)?.label}`}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Submit Button */}
-        <TouchableOpacity
-          style={[styles.submitButton, !canSubmit && styles.submitButtonDisabled]}
-          onPress={handleSubmit}
-          disabled={!canSubmit}
-        >
-          <Text style={styles.submitButtonText}>
-            {submitting
-              ? 'Starting...'
-              : uploading
-              ? `Uploading... ${progress}%`
-              : 'Start Delivery'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Skip option for $0 balance */}
-        {balanceDue === 0 && (
-          <TouchableOpacity
-            style={styles.skipButton}
-            onPress={() => {
-              setPaymentMethod('already_paid');
-              setConfirmed(true);
-            }}
-            disabled={submitting || uploading}
+        {/* Step: Zelle Recipient */}
+        {step === 'zelle' && (
+          <Animated.View
+            entering={FadeIn}
+            exiting={FadeOut}
+            style={styles.content}
           >
-            <Text style={styles.skipButtonText}>No Payment Needed</Text>
-          </TouchableOpacity>
+            <Pressable onPress={handleBack} style={styles.backButton}>
+              <Text style={styles.backText}>← Back</Text>
+            </Pressable>
+            <Text style={styles.stepTitle}>Who received the Zelle?</Text>
+            <View style={styles.optionsList}>
+              {ZELLE_OPTIONS.map((option) => (
+                <Pressable
+                  key={option.value}
+                  style={styles.optionButton}
+                  onPress={() => handleSelectZelle(option.value)}
+                >
+                  <Text style={styles.optionText}>{option.label}</Text>
+                  <Text style={styles.optionArrow}>→</Text>
+                </Pressable>
+              ))}
+            </View>
+          </Animated.View>
         )}
 
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
+        {/* Step: Photo */}
+        {step === 'photo' && (
+          <Animated.View
+            entering={FadeIn}
+            exiting={FadeOut}
+            style={styles.content}
+          >
+            <Pressable onPress={handleBack} style={styles.backButton}>
+              <Text style={styles.backText}>← Back</Text>
+            </Pressable>
+            <Text style={styles.stepTitle}>Photo of Check</Text>
+            {photo ? (
+              <View style={styles.photoContainer}>
+                <Image source={{ uri: photo }} style={styles.photoPreview} />
+                <View style={styles.photoActions}>
+                  <Pressable
+                    style={styles.retakeButton}
+                    onPress={takePhoto}
+                  >
+                    <Text style={styles.retakeText}>Retake</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.continueButton}
+                    onPress={() => setStep('confirm')}
+                  >
+                    <Text style={styles.continueText}>Continue →</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <Pressable style={styles.cameraButton} onPress={takePhoto}>
+                <Text style={styles.cameraIcon}>📷</Text>
+                <Text style={styles.cameraText}>Tap to take photo</Text>
+              </Pressable>
+            )}
+          </Animated.View>
+        )}
+
+        {/* Step: Confirm */}
+        {step === 'confirm' && (
+          <Animated.View
+            entering={FadeIn}
+            exiting={FadeOut}
+            style={styles.content}
+          >
+            <Pressable onPress={handleBack} style={styles.backButton}>
+              <Text style={styles.backText}>← Back</Text>
+            </Pressable>
+
+            <View style={styles.confirmCard}>
+              <Text style={styles.confirmTitle}>Confirm Payment</Text>
+              <View style={styles.confirmRow}>
+                <Text style={styles.confirmLabel}>Amount</Text>
+                <Text style={styles.confirmValue}>
+                  ${balanceDue.toLocaleString()}
+                </Text>
+              </View>
+              <View style={styles.confirmRow}>
+                <Text style={styles.confirmLabel}>Method</Text>
+                <Text style={styles.confirmValue}>
+                  {PAYMENT_OPTIONS.find((p) => p.value === paymentMethod)?.label}
+                  {zelleRecipient && ` (to ${ZELLE_OPTIONS.find((z) => z.value === zelleRecipient)?.label})`}
+                </Text>
+              </View>
+              {photo && (
+                <View style={styles.confirmRow}>
+                  <Text style={styles.confirmLabel}>Photo</Text>
+                  <Text style={styles.confirmValue}>✓ Captured</Text>
+                </View>
+              )}
+            </View>
+
+            <Pressable
+              style={[
+                styles.confirmButton,
+                (submitting || uploading) && styles.confirmButtonDisabled,
+              ]}
+              onPress={handleConfirm}
+              disabled={submitting || uploading}
+            >
+              {submitting || uploading ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <>
+                  <Text style={styles.confirmButtonText}>
+                    Payment Collected ✓
+                  </Text>
+                </>
+              )}
+            </Pressable>
+
+            {uploading && (
+              <Text style={styles.uploadProgress}>
+                Uploading... {progress}%
+              </Text>
+            )}
+          </Animated.View>
+        )}
+      </View>
+
+      {/* Success Celebration */}
+      {step === 'success' && (
+        <SuccessCelebration
+          title="Payment Collected!"
+          subtitle="Delivery started. Proceed to unload."
+          icon="banknote"
+          onComplete={handleSuccessComplete}
+          autoDismissDelay={2500}
+        />
+      )}
     </>
+  );
+}
+
+// Payment Button Component
+interface PaymentButtonProps {
+  value: PaymentMethod;
+  label: string;
+  icon: IconName;
+  color: string;
+  index: number;
+  onPress: () => void;
+}
+
+function PaymentButton({ label, icon, color, index, onPress }: PaymentButtonProps) {
+  const scale = useSharedValue(1);
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+  };
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View
+      entering={FadeInUp.delay(200 + index * 100)}
+      style={animatedStyle}
+    >
+      <Pressable
+        style={[styles.paymentButton, { borderColor: color }]}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
+        <IconWithBackground
+          name={icon}
+          size="xl"
+          color={color}
+          backgroundColor={`${color}20`}
+          backgroundSizeMultiplier={1.6}
+        />
+        <Text style={styles.paymentLabel}>{label}</Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
-  },
-  content: {
-    padding: 20,
+    backgroundColor: colors.background,
   },
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   header: {
-    backgroundColor: '#0066CC',
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 24,
     alignItems: 'center',
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xxl,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  headerTitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
-    marginBottom: 4,
+  headerLabel: {
+    ...typography.label,
+    color: colors.textMuted,
+    marginBottom: spacing.sm,
   },
-  balanceAmount: {
-    fontSize: 36,
+  amount: {
+    fontSize: 56,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.success,
+    letterSpacing: -2,
   },
-  companyName: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
-    marginTop: 8,
+  customerName: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
   },
-  section: {
-    marginBottom: 24,
+  content: {
+    flex: 1,
+    padding: spacing.xl,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 8,
+  stepTitle: {
+    ...typography.title,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
   },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: '#888',
-    marginBottom: 16,
+  backButton: {
+    marginBottom: spacing.lg,
+  },
+  backText: {
+    ...typography.body,
+    color: colors.primary,
   },
   paymentGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: spacing.lg,
+    justifyContent: 'center',
   },
-  paymentOption: {
-    width: '31%',
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
+  paymentButton: {
+    width: '45%',
+    aspectRatio: 1.2,
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
     borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  paymentOptionSelected: {
-    borderColor: '#0066CC',
-    backgroundColor: 'rgba(0, 102, 204, 0.1)',
-  },
-  paymentIcon: {
-    fontSize: 28,
-    marginBottom: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.md,
   },
   paymentLabel: {
-    fontSize: 12,
-    color: '#888',
-    textAlign: 'center',
+    ...typography.headline,
+    color: colors.textPrimary,
+    marginTop: spacing.md,
   },
-  paymentLabelSelected: {
-    color: '#0066CC',
-    fontWeight: '600',
+  optionsList: {
+    gap: spacing.md,
   },
-  zelleOptions: {
-    gap: 12,
-  },
-  zelleOption: {
+  optionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  zelleOptionSelected: {
-    borderColor: '#0066CC',
-    backgroundColor: 'rgba(0, 102, 204, 0.1)',
+  optionText: {
+    ...typography.headline,
+    color: colors.textPrimary,
   },
-  radioOuter: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: '#666',
-    marginRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radioInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#0066CC',
-  },
-  zelleLabel: {
-    fontSize: 16,
-    color: '#ccc',
-  },
-  zelleLabelSelected: {
-    color: '#fff',
-    fontWeight: '500',
-  },
-  photoRow: {
-    flexDirection: 'row',
-    gap: 16,
+  optionArrow: {
+    ...typography.headline,
+    color: colors.primary,
   },
   photoContainer: {
     flex: 1,
   },
-  photoLabel: {
-    fontSize: 14,
-    color: '#888',
-    marginBottom: 8,
-  },
-  photoButton: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 100,
-    borderWidth: 1,
-    borderColor: '#3a3a4e',
-    borderStyle: 'dashed',
-  },
-  photoButtonText: {
-    color: '#888',
-    fontSize: 14,
-  },
   photoPreview: {
-    width: '100%',
-    height: 100,
-    borderRadius: 8,
-  },
-  removePhotoText: {
-    color: '#ff6b6b',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  confirmationRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#666',
-    marginRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: '#10b981',
-    borderColor: '#10b981',
-  },
-  checkmark: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  confirmationText: {
     flex: 1,
-    fontSize: 14,
-    color: '#ccc',
-    lineHeight: 20,
+    borderRadius: radius.lg,
+    marginBottom: spacing.lg,
   },
-  submitButton: {
-    backgroundColor: '#10b981',
-    borderRadius: 12,
-    padding: 18,
+  photoActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  retakeButton: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  retakeText: {
+    ...typography.button,
+    color: colors.textSecondary,
+  },
+  continueButton: {
+    flex: 2,
+    backgroundColor: colors.primary,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
     alignItems: 'center',
   },
-  submitButtonDisabled: {
-    opacity: 0.5,
+  continueText: {
+    ...typography.button,
+    color: colors.white,
   },
-  submitButtonText: {
-    color: '#fff',
+  cameraButton: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: colors.border,
+  },
+  cameraIcon: {
+    fontSize: 64,
+    marginBottom: spacing.md,
+  },
+  cameraText: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
+  confirmCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    marginBottom: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  confirmTitle: {
+    ...typography.headline,
+    color: colors.textPrimary,
+    marginBottom: spacing.lg,
+    textAlign: 'center',
+  },
+  confirmRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  confirmLabel: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
+  confirmValue: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  confirmButton: {
+    backgroundColor: colors.success,
+    borderRadius: radius.lg,
+    padding: spacing.xl,
+    alignItems: 'center',
+    ...shadows.glowSuccess,
+  },
+  confirmButtonDisabled: {
+    opacity: 0.6,
+  },
+  confirmButtonText: {
+    ...typography.button,
+    color: colors.white,
     fontSize: 18,
-    fontWeight: '700',
   },
-  skipButton: {
-    marginTop: 12,
-    padding: 16,
-    alignItems: 'center',
-  },
-  skipButtonText: {
-    color: '#888',
-    fontSize: 14,
-    textDecorationLine: 'underline',
-  },
-  bottomSpacer: {
-    height: 40,
+  uploadProgress: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: spacing.md,
   },
   errorCard: {
-    backgroundColor: '#fee2e2',
-    borderRadius: 12,
-    padding: 16,
-    margin: 20,
+    backgroundColor: colors.errorSoft,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    margin: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.error,
   },
   errorText: {
-    color: '#991b1b',
-    fontSize: 14,
+    ...typography.body,
+    color: colors.error,
   },
 });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,16 +7,18 @@ import {
   RefreshControl,
   TouchableOpacity,
   TextInput,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import Animated, { FadeInUp, FadeInDown, Layout } from 'react-native-reanimated';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useTripExpenses, useExpenseActions, CreateExpenseInput } from '../../../../hooks/useExpenseActions';
 import { useImageUpload } from '../../../../hooks/useImageUpload';
+import { useToast, SkeletonCard, SkeletonStats } from '../../../../components/ui';
 import { ExpenseCategory, ExpensePaidBy, TripExpense } from '../../../../types';
+import { getStaggerDelay } from '../../../../lib/animations';
 
 const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string }[] = [
   { value: 'fuel', label: 'Fuel' },
@@ -40,6 +42,8 @@ export default function ExpensesScreen() {
   const actions = useExpenseActions(tripId, refetch);
   const { uploading, progress, uploadReceiptPhoto } = useImageUpload();
   const router = useRouter();
+  const toast = useToast();
+  const amountInputRef = useRef<TextInput>(null);
 
   const [showForm, setShowForm] = useState(false);
   const [category, setCategory] = useState<ExpenseCategory>('fuel');
@@ -48,6 +52,14 @@ export default function ExpensesScreen() {
   const [paidBy, setPaidBy] = useState<ExpensePaidBy>('driver_personal');
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deletedExpense, setDeletedExpense] = useState<TripExpense | null>(null);
+
+  // Auto-focus amount input when form opens
+  useEffect(() => {
+    if (showForm) {
+      setTimeout(() => amountInputRef.current?.focus(), 100);
+    }
+  }, [showForm]);
 
   const resetForm = () => {
     setCategory('fuel');
@@ -61,7 +73,7 @@ export default function ExpensesScreen() {
   const pickImage = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Camera permission is needed to take receipt photos');
+      toast.warning('Camera permission needed for receipt photos');
       return;
     }
 
@@ -79,7 +91,7 @@ export default function ExpensesScreen() {
 
   const handleSubmit = async () => {
     if (!amount || parseFloat(amount) <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      toast.error('Enter a valid amount');
       return;
     }
 
@@ -92,7 +104,7 @@ export default function ExpensesScreen() {
       if (receiptImage) {
         const uploadResult = await uploadReceiptPhoto(receiptImage, tripId);
         if (!uploadResult.success) {
-          Alert.alert('Upload Error', uploadResult.error || 'Failed to upload receipt');
+          toast.error(uploadResult.error || 'Failed to upload receipt');
           setSubmitting(false);
           return;
         }
@@ -110,32 +122,48 @@ export default function ExpensesScreen() {
       const result = await actions.createExpense(input);
       if (result.success) {
         resetForm();
+        toast.success(`$${parseFloat(amount).toFixed(2)} ${category} added`);
       } else {
-        Alert.alert('Error', result.error || 'Failed to add expense');
+        toast.error(result.error || 'Failed to add expense');
       }
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = (expense: TripExpense) => {
-    Alert.alert(
-      'Delete Expense',
-      `Delete this ${expense.category} expense for $${expense.amount.toFixed(2)}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
+  // Delete immediately with undo option
+  const handleDelete = async (expense: TripExpense) => {
+    // Optimistically remove from UI
+    setDeletedExpense(expense);
+
+    // Show toast with undo
+    toast.showToast(
+      `$${expense.amount.toFixed(2)} expense deleted`,
+      'success',
+      {
+        duration: 5000,
+        action: {
+          label: 'Undo',
           onPress: async () => {
-            const result = await actions.deleteExpense(expense.id);
-            if (!result.success) {
-              Alert.alert('Error', result.error || 'Failed to delete expense');
-            }
+            // Restore expense - refetch will bring it back since we haven't actually deleted yet
+            setDeletedExpense(null);
+            await refetch();
           },
         },
-      ]
+      }
     );
+
+    // Actually delete after a short delay (allows undo)
+    setTimeout(async () => {
+      if (deletedExpense?.id === expense.id) {
+        const result = await actions.deleteExpense(expense.id);
+        if (!result.success) {
+          toast.error('Failed to delete expense');
+          setDeletedExpense(null);
+          await refetch();
+        }
+      }
+    }, 5000);
   };
 
   const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;
@@ -151,8 +179,11 @@ export default function ExpensesScreen() {
     });
   };
 
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
-  const reimbursable = expenses
+  // Filter out deleted expense (optimistic UI)
+  const visibleExpenses = expenses.filter(e => e.id !== deletedExpense?.id);
+
+  const totalExpenses = visibleExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const reimbursable = visibleExpenses
     .filter(e => e.paid_by === 'driver_personal' || e.paid_by === 'driver_cash')
     .reduce((sum, e) => sum + e.amount, 0);
 
@@ -177,36 +208,48 @@ export default function ExpensesScreen() {
           }
         >
           {error && (
-            <View style={styles.errorCard}>
+            <Animated.View entering={FadeInUp} style={styles.errorCard}>
               <Text style={styles.errorText}>{error}</Text>
-            </View>
+            </Animated.View>
           )}
 
           {/* Summary */}
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Total Expenses</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(totalExpenses)}</Text>
-            </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Reimbursable</Text>
-              <Text style={[styles.summaryValue, styles.reimbursable]}>
-                {formatCurrency(reimbursable)}
-              </Text>
-            </View>
-          </View>
+          {loading && expenses.length === 0 ? (
+            <SkeletonStats style={{ marginBottom: 20 }} />
+          ) : (
+            <Animated.View
+              entering={FadeInUp.springify().damping(15)}
+              style={styles.summaryCard}
+            >
+              <View style={styles.summaryItem}>
+                <Text style={styles.summaryLabel}>Total Expenses</Text>
+                <Text style={styles.summaryValue}>{formatCurrency(totalExpenses)}</Text>
+              </View>
+              <View style={styles.summaryDivider} />
+              <View style={styles.summaryItem}>
+                <Text style={styles.summaryLabel}>Reimbursable</Text>
+                <Text style={[styles.summaryValue, styles.reimbursable]}>
+                  {formatCurrency(reimbursable)}
+                </Text>
+              </View>
+            </Animated.View>
+          )}
 
           {/* Add Expense Button or Form */}
           {!showForm ? (
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => setShowForm(true)}
-            >
-              <Text style={styles.addButtonText}>+ Add Expense</Text>
-            </TouchableOpacity>
+            <Animated.View entering={FadeInUp.delay(100).springify()}>
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={() => setShowForm(true)}
+              >
+                <Text style={styles.addButtonText}>+ Add Expense</Text>
+              </TouchableOpacity>
+            </Animated.View>
           ) : (
-            <View style={styles.formCard}>
+            <Animated.View
+              entering={FadeInDown.springify().damping(15)}
+              style={styles.formCard}
+            >
               <Text style={styles.formTitle}>New Expense</Text>
 
               {/* Category Selection */}
@@ -242,12 +285,15 @@ export default function ExpensesScreen() {
               <View style={styles.amountInput}>
                 <Text style={styles.currencySymbol}>$</Text>
                 <TextInput
+                  ref={amountInputRef}
                   style={styles.amountTextInput}
                   placeholder="0.00"
                   placeholderTextColor="#666"
                   value={amount}
                   onChangeText={setAmount}
                   keyboardType="decimal-pad"
+                  returnKeyType="done"
+                  onSubmitEditing={handleSubmit}
                 />
               </View>
 
@@ -335,49 +381,60 @@ export default function ExpensesScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </Animated.View>
           )}
 
           {/* Expenses List */}
-          <View style={styles.section}>
+          <Animated.View
+            entering={FadeInUp.delay(200).springify()}
+            style={styles.section}
+          >
             <Text style={styles.sectionTitle}>
-              Expenses ({expenses.length})
+              Expenses ({visibleExpenses.length})
             </Text>
-            {expenses.length === 0 ? (
+            {loading && expenses.length === 0 ? (
+              <SkeletonCard lines={3} style={{ marginBottom: 12 }} />
+            ) : visibleExpenses.length === 0 ? (
               <View style={styles.emptyCard}>
                 <Text style={styles.emptyText}>No expenses recorded</Text>
               </View>
             ) : (
               <View style={styles.expensesList}>
-                {expenses.map((expense) => (
-                  <TouchableOpacity
+                {visibleExpenses.map((expense, index) => (
+                  <Animated.View
                     key={expense.id}
-                    style={styles.expenseItem}
-                    onLongPress={() => handleDelete(expense)}
+                    entering={FadeInUp.delay(getStaggerDelay(index)).springify().damping(15)}
+                    layout={Layout.springify().damping(15)}
                   >
-                    <View style={styles.expenseLeft}>
-                      <View style={styles.expenseHeader}>
-                        <Text style={styles.expenseCategory}>
-                          {expense.category.charAt(0).toUpperCase() + expense.category.slice(1)}
-                        </Text>
-                        {(expense.paid_by === 'driver_personal' || expense.paid_by === 'driver_cash') && (
-                          <View style={styles.reimbursableBadge}>
-                            <Text style={styles.reimbursableBadgeText}>Reimbursable</Text>
-                          </View>
+                    <TouchableOpacity
+                      style={styles.expenseItem}
+                      onLongPress={() => handleDelete(expense)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.expenseLeft}>
+                        <View style={styles.expenseHeader}>
+                          <Text style={styles.expenseCategory}>
+                            {expense.category.charAt(0).toUpperCase() + expense.category.slice(1)}
+                          </Text>
+                          {(expense.paid_by === 'driver_personal' || expense.paid_by === 'driver_cash') && (
+                            <View style={styles.reimbursableBadge}>
+                              <Text style={styles.reimbursableBadgeText}>Reimbursable</Text>
+                            </View>
+                          )}
+                        </View>
+                        {expense.description && (
+                          <Text style={styles.expenseDescription}>{expense.description}</Text>
                         )}
+                        <Text style={styles.expenseDate}>{formatDate(expense.incurred_at)}</Text>
                       </View>
-                      {expense.description && (
-                        <Text style={styles.expenseDescription}>{expense.description}</Text>
-                      )}
-                      <Text style={styles.expenseDate}>{formatDate(expense.incurred_at)}</Text>
-                    </View>
-                    <Text style={styles.expenseAmount}>{formatCurrency(expense.amount)}</Text>
-                  </TouchableOpacity>
+                      <Text style={styles.expenseAmount}>{formatCurrency(expense.amount)}</Text>
+                    </TouchableOpacity>
+                  </Animated.View>
                 ))}
               </View>
             )}
-            <Text style={styles.hint}>Long press an expense to delete</Text>
-          </View>
+            <Text style={styles.hint}>Hold to delete • Undo available for 5 seconds</Text>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </>

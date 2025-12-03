@@ -1,8 +1,12 @@
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { Stack } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDriverTrips } from '../../../hooks/useDriverTrips';
 import { TripCard } from '../../../components/TripCard';
+import { EmptyState, TripCardSkeleton } from '../../../components/ui';
 import { Trip, TripStatus } from '../../../types';
+import { colors, typography, spacing, radius } from '../../../lib/theme';
 
 // Sort trips by status priority and date
 function sortTrips(trips: Trip[]): Trip[] {
@@ -19,24 +23,54 @@ function sortTrips(trips: Trip[]): Trip[] {
     const priorityDiff = statusPriority[a.status] - statusPriority[b.status];
     if (priorityDiff !== 0) return priorityDiff;
 
-    // Within same status, sort by date (newest first)
     const dateA = a.start_date ? new Date(a.start_date).getTime() : 0;
     const dateB = b.start_date ? new Date(b.start_date).getTime() : 0;
     return dateB - dateA;
   });
 }
 
+// Memoized trip card for performance
+const MemoizedTripCard = React.memo(function MemoizedTripCard({ trip }: { trip: Trip }) {
+  return <TripCard trip={trip} variant="compact" />;
+});
+
 export default function TripsScreen() {
   const { trips, loading, error, refetch } = useDriverTrips();
+  const insets = useSafeAreaInsets();
   const sortedTrips = sortTrips(trips);
+
+  const renderItem = useCallback(({ item }: { item: Trip }) => (
+    <MemoizedTripCard trip={item} />
+  ), []);
+
+  const keyExtractor = useCallback((item: Trip) => item.id, []);
+
+  const ListEmptyComponent = useCallback(() => {
+    if (loading) {
+      return (
+        <View style={styles.skeletonList}>
+          <TripCardSkeleton style={styles.skeletonCard} />
+          <TripCardSkeleton style={styles.skeletonCard} />
+          <TripCardSkeleton />
+        </View>
+      );
+    }
+    return (
+      <EmptyState
+        illustration="no-trips"
+        title="No trips yet"
+        description="Trips assigned to you will appear here"
+      />
+    );
+  }, [loading]);
 
   return (
     <>
       <Stack.Screen
         options={{
           title: 'My Trips',
-          headerStyle: { backgroundColor: '#1a1a2e' },
-          headerTintColor: '#fff',
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.textPrimary,
         }}
       />
       <View style={styles.container}>
@@ -48,22 +82,25 @@ export default function TripsScreen() {
 
         <FlatList
           data={sortedTrips}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <TripCard trip={item} variant="compact" />}
-          contentContainerStyle={styles.listContent}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: insets.bottom + spacing.xxxl },
+          ]}
           refreshControl={
-            <RefreshControl refreshing={loading} onRefresh={refetch} tintColor="#0066CC" />
+            <RefreshControl
+              refreshing={loading && sortedTrips.length > 0}
+              onRefresh={refetch}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
           }
-          ListEmptyComponent={
-            !loading ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateTitle}>No trips</Text>
-                <Text style={styles.emptyStateText}>
-                  Trips assigned to you will appear here
-                </Text>
-              </View>
-            ) : null
-          }
+          ListEmptyComponent={ListEmptyComponent}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={5}
+          maxToRenderPerBatch={10}
+          windowSize={5}
         />
       </View>
     </>
@@ -73,38 +110,29 @@ export default function TripsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.background,
   },
   listContent: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: spacing.screenPadding,
+    flexGrow: 1,
   },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
+  skeletonList: {
+    gap: spacing.md,
   },
-  emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#888',
-    marginBottom: 8,
-  },
-  emptyStateText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
+  skeletonCard: {
+    marginBottom: spacing.md,
   },
   errorCard: {
-    backgroundColor: '#fee2e2',
-    borderRadius: 12,
-    padding: 16,
-    margin: 20,
+    backgroundColor: colors.errorSoft,
+    borderRadius: radius.md,
+    padding: spacing.cardPadding,
+    margin: spacing.screenPadding,
     marginBottom: 0,
+    borderWidth: 1,
+    borderColor: colors.error,
   },
   errorText: {
-    color: '#991b1b',
-    fontSize: 14,
+    ...typography.bodySmall,
+    color: colors.error,
   },
 });

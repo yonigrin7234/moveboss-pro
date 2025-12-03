@@ -7,24 +7,27 @@ import {
   RefreshControl,
   TouchableOpacity,
   Linking,
-  Alert,
   TextInput,
   Image,
   Modal,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useLoadDetail } from '../../../../../hooks/useLoadDetail';
 import { useLoadActions } from '../../../../../hooks/useLoadActions';
 import { useImageUpload } from '../../../../../hooks/useImageUpload';
 import { useLoadDocuments, DocumentType, LoadDocument } from '../../../../../hooks/useLoadDocuments';
+import { useToast } from '../../../../../components/ui';
 import { StatusBadge } from '../../../../../components/StatusBadge';
 import { DamageDocumentation } from '../../../../../components/DamageDocumentation';
 import { LoadStatus, DamageItem } from '../../../../../types';
+import { colors, typography, spacing, radius, shadows } from '../../../../../lib/theme';
 
 export default function LoadDetailScreen() {
   const { id: tripId, loadId } = useLocalSearchParams<{ id: string; loadId: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { load, loading, error, refetch } = useLoadDetail(loadId);
   const actions = useLoadActions(loadId, refetch);
 
@@ -110,15 +113,15 @@ export default function LoadDetailScreen() {
       <Stack.Screen
         options={{
           title: load?.job_number || load?.load_number || 'Load Details',
-          headerStyle: { backgroundColor: '#1a1a2e' },
-          headerTintColor: '#fff',
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.textPrimary,
         }}
       />
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.sectionGap }]}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={refetch} tintColor="#0066CC" />
+          <RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />
         }
       >
         {load && (
@@ -177,13 +180,13 @@ export default function LoadDetailScreen() {
                     style={styles.contactButton}
                     onPress={() => handleCall(load.companies?.phone || null)}
                   >
-                    <Text style={styles.contactButtonText}>📞 Call</Text>
+                    <Text style={styles.contactButtonText}>Call</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.contactButton}
                     onPress={() => handleText(load.companies?.phone || null)}
                   >
-                    <Text style={styles.contactButtonText}>💬 Text</Text>
+                    <Text style={styles.contactButtonText}>Text</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -383,6 +386,7 @@ function WorkflowActionCard({
   deliveryOrder: number | null;
   loadUpdatedAt: string;
 }) {
+  const toast = useToast();
   const trustLevel = company?.trust_level || 'cod_required';
   const [cuftInput, setCuftInput] = useState('');
   const [amountInput, setAmountInput] = useState(balanceDue?.toString() || '');
@@ -422,7 +426,7 @@ function WorkflowActionCard({
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Camera permission is needed to take photos');
+      toast.warning('Camera permission needed');
       return;
     }
 
@@ -449,7 +453,7 @@ function WorkflowActionCard({
       if (photo) {
         const uploadResult = await uploadLoadPhoto(photo, loadId, photoType);
         if (!uploadResult.success) {
-          Alert.alert('Upload Error', uploadResult.error || 'Failed to upload photo');
+          toast.error(uploadResult.error || 'Failed to upload photo');
           return;
         }
         photoUrl = uploadResult.url;
@@ -457,7 +461,7 @@ function WorkflowActionCard({
 
       const result = await action(photoUrl);
       if (!result.success) {
-        Alert.alert('Error', result.error || 'Action failed');
+        toast.error(result.error || 'Action failed');
       } else {
         setPhoto(null);
         setCuftInput('');
@@ -470,7 +474,7 @@ function WorkflowActionCard({
   const handleAction = async (action: () => Promise<{ success: boolean; error?: string }>) => {
     const result = await action();
     if (!result.success) {
-      Alert.alert('Error', result.error || 'Action failed');
+      toast.error(result.error || 'Action failed');
     }
   };
 
@@ -509,7 +513,7 @@ function WorkflowActionCard({
         <TextInput
           style={styles.input}
           placeholder="Starting CUFT"
-          placeholderTextColor="#666"
+          placeholderTextColor={colors.textMuted}
           value={cuftInput}
           onChangeText={setCuftInput}
           keyboardType="numeric"
@@ -552,7 +556,7 @@ function WorkflowActionCard({
         if (photo) {
           const uploadResult = await uploadLoadPhoto(photo, loadId, 'loading-end');
           if (!uploadResult.success) {
-            Alert.alert('Upload Error', uploadResult.error || 'Failed to upload photo');
+            toast.error(uploadResult.error || 'Failed to upload photo');
             return;
           }
           photoUrl = uploadResult.url;
@@ -560,14 +564,15 @@ function WorkflowActionCard({
 
         const result = await actions.finishLoading(cuftInput ? parseFloat(cuftInput) : undefined, photoUrl);
         if (!result.success) {
-          Alert.alert('Error', result.error || 'Action failed');
+          toast.error(result.error || 'Action failed');
           return;
         }
 
         setPhoto(null);
         setCuftInput('');
+        toast.success('Loading complete');
 
-        // Navigate based on load type:
+        // Auto-navigate based on load type:
         // 1. Pickup (posting_type = 'pickup') → pickup-completion screen
         // 2. Partner/marketplace loads → contract-details screen
         // 3. Own customer → done (just set status to loaded)
@@ -590,7 +595,7 @@ function WorkflowActionCard({
         <TextInput
           style={styles.input}
           placeholder="Ending CUFT"
-          placeholderTextColor="#666"
+          placeholderTextColor={colors.textMuted}
           value={cuftInput}
           onChangeText={setCuftInput}
           keyboardType="numeric"
@@ -693,19 +698,12 @@ function WorkflowActionCard({
     }
 
     // No balance due - proceed directly to start delivery
-    const handleStartDelivery = () => {
+    const handleStartDelivery = async () => {
       if (trustLevel === 'cod_required') {
-        Alert.alert(
-          'Verify Before Unloading',
-          `${company?.name || 'This company'} is not a trusted company.\n\nCall the owner to verify the company has settled before unloading.`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Start Delivery', onPress: () => handleAction(() => actions.startDelivery()) },
-          ]
-        );
-      } else {
-        handleAction(() => actions.startDelivery());
+        // Show warning toast but proceed directly (no blocking confirmation)
+        toast.warning(`Verify ${company?.name || 'company'} has settled before unloading`);
       }
+      await handleAction(() => actions.startDelivery());
     };
 
     return (
@@ -729,22 +727,20 @@ function WorkflowActionCard({
     );
   }
 
-  // In Transit → Complete Delivery (simple confirmation)
+  // In Transit → Navigate to full-screen delivery completion
   if (loadStatus === 'in_transit') {
     return (
-      <View style={styles.actionCard}>
-        <Text style={styles.actionTitle}>Complete Delivery</Text>
-        <Text style={styles.actionDescription}>
-          Confirm the delivery has been completed
+      <View style={styles.deliveryActionCard}>
+        <Text style={styles.deliveryEmoji}>📦</Text>
+        <Text style={styles.deliveryActionTitle}>Ready to Deliver?</Text>
+        <Text style={styles.deliveryActionDescription}>
+          Confirm when the delivery is complete
         </Text>
         <TouchableOpacity
-          style={[styles.primaryButton, actions.loading && styles.buttonDisabled]}
-          onPress={() => handleAction(actions.completeDelivery)}
-          disabled={actions.loading}
+          style={styles.completeDeliveryButton}
+          onPress={() => router.push(`/trips/${tripId}/loads/${loadId}/complete-delivery`)}
         >
-          <Text style={styles.primaryButtonText}>
-            {actions.loading ? 'Completing...' : 'Complete Delivery'}
-          </Text>
+          <Text style={styles.completeDeliveryButtonText}>Complete Delivery ✓</Text>
         </TouchableOpacity>
       </View>
     );
@@ -803,6 +799,7 @@ const DOCUMENT_TYPES: { value: DocumentType; label: string }[] = [
 ];
 
 function DocumentsSection({ loadId }: { loadId: string }) {
+  const toast = useToast();
   const {
     documents,
     loading,
@@ -810,16 +807,18 @@ function DocumentsSection({ loadId }: { loadId: string }) {
     uploadProgress,
     uploadDocument,
     deleteDocument,
+    refetch,
   } = useLoadDocuments(loadId);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedType, setSelectedType] = useState<DocumentType>('other');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [viewingDocument, setViewingDocument] = useState<LoadDocument | null>(null);
+  const [deletedDocId, setDeletedDocId] = useState<string | null>(null);
 
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Camera permission is needed to take photos');
+      toast.warning('Camera permission needed');
       return;
     }
 
@@ -838,7 +837,7 @@ function DocumentsSection({ loadId }: { loadId: string }) {
   const pickFromLibrary = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Photo library permission is needed');
+      toast.warning('Photo library permission needed');
       return;
     }
 
@@ -862,37 +861,49 @@ function DocumentsSection({ loadId }: { loadId: string }) {
       setShowUploadModal(false);
       setSelectedImage(null);
       setSelectedType('other');
+      toast.success('Document uploaded');
     } else {
-      Alert.alert('Upload Failed', result.error || 'Failed to upload document');
+      toast.error(result.error || 'Failed to upload');
     }
   };
 
-  const handleDelete = (doc: LoadDocument) => {
-    Alert.alert(
-      'Delete Document',
-      'Are you sure you want to delete this document?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const result = await deleteDocument(doc.id);
-            if (!result.success) {
-              Alert.alert('Error', result.error || 'Failed to delete document');
-            }
-          },
+  // Delete with undo option
+  const handleDelete = async (doc: LoadDocument) => {
+    setDeletedDocId(doc.id);
+
+    toast.showToast('Document deleted', 'success', {
+      duration: 5000,
+      action: {
+        label: 'Undo',
+        onPress: () => {
+          setDeletedDocId(null);
+          refetch();
         },
-      ]
-    );
+      },
+    });
+
+    // Actually delete after delay
+    setTimeout(async () => {
+      if (deletedDocId === doc.id) {
+        const result = await deleteDocument(doc.id);
+        if (!result.success) {
+          toast.error('Failed to delete');
+          setDeletedDocId(null);
+          refetch();
+        }
+      }
+    }, 5000);
   };
+
+  // Filter deleted document from view
+  const visibleDocs = documents.filter(d => d.id !== deletedDocId);
 
   const getTypeLabel = (type: DocumentType) => {
     return DOCUMENT_TYPES.find((t) => t.value === type)?.label || type;
   };
 
-  // Group documents by type
-  const groupedDocs = documents.reduce((acc, doc) => {
+  // Group visible documents by type
+  const groupedDocs = visibleDocs.reduce((acc, doc) => {
     if (!acc[doc.type]) acc[doc.type] = [];
     acc[doc.type].push(doc);
     return acc;
@@ -914,7 +925,7 @@ function DocumentsSection({ loadId }: { loadId: string }) {
 
       {loading ? (
         <Text style={styles.loadingText}>Loading documents...</Text>
-      ) : documents.length === 0 ? (
+      ) : visibleDocs.length === 0 ? (
         <Text style={styles.emptyDocsText}>No documents uploaded yet</Text>
       ) : (
         <View style={styles.documentsGrid}>
@@ -1028,17 +1039,16 @@ function DocumentsSection({ loadId }: { loadId: string }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.background,
   },
   content: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: spacing.screenPadding,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 20,
+    marginBottom: spacing.sectionGap,
   },
   headerInfo: {
     flex: 1,
@@ -1046,49 +1056,48 @@ const styles = StyleSheet.create({
   jobNumberRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginBottom: 2,
+    marginBottom: spacing.xs,
   },
   jobNumberLabel: {
-    fontSize: 14,
-    color: '#888',
-    marginRight: 6,
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginRight: spacing.xs,
   },
   jobNumber: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#fff',
+    ...typography.title,
+    color: colors.textPrimary,
   },
   loadNumberRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginBottom: 4,
+    marginBottom: spacing.sm,
   },
   loadNumberLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginRight: 4,
+    ...typography.caption,
+    color: colors.textMuted,
+    marginRight: spacing.xs,
   },
   loadNumberValue: {
-    fontSize: 14,
-    color: '#aaa',
+    ...typography.bodySmall,
+    color: colors.textSecondary,
   },
   companyName: {
-    fontSize: 16,
-    color: '#888',
-    marginTop: 4,
+    ...typography.body,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
   },
   card: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    padding: spacing.cardPaddingLarge,
+    marginBottom: spacing.lg,
   },
   // Contact Company Card Styles
   contactCard: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    padding: spacing.cardPadding,
+    marginBottom: spacing.lg,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -1097,130 +1106,129 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contactLabel: {
-    fontSize: 12,
-    color: '#888',
-    marginBottom: 4,
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
     textTransform: 'uppercase',
   },
   contactName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 2,
+    ...typography.subheadline,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
   },
   contactPhone: {
-    fontSize: 14,
-    color: '#ccc',
+    ...typography.bodySmall,
+    color: colors.textSecondary,
   },
   contactActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
   },
   contactButton: {
-    backgroundColor: '#0066CC',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 8,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   contactButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    ...typography.button,
+    color: colors.textPrimary,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.itemGap,
   },
   cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 12,
+    ...typography.subheadline,
+    color: colors.textPrimary,
+    marginBottom: spacing.itemGap,
   },
   cardDate: {
-    fontSize: 14,
-    color: '#888',
+    ...typography.bodySmall,
+    color: colors.textSecondary,
   },
   address: {
-    fontSize: 16,
-    color: '#ccc',
+    ...typography.body,
+    color: colors.textSecondary,
     lineHeight: 24,
-    marginBottom: 12,
+    marginBottom: spacing.itemGap,
   },
   cardActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.itemGap,
   },
   actionButton: {
-    backgroundColor: '#3a3a4e',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
+    backgroundColor: colors.borderLight,
+    paddingHorizontal: spacing.cardPadding,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   actionButtonText: {
-    color: '#0066CC',
-    fontSize: 14,
-    fontWeight: '600',
+    ...typography.button,
+    color: colors.primary,
   },
   infoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: spacing.lg,
   },
   infoItem: {
     minWidth: '45%',
   },
   infoLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
+    ...typography.caption,
+    color: colors.textMuted,
+    marginBottom: spacing.xs,
   },
   infoValue: {
-    fontSize: 16,
-    color: '#fff',
+    ...typography.body,
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   infoValueLarge: {
-    fontSize: 20,
-    color: '#fff',
+    ...typography.headline,
+    color: colors.textPrimary,
     fontWeight: '700',
   },
   collected: {
-    color: '#10b981',
+    color: colors.success,
   },
   descriptionSection: {
-    marginTop: 16,
-    paddingTop: 16,
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: '#3a3a4e',
+    borderTopColor: colors.borderLight,
   },
   description: {
-    fontSize: 14,
-    color: '#ccc',
+    ...typography.bodySmall,
+    color: colors.textSecondary,
     lineHeight: 22,
   },
   // Action Card
   actionCard: {
-    backgroundColor: '#0066CC',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    backgroundColor: colors.primary,
+    borderRadius: radius.card,
+    padding: spacing.cardPaddingLarge,
+    marginBottom: spacing.lg,
   },
   actionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 4,
+    ...typography.headline,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
   },
   // Trust Badge Styles
   trustBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginBottom: 12,
+    paddingHorizontal: spacing.itemGap,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.card,
+    marginBottom: spacing.itemGap,
   },
   trustBadgeTrusted: {
     backgroundColor: 'rgba(16, 185, 129, 0.9)',
@@ -1229,108 +1237,145 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(245, 158, 11, 0.9)',
   },
   trustBadgeText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#fff',
+    ...typography.label,
+    color: colors.textPrimary,
   },
   actionDescription: {
-    fontSize: 14,
+    ...typography.bodySmall,
     color: 'rgba(255,255,255,0.8)',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   input: {
     backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 8,
-    padding: 14,
-    fontSize: 16,
-    color: '#fff',
-    marginBottom: 16,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    ...typography.body,
+    color: colors.textPrimary,
+    marginBottom: spacing.lg,
+    minHeight: 44,
   },
   photoButton: {
     backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 8,
-    padding: 16,
+    borderRadius: radius.sm,
+    padding: spacing.cardPadding,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
     minHeight: 80,
   },
   photoButtonText: {
+    ...typography.bodySmall,
     color: 'rgba(255,255,255,0.8)',
-    fontSize: 14,
     fontWeight: '500',
   },
   photoPreview: {
     width: '100%',
     height: 120,
-    borderRadius: 8,
+    borderRadius: radius.sm,
   },
   removePhotoText: {
-    color: '#ff6b6b',
-    fontSize: 14,
+    ...typography.bodySmall,
+    color: colors.error,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   contractDetailsHint: {
+    ...typography.caption,
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 12,
     textAlign: 'center',
-    marginTop: 12,
+    marginTop: spacing.itemGap,
     fontStyle: 'italic',
   },
   primaryButton: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 16,
+    backgroundColor: colors.textPrimary,
+    borderRadius: radius.md,
+    padding: spacing.cardPadding,
     alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   primaryButtonText: {
-    color: '#0066CC',
-    fontSize: 16,
-    fontWeight: '700',
+    ...typography.button,
+    color: colors.primary,
   },
   completedCard: {
-    backgroundColor: '#10b981',
+    backgroundColor: colors.success,
   },
   completedTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
+    ...typography.headline,
+    color: colors.textPrimary,
   },
   completedDescription: {
-    fontSize: 14,
+    ...typography.bodySmall,
     color: 'rgba(255,255,255,0.8)',
-    marginTop: 4,
+    marginTop: spacing.xs,
+  },
+  // Delivery Action Card (for in_transit)
+  deliveryActionCard: {
+    backgroundColor: colors.success,
+    borderRadius: radius.card,
+    padding: spacing.sectionGap,
+    marginBottom: spacing.lg,
+    alignItems: 'center',
+  },
+  deliveryEmoji: {
+    fontSize: 48,
+    marginBottom: spacing.itemGap,
+  },
+  deliveryActionTitle: {
+    ...typography.title,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  deliveryActionDescription: {
+    ...typography.bodySmall,
+    color: 'rgba(255,255,255,0.85)',
+    marginBottom: spacing.sectionGap,
+    textAlign: 'center',
+  },
+  completeDeliveryButton: {
+    backgroundColor: colors.textPrimary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.cardPadding,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+    ...shadows.md,
+  },
+  completeDeliveryButtonText: {
+    ...typography.headline,
+    color: colors.success,
   },
   // Blocked Delivery Card
   blockedCard: {
-    backgroundColor: '#4a4a5e',
+    backgroundColor: colors.borderLight,
   },
   blockedHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   blockedIcon: {
     fontSize: 20,
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   blockedTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
+    ...typography.headline,
+    color: colors.textPrimary,
   },
   blockedReason: {
-    fontSize: 15,
-    color: '#fbbf24',
-    marginBottom: 8,
+    ...typography.body,
+    color: colors.warning,
+    marginBottom: spacing.sm,
     fontWeight: '500',
   },
   blockedHint: {
-    fontSize: 13,
+    ...typography.label,
     color: 'rgba(255,255,255,0.6)',
     lineHeight: 18,
   },
@@ -1338,42 +1383,41 @@ const styles = StyleSheet.create({
   deliveryOrderBadge: {
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.md,
+    marginBottom: spacing.sm,
   },
   deliveryOrderBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#fff',
+    ...typography.caption,
+    color: colors.textPrimary,
   },
   // Timeline
   timeline: {
-    gap: 16,
+    gap: spacing.lg,
   },
   timelineItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: spacing.itemGap,
   },
   timelineDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#0066CC',
-    marginTop: 4,
+    backgroundColor: colors.primary,
+    marginTop: spacing.xs,
   },
   timelineContent: {},
   timelineLabel: {
-    fontSize: 14,
-    color: '#fff',
+    ...typography.bodySmall,
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   timelineTime: {
-    fontSize: 12,
-    color: '#888',
-    marginTop: 2,
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
   // States
   emptyState: {
@@ -1383,77 +1427,77 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#888',
+    ...typography.headline,
+    color: colors.textSecondary,
   },
   errorCard: {
     backgroundColor: '#fee2e2',
-    borderRadius: 12,
-    padding: 16,
-    margin: 20,
+    borderRadius: radius.md,
+    padding: spacing.cardPadding,
+    margin: spacing.screenPadding,
   },
   errorText: {
+    ...typography.bodySmall,
     color: '#991b1b',
-    fontSize: 14,
   },
   // Documents Section
   documentsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.itemGap,
   },
   uploadButtons: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
   },
   uploadButton: {
-    backgroundColor: '#3a3a4e',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+    backgroundColor: colors.borderLight,
+    paddingHorizontal: spacing.itemGap,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.xs,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   uploadButtonText: {
-    color: '#0066CC',
-    fontSize: 12,
-    fontWeight: '600',
+    ...typography.caption,
+    color: colors.primary,
   },
   loadingText: {
-    color: '#888',
-    fontSize: 14,
+    ...typography.bodySmall,
+    color: colors.textSecondary,
     textAlign: 'center',
-    paddingVertical: 20,
+    paddingVertical: spacing.sectionGap,
   },
   emptyDocsText: {
-    color: '#666',
-    fontSize: 14,
+    ...typography.bodySmall,
+    color: colors.textMuted,
     textAlign: 'center',
-    paddingVertical: 20,
+    paddingVertical: spacing.sectionGap,
   },
   documentsGrid: {
-    gap: 16,
+    gap: spacing.lg,
   },
   docTypeGroup: {
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   docTypeLabel: {
-    fontSize: 12,
-    color: '#888',
-    marginBottom: 8,
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
     textTransform: 'uppercase',
   },
   docThumbnails: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: spacing.sm,
   },
   docThumbnail: {
     width: 70,
     height: 70,
-    borderRadius: 8,
+    borderRadius: radius.sm,
     overflow: 'hidden',
-    backgroundColor: '#3a3a4e',
+    backgroundColor: colors.borderLight,
   },
   docThumbnailImage: {
     width: '100%',
@@ -1466,77 +1510,80 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#2a2a3e',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: spacing.sectionGap,
+    borderTopRightRadius: spacing.sectionGap,
+    padding: spacing.cardPaddingLarge,
     paddingBottom: 40,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
+    ...typography.headline,
+    color: colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   previewImage: {
     width: '100%',
     height: 200,
-    borderRadius: 12,
-    marginBottom: 16,
+    borderRadius: radius.md,
+    marginBottom: spacing.lg,
   },
   modalLabel: {
-    fontSize: 14,
-    color: '#888',
-    marginBottom: 8,
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
   },
   typeScroller: {
-    marginBottom: 20,
+    marginBottom: spacing.sectionGap,
   },
   typeChip: {
-    backgroundColor: '#3a3a4e',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
+    backgroundColor: colors.borderLight,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: spacing.sectionGap,
+    marginRight: spacing.sm,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   typeChipSelected: {
-    backgroundColor: '#0066CC',
+    backgroundColor: colors.primary,
   },
   typeChipText: {
-    color: '#888',
-    fontSize: 14,
+    ...typography.bodySmall,
+    color: colors.textSecondary,
   },
   typeChipTextSelected: {
-    color: '#fff',
+    color: colors.textPrimary,
   },
   modalActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.itemGap,
   },
   modalCancelButton: {
     flex: 1,
-    backgroundColor: '#3a3a4e',
-    borderRadius: 10,
-    padding: 14,
+    backgroundColor: colors.borderLight,
+    borderRadius: radius.md,
+    padding: spacing.md,
     alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
   },
   modalCancelText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '500',
+    ...typography.button,
+    color: colors.textPrimary,
   },
   modalUploadButton: {
     flex: 1,
-    backgroundColor: '#0066CC',
-    borderRadius: 10,
-    padding: 14,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    padding: spacing.md,
     alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
   },
   modalUploadText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.button,
+    color: colors.textPrimary,
   },
   // Document Viewer
   viewerOverlay: {
@@ -1552,15 +1599,17 @@ const styles = StyleSheet.create({
   viewerClose: {
     position: 'absolute',
     top: 60,
-    right: 20,
+    right: spacing.cardPaddingLarge,
     backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: spacing.cardPadding,
+    paddingVertical: spacing.sm,
+    borderRadius: spacing.sectionGap,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   viewerCloseText: {
-    color: '#fff',
-    fontSize: 14,
+    ...typography.bodySmall,
+    color: colors.textPrimary,
     fontWeight: '500',
   },
 });

@@ -3,146 +3,189 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../providers/AuthProvider';
+import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
+import { ScreenContainer } from '../../components/ui';
+import { haptics } from '../../lib/haptics';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { signIn } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password');
+      setError('Please enter email and password');
+      haptics.warning();
       return;
     }
 
+    setError(null);
     setLoading(true);
-    const { error } = await signIn(email, password);
+    const { error: signInError } = await signIn(email, password);
     setLoading(false);
 
-    if (error) {
-      Alert.alert('Error', error.message);
+    if (signInError) {
+      setError(signInError.message);
+      haptics.error();
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <View style={styles.inner}>
+    <ScreenContainer keyboardAvoiding edges={['top', 'bottom']}>
+      <View style={[styles.inner, { paddingTop: insets.top + spacing.xxxl }]}>
         <Text style={styles.title}>MoveBoss</Text>
         <Text style={styles.subtitle}>Driver Portal</Text>
 
         <View style={styles.form}>
+          {error && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
           <TextInput
             style={styles.input}
             placeholder="Email"
-            placeholderTextColor="#666"
+            placeholderTextColor={colors.textMuted}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
             autoComplete="email"
+            returnKeyType="next"
           />
 
           <TextInput
             style={styles.input}
             placeholder="Password"
-            placeholderTextColor="#666"
+            placeholderTextColor={colors.textMuted}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             autoComplete="password"
+            returnKeyType="done"
+            onSubmitEditing={handleLogin}
           />
 
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              loading && styles.buttonDisabled,
+              pressed && styles.buttonPressed,
+            ]}
             onPress={handleLogin}
             disabled={loading}
           >
-            <Text style={styles.buttonText}>
-              {loading ? 'Signing in...' : 'Sign In'}
-            </Text>
-          </TouchableOpacity>
+            {loading ? (
+              <ActivityIndicator color={colors.white} />
+            ) : (
+              <Text style={styles.buttonText}>Sign In</Text>
+            )}
+          </Pressable>
 
-          <TouchableOpacity
-            style={styles.forgotButton}
-            onPress={() => router.push('/(auth)/forgot-password')}
+          <Pressable
+            style={({ pressed }) => [
+              styles.forgotButton,
+              pressed && styles.forgotButtonPressed,
+            ]}
+            onPress={() => {
+              haptics.selection();
+              router.push('/(auth)/forgot-password');
+            }}
           >
             <Text style={styles.forgotButtonText}>Forgot Password?</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </View>
-    </KeyboardAvoidingView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1a1a2e',
-  },
   inner: {
     flex: 1,
     justifyContent: 'center',
-    padding: 24,
+    paddingHorizontal: spacing.screenPadding,
   },
   title: {
+    ...typography.numericLarge,
     fontSize: 36,
-    fontWeight: 'bold',
-    color: '#fff',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   subtitle: {
-    fontSize: 18,
-    color: '#888',
+    ...typography.headline,
+    color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 48,
+    marginBottom: spacing.xxxl,
   },
   form: {
-    gap: 16,
+    gap: spacing.lg,
+  },
+  errorContainer: {
+    backgroundColor: colors.errorSoft,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.error,
+  },
+  errorText: {
+    ...typography.bodySmall,
+    color: colors.error,
+    textAlign: 'center',
   },
   input: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: '#fff',
+    ...typography.body,
+    backgroundColor: colors.inputBackground,
+    borderRadius: radius.input,
+    padding: spacing.inputPadding,
+    color: colors.textPrimary,
     borderWidth: 1,
-    borderColor: '#3a3a4e',
+    borderColor: colors.border,
+    minHeight: 56,
   },
   button: {
-    backgroundColor: '#0066CC',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: colors.primary,
+    borderRadius: radius.button,
+    padding: spacing.lg,
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+    minHeight: 56,
+    ...shadows.glow,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
+  buttonPressed: {
+    backgroundColor: colors.primaryMuted,
+  },
   buttonText: {
-    color: '#fff',
+    ...typography.button,
     fontSize: 18,
-    fontWeight: '600',
   },
   forgotButton: {
-    padding: 8,
+    padding: spacing.md,
     alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  forgotButtonPressed: {
+    opacity: 0.7,
   },
   forgotButtonText: {
-    color: '#0066CC',
-    fontSize: 16,
+    ...typography.button,
+    color: colors.primary,
   },
 });

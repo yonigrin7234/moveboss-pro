@@ -7,26 +7,27 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
-  Alert,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLoadDetail } from '../../../../../../hooks/useLoadDetail';
 import { useLoadActions } from '../../../../../../hooks/useLoadActions';
 import { useImageUpload } from '../../../../../../hooks/useImageUpload';
+import { useToast, LoadDetailSkeleton, Icon, IconName } from '../../../../../../components/ui';
 import { PaymentMethod, ZelleRecipient } from '../../../../../../types';
 import { DamageDocumentation } from '../../../../../../components/DamageDocumentation';
+import { colors, typography, spacing, radius, shadows } from '../../../../../../lib/theme';
 
-const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: string }[] = [
-  { value: 'cash', label: 'Cash', icon: '💵' },
-  { value: 'cashier_check', label: "Cashier's Check", icon: '🏦' },
-  { value: 'money_order', label: 'Money Order', icon: '📄' },
-  { value: 'personal_check', label: 'Personal Check', icon: '✍️' },
-  { value: 'zelle', label: 'Zelle', icon: '📱' },
-  { value: 'already_paid', label: 'No Payment', icon: '✅' },
+const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: IconName }[] = [
+  { value: 'cash', label: 'Cash', icon: 'banknote' },
+  { value: 'cashier_check', label: "Cashier's Check", icon: 'credit-card' },
+  { value: 'money_order', label: 'Money Order', icon: 'file-text' },
+  { value: 'personal_check', label: 'Personal Check', icon: 'edit' },
+  { value: 'zelle', label: 'Zelle', icon: 'phone' },
+  { value: 'already_paid', label: 'No Payment', icon: 'check-circle' },
 ];
 
 const ZELLE_RECIPIENTS: { value: ZelleRecipient; label: string }[] = [
@@ -38,6 +39,8 @@ const ZELLE_RECIPIENTS: { value: ZelleRecipient; label: string }[] = [
 export default function PickupCompletionScreen() {
   const { id: tripId, loadId } = useLocalSearchParams<{ id: string; loadId: string }>();
   const router = useRouter();
+  const toast = useToast();
+  const insets = useSafeAreaInsets();
   const { load, loading, error, refetch } = useLoadDetail(loadId);
   const actions = useLoadActions(loadId, refetch);
   const { uploading, progress, uploadLoadPhoto } = useImageUpload();
@@ -64,8 +67,10 @@ export default function PickupCompletionScreen() {
   const [paymentPhotoFront, setPaymentPhotoFront] = useState<string | null>(null);
   const [paymentPhotoBack, setPaymentPhotoBack] = useState<string | null>(null);
 
-  // Delivery scheduling state
-  const [rfdDate, setRfdDate] = useState<Date | null>(null);
+  // Delivery scheduling state - default to tomorrow
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const [rfdDate, setRfdDate] = useState<Date | null>(tomorrow);
   const [rfdDateEnd, setRfdDateEnd] = useState<Date | null>(null);
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [showRfdPicker, setShowRfdPicker] = useState(false);
@@ -129,7 +134,7 @@ export default function PickupCompletionScreen() {
   const takePhoto = async (): Promise<string | null> => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Camera permission is needed to take photos');
+      toast.warning('Camera permission needed');
       return null;
     }
 
@@ -169,17 +174,9 @@ export default function PickupCompletionScreen() {
   const handleSubmit = async () => {
     if (!canSubmit || !rfdDate) return;
 
-    // Warn if no paperwork captured
+    // Warn if no paperwork but proceed anyway (just a toast warning)
     if (!contractPhoto && inventoryPhotos.length === 0) {
-      Alert.alert(
-        'No Paperwork',
-        'You haven\'t captured any contract or inventory photos. Continue anyway?',
-        [
-          { text: 'Go Back', style: 'cancel' },
-          { text: 'Continue', onPress: () => doSubmit() },
-        ]
-      );
-      return;
+      toast.warning('No paperwork photos captured');
     }
 
     await doSubmit();
@@ -243,18 +240,15 @@ export default function PickupCompletionScreen() {
       });
 
       if (!result.success) {
-        Alert.alert('Error', result.error || 'Failed to complete pickup');
+        toast.error(result.error || 'Failed to complete pickup');
         return;
       }
 
-      Alert.alert('Pickup Complete', 'Ready for delivery!', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
+      // Auto-navigate back with success toast
+      toast.success('Pickup complete - Ready for delivery!');
+      router.back();
     } catch (err) {
-      Alert.alert('Error', 'Failed to complete pickup');
+      toast.error('Failed to complete pickup');
     } finally {
       setSubmitting(false);
     }
@@ -291,8 +285,8 @@ export default function PickupCompletionScreen() {
     return (
       <>
         <Stack.Screen options={{ title: 'Complete Pickup' }} />
-        <View style={[styles.container, styles.centered]}>
-          <ActivityIndicator size="large" color="#0066CC" />
+        <View style={styles.container}>
+          <LoadDetailSkeleton style={{ padding: spacing.screenPadding }} />
         </View>
       </>
     );
@@ -306,11 +300,15 @@ export default function PickupCompletionScreen() {
       <Stack.Screen
         options={{
           title: 'Complete Pickup',
-          headerStyle: { backgroundColor: '#1a1a2e' },
-          headerTintColor: '#fff',
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.textPrimary,
         }}
       />
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.screenPadding }]}
+        keyboardDismissMode="on-drag"
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>{customerInfo}</Text>
@@ -365,7 +363,7 @@ export default function PickupCompletionScreen() {
                 value={ratePerCuft}
                 onChangeText={setRatePerCuft}
                 placeholder="0.00"
-                placeholderTextColor="#666"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"
               />
             </View>
@@ -387,7 +385,7 @@ export default function PickupCompletionScreen() {
                 value={linehaulOverride}
                 onChangeText={setLinehaulOverride}
                 placeholder={calculatedLinehaul.toFixed(2)}
-                placeholderTextColor="#666"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"
               />
             </View>
@@ -420,7 +418,7 @@ export default function PickupCompletionScreen() {
                     value={shuttle}
                     onChangeText={setShuttle}
                     placeholder="0"
-                    placeholderTextColor="#666"
+                    placeholderTextColor={colors.textMuted}
                     keyboardType="decimal-pad"
                   />
                 </View>
@@ -434,7 +432,7 @@ export default function PickupCompletionScreen() {
                     value={longCarry}
                     onChangeText={setLongCarry}
                     placeholder="0"
-                    placeholderTextColor="#666"
+                    placeholderTextColor={colors.textMuted}
                     keyboardType="decimal-pad"
                   />
                 </View>
@@ -448,7 +446,7 @@ export default function PickupCompletionScreen() {
                     value={stairs}
                     onChangeText={setStairs}
                     placeholder="0"
-                    placeholderTextColor="#666"
+                    placeholderTextColor={colors.textMuted}
                     keyboardType="decimal-pad"
                   />
                 </View>
@@ -462,7 +460,7 @@ export default function PickupCompletionScreen() {
                     value={bulky}
                     onChangeText={setBulky}
                     placeholder="0"
-                    placeholderTextColor="#666"
+                    placeholderTextColor={colors.textMuted}
                     keyboardType="decimal-pad"
                   />
                 </View>
@@ -476,7 +474,7 @@ export default function PickupCompletionScreen() {
                     value={packing}
                     onChangeText={setPacking}
                     placeholder="0"
-                    placeholderTextColor="#666"
+                    placeholderTextColor={colors.textMuted}
                     keyboardType="decimal-pad"
                   />
                 </View>
@@ -490,7 +488,7 @@ export default function PickupCompletionScreen() {
                     value={otherAccessorial}
                     onChangeText={setOtherAccessorial}
                     placeholder="0"
-                    placeholderTextColor="#666"
+                    placeholderTextColor={colors.textMuted}
                     keyboardType="decimal-pad"
                   />
                 </View>
@@ -500,7 +498,7 @@ export default function PickupCompletionScreen() {
                 value={accessorialNotes}
                 onChangeText={setAccessorialNotes}
                 placeholder="Accessorial notes..."
-                placeholderTextColor="#666"
+                placeholderTextColor={colors.textMuted}
                 multiline
                 numberOfLines={2}
               />
@@ -516,7 +514,7 @@ export default function PickupCompletionScreen() {
                 value={balanceDue}
                 onChangeText={setBalanceDue}
                 placeholder="0.00"
-                placeholderTextColor="#666"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"
               />
             </View>
@@ -538,7 +536,7 @@ export default function PickupCompletionScreen() {
                 value={amountCollected}
                 onChangeText={setAmountCollected}
                 placeholder="0.00"
-                placeholderTextColor="#666"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"
               />
             </View>
@@ -564,7 +562,11 @@ export default function PickupCompletionScreen() {
                       }
                     }}
                   >
-                    <Text style={styles.paymentIcon}>{method.icon}</Text>
+                    <Icon
+                      name={method.icon}
+                      size="lg"
+                      color={paymentMethod === method.value ? colors.primary : colors.textSecondary}
+                    />
                     <Text
                       style={[
                         styles.paymentLabel,
@@ -712,7 +714,7 @@ export default function PickupCompletionScreen() {
               value={deliveryNotes}
               onChangeText={setDeliveryNotes}
               placeholder="Special instructions, access issues, etc."
-              placeholderTextColor="#666"
+              placeholderTextColor={colors.textMuted}
               multiline
               numberOfLines={3}
             />
@@ -735,7 +737,7 @@ export default function PickupCompletionScreen() {
               </View>
             ) : (
               <>
-                <Text style={styles.documentButtonIcon}>📄</Text>
+                <Icon name="file-text" size="lg" color={colors.textSecondary} />
                 <Text style={styles.documentButtonText}>Scan Contract/BOL</Text>
               </>
             )}
@@ -764,7 +766,7 @@ export default function PickupCompletionScreen() {
               </View>
             ) : (
               <>
-                <Text style={styles.documentButtonIcon}>📋</Text>
+                <Icon name="clipboard-list" size="lg" color={colors.textSecondary} />
                 <Text style={styles.documentButtonText}>Scan Inventory</Text>
               </>
             )}
@@ -822,8 +824,6 @@ export default function PickupCompletionScreen() {
             Please select a Ready-for-Delivery date
           </Text>
         )}
-
-        <View style={styles.bottomSpacer} />
       </ScrollView>
     </>
   );
@@ -832,46 +832,44 @@ export default function PickupCompletionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.background,
   },
   content: {
-    padding: 20,
+    padding: spacing.screenPadding,
   },
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   header: {
-    marginBottom: 24,
+    marginBottom: spacing.sectionGap,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#fff',
+    ...typography.headline,
+    color: colors.textPrimary,
   },
   headerSubtitle: {
-    fontSize: 16,
-    color: '#888',
-    marginTop: 4,
+    ...typography.body,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: spacing.sectionGap,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 4,
+    ...typography.subheadline,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
   },
   sectionSubtitle: {
-    fontSize: 14,
-    color: '#888',
-    marginBottom: 16,
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.lg,
   },
   summaryCard: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.cardPadding,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -879,102 +877,103 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   summaryLabel: {
-    fontSize: 14,
-    color: '#888',
+    ...typography.bodySmall,
+    color: colors.textSecondary,
   },
   summaryValueLarge: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#10b981',
+    color: colors.success,
   },
   photoThumbnails: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 12,
+    gap: spacing.itemGap,
+    marginTop: spacing.itemGap,
   },
   thumbnailContainer: {
     alignItems: 'center',
   },
   thumbnailLabel: {
-    fontSize: 12,
-    color: '#888',
-    marginBottom: 4,
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
   },
   thumbnail: {
     width: 60,
     height: 60,
-    borderRadius: 8,
-    backgroundColor: '#3a3a4e',
+    borderRadius: radius.sm,
+    backgroundColor: colors.borderLight,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   label: {
-    fontSize: 14,
-    color: '#ccc',
-    marginBottom: 8,
+    ...typography.bodySmall,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
   },
   currencyInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2a2a3e',
-    borderRadius: 8,
+    backgroundColor: colors.surface,
+    borderRadius: radius.sm,
   },
   currencyPrefix: {
-    fontSize: 16,
-    color: '#888',
-    paddingLeft: 14,
+    ...typography.body,
+    color: colors.textSecondary,
+    paddingLeft: spacing.cardPadding,
   },
   inputWithPrefix: {
     flex: 1,
-    padding: 14,
-    fontSize: 16,
-    color: '#fff',
+    padding: spacing.cardPadding,
+    ...typography.body,
+    color: colors.textPrimary,
   },
   calculatedRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#2a2a3e',
-    borderRadius: 8,
-    padding: 14,
-    marginBottom: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.sm,
+    padding: spacing.cardPadding,
+    marginBottom: spacing.lg,
   },
   calculatedLabel: {
-    fontSize: 14,
-    color: '#888',
+    ...typography.bodySmall,
+    color: colors.textSecondary,
   },
   calculatedValue: {
-    fontSize: 16,
-    color: '#10b981',
+    ...typography.body,
+    color: colors.success,
     fontWeight: '600',
   },
   collapsibleHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.cardPadding,
+    marginBottom: spacing.lg,
+    minHeight: 44,
   },
   collapsibleTitle: {
-    fontSize: 16,
+    ...typography.body,
+    color: colors.textPrimary,
     fontWeight: '500',
-    color: '#fff',
   },
   collapsibleSubtitle: {
-    fontSize: 12,
-    color: '#10b981',
+    ...typography.caption,
+    color: colors.success,
     marginTop: 2,
   },
   collapseIcon: {
     fontSize: 24,
-    color: '#888',
+    color: colors.textSecondary,
   },
   accessorialGrid: {
-    gap: 12,
-    marginBottom: 16,
+    gap: spacing.itemGap,
+    marginBottom: spacing.lg,
   },
   accessorialItem: {
     flexDirection: 'row',
@@ -982,91 +981,94 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   accessorialLabel: {
-    fontSize: 14,
-    color: '#ccc',
+    ...typography.bodySmall,
+    color: colors.textPrimary,
     flex: 1,
   },
   currencyInputSmall: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2a2a3e',
-    borderRadius: 8,
+    backgroundColor: colors.surface,
+    borderRadius: radius.sm,
     width: 120,
   },
   currencyPrefixSmall: {
-    fontSize: 14,
-    color: '#888',
-    paddingLeft: 12,
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    paddingLeft: spacing.itemGap,
   },
   accessorialInput: {
     flex: 1,
-    padding: 10,
-    fontSize: 14,
-    color: '#fff',
+    padding: spacing.sm,
+    ...typography.bodySmall,
+    color: colors.textPrimary,
   },
   textArea: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 8,
-    padding: 14,
-    fontSize: 16,
-    color: '#fff',
+    backgroundColor: colors.surface,
+    borderRadius: radius.sm,
+    padding: spacing.cardPadding,
+    ...typography.body,
+    color: colors.textPrimary,
     minHeight: 60,
     textAlignVertical: 'top',
   },
   helperText: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
+    ...typography.caption,
+    color: colors.textMuted,
+    marginTop: spacing.xs,
   },
   paymentGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 16,
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
   },
   paymentOption: {
     width: '31%',
-    backgroundColor: '#2a2a3e',
-    borderRadius: 10,
-    padding: 12,
+    backgroundColor: colors.surface,
+    borderRadius: spacing.sm,
+    padding: spacing.itemGap,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: 'transparent',
+    minHeight: 44,
   },
   paymentOptionSelected: {
-    borderColor: '#0066CC',
+    borderColor: colors.primary,
     backgroundColor: 'rgba(0, 102, 204, 0.1)',
   },
   paymentIcon: {
     fontSize: 24,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   paymentLabel: {
     fontSize: 11,
-    color: '#888',
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   paymentLabelSelected: {
-    color: '#0066CC',
+    ...typography.caption,
+    color: colors.primary,
     fontWeight: '600',
   },
   zelleSection: {
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   zelleOptions: {
-    gap: 10,
+    gap: spacing.sm,
   },
   zelleOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2a2a3e',
-    borderRadius: 10,
-    padding: 14,
+    backgroundColor: colors.surface,
+    borderRadius: spacing.sm,
+    padding: spacing.cardPadding,
     borderWidth: 2,
     borderColor: 'transparent',
+    minHeight: 44,
   },
   zelleOptionSelected: {
-    borderColor: '#0066CC',
+    borderColor: colors.primary,
     backgroundColor: 'rgba(0, 102, 204, 0.1)',
   },
   radioOuter: {
@@ -1074,8 +1076,8 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#666',
-    marginRight: 12,
+    borderColor: colors.textMuted,
+    marginRight: spacing.itemGap,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1083,101 +1085,105 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#0066CC',
+    backgroundColor: colors.primary,
   },
   zelleLabel: {
-    fontSize: 14,
-    color: '#ccc',
+    ...typography.bodySmall,
+    color: colors.textPrimary,
   },
   zelleLabelSelected: {
-    color: '#fff',
+    ...typography.bodySmall,
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   photoSection: {
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   photoRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.itemGap,
   },
   photoContainer: {
     flex: 1,
   },
   photoLabel: {
-    fontSize: 12,
-    color: '#888',
-    marginBottom: 8,
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
   },
   photoButton: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 10,
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: spacing.sm,
+    padding: spacing.cardPadding,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 80,
     borderWidth: 1,
-    borderColor: '#3a3a4e',
+    borderColor: colors.borderLight,
     borderStyle: 'dashed',
   },
   photoButtonText: {
-    color: '#888',
-    fontSize: 14,
+    ...typography.bodySmall,
+    color: colors.textSecondary,
   },
   photoPreview: {
     width: '100%',
     height: 80,
-    borderRadius: 8,
+    borderRadius: radius.sm,
   },
   dateButton: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 8,
-    padding: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radius.sm,
+    padding: spacing.cardPadding,
+    minHeight: 44,
   },
   dateButtonText: {
-    fontSize: 16,
-    color: '#fff',
+    ...typography.body,
+    color: colors.textPrimary,
   },
   dateButtonPlaceholder: {
-    color: '#666',
+    ...typography.body,
+    color: colors.textMuted,
   },
   documentButton: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
-    padding: 20,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.cardPaddingLarge,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.itemGap,
     borderWidth: 1,
-    borderColor: '#3a3a4e',
+    borderColor: colors.borderLight,
     borderStyle: 'dashed',
+    minHeight: 44,
   },
   documentButtonIcon: {
     fontSize: 24,
-    marginRight: 12,
+    marginRight: spacing.itemGap,
   },
   documentButtonText: {
-    fontSize: 16,
-    color: '#888',
+    ...typography.body,
+    color: colors.textSecondary,
   },
   documentCaptured: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: spacing.itemGap,
   },
   documentThumbnail: {
     width: 50,
     height: 50,
-    borderRadius: 8,
+    borderRadius: radius.sm,
   },
   documentCapturedText: {
-    fontSize: 14,
-    color: '#10b981',
+    ...typography.bodySmall,
+    color: colors.success,
     fontWeight: '500',
   },
   inventoryThumbnails: {
     flexDirection: 'row',
-    gap: 4,
+    gap: spacing.xs,
   },
   inventoryThumb: {
     width: 40,
@@ -1188,25 +1194,25 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 6,
-    backgroundColor: '#3a3a4e',
+    backgroundColor: colors.borderLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   moreText: {
-    fontSize: 12,
-    color: '#888',
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   totalCard: {
-    backgroundColor: '#0066CC',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
+    backgroundColor: colors.primary,
+    borderRadius: radius.card,
+    padding: spacing.cardPaddingLarge,
+    marginBottom: spacing.sectionGap,
   },
   totalTitle: {
-    fontSize: 16,
+    ...typography.body,
+    color: colors.textPrimary,
     fontWeight: '600',
-    color: '#fff',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   totalRow: {
     flexDirection: 'row',
@@ -1217,62 +1223,59 @@ const styles = StyleSheet.create({
   totalRowHighlight: {
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.2)',
-    marginTop: 12,
-    paddingTop: 16,
+    marginTop: spacing.itemGap,
+    paddingTop: spacing.lg,
   },
   totalLabel: {
-    fontSize: 14,
+    ...typography.bodySmall,
     color: 'rgba(255,255,255,0.8)',
   },
   totalLabelBold: {
-    fontSize: 14,
+    ...typography.bodySmall,
+    color: colors.textPrimary,
     fontWeight: '600',
-    color: '#fff',
   },
   totalValue: {
-    fontSize: 16,
-    color: '#fff',
+    ...typography.body,
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   totalValueLarge: {
     fontSize: 24,
-    color: '#fff',
+    color: colors.textPrimary,
     fontWeight: '700',
   },
   negativeValue: {
     color: '#ff6b6b',
   },
   submitButton: {
-    backgroundColor: '#10b981',
-    borderRadius: 12,
+    backgroundColor: colors.success,
+    borderRadius: radius.md,
     padding: 18,
     alignItems: 'center',
+    minHeight: 44,
   },
   submitButtonDisabled: {
     opacity: 0.5,
   },
   submitButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
+    ...typography.button,
+    color: colors.textPrimary,
   },
   validationHint: {
-    color: '#f59e0b',
-    fontSize: 14,
+    ...typography.bodySmall,
+    color: colors.warning,
     textAlign: 'center',
-    marginTop: 12,
-  },
-  bottomSpacer: {
-    height: 40,
+    marginTop: spacing.itemGap,
   },
   errorCard: {
     backgroundColor: '#fee2e2',
-    borderRadius: 12,
-    padding: 16,
-    margin: 20,
+    borderRadius: radius.md,
+    padding: spacing.cardPadding,
+    margin: spacing.screenPadding,
   },
   errorText: {
+    ...typography.bodySmall,
     color: '#991b1b',
-    fontSize: 14,
   },
 });

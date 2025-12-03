@@ -41,7 +41,8 @@
           "color": "#0066CC",
           "sounds": []
         }
-      ]
+      ],
+      "expo-font"
     ],
     "web": {
       "favicon": "./assets/favicon.png"

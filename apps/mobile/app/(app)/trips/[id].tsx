@@ -1,26 +1,25 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Linking, Alert, TextInput, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Linking, Alert } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDriverTripDetail } from '../../../hooks/useDriverTrips';
-import { useTripActions, StartTripData } from '../../../hooks/useTripActions';
-import { useImageUpload } from '../../../hooks/useImageUpload';
+import { useTripActions } from '../../../hooks/useTripActions';
 import { StatusBadge } from '../../../components/StatusBadge';
 import { TripLoad, TripStatus, LoadStatus } from '../../../types';
+import { colors, typography, spacing, radius, shadows } from '../../../lib/theme';
 
 // Helper to get the next action for a load based on its status
 const getLoadAction = (status: LoadStatus): { action: string; color: string } | null => {
   switch (status) {
     case 'pending':
-      return { action: 'Accept', color: '#0066CC' };
+      return { action: 'Accept', color: colors.primary };
     case 'accepted':
-      return { action: 'Start Loading', color: '#f59e0b' };
+      return { action: 'Start Loading', color: colors.warning };
     case 'loading':
-      return { action: 'Finish Loading', color: '#f59e0b' };
+      return { action: 'Finish Loading', color: colors.warning };
     case 'loaded':
-      return { action: 'Collect Payment', color: '#8b5cf6' };
+      return { action: 'Collect Payment', color: colors.info };
     case 'in_transit':
-      return { action: 'Complete Delivery', color: '#10b981' };
+      return { action: 'Complete Delivery', color: colors.success };
     case 'delivered':
     case 'storage_completed':
       return null; // No action needed
@@ -48,6 +47,7 @@ export default function TripDetailScreen() {
   const { trip, loading, error, refetch } = useDriverTripDetail(id);
   const tripActions = useTripActions(id || '', refetch);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const formatRoute = () => {
     if (!trip) return '';
@@ -114,15 +114,15 @@ export default function TripDetailScreen() {
       <Stack.Screen
         options={{
           title: `Trip #${trip?.trip_number || '...'}`,
-          headerStyle: { backgroundColor: '#1a1a2e' },
-          headerTintColor: '#fff',
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.textPrimary,
         }}
       />
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.sectionGap }]}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={refetch} tintColor="#0066CC" />
+          <RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />
         }
       >
         {trip && (
@@ -228,6 +228,7 @@ export default function TripDetailScreen() {
                 </Text>
                 <TouchableOpacity
                   onPress={() => router.push(`/(app)/trips/${trip.id}/expenses`)}
+                  style={styles.touchTarget}
                 >
                   <Text style={styles.addLink}>Add Expense</Text>
                 </TouchableOpacity>
@@ -348,7 +349,10 @@ function LoadCard({ tripLoad, tripId }: { tripLoad: TripLoad; tripId: string }) 
         <View style={styles.loadCompany}>
           <Text style={styles.loadCompanyName}>{load.companies.name}</Text>
           {load.companies.phone && (
-            <TouchableOpacity onPress={() => handleCall(load.companies?.phone || null)}>
+            <TouchableOpacity
+              onPress={() => handleCall(load.companies?.phone || null)}
+              style={styles.touchTarget}
+            >
               <Text style={styles.callLink}>Call</Text>
             </TouchableOpacity>
           )}
@@ -384,119 +388,23 @@ function TripActionCard({
   tripId: string;
 }) {
   const router = useRouter();
-  const { uploading, uploadOdometerPhoto } = useImageUpload();
-  const [odometerInput, setOdometerInput] = useState('');
-  const [odometerPhoto, setOdometerPhoto] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
-  const takeOdometerPhoto = async () => {
-    const { status: permStatus } = await ImagePicker.requestCameraPermissionsAsync();
-    if (permStatus !== 'granted') {
-      Alert.alert('Permission Required', 'Camera permission is needed to take odometer photos');
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.7,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setOdometerPhoto(result.assets[0].uri);
-    }
-  };
-
-  const handleStartTrip = async () => {
-    const odometerValue = parseFloat(odometerInput);
-    if (!odometerInput || isNaN(odometerValue) || odometerValue <= 0) {
-      Alert.alert('Error', 'Please enter a valid odometer reading');
-      return;
-    }
-
-    if (!odometerPhoto) {
-      Alert.alert('Error', 'Please take a photo of the odometer');
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      // Upload the photo first
-      const uploadResult = await uploadOdometerPhoto(odometerPhoto, tripId, 'start');
-      if (!uploadResult.success) {
-        Alert.alert('Upload Error', uploadResult.error || 'Failed to upload odometer photo');
-        return;
-      }
-
-      // Start the trip with odometer data
-      const result = await actions.startTrip({
-        odometerStart: odometerValue,
-        odometerStartPhotoUrl: uploadResult.url!,
-      });
-
-      if (!result.success) {
-        Alert.alert('Error', result.error || 'Failed to start trip');
-      }
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Planned → Start Trip (with odometer capture)
+  // Planned → Navigate to full-screen start experience
   if (status === 'planned') {
-    const isReady = odometerInput && odometerPhoto && parseFloat(odometerInput) > 0;
-
     return (
       <View style={styles.actionCard}>
-        <Text style={styles.actionTitle}>Start Trip</Text>
+        <Text style={styles.actionTitle}>Ready to Roll?</Text>
         <Text style={styles.actionDescription}>
           {loadsCount > 0
             ? `${loadsCount} load${loadsCount > 1 ? 's' : ''} assigned`
             : 'No loads assigned yet'}
         </Text>
 
-        {/* Odometer Input */}
-        <View style={styles.odometerSection}>
-          <Text style={styles.odometerLabel}>Starting Odometer</Text>
-          <TextInput
-            style={styles.odometerInput}
-            placeholder="Enter current mileage"
-            placeholderTextColor="#666"
-            value={odometerInput}
-            onChangeText={setOdometerInput}
-            keyboardType="numeric"
-          />
-        </View>
-
-        {/* Photo Capture */}
-        <View style={styles.photoSection}>
-          {odometerPhoto ? (
-            <View style={styles.photoPreviewContainer}>
-              <Image source={{ uri: odometerPhoto }} style={styles.photoPreview} />
-              <TouchableOpacity style={styles.retakeButton} onPress={takeOdometerPhoto}>
-                <Text style={styles.retakeButtonText}>Retake</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity style={styles.photoButton} onPress={takeOdometerPhoto}>
-              <Text style={styles.photoButtonIcon}>📷</Text>
-              <Text style={styles.photoButtonText}>Take Odometer Photo</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
         <TouchableOpacity
-          style={[
-            styles.primaryButton,
-            (!isReady || actions.loading || submitting || uploading) && styles.buttonDisabled
-          ]}
-          onPress={handleStartTrip}
-          disabled={!isReady || actions.loading || submitting || uploading}
+          style={styles.startTripButton}
+          onPress={() => router.push(`/(app)/trips/${tripId}/start`)}
         >
-          <Text style={styles.primaryButtonText}>
-            {submitting || uploading ? 'Starting Trip...' : 'Start Trip'}
-          </Text>
+          <Text style={styles.startTripButtonText}>Start Trip 🚀</Text>
         </TouchableOpacity>
       </View>
     );
@@ -572,211 +480,201 @@ function TripActionCard({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.background,
   },
   content: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: spacing.screenPadding,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 24,
+    marginBottom: spacing.sectionGap,
   },
   tripNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
+    ...typography.title,
+    marginBottom: spacing.xs,
   },
   route: {
-    fontSize: 16,
-    color: '#888',
+    ...typography.body,
+    color: colors.textSecondary,
   },
   card: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    padding: spacing.cardPaddingLarge,
+    marginBottom: spacing.sectionGap,
   },
   cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 16,
+    ...typography.subheadline,
+    marginBottom: spacing.lg,
   },
   infoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: spacing.lg,
   },
   infoItem: {
     minWidth: '45%',
   },
   infoLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
+    ...typography.label,
+    color: colors.textMuted,
+    marginBottom: spacing.xs,
   },
   infoValue: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: '500',
+    ...typography.subheadline,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: spacing.sectionGap,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.itemGap,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 12,
+    ...typography.headline,
+    marginBottom: spacing.itemGap,
+  },
+  touchTarget: {
+    minHeight: 44,
+    justifyContent: 'center',
   },
   addLink: {
-    color: '#0066CC',
-    fontSize: 14,
+    ...typography.bodySmall,
+    color: colors.primary,
     fontWeight: '500',
-    marginBottom: 12,
+    marginBottom: spacing.itemGap,
   },
   emptyCard: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
-    padding: 24,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.sectionGap,
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 14,
-    color: '#666',
+    ...typography.bodySmall,
+    color: colors.textMuted,
   },
   // Load Card
   loadCard: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.cardPadding,
+    marginBottom: spacing.itemGap,
   },
   loadHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.itemGap,
   },
   loadNumber: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
+    ...typography.subheadline,
   },
   loadTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   liveBadge: {
-    backgroundColor: '#f59e0b',
+    backgroundColor: colors.warning,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: radius.xs,
   },
   liveBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.textPrimary,
     letterSpacing: 0.5,
   },
   deliveryOrderBadge: {
-    backgroundColor: '#8b5cf6',
-    paddingHorizontal: 8,
+    backgroundColor: colors.info,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: radius.xs,
   },
   deliveryOrderBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.textPrimary,
   },
   loadRoute: {
-    marginBottom: 12,
+    marginBottom: spacing.itemGap,
   },
   loadStop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: spacing.itemGap,
   },
   stopDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#0066CC',
+    backgroundColor: colors.primary,
   },
   stopDotEnd: {
-    backgroundColor: '#10b981',
+    backgroundColor: colors.success,
   },
   stopLine: {
     width: 2,
     height: 20,
-    backgroundColor: '#3a3a4e',
+    backgroundColor: colors.borderLight,
     marginLeft: 4,
   },
   loadLocation: {
-    fontSize: 14,
-    color: '#ccc',
+    ...typography.bodySmall,
+    color: colors.textSecondary,
   },
   loadCompany: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 12,
+    paddingTop: spacing.itemGap,
     borderTopWidth: 1,
-    borderTopColor: '#3a3a4e',
+    borderTopColor: colors.borderLight,
   },
   loadCompanyName: {
-    fontSize: 14,
-    color: '#888',
+    ...typography.bodySmall,
+    color: colors.textSecondary,
   },
   callLink: {
-    color: '#0066CC',
-    fontSize: 14,
+    ...typography.bodySmall,
+    color: colors.primary,
     fontWeight: '500',
   },
   loadCuft: {
-    fontSize: 14,
-    color: '#888',
-    marginTop: 8,
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
   },
   // Expenses
   expensesList: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
     overflow: 'hidden',
   },
   expenseItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: spacing.cardPadding,
     borderBottomWidth: 1,
-    borderBottomColor: '#3a3a4e',
+    borderBottomColor: colors.borderLight,
   },
   expenseCategory: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: '500',
+    ...typography.subheadline,
   },
   expenseDescription: {
-    fontSize: 14,
-    color: '#888',
-    marginTop: 2,
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginTop: spacing.xxs,
   },
   expenseAmount: {
-    fontSize: 16,
-    color: '#fff',
+    ...typography.subheadline,
     fontWeight: '600',
   },
   // States
@@ -787,35 +685,33 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#888',
+    ...typography.headline,
+    color: colors.textSecondary,
   },
   errorCard: {
-    backgroundColor: '#fee2e2',
-    borderRadius: 12,
-    padding: 16,
-    margin: 20,
+    backgroundColor: colors.errorSoft,
+    borderRadius: radius.md,
+    padding: spacing.cardPadding,
+    margin: spacing.screenPadding,
   },
   errorText: {
-    color: '#991b1b',
-    fontSize: 14,
+    ...typography.bodySmall,
+    color: colors.error,
   },
-  // Trip Action Card
   // Equipment Card Styles
   equipmentCard: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    padding: spacing.cardPadding,
+    marginBottom: spacing.lg,
     flexDirection: 'row',
-    gap: 16,
+    gap: spacing.lg,
   },
   equipmentItem: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: spacing.itemGap,
   },
   equipmentIcon: {
     fontSize: 24,
@@ -824,79 +720,79 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   equipmentLabel: {
-    fontSize: 12,
-    color: '#888',
-    marginBottom: 2,
+    ...typography.label,
+    color: colors.textSecondary,
+    marginBottom: spacing.xxs,
   },
   equipmentValue: {
-    fontSize: 16,
+    ...typography.subheadline,
     fontWeight: '600',
-    color: '#fff',
   },
   equipmentDetails: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
+    ...typography.label,
+    color: colors.textMuted,
+    marginTop: spacing.xxs,
+    textTransform: 'none',
   },
   // Trip Action Card
   actionCard: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    padding: spacing.cardPaddingLarge,
+    marginBottom: spacing.sectionGap,
   },
   actionTitle: {
-    fontSize: 18,
+    ...typography.headline,
     fontWeight: '700',
-    color: '#fff',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   actionDescription: {
-    fontSize: 14,
-    color: '#888',
-    marginBottom: 16,
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.lg,
   },
   primaryButton: {
-    backgroundColor: '#0066CC',
-    borderRadius: 12,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: 'center',
+    minHeight: 44,
   },
   completeButton: {
-    backgroundColor: '#10b981',
-    borderRadius: 12,
+    backgroundColor: colors.success,
+    borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: 'center',
+    minHeight: 44,
   },
   primaryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.button,
+    color: colors.textPrimary,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   completedCard: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 24,
+    backgroundColor: colors.successSoft,
+    borderRadius: radius.card,
+    padding: spacing.cardPadding,
+    marginBottom: spacing.sectionGap,
     alignItems: 'center',
   },
   completedText: {
-    color: '#10b981',
-    fontSize: 16,
+    ...typography.subheadline,
+    color: colors.success,
     fontWeight: '600',
   },
   // Next Step Card
   nextStepCard: {
-    backgroundColor: '#0066CC',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
+    backgroundColor: colors.primary,
+    borderRadius: radius.card,
+    padding: spacing.cardPaddingLarge,
+    marginBottom: spacing.sectionGap,
   },
   nextStepHeader: {
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   nextStepLabel: {
     fontSize: 11,
@@ -907,80 +803,101 @@ const styles = StyleSheet.create({
   nextStepTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#fff',
-    marginBottom: 4,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
   },
   nextStepDescription: {
-    fontSize: 16,
+    ...typography.subheadline,
     color: 'rgba(255,255,255,0.85)',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   nextStepButton: {
     backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 12,
+    borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: 'center',
+    minHeight: 44,
   },
   nextStepButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.button,
+    color: colors.textPrimary,
+  },
+  // Start Trip Button
+  startTripButton: {
+    backgroundColor: colors.success,
+    borderRadius: radius.md,
+    paddingVertical: 18,
+    alignItems: 'center',
+    minHeight: 44,
+    shadowColor: colors.success,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  startTripButtonText: {
+    ...typography.headline,
+    color: colors.textPrimary,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   // Load Action Badge
   loadActionBadge: {
-    marginTop: 12,
+    marginTop: spacing.itemGap,
     paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingHorizontal: spacing.cardPadding,
+    borderRadius: radius.sm,
     alignItems: 'center',
   },
   loadActionText: {
-    color: '#fff',
-    fontSize: 14,
+    ...typography.bodySmall,
+    color: colors.textPrimary,
     fontWeight: '600',
   },
   // Odometer Input Styles
   odometerSection: {
-    marginTop: 16,
+    marginTop: spacing.lg,
   },
   odometerLabel: {
-    color: '#888',
-    fontSize: 14,
-    marginBottom: 8,
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
   },
   odometerInput: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: '#3a3a4e',
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    borderColor: colors.borderLight,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.cardPadding,
     paddingVertical: 14,
-    color: '#fff',
+    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '600',
+    minHeight: 44,
   },
   // Photo Capture Styles
   photoSection: {
-    marginTop: 16,
-    marginBottom: 16,
+    marginTop: spacing.lg,
+    marginBottom: spacing.lg,
   },
   photoButton: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: '#3a3a4e',
-    borderRadius: 12,
-    padding: 20,
+    borderColor: colors.borderLight,
+    borderRadius: radius.md,
+    padding: spacing.cardPaddingLarge,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 10,
+    minHeight: 44,
   },
   photoButtonIcon: {
     fontSize: 24,
   },
   photoButtonText: {
-    color: '#888',
-    fontSize: 16,
+    ...typography.body,
+    color: colors.textSecondary,
   },
   photoPreviewContainer: {
     position: 'relative',
@@ -988,21 +905,22 @@ const styles = StyleSheet.create({
   photoPreview: {
     width: '100%',
     height: 150,
-    borderRadius: 12,
-    backgroundColor: '#1a1a2e',
+    borderRadius: radius.md,
+    backgroundColor: colors.background,
   },
   retakeButton: {
     position: 'absolute',
     bottom: 10,
     right: 10,
     backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: spacing.cardPadding,
+    paddingVertical: spacing.sm,
     borderRadius: 20,
+    minHeight: 44,
   },
   retakeButtonText: {
-    color: '#fff',
-    fontSize: 14,
+    ...typography.bodySmall,
+    color: colors.textPrimary,
     fontWeight: '500',
   },
 });

@@ -13,34 +13,38 @@ import {
   Linking,
 } from 'react-native';
 import { Stack } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVehicleDocuments } from '../../hooks/useVehicleDocuments';
 import { VehicleDocument, DocumentStatus } from '../../types';
+import { Icon, IconName, StatusIcon } from '../../components/ui';
+import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 // Status colors
 const STATUS_COLORS: Record<DocumentStatus, string> = {
-  valid: '#22c55e',
-  expiring: '#f59e0b',
-  expired: '#ef4444',
-  missing: '#9ca3af',
-};
-
-// Status icons
-const STATUS_ICONS: Record<DocumentStatus, string> = {
-  valid: '✅',
-  expiring: '⚠️',
-  expired: '🔴',
-  missing: '➖',
+  valid: colors.success,
+  expiring: colors.warning,
+  expired: colors.error,
+  missing: colors.textMuted,
 };
 
 // Document type icons
-const DOC_ICONS: Record<string, string> = {
-  registration: '📄',
-  insurance: '🛡️',
-  ifta: '⛽',
-  inspection: '🔧',
-  permit: '📋',
+const DOC_ICONS: Record<string, IconName> = {
+  registration: 'file-text',
+  insurance: 'shield-check',
+  ifta: 'receipt',
+  inspection: 'clipboard-check',
+  permit: 'clipboard-list',
+};
+
+// Status icon types for StatusIcon component
+type DocStatusType = 'success' | 'warning' | 'error' | 'neutral';
+const STATUS_TYPE_MAP: Record<DocumentStatus, DocStatusType> = {
+  valid: 'success',
+  expiring: 'warning',
+  expired: 'error',
+  missing: 'neutral',
 };
 
 function formatDate(dateString: string | null): string {
@@ -59,14 +63,14 @@ interface DocumentRowProps {
 }
 
 function DocumentRow({ document, onPress }: DocumentRowProps) {
-  const icon = DOC_ICONS[document.type] || '📄';
-  const statusIcon = STATUS_ICONS[document.status];
+  const icon = DOC_ICONS[document.type] || 'file-text';
+  const statusType = STATUS_TYPE_MAP[document.status];
   const statusColor = STATUS_COLORS[document.status];
 
   return (
     <TouchableOpacity style={styles.documentRow} onPress={onPress}>
       <View style={styles.documentInfo}>
-        <Text style={styles.documentIcon}>{icon}</Text>
+        <Icon name={icon} size="md" color={colors.textSecondary} />
         <Text style={styles.documentLabel}>{document.label}</Text>
       </View>
       <View style={styles.documentStatus}>
@@ -77,7 +81,7 @@ function DocumentRow({ document, onPress }: DocumentRowProps) {
         ) : (
           <Text style={styles.notUploadedText}>Not uploaded</Text>
         )}
-        <Text style={styles.statusIcon}>{statusIcon}</Text>
+        <StatusIcon status={statusType} size="sm" showBackground={false} />
       </View>
     </TouchableOpacity>
   );
@@ -122,7 +126,7 @@ function DocumentViewerModal({ visible, document, vehicleInfo, onClose }: Docume
             </View>
           ) : (
             <View style={styles.noImageContainer}>
-              <Text style={styles.noImageIcon}>📄</Text>
+              <Icon name="file-text" size={48} color={colors.textMuted} />
               <Text style={styles.noImageText}>Document not uploaded</Text>
             </View>
           )}
@@ -142,6 +146,7 @@ function DocumentViewerModal({ visible, document, vehicleInfo, onClose }: Docume
 }
 
 export default function DocumentsScreen() {
+  const insets = useSafeAreaInsets();
   const {
     truck,
     trailer,
@@ -198,16 +203,16 @@ export default function DocumentsScreen() {
       <Stack.Screen
         options={{
           title: 'Vehicle Documents',
-          headerStyle: { backgroundColor: '#1a1a2e' },
-          headerTintColor: '#fff',
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.textPrimary,
         }}
       />
 
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: Math.max(40, insets.bottom + spacing.lg) }]}
         refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor="#0066CC" />
+          <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.primary} />
         }
       >
         {error && (
@@ -263,7 +268,7 @@ export default function DocumentsScreen() {
                   onPress={() => handleCopyToClipboard(company.dot_number!, 'DOT #')}
                 >
                   <Text style={styles.infoValue}>{company.dot_number}</Text>
-                  <Text style={styles.copyIcon}>📋</Text>
+                  <Icon name="copy" size="sm" color={colors.primary} />
                 </TouchableOpacity>
               </View>
             )}
@@ -275,7 +280,7 @@ export default function DocumentsScreen() {
                   onPress={() => handleCopyToClipboard(company.mc_number!, 'MC #')}
                 >
                   <Text style={styles.infoValue}>{company.mc_number}</Text>
-                  <Text style={styles.copyIcon}>📋</Text>
+                  <Icon name="copy" size="sm" color={colors.primary} />
                 </TouchableOpacity>
               </View>
             )}
@@ -287,7 +292,7 @@ export default function DocumentsScreen() {
                   onPress={() => handleCall(company.phone!)}
                 >
                   <Text style={styles.phoneValue}>{company.phone}</Text>
-                  <Text style={styles.callIcon}>📞</Text>
+                  <Icon name="phone" size="sm" color={colors.success} />
                 </TouchableOpacity>
               </View>
             )}
@@ -296,7 +301,7 @@ export default function DocumentsScreen() {
 
         {!hasActiveTrip && !isLoading ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateIcon}>📋</Text>
+            <Icon name="clipboard-list" size={48} color={colors.textMuted} />
             <Text style={styles.emptyStateTitle}>No Active Trip</Text>
             <Text style={styles.emptyStateText}>
               Vehicle documents will appear here when you're assigned to a trip with a truck/trailer.
@@ -319,14 +324,14 @@ export default function DocumentsScreen() {
                   {expiredCount > 0 && (
                     <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS.expired }]}>
                       <Text style={styles.statusBadgeText}>
-                        🔴 {expiredCount} expired
+                        {expiredCount} expired
                       </Text>
                     </View>
                   )}
                   {expiringCount > 0 && (
                     <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS.expiring }]}>
                       <Text style={styles.statusBadgeText}>
-                        ⚠️ {expiringCount} expiring soon
+                        {expiringCount} expiring soon
                       </Text>
                     </View>
                   )}
@@ -338,7 +343,7 @@ export default function DocumentsScreen() {
             {truck && (
               <View style={styles.vehicleCard}>
                 <View style={styles.vehicleHeader}>
-                  <Text style={styles.vehicleIcon}>🚛</Text>
+                  <Icon name="truck" size="lg" color={colors.primary} />
                   <View style={styles.vehicleInfo}>
                     <Text style={styles.vehicleTitle}>Truck: {truck.unit_number}</Text>
                     <Text style={styles.vehicleSubtitle}>{getTruckInfo()}</Text>
@@ -366,7 +371,7 @@ export default function DocumentsScreen() {
             {trailer && (
               <View style={styles.vehicleCard}>
                 <View style={styles.vehicleHeader}>
-                  <Text style={styles.vehicleIcon}>🚚</Text>
+                  <Icon name="box" size="lg" color={colors.primary} />
                   <View style={styles.vehicleInfo}>
                     <Text style={styles.vehicleTitle}>Trailer: {trailer.unit_number}</Text>
                     {trailer.capacity_cuft && (
@@ -395,7 +400,7 @@ export default function DocumentsScreen() {
             {/* No vehicles assigned */}
             {!truck && !trailer && (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyStateIcon}>🚛</Text>
+                <Icon name="truck" size={48} color={colors.textMuted} />
                 <Text style={styles.emptyStateTitle}>No Vehicles Assigned</Text>
                 <Text style={styles.emptyStateText}>
                   No truck or trailer has been assigned to this trip yet.
@@ -426,84 +431,82 @@ export default function DocumentsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.background,
   },
   content: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: spacing.screenPadding,
   },
   header: {
-    marginBottom: 24,
+    marginBottom: spacing.sectionGap,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
+    ...typography.title,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
   },
   headerSubtitle: {
-    fontSize: 16,
-    color: '#888',
+    ...typography.body,
+    color: colors.textSecondary,
   },
   statusSummary: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
+    gap: spacing.sm,
+    marginTop: spacing.itemGap,
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: spacing.itemGap,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.full,
   },
   statusBadgeText: {
-    fontSize: 13,
+    ...typography.caption,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.textPrimary,
   },
   vehicleCard: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 16,
-    marginBottom: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    marginBottom: spacing.lg,
     overflow: 'hidden',
   },
   vehicleHeader: {
     flexDirection: 'row',
-    padding: 16,
+    padding: spacing.cardPadding,
     borderBottomWidth: 1,
-    borderBottomColor: '#3a3a4e',
+    borderBottomColor: colors.borderLight,
   },
   vehicleIcon: {
     fontSize: 32,
-    marginRight: 12,
+    marginRight: spacing.itemGap,
   },
   vehicleInfo: {
     flex: 1,
   },
   vehicleTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 2,
+    ...typography.headline,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs / 2,
   },
   vehicleSubtitle: {
-    fontSize: 14,
-    color: '#888',
+    ...typography.body,
+    color: colors.textSecondary,
   },
   vehiclePlate: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 2,
+    ...typography.caption,
+    color: colors.textMuted,
+    marginTop: spacing.xs / 2,
   },
   documentsList: {
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.cardPadding,
   },
   documentRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#3a3a4e',
+    borderBottomColor: colors.borderLight,
+    minHeight: 44,
   },
   documentInfo: {
     flexDirection: 'row',
@@ -511,11 +514,11 @@ const styles = StyleSheet.create({
   },
   documentIcon: {
     fontSize: 18,
-    marginRight: 10,
+    marginRight: spacing.sm,
   },
   documentLabel: {
-    fontSize: 15,
-    color: '#fff',
+    ...typography.body,
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   documentStatus: {
@@ -523,13 +526,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   expiryText: {
-    fontSize: 13,
-    marginRight: 8,
+    ...typography.caption,
+    marginRight: spacing.sm,
   },
   notUploadedText: {
-    fontSize: 13,
-    color: '#9ca3af',
-    marginRight: 8,
+    ...typography.caption,
+    color: colors.textMuted,
+    marginRight: spacing.sm,
   },
   statusIcon: {
     fontSize: 16,
@@ -542,156 +545,155 @@ const styles = StyleSheet.create({
   },
   emptyStateIcon: {
     fontSize: 48,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#888',
-    marginBottom: 8,
+    ...typography.headline,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
     textAlign: 'center',
   },
   emptyStateText: {
-    fontSize: 15,
-    color: '#666',
+    ...typography.body,
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 22,
   },
   errorCard: {
-    backgroundColor: '#fee2e2',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    backgroundColor: colors.errorSoft,
+    borderRadius: radius.md,
+    padding: spacing.cardPadding,
+    marginBottom: spacing.sectionGap,
   },
   errorText: {
-    color: '#991b1b',
-    fontSize: 14,
+    ...typography.body,
+    color: colors.error,
   },
   refreshHint: {
-    fontSize: 12,
-    color: '#666',
+    ...typography.caption,
+    color: colors.textMuted,
     textAlign: 'center',
-    marginTop: 24,
+    marginTop: spacing.sectionGap,
   },
   // Info Card styles (Driver & Company)
   infoCard: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 16,
-    marginBottom: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    marginBottom: spacing.lg,
     overflow: 'hidden',
   },
   infoCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: spacing.cardPadding,
     borderBottomWidth: 1,
-    borderBottomColor: '#3a3a4e',
+    borderBottomColor: colors.borderLight,
   },
   infoCardIcon: {
     fontSize: 24,
-    marginRight: 12,
+    marginRight: spacing.itemGap,
   },
   infoCardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
+    ...typography.headline,
+    color: colors.textPrimary,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: spacing.cardPadding,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#3a3a4e',
+    borderBottomColor: colors.borderLight,
   },
   infoLabel: {
-    fontSize: 15,
-    color: '#888',
+    ...typography.body,
+    color: colors.textSecondary,
   },
   infoValue: {
-    fontSize: 15,
-    color: '#fff',
+    ...typography.body,
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   copyableValue: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#3a3a4e',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    backgroundColor: colors.borderLight,
+    paddingHorizontal: spacing.itemGap,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
+    minHeight: 44,
   },
   copyIcon: {
     fontSize: 14,
-    marginLeft: 8,
+    marginLeft: spacing.sm,
   },
   callableValue: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0066CC',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.itemGap,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
+    minHeight: 44,
   },
   phoneValue: {
-    fontSize: 15,
-    color: '#fff',
+    ...typography.body,
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   callIcon: {
     fontSize: 14,
-    marginLeft: 8,
+    marginLeft: spacing.sm,
   },
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    backgroundColor: colors.overlayHeavy,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
     width: screenWidth - 40,
     maxHeight: screenHeight - 120,
-    backgroundColor: '#2a2a3e',
-    borderRadius: 20,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    padding: 16,
+    padding: spacing.cardPadding,
     borderBottomWidth: 1,
-    borderBottomColor: '#3a3a4e',
+    borderBottomColor: colors.borderLight,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
+    ...typography.headline,
+    color: colors.textPrimary,
   },
   modalSubtitle: {
-    fontSize: 14,
-    color: '#888',
-    marginTop: 2,
+    ...typography.body,
+    color: colors.textSecondary,
+    marginTop: spacing.xs / 2,
   },
   closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#3a3a4e',
+    width: 44,
+    height: 44,
+    borderRadius: radius.full,
+    backgroundColor: colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeButtonText: {
     fontSize: 16,
-    color: '#fff',
+    color: colors.textPrimary,
     fontWeight: '600',
   },
   imageContainer: {
     width: '100%',
     height: screenHeight * 0.5,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.background,
   },
   documentImage: {
     width: '100%',
@@ -700,31 +702,31 @@ const styles = StyleSheet.create({
   noImageContainer: {
     padding: 60,
     alignItems: 'center',
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.background,
   },
   noImageIcon: {
     fontSize: 48,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   noImageText: {
-    fontSize: 16,
-    color: '#888',
+    ...typography.body,
+    color: colors.textSecondary,
   },
   expiryBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 12,
+    padding: spacing.itemGap,
     borderTopWidth: 1,
-    borderTopColor: '#3a3a4e',
+    borderTopColor: colors.borderLight,
   },
   expiryBadgeLabel: {
-    fontSize: 14,
-    color: '#888',
-    marginRight: 8,
+    ...typography.body,
+    color: colors.textSecondary,
+    marginRight: spacing.sm,
   },
   expiryBadgeValue: {
-    fontSize: 14,
+    ...typography.body,
     fontWeight: '600',
   },
 });

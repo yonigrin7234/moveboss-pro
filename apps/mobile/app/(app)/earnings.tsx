@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
 import { useDriverEarnings } from '../../hooks/useDriverEarnings';
 import { TripSettlement, SettlementStatus } from '../../types';
 
@@ -19,15 +21,16 @@ const SETTLEMENT_STATUS_LABELS: Record<SettlementStatus, string> = {
 };
 
 const SETTLEMENT_STATUS_COLORS: Record<SettlementStatus, string> = {
-  pending: '#f59e0b',
-  review: '#3b82f6',
-  approved: '#10b981',
-  paid: '#6b7280',
+  pending: colors.warning,
+  review: colors.info,
+  approved: colors.success,
+  paid: colors.textMuted,
 };
 
 export default function EarningsScreen() {
   const { settlements, summary, loading, error, refetch } = useDriverEarnings();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'pending' | 'paid'>('all');
 
   const filteredSettlements = settlements.filter((s) => {
@@ -67,15 +70,15 @@ export default function EarningsScreen() {
       <Stack.Screen
         options={{
           title: 'Earnings',
-          headerStyle: { backgroundColor: '#1a1a2e' },
-          headerTintColor: '#fff',
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.textPrimary,
         }}
       />
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.screenPadding }]}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={refetch} tintColor="#0066CC" />
+          <RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />
         }
       >
         {/* Summary Cards */}
@@ -299,239 +302,235 @@ function SettlementCard({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.background,
   },
   content: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: spacing.screenPadding,
   },
   // Summary
   summaryGrid: {
-    marginBottom: 20,
+    marginBottom: spacing.sectionGap,
   },
   summaryCard: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    padding: spacing.cardPaddingLarge,
   },
   primaryCard: {
-    marginBottom: 12,
-    backgroundColor: '#0066CC',
+    marginBottom: spacing.itemGap,
+    backgroundColor: colors.primary,
   },
   summaryRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.itemGap,
   },
   halfCard: {
     flex: 1,
   },
   summaryLabel: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
-    marginBottom: 4,
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
   },
   summaryValue: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.textPrimary,
   },
   summarySubtext: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
-    marginTop: 4,
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
   pendingValue: {
-    color: '#f59e0b',
+    color: colors.warning,
     fontSize: 22,
   },
   paidValue: {
-    color: '#10b981',
+    color: colors.success,
     fontSize: 22,
   },
   // Stats
   statsRow: {
     flexDirection: 'row',
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.cardPadding,
+    marginBottom: spacing.sectionGap,
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
+    ...typography.subheadline,
+    color: colors.textPrimary,
   },
   statLabel: {
-    fontSize: 12,
-    color: '#888',
+    ...typography.caption,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   statDivider: {
     width: 1,
-    backgroundColor: '#3a3a4e',
+    backgroundColor: colors.borderLight,
   },
   // Filter
   filterTabs: {
     flexDirection: 'row',
-    backgroundColor: '#2a2a3e',
-    borderRadius: 10,
-    padding: 4,
-    marginBottom: 20,
+    backgroundColor: colors.surface,
+    borderRadius: radius.sm,
+    padding: spacing.xs,
+    marginBottom: spacing.sectionGap,
   },
   filterTab: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: radius.sm,
+    minHeight: 44,
   },
   filterTabActive: {
-    backgroundColor: '#0066CC',
+    backgroundColor: colors.primary,
   },
   filterTabText: {
-    fontSize: 14,
-    color: '#888',
+    ...typography.bodySmall,
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   filterTabTextActive: {
-    color: '#fff',
+    color: colors.textPrimary,
   },
   // Section
   section: {
-    marginBottom: 20,
+    marginBottom: spacing.sectionGap,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 12,
+    ...typography.headline,
+    color: colors.textPrimary,
+    marginBottom: spacing.itemGap,
   },
   // Settlement Card
   settlementCard: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.cardPadding,
+    marginBottom: spacing.itemGap,
   },
   settlementHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: spacing.itemGap,
   },
   tripNumber: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
+    ...typography.subheadline,
+    color: colors.textPrimary,
   },
   tripRoute: {
-    fontSize: 14,
-    color: '#888',
+    ...typography.bodySmall,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
   },
   statusText: {
-    fontSize: 12,
+    ...typography.caption,
     fontWeight: '600',
   },
   settlementDetails: {
     borderTopWidth: 1,
-    borderTopColor: '#3a3a4e',
-    paddingTop: 12,
-    marginBottom: 12,
+    borderTopColor: colors.borderLight,
+    paddingTop: spacing.itemGap,
+    marginBottom: spacing.itemGap,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: spacing.xs,
   },
   detailLabel: {
-    fontSize: 14,
-    color: '#888',
+    ...typography.bodySmall,
+    color: colors.textSecondary,
   },
   detailValue: {
-    fontSize: 14,
-    color: '#fff',
+    ...typography.bodySmall,
+    color: colors.textPrimary,
   },
   settlementFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     borderTopWidth: 1,
-    borderTopColor: '#3a3a4e',
-    paddingTop: 12,
+    borderTopColor: colors.borderLight,
+    paddingTop: spacing.itemGap,
   },
   payBreakdown: {
-    gap: 4,
+    gap: spacing.xs,
   },
   payItem: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
   },
   payLabel: {
-    fontSize: 12,
-    color: '#888',
+    ...typography.caption,
+    color: colors.textSecondary,
     width: 50,
   },
   payAmount: {
-    fontSize: 12,
-    color: '#ccc',
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   positiveAmount: {
-    color: '#10b981',
+    color: colors.success,
   },
   negativeAmount: {
-    color: '#ef4444',
+    color: colors.error,
   },
   netPay: {
     alignItems: 'flex-end',
   },
   netPayLabel: {
-    fontSize: 12,
-    color: '#888',
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   netPayAmount: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
+    ...typography.headline,
+    color: colors.textPrimary,
   },
   paidInfo: {
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: spacing.itemGap,
+    paddingTop: spacing.itemGap,
     borderTopWidth: 1,
-    borderTopColor: '#3a3a4e',
+    borderTopColor: colors.borderLight,
   },
   paidInfoText: {
-    fontSize: 12,
-    color: '#10b981',
+    ...typography.caption,
+    color: colors.success,
     textAlign: 'center',
   },
   // Empty/Error states
   emptyCard: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
-    padding: 32,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.xl * 2,
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 14,
-    color: '#888',
+    ...typography.bodySmall,
+    color: colors.textSecondary,
   },
   errorCard: {
-    backgroundColor: '#fee2e2',
-    borderRadius: 12,
-    padding: 16,
-    margin: 20,
+    backgroundColor: colors.errorSoft,
+    borderRadius: radius.md,
+    padding: spacing.cardPadding,
+    margin: spacing.screenPadding,
   },
   errorText: {
-    color: '#991b1b',
-    fontSize: 14,
+    ...typography.bodySmall,
+    color: colors.error,
   },
 });

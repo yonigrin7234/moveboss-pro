@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
-  Alert,
   Linking,
   ActivityIndicator,
 } from 'react-native';
@@ -17,6 +16,7 @@ import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import { useLoadDetail } from '../../../../../../hooks/useLoadDetail';
 import { useLoadActions } from '../../../../../../hooks/useLoadActions';
 import { useImageUpload } from '../../../../../../hooks/useImageUpload';
+import { useToast, LoadDetailSkeleton } from '../../../../../../components/ui';
 import { supabase } from '../../../../../../lib/supabase';
 import { DamageDocumentation } from '../../../../../../components/DamageDocumentation';
 
@@ -28,6 +28,7 @@ const API_BASE_URL =
 export default function ContractDetailsScreen() {
   const { id: tripId, loadId } = useLocalSearchParams<{ id: string; loadId: string }>();
   const router = useRouter();
+  const toast = useToast();
   const { load, loading, error, refetch } = useLoadDetail(loadId);
   const actions = useLoadActions(loadId, refetch);
   const { uploading, progress, uploadLoadPhoto } = useImageUpload();
@@ -88,7 +89,7 @@ export default function ContractDetailsScreen() {
   const takePhoto = async (): Promise<string | null> => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Camera permission is needed to take photos');
+      toast.warning('Camera permission needed');
       return null;
     }
 
@@ -157,13 +158,13 @@ export default function ContractDetailsScreen() {
         if (result.data.job_number) {
           setJobNumber(result.data.job_number);
         }
-        Alert.alert('Scan Complete', 'Please verify the extracted values are correct.');
+        toast.success('Scanned! Verify values are correct');
       } else {
-        Alert.alert('Scan Failed', result.error || 'Could not extract data. Please enter manually.');
+        toast.warning(result.error || 'Could not extract data');
       }
     } catch (err) {
       console.error('OCR error:', err);
-      Alert.alert('Scan Error', 'Failed to process document. Please enter details manually.');
+      toast.error('Scan failed - enter manually');
     } finally {
       setScanningLoadingReport(false);
     }
@@ -210,13 +211,13 @@ export default function ContractDetailsScreen() {
         if (result.data.delivery_address) {
           setDeliveryAddress(result.data.delivery_address);
         }
-        Alert.alert('Scan Complete', 'Please verify the extracted values are correct.');
+        toast.success('Scanned! Verify values are correct');
       } else {
-        Alert.alert('Scan Failed', result.error || 'Could not extract data. Please enter manually.');
+        toast.warning(result.error || 'Could not extract data');
       }
     } catch (err) {
       console.error('OCR error:', err);
-      Alert.alert('Scan Error', 'Failed to process document. Please enter details manually.');
+      toast.error('Scan failed - enter manually');
     } finally {
       setScanningBol(false);
     }
@@ -271,19 +272,15 @@ export default function ContractDetailsScreen() {
       });
 
       if (!result.success) {
-        Alert.alert('Error', result.error || 'Failed to save contract details');
+        toast.error(result.error || 'Failed to save');
         return;
       }
 
-      // Navigate back to load detail
-      Alert.alert('Success', 'Contract details saved. Ready for delivery!', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
+      // Auto-navigate back with success toast
+      toast.success('Contract saved - Ready for delivery!');
+      router.back();
     } catch (err) {
-      Alert.alert('Error', 'Failed to save contract details');
+      toast.error('Failed to save');
     } finally {
       setSubmitting(false);
     }
@@ -319,8 +316,8 @@ export default function ContractDetailsScreen() {
     return (
       <>
         <Stack.Screen options={{ title: 'Contract Details' }} />
-        <View style={[styles.container, styles.centered]}>
-          <ActivityIndicator size="large" color="#0066CC" />
+        <View style={styles.container}>
+          <LoadDetailSkeleton style={{ padding: 20 }} />
         </View>
       </>
     );

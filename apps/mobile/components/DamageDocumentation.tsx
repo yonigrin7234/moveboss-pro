@@ -6,15 +6,14 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
-  Alert,
   Modal,
   FlatList,
-  ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { DamageItem } from '../types';
 import { useLoadActions } from '../hooks/useLoadActions';
 import { useImageUpload } from '../hooks/useImageUpload';
+import { useToast, Skeleton, SkeletonText } from './ui';
 
 interface DamageDocumentationProps {
   loadId: string;
@@ -27,10 +26,12 @@ export function DamageDocumentation({
   readonly = false,
   onUpdate,
 }: DamageDocumentationProps) {
+  const toast = useToast();
   const [damages, setDamages] = useState<DamageItem[]>([]);
   const [loadingDamages, setLoadingDamages] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<DamageItem | null>(null);
+  const [deletedItemId, setDeletedItemId] = useState<string | null>(null);
 
   // Form state
   const [stickerNumber, setStickerNumber] = useState('');
@@ -83,7 +84,7 @@ export function DamageDocumentation({
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Camera permission is needed to take photos');
+      toast.warning('Camera permission needed');
       return;
     }
 
@@ -101,15 +102,15 @@ export function DamageDocumentation({
 
   const handleSave = async () => {
     if (!stickerNumber.trim()) {
-      Alert.alert('Required', 'Sticker number is required');
+      toast.error('Enter sticker number');
       return;
     }
     if (!itemDescription.trim()) {
-      Alert.alert('Required', 'Item description is required');
+      toast.error('Enter item description');
       return;
     }
     if (!damageDescription.trim()) {
-      Alert.alert('Required', 'Damage description is required');
+      toast.error('Enter damage description');
       return;
     }
 
@@ -137,9 +138,10 @@ export function DamageDocumentation({
         });
 
         if (!result.success) {
-          Alert.alert('Error', result.error || 'Failed to update damage item');
+          toast.error(result.error || 'Failed to update');
           return;
         }
+        toast.success('Damage updated');
       } else {
         // Add new item
         const result = await actions.addDamageItem({
@@ -150,9 +152,10 @@ export function DamageDocumentation({
         });
 
         if (!result.success) {
-          Alert.alert('Error', result.error || 'Failed to add damage item');
+          toast.error(result.error || 'Failed to add');
           return;
         }
+        toast.success('Damage recorded');
       }
 
       // Refresh list and close modal
@@ -160,33 +163,42 @@ export function DamageDocumentation({
       setModalVisible(false);
       resetForm();
     } catch (err) {
-      Alert.alert('Error', 'Failed to save damage item');
+      toast.error('Failed to save');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = (item: DamageItem) => {
-    Alert.alert(
-      'Delete Damage',
-      `Remove damage record for "${item.item_description}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const result = await actions.removeDamageItem(item.id);
-            if (result.success) {
-              await loadDamages();
-            } else {
-              Alert.alert('Error', result.error || 'Failed to delete damage item');
-            }
-          },
+  // Delete with undo option
+  const handleDelete = async (item: DamageItem) => {
+    setDeletedItemId(item.id);
+
+    toast.showToast('Damage record deleted', 'success', {
+      duration: 5000,
+      action: {
+        label: 'Undo',
+        onPress: () => {
+          setDeletedItemId(null);
+          loadDamages();
         },
-      ]
-    );
+      },
+    });
+
+    // Actually delete after delay
+    setTimeout(async () => {
+      if (deletedItemId === item.id) {
+        const result = await actions.removeDamageItem(item.id);
+        if (!result.success) {
+          toast.error('Failed to delete');
+          setDeletedItemId(null);
+          loadDamages();
+        }
+      }
+    }, 5000);
   };
+
+  // Filter deleted items from view
+  const visibleDamages = damages.filter(d => d.id !== deletedItemId);
 
   const renderDamageItem = ({ item }: { item: DamageItem }) => (
     <TouchableOpacity
@@ -220,7 +232,11 @@ export function DamageDocumentation({
   if (loadingDamages) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color="#0066CC" />
+        <View style={styles.skeletonHeader}>
+          <Skeleton width={160} height={18} />
+          <Skeleton width={28} height={28} borderRadius={14} />
+        </View>
+        <Skeleton width="100%" height={80} borderRadius={12} style={{ marginTop: 12 }} />
       </View>
     );
   }
@@ -243,7 +259,7 @@ export function DamageDocumentation({
         )}
       </View>
 
-      {damages.length === 0 ? (
+      {visibleDamages.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>
             {readonly ? 'No pre-existing damages documented' : 'No damages documented yet'}
@@ -251,7 +267,7 @@ export function DamageDocumentation({
         </View>
       ) : (
         <FlatList
-          data={damages}
+          data={visibleDamages}
           renderItem={renderDamageItem}
           keyExtractor={(item) => item.id}
           scrollEnabled={false}
@@ -377,6 +393,10 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     padding: 20,
+  },
+  skeletonHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
   header: {
