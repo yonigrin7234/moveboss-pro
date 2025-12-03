@@ -47,15 +47,15 @@ export function StatRow({ mode, data }: StatRowProps) {
     return (
       <Card className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-accent/5 to-transparent shadow-md border-border/30">
         {/* Floating Icon */}
-        <div className="absolute top-6 right-6 opacity-20 pointer-events-none">
-          <Truck className="h-16 w-16 text-primary" />
+        <div className="absolute top-5 right-5 opacity-20 pointer-events-none">
+          <Truck className="h-14 w-14 text-primary" />
         </div>
 
-        <CardHeader className="py-4 px-6">
+        <CardHeader className="py-3 px-5">
           <CardTitle className="text-sm font-semibold tracking-tight">Fleet Health</CardTitle>
         </CardHeader>
-        <CardContent className="px-6 pb-6">
-          <div className="grid grid-cols-2 gap-6">
+        <CardContent className="px-5 pb-5">
+          <div className="grid grid-cols-2 gap-5">
             <PremiumStatItem
               label="Active Trips"
               value={data.activeTrips || 0}
@@ -90,15 +90,15 @@ export function StatRow({ mode, data }: StatRowProps) {
     return (
       <Card className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-accent/5 to-transparent shadow-lg border-border/30">
         {/* Floating Icon */}
-        <div className="absolute top-6 right-6 opacity-20 pointer-events-none">
-          <Package className="h-16 w-16 text-primary" />
+        <div className="absolute top-5 right-5 opacity-20 pointer-events-none">
+          <Package className="h-14 w-14 text-primary" />
         </div>
 
-        <CardHeader className="py-4 px-6">
+        <CardHeader className="py-3 px-5">
           <CardTitle className="text-sm font-semibold tracking-tight">Marketplace Health</CardTitle>
         </CardHeader>
-        <CardContent className="px-6 pb-6">
-          <div className="grid grid-cols-2 gap-6">
+        <CardContent className="px-5 pb-5">
+          <div className="grid grid-cols-2 gap-5">
             <PremiumStatItem
               label="Posted Loads"
               value={data.postedLoads || 0}
@@ -131,19 +131,19 @@ export function StatRow({ mode, data }: StatRowProps) {
 
   // Hybrid mode - show both premium cards side by side
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid gap-5 lg:grid-cols-2">
       {/* Fleet Health Card */}
       <Card className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-accent/5 to-transparent shadow-md border-border/30">
         {/* Floating Icon */}
-        <div className="absolute top-6 right-6 opacity-20 pointer-events-none">
-          <Truck className="h-16 w-16 text-primary" />
+        <div className="absolute top-5 right-5 opacity-20 pointer-events-none">
+          <Truck className="h-14 w-14 text-primary" />
         </div>
 
-        <CardHeader className="py-4 px-6">
+        <CardHeader className="py-3 px-5">
           <CardTitle className="text-sm font-semibold tracking-tight">Fleet Health</CardTitle>
         </CardHeader>
-        <CardContent className="px-6 pb-6">
-          <div className="grid grid-cols-2 gap-6">
+        <CardContent className="px-5 pb-5">
+          <div className="grid grid-cols-2 gap-5">
             <PremiumStatItem
               label="Active Trips"
               value={data.activeTrips || 0}
@@ -175,15 +175,15 @@ export function StatRow({ mode, data }: StatRowProps) {
       {/* Marketplace Health Card */}
       <Card className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-accent/5 to-transparent shadow-lg border-border/30">
         {/* Floating Icon */}
-        <div className="absolute top-6 right-6 opacity-20 pointer-events-none">
-          <Package className="h-16 w-16 text-primary" />
+        <div className="absolute top-5 right-5 opacity-20 pointer-events-none">
+          <Package className="h-14 w-14 text-primary" />
         </div>
 
-        <CardHeader className="py-4 px-6">
+        <CardHeader className="py-3 px-5">
           <CardTitle className="text-sm font-semibold tracking-tight">Marketplace Health</CardTitle>
         </CardHeader>
-        <CardContent className="px-6 pb-6">
-          <div className="grid grid-cols-2 gap-6">
+        <CardContent className="px-5 pb-5">
+          <div className="grid grid-cols-2 gap-5">
             <PremiumStatItem
               label="Posted Loads"
               value={data.postedLoads || 0}

@@ -229,10 +229,10 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="max-w-7xl w-full mx-auto px-6 space-y-6 pt-4">
-      {/* Premium Hero Header */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-accent/10 to-transparent border border-border/40 p-6">
-        <div className="absolute top-4 left-4">
+    <div className="max-w-7xl w-full mx-auto px-6 space-y-5 pt-4">
+      {/* Premium Hero Header - Compressed */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-accent/10 to-transparent border border-border/40 p-5">
+        <div className="absolute top-3 left-3">
           <div className="px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20">
             <span className="text-[10px] font-semibold text-primary uppercase tracking-wide">
               Dashboard
@@ -240,11 +240,11 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        <div className="mt-6">
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">
+        <div className="mt-5">
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">
             {company?.name || 'Welcome back'}
           </h1>
-          <p className="text-sm text-muted-foreground/80 mt-1">
+          <p className="text-xs text-muted-foreground/80 mt-0.5">
             {mode === 'broker'
               ? 'Broker Operations Center'
               : mode === 'hybrid'
@@ -253,43 +253,43 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        {/* Operational Snapshot */}
-        <div className="mt-6 flex flex-wrap gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border/50">
-            <Truck className="h-3.5 w-3.5 text-primary" />
+        {/* Operational Snapshot - Compressed */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-card border border-border/50">
+            <Truck className="h-3 w-3 text-primary" />
             <span className="text-xs font-semibold text-foreground">
               {statData.activeTrips}
             </span>
-            <span className="text-[10px] text-muted-foreground">Active Trips</span>
+            <span className="text-[10px] text-muted-foreground">Active</span>
           </div>
 
           {mode !== 'broker' && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border/50">
-              <Users className="h-3.5 w-3.5 text-primary" />
+            <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-card border border-border/50">
+              <Users className="h-3 w-3 text-primary" />
               <span className="text-xs font-semibold text-foreground">
                 {statData.availableDrivers}
               </span>
-              <span className="text-[10px] text-muted-foreground">Available</span>
+              <span className="text-[10px] text-muted-foreground">Drivers</span>
             </div>
           )}
 
           {(mode === 'broker' || mode === 'hybrid') && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border/50">
-              <Package className="h-3.5 w-3.5 text-primary" />
+            <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-card border border-border/50">
+              <Package className="h-3 w-3 text-primary" />
               <span className="text-xs font-semibold text-foreground">
                 {statData.postedLoads}
               </span>
-              <span className="text-[10px] text-muted-foreground">Posted Loads</span>
+              <span className="text-[10px] text-muted-foreground">Posted</span>
             </div>
           )}
 
           {mode === 'hybrid' && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border/50">
-              <Boxes className="h-3.5 w-3.5 text-primary" />
+            <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-card border border-border/50">
+              <Boxes className="h-3 w-3 text-primary" />
               <span className="text-xs font-semibold text-foreground">
                 {statData.openCapacity}
               </span>
-              <span className="text-[10px] text-muted-foreground">Open Capacity</span>
+              <span className="text-[10px] text-muted-foreground">Capacity</span>
             </div>
           )}
         </div>
@@ -297,7 +297,7 @@ export default async function DashboardPage() {
 
       {error && (
         <Card className="border-destructive/50 bg-destructive/5">
-          <CardContent className="py-4 text-sm text-destructive">
+          <CardContent className="py-3 text-sm text-destructive">
             Error loading dashboard: {error}
           </CardContent>
         </Card>
@@ -306,16 +306,16 @@ export default async function DashboardPage() {
       {/* Setup Checklist - shows at top for new users */}
       <SetupChecklist userRole={onboardingState?.role || 'carrier'} />
 
-      {/* Quick Actions */}
-      <QuickActions mode={mode} />
-
-      {/* Stat Cards - Role Aware */}
+      {/* Fleet + Marketplace Health - MOVED UP */}
       <StatRow mode={mode} data={statData} />
 
-      {/* Premium Status Alert Bar - Thin inline insight */}
+      {/* Quick Actions - Compressed */}
+      <QuickActions mode={mode} />
+
+      {/* Premium Status Alert Bar - Compressed */}
       {(verificationState || mode !== 'broker') && (
-        <div className="relative h-14 rounded-xl border-l-4 border-l-primary shadow-md bg-gradient-to-r from-accent/10 to-transparent border border-border/30 overflow-hidden">
-          <div className="h-full px-6 flex items-center gap-6">
+        <div className="relative h-12 rounded-xl border-l-4 border-l-primary shadow-md bg-gradient-to-r from-accent/10 to-transparent border border-border/30 overflow-hidden">
+          <div className="h-full px-4 flex items-center gap-4">
             {/* FMCSA Verification Status */}
             {verificationState && (
               <div className="flex items-center gap-2.5">
@@ -408,11 +408,17 @@ export default async function DashboardPage() {
       )}
 
       {/* Live Ops Panel - 3-Column Grid */}
-      <Card className="rounded-2xl shadow-sm border-border/20 bg-card/50">
-        <CardHeader className="py-3 px-6 border-b border-border/20">
-          <CardTitle className="text-sm font-semibold tracking-tight">Live Operations</CardTitle>
+      <Card className="rounded-2xl shadow-sm border-border/30 bg-card">
+        <CardHeader className="py-2.5 px-5 border-b border-border/20">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-success"></span>
+            </span>
+            <CardTitle className="text-sm font-semibold tracking-tight">Live Operations</CardTitle>
+          </div>
         </CardHeader>
-        <CardContent className="p-6">
+        <CardContent className="p-5">
           <div className="grid gap-6 lg:grid-cols-3">
             {/* Column 1: Recent Companies */}
             <div>
