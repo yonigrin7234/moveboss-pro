@@ -57,6 +57,11 @@ import {
   type FocusItem,
 } from '@/lib/dashboardFocusItems';
 import { getDashboardMode, type DashboardMode } from '@/lib/dashboardMode';
+import { DriversNow, type DriverStatus } from '@/components/dashboard/v3/DriversNow';
+import { KeyMetrics } from '@/components/dashboard/v3/KeyMetrics';
+import { CriticalAlertBar } from '@/components/dashboard/v3/CriticalAlertBar';
+import { WhoOwesYou, type Receivable } from '@/components/dashboard/v3/WhoOwesYou';
+import { UnassignedLoads, type UnassignedLoad } from '@/components/dashboard/v3/UnassignedLoads';
 
 const activityIcons: Record<ActivityType, { icon: any; color: string }> = {
   trip_started: { icon: Flag, color: 'text-blue-500' },
@@ -228,73 +233,113 @@ export default async function DashboardPage() {
     focusItems = [...focusItems, ...brokerItems];
   }
 
+  // Prepare driver status data for V3 DriversNow component
+  const driverStatusData: DriverStatus[] = drivers.map((driver) => ({
+    id: driver.id,
+    name: `${driver.first_name} ${driver.last_name}`,
+    status: driver.status === 'active' ? 'active' : 'available',
+    activity: driver.status === 'active' ? 'Delivering' : 'Available',
+    location: 'Phoenix, AZ', // TODO: Get from real data
+  }));
+
+  // Prepare receivables data for V3 WhoOwesYou component (mock data for now)
+  const receivablesData: Receivable[] = [
+    {
+      id: '1',
+      companyName: 'ABC Moving',
+      amount: 11200,
+      daysOutstanding: 72,
+    },
+    {
+      id: '2',
+      companyName: 'XYZ Van Lines',
+      amount: 4500,
+      daysOutstanding: 65,
+    },
+    {
+      id: '3',
+      companyName: 'R&B Moving',
+      amount: 2500,
+      daysOutstanding: 38,
+    },
+    {
+      id: '4',
+      companyName: 'Quick Move LLC',
+      amount: 3800,
+      daysOutstanding: 12,
+    },
+    {
+      id: '5',
+      companyName: 'Allied Partners',
+      amount: 2500,
+      daysOutstanding: 5,
+    },
+  ];
+
+  // Prepare unassigned loads data for V3 UnassignedLoads component (mock data for now)
+  const unassignedLoadsData: UnassignedLoad[] = mode !== 'broker' ? [
+    {
+      id: '1',
+      origin: 'Phoenix, AZ',
+      destination: 'Denver, CO',
+      pickupDate: new Date(Date.now() + 18 * 60 * 60 * 1000).toISOString(), // 18 hours from now (CRITICAL - today)
+      cubicFeet: 1200,
+      value: 4500,
+      isUrgent: true,
+      isCritical: true,
+    },
+    {
+      id: '2',
+      origin: 'Los Angeles, CA',
+      destination: 'Seattle, WA',
+      pickupDate: new Date(Date.now() + 30 * 60 * 60 * 1000).toISOString(), // 30 hours from now (URGENT - tomorrow)
+      cubicFeet: 850,
+      value: 3200,
+      isUrgent: true,
+      isCritical: false,
+    },
+    {
+      id: '3',
+      origin: 'Miami, FL',
+      destination: 'Boston, MA',
+      pickupDate: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(), // 3 days from now
+      cubicFeet: 1500,
+      value: 5800,
+      isUrgent: false,
+      isCritical: false,
+    },
+    {
+      id: '4',
+      origin: 'Dallas, TX',
+      destination: 'Chicago, IL',
+      pickupDate: new Date(Date.now() + 96 * 60 * 60 * 1000).toISOString(), // 4 days from now
+      cubicFeet: 650,
+      value: 2400,
+      isUrgent: false,
+      isCritical: false,
+    },
+  ] : [];
+
+  // Prepare key metrics data for V3 KeyMetrics component
+  const keyMetricsData = {
+    activeTrips: statData.activeTrips,
+    needDrivers: 4, // TODO: Get from real data
+    needDriversCF: 2850,
+    needDriversValue: 9975,
+    needDriversUrgent: 2, // Number with pickup TODAY
+    availableCF: 3200,
+    owedToYou: '$24.5k',
+    postedLoads: statData.postedLoads,
+    pendingRequests: statData.pendingRequests,
+    activeLoads: 8, // TODO: Get from real data
+    pendingSettlements: 1,
+  };
+
+  // Determine if there's a critical alert (pickup TODAY with no driver)
+  const hasCriticalAlert = keyMetricsData.needDriversUrgent > 0;
+
   return (
-    <div className="max-w-7xl w-full mx-auto px-6 space-y-6 pt-4">
-      {/* Premium Hero Header - Compressed */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-accent/10 to-transparent border border-border/40 p-5">
-        <div className="absolute top-3 left-3">
-          <div className="px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20">
-            <span className="text-[10px] font-semibold text-primary uppercase tracking-wide">
-              Dashboard
-            </span>
-          </div>
-        </div>
-
-        <div className="mt-5">
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            {company?.name || 'Welcome back'}
-          </h1>
-          <p className="text-xs text-muted-foreground/80 mt-0.5">
-            {mode === 'broker'
-              ? 'Broker Operations Center'
-              : mode === 'hybrid'
-              ? 'Hybrid Fleet & Brokerage Command'
-              : 'Carrier Fleet Management'}
-          </p>
-        </div>
-
-        {/* Operational Snapshot - Compressed */}
-        <div className="mt-4 flex flex-wrap gap-2">
-          <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-card border border-border/50">
-            <Truck className="h-3 w-3 text-primary" />
-            <span className="text-xs font-semibold text-foreground">
-              {statData.activeTrips}
-            </span>
-            <span className="text-[10px] text-muted-foreground">Active</span>
-          </div>
-
-          {mode !== 'broker' && (
-            <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-card border border-border/50">
-              <Users className="h-3 w-3 text-primary" />
-              <span className="text-xs font-semibold text-foreground">
-                {statData.availableDrivers}
-              </span>
-              <span className="text-[10px] text-muted-foreground">Drivers</span>
-            </div>
-          )}
-
-          {(mode === 'broker' || mode === 'hybrid') && (
-            <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-card border border-border/50">
-              <Package className="h-3 w-3 text-primary" />
-              <span className="text-xs font-semibold text-foreground">
-                {statData.postedLoads}
-              </span>
-              <span className="text-[10px] text-muted-foreground">Posted</span>
-            </div>
-          )}
-
-          {mode === 'hybrid' && (
-            <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-card border border-border/50">
-              <Boxes className="h-3 w-3 text-primary" />
-              <span className="text-xs font-semibold text-foreground">
-                {statData.openCapacity}
-              </span>
-              <span className="text-[10px] text-muted-foreground">Capacity</span>
-            </div>
-          )}
-        </div>
-      </div>
-
+    <div className="max-w-7xl w-full mx-auto px-6 lg:px-8 py-8 space-y-8">
       {error && (
         <Card className="border-destructive/50 bg-destructive/5">
           <CardContent className="py-3 text-sm text-destructive">
@@ -306,11 +351,33 @@ export default async function DashboardPage() {
       {/* Setup Checklist - shows at top for new users */}
       <SetupChecklist userRole={onboardingState?.role || 'carrier'} />
 
-      {/* Fleet + Marketplace Health - MOVED UP */}
-      <StatRow mode={mode} data={statData} />
+      {/* Critical Alert Bar - Only shows if critical items */}
+      {hasCriticalAlert && (
+        <CriticalAlertBar
+          message={`${keyMetricsData.needDriversUrgent} loads pickup TODAY with no driver assigned`}
+          href="/dashboard/assigned-loads?filter=unassigned"
+          actionText="Assign now →"
+        />
+      )}
 
-      {/* Quick Actions - Compressed */}
+      {/* Drivers Now - Section 3 */}
+      {mode !== 'broker' && (
+        <DriversNow drivers={driverStatusData} mode={mode} />
+      )}
+
+      {/* Key Metrics - Section 4 (Giant Numbers) */}
+      <KeyMetrics mode={mode} data={keyMetricsData} />
+
+      {/* Quick Actions - Section 5 */}
       <QuickActions mode={mode} />
+
+      {/* Unassigned Loads - Section 6 (Only for carriers/hybrid) */}
+      {mode !== 'broker' && unassignedLoadsData.length > 0 && (
+        <UnassignedLoads loads={unassignedLoadsData} mode={mode} />
+      )}
+
+      {/* Health Panels - Keep from Phase 8 */}
+      <StatRow mode={mode} data={statData} />
 
       {/* Premium Status Alert Bar - Compressed */}
       {(verificationState || mode !== 'broker') && (
@@ -402,10 +469,31 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Today's Focus Widget */}
+      {/* Today's Focus Widget - Section 8 */}
       {focusItems.length > 0 && (
         <TodaysFocus mode={mode} items={focusItems} />
       )}
+
+      {/* Who Owes You - Section 9 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <WhoOwesYou receivables={receivablesData} total={24500} />
+
+        {/* Placeholder for Today's Collections (Section 10) */}
+        <Card className="rounded-xl border-border/50">
+          <CardHeader className="px-6 py-5 border-b border-border/50">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                TODAY'S COLLECTIONS
+              </h3>
+              <span className="text-2xl font-semibold text-emerald-600">$4.8k</span>
+            </div>
+          </CardHeader>
+          <CardContent className="p-8 text-center">
+            <Clock className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+            <p className="text-sm text-muted-foreground">Collections feature coming soon</p>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Live Ops Panel - 3-Column Grid */}
       <Card className="rounded-2xl shadow-sm border-border/30 bg-card">

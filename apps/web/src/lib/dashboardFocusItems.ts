@@ -25,7 +25,7 @@ export function getCarrierFocusItems(stats: {
   if (stats.unassignedLoads && stats.unassignedLoads > 0) {
     items.push({
       id: 'unassigned-loads',
-      icon: 'Package',
+      icon: 'Package' as IconName,
       label: 'Loads Awaiting Assignment',
       count: stats.unassignedLoads,
       href: '/dashboard/assigned-loads?filter=unassigned',
@@ -37,7 +37,7 @@ export function getCarrierFocusItems(stats: {
   if (stats.activeTrips && stats.activeTrips > 0) {
     items.push({
       id: 'active-trips',
-      icon: 'Truck',
+      icon: 'Truck' as IconName,
       label: 'Drivers En Route',
       count: stats.activeTrips,
       href: '/dashboard/trips?status=active',
@@ -49,7 +49,7 @@ export function getCarrierFocusItems(stats: {
   if (stats.pendingSettlements && stats.pendingSettlements > 0) {
     items.push({
       id: 'pending-settlements',
-      icon: 'DollarSign',
+      icon: 'DollarSign' as IconName,
       label: 'Pending Settlements',
       count: stats.pendingSettlements,
       href: '/dashboard/finance/settlements?status=pending',
@@ -61,7 +61,7 @@ export function getCarrierFocusItems(stats: {
   if (stats.expiringDocs && stats.expiringDocs > 0) {
     items.push({
       id: 'expiring-docs',
-      icon: 'FileText',
+      icon: 'FileText' as IconName,
       label: 'Expiring Documents',
       count: stats.expiringDocs,
       href: '/dashboard/compliance',
@@ -73,7 +73,7 @@ export function getCarrierFocusItems(stats: {
   if (stats.outstandingBalance && stats.outstandingBalance > 0) {
     items.push({
       id: 'outstanding-balance',
-      icon: 'DollarSign',
+      icon: 'DollarSign' as IconName,
       label: 'Outstanding Balances',
       count: `$${(stats.outstandingBalance / 1000).toFixed(1)}k`,
       href: '/dashboard/finance/receivables',
@@ -100,7 +100,7 @@ export function getBrokerFocusItems(stats: {
   if (stats.loadsNeedingCarriers && stats.loadsNeedingCarriers > 0) {
     items.push({
       id: 'loads-needing-carriers',
-      icon: 'Package',
+      icon: 'Package' as IconName,
       label: 'Loads Needing Carriers',
       count: stats.loadsNeedingCarriers,
       href: '/dashboard/posted-jobs?status=open',
@@ -112,7 +112,7 @@ export function getBrokerFocusItems(stats: {
   if (stats.pendingRequests && stats.pendingRequests > 0) {
     items.push({
       id: 'pending-requests',
-      icon: 'Truck',
+      icon: 'Truck' as IconName,
       label: 'Pending Carrier Requests',
       count: stats.pendingRequests,
       href: '/dashboard/carrier-requests',
@@ -124,7 +124,7 @@ export function getBrokerFocusItems(stats: {
   if (stats.activeDeliveries && stats.activeDeliveries > 0) {
     items.push({
       id: 'active-deliveries',
-      icon: 'Truck',
+      icon: 'Truck' as IconName,
       label: 'Active Deliveries',
       count: stats.activeDeliveries,
       href: '/dashboard/loads-given-out?status=active',
@@ -136,7 +136,7 @@ export function getBrokerFocusItems(stats: {
   if (stats.unpaidInvoices && stats.unpaidInvoices > 0) {
     items.push({
       id: 'unpaid-invoices',
-      icon: 'DollarSign',
+      icon: 'DollarSign' as IconName,
       label: 'Unpaid Invoices',
       count: `$${(stats.unpaidInvoices / 1000).toFixed(1)}k`,
       href: '/dashboard/finance/receivables',
@@ -148,7 +148,7 @@ export function getBrokerFocusItems(stats: {
   if (stats.expiringQuotes && stats.expiringQuotes > 0) {
     items.push({
       id: 'expiring-quotes',
-      icon: 'AlertTriangle',
+      icon: 'AlertTriangle' as IconName,
       label: 'Expiring Quotes',
       count: stats.expiringQuotes,
       href: '/dashboard/posted-jobs?expiring=true',
