@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { DollarSign, AlertCircle } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 export interface Receivable {
   id: string;
@@ -16,9 +16,9 @@ interface WhoOwesYouProps {
 export function WhoOwesYou({ receivables, total }: WhoOwesYouProps) {
   if (receivables.length === 0) {
     return (
-      <div className="bg-white border border-border/40 rounded-lg p-6">
-        <h2 className="text-sm font-semibold text-foreground mb-4">Who Owes You</h2>
-        <p className="text-sm text-muted-foreground">No outstanding receivables.</p>
+      <div className="bg-white rounded-lg border border-gray-200/80 p-4">
+        <h2 className="text-sm font-semibold text-gray-900 mb-2">Who Owes You</h2>
+        <p className="text-sm text-gray-500">No outstanding receivables.</p>
       </div>
     );
   }
@@ -27,25 +27,26 @@ export function WhoOwesYou({ receivables, total }: WhoOwesYouProps) {
   const overdueCount = sorted.filter(r => r.daysOutstanding >= 60).length;
 
   return (
-    <div className="bg-white border border-border/40 rounded-lg p-5">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white rounded-lg border border-gray-200/80 overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-foreground">Who Owes You</h2>
+          <h2 className="text-sm font-semibold text-gray-900">Who Owes You</h2>
           {overdueCount > 0 && (
-            <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-semibold">
+            <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-700">
               {overdueCount} overdue
             </span>
           )}
         </div>
         <Link
           href="/dashboard/finance/receivables"
-          className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+          className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
         >
-          View all →
+          View all
+          <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
 
-      <div className="space-y-2 mb-4">
+      <div className="divide-y divide-gray-100">
         {sorted.slice(0, 5).map((item) => {
           const isOverdue = item.daysOutstanding >= 60;
           const isWarning = item.daysOutstanding >= 30;
@@ -54,21 +55,25 @@ export function WhoOwesYou({ receivables, total }: WhoOwesYouProps) {
             <Link
               key={item.id}
               href={`/dashboard/finance/receivables/${item.id}`}
-              className="flex items-center justify-between gap-4 px-3 py-2.5 rounded-lg hover:bg-muted/30 hover:shadow-sm transition-all duration-150 group"
+              className="flex items-center justify-between gap-4 px-4 py-2.5 hover:bg-gray-50 transition-colors"
             >
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${isOverdue ? 'bg-red-500' : isWarning ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                <span className="text-sm font-medium text-foreground truncate">{item.companyName}</span>
+              <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                <div className={`h-2 w-2 rounded-full flex-shrink-0 ${
+                  isOverdue ? 'bg-red-500' : isWarning ? 'bg-amber-500' : 'bg-emerald-500'
+                }`} />
+                <span className="text-sm font-medium text-gray-900 truncate">{item.companyName}</span>
               </div>
 
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold tabular-nums text-foreground">${item.amount.toLocaleString()}</span>
-                <span className={`text-xs font-semibold px-2 py-1 rounded ${
-                  isOverdue 
-                    ? 'bg-red-100 text-red-700' 
-                    : isWarning 
-                    ? 'bg-amber-100 text-amber-700' 
-                    : 'bg-emerald-100 text-emerald-700'
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold tabular-nums text-gray-900">
+                  ${item.amount.toLocaleString()}
+                </span>
+                <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                  isOverdue
+                    ? 'bg-red-100 text-red-700'
+                    : isWarning
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'bg-gray-100 text-gray-600'
                 }`}>
                   {item.daysOutstanding}d
                 </span>
@@ -78,13 +83,10 @@ export function WhoOwesYou({ receivables, total }: WhoOwesYouProps) {
         })}
       </div>
 
-      <div className="pt-4 border-t border-border/40">
+      <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium text-muted-foreground">Total Outstanding</span>
-          </div>
-          <span className="text-xl font-bold tabular-nums text-foreground">${(total / 1000).toFixed(1)}k</span>
+          <span className="text-xs font-medium text-gray-500">Total Outstanding</span>
+          <span className="text-lg font-bold tabular-nums text-gray-900">${(total / 1000).toFixed(1)}k</span>
         </div>
       </div>
     </div>

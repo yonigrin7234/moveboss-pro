@@ -218,7 +218,7 @@ export default async function DashboardPage() {
   // ========================================
 
   return (
-    <div className="min-h-screen bg-muted/20">
+    <div className="min-h-screen bg-gray-50/50">
       {/* Top Bar - Compact Search + Status */}
       <TopBar
         mode={mode}
@@ -236,25 +236,25 @@ export default async function DashboardPage() {
       )}
 
       {/* Main Dashboard Content */}
-      <div className="max-w-[1600px] mx-auto px-6 py-8 space-y-6">
-        {/* Key Metrics - Clean Row */}
+      <div className="max-w-[1400px] mx-auto px-6 py-6 space-y-4">
+        {/* Key Metrics Row */}
         <KeyMetrics mode={mode} data={keyMetricsData} />
 
-        {/* Quick Actions */}
+        {/* Quick Actions - Centered */}
         <QuickActions mode={mode} />
 
-        {/* Drivers Live - Answer: Where are my drivers? */}
+        {/* Drivers Live */}
         {mode !== 'broker' && driverStatusData.length > 0 && (
           <DriversNow drivers={driverStatusData} mode={mode} />
         )}
 
-        {/* Unassigned Loads - Answer: What requires my attention? */}
+        {/* Unassigned Loads */}
         {mode !== 'broker' && (
           <UnassignedLoads loads={unassignedLoadsData} />
         )}
 
-        {/* Financial Summary - Answer: Who owes me money? */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Financial Summary */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <WhoOwesYou receivables={receivablesData} total={moneyOwed} />
           <TodaysCollections collections={collectionsData} total={4800} />
         </div>
@@ -264,7 +264,7 @@ export default async function DashboardPage() {
           <TodaysSchedule events={scheduleData} />
         )}
 
-        {/* Operations Panel - Recent activity, companies, drivers */}
+        {/* Operations Panel */}
         <OperationsPanel
           companies={operationsPanelData.companies}
           drivers={operationsPanelData.drivers}

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { TrendingUp, TrendingDown, Truck, AlertTriangle, Package, DollarSign } from 'lucide-react';
 import type { DashboardMode } from '@/lib/dashboardMode';
 
 interface KeyMetricsData {
@@ -13,73 +14,97 @@ interface KeyMetricsProps {
   data: KeyMetricsData;
 }
 
-export function KeyMetrics({ mode, data }: KeyMetricsProps) {
+export function KeyMetrics({ data }: KeyMetricsProps) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <MetricCard
+        icon={Truck}
         number={data.activeTrips}
         label="Active Trips"
         href="/dashboard/trips?status=active"
-        state={data.activeTrips > 0 ? 'active' : 'neutral'}
+        trend={data.activeTrips > 0 ? 'up' : undefined}
+        accent="emerald"
       />
       <MetricCard
+        icon={AlertTriangle}
         number={data.needDrivers}
-        label="Loads Needing Drivers"
+        label="Need Drivers"
         href="/dashboard/assigned-loads?filter=unassigned"
-        state={data.needDrivers > 5 ? 'critical' : data.needDrivers > 0 ? 'warning' : 'success'}
+        accent={data.needDrivers > 3 ? 'red' : data.needDrivers > 0 ? 'amber' : 'gray'}
+        urgent={data.needDrivers > 3}
       />
       <MetricCard
+        icon={Package}
         number={data.availableCF.toLocaleString()}
-        label="Available Capacity"
+        label="Available CF"
         href="/dashboard/drivers?status=available"
-        state={data.availableCF < 1000 ? 'warning' : 'neutral'}
-        suffix="CF"
+        accent="gray"
+        suffix="cf"
       />
       <MetricCard
+        icon={DollarSign}
         number={data.outstandingReceivables}
-        label="Outstanding Receivables"
+        label="Receivables"
         href="/dashboard/finance/receivables"
-        state="neutral"
+        accent="gray"
       />
     </div>
   );
 }
 
 interface MetricCardProps {
+  icon: React.ComponentType<{ className?: string }>;
   number: number | string;
   label: string;
   href: string;
-  state: 'active' | 'success' | 'warning' | 'critical' | 'neutral';
+  accent: 'emerald' | 'amber' | 'red' | 'gray';
+  trend?: 'up' | 'down';
+  urgent?: boolean;
   suffix?: string;
 }
 
-function MetricCard({ number, label, href, state, suffix }: MetricCardProps) {
-  const stateStyles = {
-    active: 'bg-white border-border/40',
-    success: 'bg-emerald-50/50 border-emerald-200/50',
-    warning: 'bg-amber-50/50 border-amber-200/50',
-    critical: 'bg-red-50/50 border-red-200/50',
-    neutral: 'bg-white border-border/40',
+function MetricCard({ icon: Icon, number, label, href, accent, trend, urgent, suffix }: MetricCardProps) {
+  const accentColors = {
+    emerald: 'border-l-emerald-500',
+    amber: 'border-l-amber-500',
+    red: 'border-l-red-500',
+    gray: 'border-l-gray-300',
   };
 
-  const numberStyles = {
-    active: 'text-emerald-700',
-    success: 'text-emerald-700',
-    warning: 'text-amber-700',
-    critical: 'text-red-700',
-    neutral: 'text-foreground',
+  const iconColors = {
+    emerald: 'text-emerald-600',
+    amber: 'text-amber-600',
+    red: 'text-red-600',
+    gray: 'text-gray-400',
   };
 
   return (
     <Link
       href={href}
-      className={`block p-5 rounded-lg border transition-all duration-150 hover:shadow-md ${stateStyles[state]}`}
+      className={`
+        group relative bg-white rounded-lg border border-gray-200/80 border-l-[3px] ${accentColors[accent]}
+        p-4 hover:shadow-md hover:border-gray-300/80 transition-all duration-200
+        ${urgent ? 'ring-1 ring-red-100' : ''}
+      `}
     >
-      <p className={`text-3xl font-bold tabular-nums leading-tight ${numberStyles[state]}`}>
-        {number}
-        {suffix && <span className="text-lg ml-1 font-medium text-muted-foreground">{suffix}</span>}
-      </p>
-      <p className="text-xs text-muted-foreground mt-2 uppercase tracking-wider">{label}</p>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-2xl font-semibold text-gray-900 tabular-nums tracking-tight">
+            {number}
+            {suffix && <span className="text-sm font-normal text-gray-400 ml-1 uppercase">{suffix}</span>}
+          </p>
+          <p className="text-xs font-medium text-gray-500 mt-1 truncate">{label}</p>
+        </div>
+        <div className={`flex-shrink-0 p-1.5 rounded-md bg-gray-50 ${iconColors[accent]}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+      </div>
+
+      {trend && (
+        <div className={`absolute top-2 right-2 ${trend === 'up' ? 'text-emerald-500' : 'text-red-500'}`}>
+          {trend === 'up' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+        </div>
+      )}
     </Link>
   );
 }

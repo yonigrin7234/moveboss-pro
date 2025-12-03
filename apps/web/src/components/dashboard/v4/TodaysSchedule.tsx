@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { MapPin, Clock, User, Package } from 'lucide-react';
+import { MapPin, Clock, User, ArrowUp, ArrowDown, ArrowRight } from 'lucide-react';
 
 export interface ScheduleEvent {
   id: string;
@@ -17,9 +17,9 @@ interface TodaysScheduleProps {
 export function TodaysSchedule({ events }: TodaysScheduleProps) {
   if (events.length === 0) {
     return (
-      <div className="bg-white border border-border/40 rounded-lg p-6">
-        <h2 className="text-sm font-semibold text-foreground mb-4">Today's Schedule</h2>
-        <p className="text-sm text-muted-foreground">No events scheduled for today.</p>
+      <div className="bg-white rounded-lg border border-gray-200/80 p-4">
+        <h2 className="text-sm font-semibold text-gray-900 mb-2">Today's Schedule</h2>
+        <p className="text-sm text-gray-500">No events scheduled for today.</p>
       </div>
     );
   }
@@ -28,21 +28,32 @@ export function TodaysSchedule({ events }: TodaysScheduleProps) {
   const deliveries = events.filter(e => e.type === 'delivery');
 
   return (
-    <div className="bg-white border border-border/40 rounded-lg p-5">
-      <h2 className="text-sm font-semibold text-foreground mb-4">Today's Schedule</h2>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="bg-white rounded-lg border border-gray-200/80 overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <h2 className="text-sm font-semibold text-gray-900">Today's Schedule</h2>
+        <Link
+          href="/dashboard/trips"
+          className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
+        >
+          View all
+          <ArrowRight className="h-3 w-3" />
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-100">
         {/* Pickups Column */}
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-            <Package className="h-4 w-4" />
-            Pickups
-          </h3>
+        <div className="p-3">
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <ArrowUp className="h-3.5 w-3.5 text-blue-500" />
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Pickups ({pickups.length})
+            </span>
+          </div>
           {pickups.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No pickups scheduled</p>
+            <p className="text-sm text-gray-400 px-1">No pickups scheduled</p>
           ) : (
-            <div className="space-y-2">
-              {pickups.slice(0, 4).map((event) => (
+            <div className="space-y-1">
+              {pickups.slice(0, 3).map((event) => (
                 <EventCard key={event.id} event={event} />
               ))}
             </div>
@@ -50,16 +61,18 @@ export function TodaysSchedule({ events }: TodaysScheduleProps) {
         </div>
 
         {/* Deliveries Column */}
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-            <Package className="h-4 w-4" />
-            Deliveries
-          </h3>
+        <div className="p-3">
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <ArrowDown className="h-3.5 w-3.5 text-emerald-500" />
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Deliveries ({deliveries.length})
+            </span>
+          </div>
           {deliveries.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No deliveries scheduled</p>
+            <p className="text-sm text-gray-400 px-1">No deliveries scheduled</p>
           ) : (
-            <div className="space-y-2">
-              {deliveries.slice(0, 4).map((event) => (
+            <div className="space-y-1">
+              {deliveries.slice(0, 3).map((event) => (
                 <EventCard key={event.id} event={event} />
               ))}
             </div>
@@ -78,25 +91,19 @@ function EventCard({ event }: EventCardProps) {
   return (
     <Link
       href={`/dashboard/trips/${event.loadId}`}
-      className="flex items-start gap-3 px-3 py-2.5 rounded-lg border border-border/40 hover:border-border/60 hover:bg-muted/30 hover:shadow-sm transition-all duration-150"
+      className="flex items-center gap-3 px-2 py-2 rounded-md hover:bg-gray-50 transition-colors"
     >
-      <div className="flex flex-col items-center pt-0.5">
-        <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0" />
-        <div className="w-0.5 h-full bg-border/30 mt-1 min-h-[30px]" />
+      <div className="flex items-center justify-center h-8 w-12 rounded bg-gray-100 text-xs font-semibold text-gray-700 tabular-nums">
+        {event.time}
       </div>
-
-      <div className="flex-1 space-y-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <span className="text-sm font-semibold tabular-nums text-foreground">{event.time}</span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 text-sm">
+          <MapPin className="h-3 w-3 text-gray-400 flex-shrink-0" />
+          <span className="font-medium text-gray-900 truncate">{event.location}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <span className="text-sm text-foreground truncate">{event.location}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <span className="text-xs text-muted-foreground truncate">{event.driver}</span>
+        <div className="flex items-center gap-1.5 mt-0.5 text-xs text-gray-500">
+          <User className="h-3 w-3 flex-shrink-0" />
+          <span className="truncate">{event.driver}</span>
         </div>
       </div>
     </Link>
