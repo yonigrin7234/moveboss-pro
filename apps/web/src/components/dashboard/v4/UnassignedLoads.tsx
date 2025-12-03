@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { MapPin, Calendar, ArrowRight } from 'lucide-react';
+import { MapPin, Calendar, Truck } from 'lucide-react';
 
 export interface UnassignedLoad {
   id: string;
@@ -19,8 +19,8 @@ function getUrgency(pickupDate: string): 'critical' | 'urgent' | 'normal' {
   const now = new Date();
   const hoursUntil = (pickup.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-  if (hoursUntil < 24) return 'critical'; // Today
-  if (hoursUntil < 48) return 'urgent'; // Tomorrow
+  if (hoursUntil < 24) return 'critical';
+  if (hoursUntil < 48) return 'urgent';
   return 'normal';
 }
 
@@ -29,7 +29,7 @@ function formatPickup(pickupDate: string): string {
   const now = new Date();
   const hoursUntil = (pickup.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-  if (hoursUntil < 24) return 'PICKUP TODAY';
+  if (hoursUntil < 24) return 'TODAY';
   if (hoursUntil < 48) return 'Tomorrow';
   return pickup.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
@@ -37,7 +37,6 @@ function formatPickup(pickupDate: string): string {
 export function UnassignedLoads({ loads }: UnassignedLoadsProps) {
   if (loads.length === 0) return null;
 
-  // Sort by urgency
   const sorted = [...loads].sort((a, b) => {
     const urgencyOrder = { critical: 0, urgent: 1, normal: 2 };
     const aUrg = getUrgency(a.pickupDate);
@@ -50,7 +49,7 @@ export function UnassignedLoads({ loads }: UnassignedLoadsProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between px-1">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           UNASSIGNED LOADS
         </h2>
@@ -62,64 +61,28 @@ export function UnassignedLoads({ loads }: UnassignedLoadsProps) {
         </Link>
       </div>
 
-      <div className="space-y-2">
-        {sorted.slice(0, 5).map((load) => {
+      <div className="space-y-1.5">
+        {sorted.slice(0, 6).map((load) => {
           const urgency = getUrgency(load.pickupDate);
           const pickupLabel = formatPickup(load.pickupDate);
-
-          const bgClass =
-            urgency === 'critical'
-              ? 'bg-red-500/10 border-red-500/30 hover:bg-red-500/15'
-              : urgency === 'urgent'
-              ? 'bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/15'
-              : 'bg-card border-border/50 hover:bg-muted/30';
-
-          const badgeClass =
-            urgency === 'critical'
-              ? 'bg-red-500/20 text-red-700 border-red-500/30'
-              : urgency === 'urgent'
-              ? 'bg-amber-500/20 text-amber-700 border-amber-500/30'
-              : 'bg-muted text-foreground border-border';
+          const dotColor = urgency === 'critical' ? 'bg-red-500' : urgency === 'urgent' ? 'bg-amber-500' : 'bg-slate-300';
 
           return (
             <Link
               key={load.id}
               href={`/dashboard/assigned-loads/${load.id}`}
-              className={`block p-4 rounded-lg border transition-all group ${bgClass}`}
+              className="flex items-center gap-3 p-3 rounded-lg bg-white border border-border/20 hover:border-border/40 hover:shadow-sm transition-all duration-150 group"
             >
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex-1 space-y-2">
-                  {/* Pickup Date Badge */}
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs font-semibold ${badgeClass}`}
-                  >
-                    <Calendar className="h-3 w-3" />
-                    {pickupLabel}
-                  </span>
-
-                  {/* Route */}
-                  <div className="flex items-center gap-2 text-sm">
-                    <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span className="font-medium truncate">{load.origin}</span>
-                    <span className="text-muted-foreground">→</span>
-                    <span className="font-medium truncate">{load.destination}</span>
-                  </div>
-
-                  {/* Details */}
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span>{load.cubicFeet} CF</span>
-                    <span>•</span>
-                    <span className="font-semibold text-foreground">
-                      ${load.value.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Action */}
-                <div className="flex items-center gap-1 text-sm font-semibold text-primary group-hover:translate-x-1 transition-transform">
-                  <span>Assign</span>
-                  <ArrowRight className="h-4 w-4" />
-                </div>
+              <div className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${dotColor}`} />
+              <span className="text-xs font-semibold text-muted-foreground min-w-[60px]">{pickupLabel}</span>
+              <div className="flex-1 flex items-center gap-2 min-w-0">
+                <span className="text-sm font-medium truncate">{load.origin}</span>
+                <span className="text-muted-foreground">→</span>
+                <span className="text-sm font-medium truncate">{load.destination}</span>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><Truck className="h-3.5 w-3.5" />{load.cubicFeet} CF</span>
+                <span className="font-semibold text-foreground">\${load.value.toLocaleString()}</span>
               </div>
             </Link>
           );

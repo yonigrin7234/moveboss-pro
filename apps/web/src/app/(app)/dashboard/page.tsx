@@ -213,12 +213,12 @@ export default async function DashboardPage() {
   };
 
   // ========================================
-  // RENDER V4 HYBRID PREMIUM LAYOUT
+  // RENDER TIER-1 COMMAND CENTER LAYOUT
   // ========================================
 
   return (
     <div className="min-h-screen bg-background">
-      {/* 1. GLOBAL SEARCH BAR - Centered, minimal */}
+      {/* TIER 1: Hero Section - Giant Search */}
       <TopBar
         mode={mode}
         fmcsaStatus={fmcsaStatus}
@@ -226,44 +226,44 @@ export default async function DashboardPage() {
         hasOverdue={hasOverdue}
       />
 
-      {/* Main Content - Heavy spacing, ultra-premium */}
-      <div className="max-w-[1400px] mx-auto px-6 py-8 space-y-8">
-        {/* 2. CRITICAL ALERT BAR - Only shows when needed */}
-        {criticalCount > 0 && (
-          <CriticalBlock
-            message={criticalMessage}
-            href="/dashboard/assigned-loads?filter=unassigned"
-          />
-        )}
+      {/* TIER 1: Critical Alert - Sticky, screaming red when needed */}
+      {criticalCount > 0 && (
+        <CriticalBlock
+          message={criticalMessage}
+          href="/dashboard/assigned-loads?filter=unassigned"
+        />
+      )}
 
-        {/* 3. DRIVERS LIVE STRIP - Subtle, horizontal row */}
+      {/* Main Command Center - Reduced padding, increased breathing space */}
+      <div className="max-w-[1400px] mx-auto px-5 py-6 space-y-10">
+        {/* TIER 2: Drivers Live - Radio Board Strip */}
         {mode !== 'broker' && driverStatusData.length > 0 && (
           <DriversNow drivers={driverStatusData} mode={mode} />
         )}
 
-        {/* 4. KEY METRICS ROW - EXACTLY 4 CARDS, giant numbers */}
+        {/* TIER 2: Key Metrics - Square cards with HUGE text-7xl numbers */}
         <KeyMetrics mode={mode} data={keyMetricsData} />
 
-        {/* 5. QUICK ACTIONS - Slim, muted, NOT dominant */}
+        {/* TIER 2: Quick Actions - 3 centered pill buttons */}
         <QuickActions mode={mode} />
 
-        {/* 6. UNASSIGNED LOADS - Full priority, color-coded urgency */}
+        {/* TIER 3: Unassigned Loads - Apple Reminders style, color-coded urgency */}
         {mode !== 'broker' && (
           <UnassignedLoads loads={unassignedLoadsData} />
         )}
 
-        {/* 7. TODAY'S SCHEDULE - Two-slot design (Pickups & Deliveries) */}
+        {/* TIER 3: Today's Schedule - Timeline with vertical dots */}
         {mode !== 'broker' && (
           <TodaysSchedule events={scheduleData} />
         )}
 
-        {/* 8 & 9. WHO OWES YOU + TODAY'S COLLECTIONS - Side by side */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* TIER 3: Financials - Who Owes You + Collections side-by-side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <WhoOwesYou receivables={receivablesData} total={moneyOwed} />
           <TodaysCollections collections={collectionsData} total={4800} />
         </div>
 
-        {/* 10. OPERATIONS PANEL - Bottom-level info (Recent Companies, Driver Roster, Recent Activity) */}
+        {/* TIER 4: Operations Panel - Recent activity, companies, drivers */}
         <OperationsPanel
           companies={operationsPanelData.companies}
           drivers={operationsPanelData.drivers}

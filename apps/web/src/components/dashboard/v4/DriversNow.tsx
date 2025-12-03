@@ -18,12 +18,12 @@ export function DriversNow({ drivers, mode }: DriversNowProps) {
   const title = mode === 'broker' ? 'ACTIVE CARRIERS' : 'DRIVERS LIVE';
 
   if (drivers.length === 0) {
-    return null; // Hide if no drivers
+    return null;
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
+    <div className="space-y-2">
+      <div className="flex items-center justify-between px-1">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           {title}
         </h2>
@@ -35,36 +35,33 @@ export function DriversNow({ drivers, mode }: DriversNowProps) {
         </Link>
       </div>
 
-      {/* Horizontal scroll strip */}
-      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
-        {drivers.slice(0, 8).map((driver) => (
+      {/* Horizontal compact strip - like a radio board */}
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+        {drivers.slice(0, 12).map((driver) => (
           <Link
             key={driver.id}
             href={`/dashboard/drivers/${driver.id}`}
-            className="flex-shrink-0 w-48 p-3 rounded-lg border border-border/50 bg-card hover:bg-muted/30 hover:border-border transition-all group"
+            className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-full bg-white border border-border/30 hover:border-border/60 hover:shadow-sm transition-all duration-150 group"
           >
-            <div className="flex items-center gap-2 mb-2">
-              <div
-                className={`h-2 w-2 rounded-full ${
-                  driver.status === 'active'
-                    ? 'bg-emerald-500'
-                    : driver.status === 'available'
-                    ? 'bg-amber-400'
-                    : 'bg-slate-400'
-                }`}
-              />
-              <p className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+            <div
+              className={`h-2.5 w-2.5 rounded-full ${
+                driver.status === 'active'
+                  ? 'bg-emerald-500'
+                  : driver.status === 'available'
+                  ? 'bg-amber-400'
+                  : 'bg-slate-400'
+              }`}
+            />
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-foreground whitespace-nowrap">
                 {driver.name}
               </p>
+              {driver.location && (
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  {driver.location}
+                </span>
+              )}
             </div>
-
-            {driver.activity && (
-              <p className="text-xs text-muted-foreground mb-1 truncate">{driver.activity}</p>
-            )}
-
-            {driver.location && (
-              <p className="text-xs text-muted-foreground/70 truncate">{driver.location}</p>
-            )}
           </Link>
         ))}
       </div>

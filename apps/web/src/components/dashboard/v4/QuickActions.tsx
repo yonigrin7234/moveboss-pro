@@ -7,47 +7,41 @@ interface QuickActionsProps {
 }
 
 export function QuickActions({ mode }: QuickActionsProps) {
-  // Slim row, muted, NOT dominant
-  // These are secondary actions - should not overpower metrics or unassigned loads
+  // 3 centered pill buttons - large, floating, rounded-full
   return (
-    <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/20 border border-border/30">
-      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        Quick Actions:
-      </span>
-      <div className="flex items-center gap-2">
-        <ActionLink
-          href="/dashboard/marketplace"
-          icon={<Search className="h-3.5 w-3.5" />}
-          label="Find Load"
+    <div className="flex items-center justify-center gap-4">
+      <ActionButton
+        href="/dashboard/marketplace"
+        icon={<Search className="h-5 w-5" />}
+        label="Find Load"
+      />
+      <ActionButton
+        href="/dashboard/assigned-loads?action=assign"
+        icon={<UserPlus className="h-5 w-5" />}
+        label="Assign Driver"
+      />
+      {(mode === 'broker' || mode === 'hybrid') && (
+        <ActionButton
+          href="/dashboard/posted-jobs/new"
+          icon={<Plus className="h-5 w-5" />}
+          label="Post Load"
         />
-        <ActionLink
-          href="/dashboard/assigned-loads?action=assign"
-          icon={<UserPlus className="h-3.5 w-3.5" />}
-          label="Assign Driver"
-        />
-        {(mode === 'broker' || mode === 'hybrid') && (
-          <ActionLink
-            href="/dashboard/posted-jobs/new"
-            icon={<Plus className="h-3.5 w-3.5" />}
-            label="Post Load"
-          />
-        )}
-      </div>
+      )}
     </div>
   );
 }
 
-interface ActionLinkProps {
+interface ActionButtonProps {
   href: string;
   icon: React.ReactNode;
   label: string;
 }
 
-function ActionLink({ href, icon, label }: ActionLinkProps) {
+function ActionButton({ href, icon, label }: ActionButtonProps) {
   return (
     <Link
       href={href}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-background/50 transition-colors"
+      className="inline-flex items-center gap-3 px-8 py-4 rounded-full text-base font-semibold bg-white border-2 border-border/40 hover:border-border/60 text-foreground hover:bg-muted/20 transition-all duration-150 shadow-md hover:shadow-lg"
     >
       {icon}
       <span>{label}</span>

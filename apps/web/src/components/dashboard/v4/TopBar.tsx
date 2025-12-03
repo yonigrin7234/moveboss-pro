@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, BadgeCheck, DollarSign, Bell } from 'lucide-react';
+import { Search, BadgeCheck, DollarSign, Bell, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 import Link from 'next/link';
 import type { DashboardMode } from '@/lib/dashboardMode';
@@ -16,8 +16,8 @@ export function TopBar({ mode, fmcsaStatus, moneyOwed, hasOverdue }: TopBarProps
   const [searchOpen, setSearchOpen] = useState(false);
 
   return (
-    <div className="bg-background border-b border-border/30">
-      {/* Top status pills - subtle */}
+    <div className="bg-background">
+      {/* Top status pills - minimal */}
       <div className="max-w-[1400px] mx-auto px-6 py-2 flex items-center justify-end gap-2">
         {mode !== 'broker' && fmcsaStatus === 'verified' && (
           <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs text-emerald-600">
@@ -40,21 +40,36 @@ export function TopBar({ mode, fmcsaStatus, moneyOwed, hasOverdue }: TopBarProps
         </button>
       </div>
 
-      {/* Centered Global Search */}
-      <div className="max-w-[1400px] mx-auto px-6 py-6">
-        <div className="max-w-2xl mx-auto">
+      {/* HERO: Giant Centered Search */}
+      <div className="max-w-[1400px] mx-auto px-6 py-12">
+        <div className="max-w-3xl mx-auto space-y-4">
+          {/* Giant Search Bar */}
           <button
             onClick={() => setSearchOpen(true)}
-            className="w-full flex items-center gap-3 px-6 py-4 rounded-2xl bg-muted/20 hover:bg-muted/30 border border-border/30 hover:border-border/50 transition-all text-left group shadow-sm"
+            className="w-full flex items-center gap-4 px-8 py-6 rounded-3xl bg-white hover:bg-gray-50 border-2 border-border/40 hover:border-border/60 transition-all text-left group shadow-lg hover:shadow-xl"
           >
-            <Search className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-            <span className="text-base text-muted-foreground group-hover:text-foreground transition-colors flex-1">
+            <Search className="h-6 w-6 text-muted-foreground group-hover:text-foreground transition-colors" />
+            <span className="text-xl text-muted-foreground group-hover:text-foreground transition-colors flex-1">
               Search loads, drivers, companies, trips...
             </span>
-            <kbd className="hidden sm:inline-flex h-6 px-2 items-center gap-1 rounded-md border border-border/50 bg-background/50 font-mono text-xs text-muted-foreground">
+            <kbd className="hidden sm:inline-flex h-7 px-3 items-center gap-1 rounded-lg border border-border/50 bg-background/50 font-mono text-sm text-muted-foreground">
               ⌘K
             </kbd>
           </button>
+
+          {/* Smart Suggestions */}
+          <div className="flex items-center justify-center gap-3 text-sm">
+            <span className="text-muted-foreground">Try:</span>
+            <button className="px-3 py-1.5 rounded-full bg-muted/40 hover:bg-muted/60 text-foreground transition-colors">
+              Phoenix to Denver
+            </button>
+            <button className="px-3 py-1.5 rounded-full bg-muted/40 hover:bg-muted/60 text-foreground transition-colors">
+              John Doe
+            </button>
+            <button className="px-3 py-1.5 rounded-full bg-muted/40 hover:bg-muted/60 text-foreground transition-colors">
+              Load #L-123
+            </button>
+          </div>
         </div>
       </div>
 
@@ -65,15 +80,15 @@ export function TopBar({ mode, fmcsaStatus, moneyOwed, hasOverdue }: TopBarProps
           onClick={() => setSearchOpen(false)}
         >
           <div
-            className="w-full max-w-2xl bg-background border border-border rounded-2xl shadow-2xl"
+            className="w-full max-w-3xl bg-background border-2 border-border rounded-3xl shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6">
+            <div className="p-8">
               <input
                 autoFocus
                 type="text"
                 placeholder="Search everything..."
-                className="w-full px-4 py-4 bg-transparent border-0 outline-none text-lg"
+                className="w-full px-4 py-4 bg-transparent border-0 outline-none text-xl"
               />
             </div>
             <div className="border-t border-border p-6 text-sm text-muted-foreground text-center">

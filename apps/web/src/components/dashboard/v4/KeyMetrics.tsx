@@ -15,9 +15,9 @@ interface KeyMetricsProps {
 
 export function KeyMetrics({ mode, data }: KeyMetricsProps) {
   // ALWAYS show exactly 4 cards - no more, no less
-  // These are the ONLY metrics that matter for immediate operations
+  // Square cards with HUGE text-7xl numbers
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
       <MetricCard
         number={data.activeTrips}
         label="Active Trips"
@@ -34,7 +34,7 @@ export function KeyMetrics({ mode, data }: KeyMetricsProps) {
         number={data.availableCF}
         label="Available Capacity"
         href="/dashboard/drivers?status=available"
-        state="neutral"
+        state={data.availableCF < 1000 ? 'warning' : 'neutral'}
         suffix="CF"
       />
       <MetricCard
@@ -58,13 +58,13 @@ interface MetricCardProps {
 }
 
 function MetricCard({ number, label, href, state, suffix, isMonetary }: MetricCardProps) {
-  // Ultra-premium, calm design with giant numbers
+  // Square cards with HUGE text-7xl numbers
   const stateClasses = {
-    active: 'border-emerald-200/50 bg-emerald-50/30 hover:bg-emerald-50/50',
-    success: 'border-emerald-200/50 bg-emerald-50/30 hover:bg-emerald-50/50',
-    warning: 'border-amber-200/50 bg-amber-50/30 hover:bg-amber-50/50',
-    critical: 'border-red-200/50 bg-red-50/30 hover:bg-red-50/50',
-    neutral: 'border-border/30 bg-card hover:bg-muted/30',
+    active: 'border-emerald-200/50 bg-white hover:bg-emerald-50/20',
+    success: 'border-emerald-200/50 bg-white hover:bg-emerald-50/20',
+    warning: 'border-amber-200/50 bg-white hover:bg-amber-50/20',
+    critical: 'border-red-200/50 bg-white hover:bg-red-50/20',
+    neutral: 'border-border/20 bg-white hover:bg-muted/20',
   };
 
   const numberClasses = {
@@ -78,14 +78,14 @@ function MetricCard({ number, label, href, state, suffix, isMonetary }: MetricCa
   return (
     <Link
       href={href}
-      className={`block p-8 rounded-2xl border transition-all shadow-sm hover:shadow-md ${stateClasses[state]} group`}
+      className={`block aspect-square p-6 rounded-2xl border transition-all duration-150 shadow-sm hover:shadow-md ${stateClasses[state]} group`}
     >
-      <div className="space-y-3">
-        <p className={`text-5xl font-semibold tracking-tight tabular-nums ${numberClasses[state]} group-hover:scale-105 transition-transform origin-left`}>
+      <div className="h-full flex flex-col justify-between">
+        <p className={`text-7xl font-semibold tracking-tight tabular-nums ${numberClasses[state]} leading-none`}>
           {isMonetary ? number : number}
-          {suffix && <span className="text-3xl ml-2 font-normal text-muted-foreground">{suffix}</span>}
+          {suffix && <span className="text-3xl ml-1 font-normal text-muted-foreground">{suffix}</span>}
         </p>
-        <p className="text-sm font-medium text-muted-foreground">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           {label}
         </p>
       </div>

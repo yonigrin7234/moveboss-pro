@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { MapPin, Clock } from 'lucide-react';
+import { MapPin, Clock, User } from 'lucide-react';
 
 export interface ScheduleEvent {
   id: string;
@@ -22,33 +22,37 @@ export function TodaysSchedule({ events }: TodaysScheduleProps) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Pickups Slot */}
+      {/* Pickups Column */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-foreground">Today's Pickups</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">
+          Today's Pickups
+        </h3>
         {pickups.length === 0 ? (
-          <div className="p-6 rounded-xl border border-border/30 bg-card text-center">
+          <div className="p-8 rounded-xl bg-white border border-border/20 text-center">
             <p className="text-sm text-muted-foreground">No pickups scheduled</p>
           </div>
         ) : (
           <div className="space-y-2">
-            {pickups.slice(0, 4).map((event) => (
-              <EventCard key={event.id} event={event} />
+            {pickups.slice(0, 4).map((event, index) => (
+              <EventCard key={event.id} event={event} isLast={index === pickups.length - 1} />
             ))}
           </div>
         )}
       </div>
 
-      {/* Deliveries Slot */}
+      {/* Deliveries Column */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-foreground">Today's Deliveries</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">
+          Today's Deliveries
+        </h3>
         {deliveries.length === 0 ? (
-          <div className="p-6 rounded-xl border border-border/30 bg-card text-center">
+          <div className="p-8 rounded-xl bg-white border border-border/20 text-center">
             <p className="text-sm text-muted-foreground">No deliveries scheduled</p>
           </div>
         ) : (
           <div className="space-y-2">
-            {deliveries.slice(0, 4).map((event) => (
-              <EventCard key={event.id} event={event} />
+            {deliveries.slice(0, 4).map((event, index) => (
+              <EventCard key={event.id} event={event} isLast={index === deliveries.length - 1} />
             ))}
           </div>
         )}
@@ -57,23 +61,38 @@ export function TodaysSchedule({ events }: TodaysScheduleProps) {
   );
 }
 
-function EventCard({ event }: { event: ScheduleEvent }) {
+interface EventCardProps {
+  event: ScheduleEvent;
+  isLast: boolean;
+}
+
+function EventCard({ event, isLast }: EventCardProps) {
   return (
     <Link
       href={`/dashboard/trips/${event.loadId}`}
-      className="flex items-center gap-3 p-3 rounded-lg border border-border/30 bg-card hover:bg-muted/30 transition-all"
+      className="flex items-start gap-3 p-3 rounded-lg bg-white border border-border/20 hover:border-border/40 hover:shadow-sm transition-all duration-150"
     >
-      <div className="flex items-center gap-2 min-w-[70px]">
-        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="text-sm font-semibold tabular-nums">{event.time}</span>
+      {/* Timeline dot */}
+      <div className="flex flex-col items-center">
+        <div className="h-2.5 w-2.5 rounded-full bg-primary flex-shrink-0" />
+        {!isLast && <div className="w-0.5 h-full bg-border/30 mt-1" />}
       </div>
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <MapPin className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-        <span className="text-sm truncate">{event.location}</span>
+
+      {/* Content */}
+      <div className="flex-1 space-y-1.5 min-w-0">
+        <div className="flex items-center gap-2">
+          <Clock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+          <span className="text-sm font-semibold tabular-nums">{event.time}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <MapPin className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+          <span className="text-sm text-foreground truncate">{event.location}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+          <span className="text-xs text-muted-foreground truncate">{event.driver}</span>
+        </div>
       </div>
-      <span className="text-xs text-muted-foreground hidden sm:block truncate max-w-[100px]">
-        {event.driver}
-      </span>
     </Link>
   );
 }
