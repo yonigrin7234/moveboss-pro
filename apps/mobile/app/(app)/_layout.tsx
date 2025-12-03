@@ -26,6 +26,8 @@ export default function AppLayout() {
         headerShadowVisible: false,
         // Default: show tab bar
         tabBarStyle: { display: 'flex' },
+        // Fix for New Architecture - disable scene animations
+        animation: 'shift',
       }}
     >
       {/* Main tabs */}
