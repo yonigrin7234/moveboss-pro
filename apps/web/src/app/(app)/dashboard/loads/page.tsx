@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { getCurrentUser } from '@/lib/supabase-server';
+import { getCurrentUser, createClient } from '@/lib/supabase-server';
 import {
   getLoadsForUser,
   getLoadStatsForUser,
@@ -10,73 +10,9 @@ import {
 } from '@/data/loads';
 import { getCompaniesForUser, type Company } from '@/data/companies';
 import { LoadListFilters } from './load-list-filters';
+import { LoadsTableWithSharing } from './loads-table-with-sharing';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-
-function formatStatus(status: Load['status']): string {
-  switch (status) {
-    case 'pending':
-      return 'Pending';
-    case 'assigned':
-      return 'Assigned';
-    case 'in_transit':
-      return 'In Transit';
-    case 'delivered':
-      return 'Delivered';
-    case 'canceled':
-      return 'Canceled';
-    default:
-      return status;
-  }
-}
-
-function formatServiceType(serviceType: Load['service_type']): string {
-  switch (serviceType) {
-    case 'hhg_local':
-      return 'HHG Local';
-    case 'hhg_long_distance':
-      return 'HHG Long Distance';
-    case 'commercial':
-      return 'Commercial';
-    case 'storage_in':
-      return 'Storage In';
-    case 'storage_out':
-      return 'Storage Out';
-    case 'freight':
-      return 'Freight';
-    case 'other':
-      return 'Other';
-    default:
-      return serviceType;
-  }
-}
-
-function formatCurrency(amount: number | null, compact = false): string {
-  if (!amount) return '—';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: compact ? 0 : 2,
-    maximumFractionDigits: compact ? 0 : 2,
-  }).format(amount);
-}
-
-function formatDate(date: string | null): string {
-  if (!date) return '—';
-  return new Date(date).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
-}
 
 interface LoadsPageProps {
   searchParams: Promise<{
@@ -108,9 +44,29 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
   let loads: Load[] = [];
   let companies: Company[] = [];
   let stats = { totalLoads: 0, pending: 0, inTransit: 0, delivered: 0 };
+  let publicBoardUrl: string | null = null;
+  let publicBoardSlug: string | null = null;
   let error: string | null = null;
 
   try {
+    const supabase = await createClient();
+
+    // Get user's company membership to fetch public board settings
+    const { data: membership } = await supabase
+      .from('company_memberships')
+      .select('company_id, companies(public_board_slug, public_board_enabled)')
+      .eq('user_id', user.id)
+      .single();
+
+    if (membership?.companies) {
+      const companyData = membership.companies as unknown as { public_board_slug: string | null; public_board_enabled: boolean } | null;
+      if (companyData?.public_board_enabled && companyData?.public_board_slug) {
+        publicBoardSlug = companyData.public_board_slug;
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://moveboss.pro';
+        publicBoardUrl = `${baseUrl}/board/${publicBoardSlug}`;
+      }
+    }
+
     const [loadsResult, companiesResult, statsResult] = await Promise.all([
       getLoadsForUser(user.id, filters),
       getCompaniesForUser(user.id),
@@ -185,126 +141,12 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
         </Card>
       )}
 
-      {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          {loads.length === 0 ? (
-            <div className="p-10 text-center text-sm text-muted-foreground">
-              <p className="mb-4">No loads yet. Add your first load to begin.</p>
-              <Button asChild>
-                <Link href="/dashboard/loads/new">Add Load</Link>
-              </Button>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Load Number</TableHead>
-                  <TableHead>Company</TableHead>
-                  <TableHead>Service</TableHead>
-                  <TableHead>Origin</TableHead>
-                  <TableHead>Destination</TableHead>
-                  <TableHead className="text-right">CUFT</TableHead>
-                  <TableHead>RFD Date</TableHead>
-                  <TableHead className="text-right">Rate</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loads.map((load) => {
-                  const company = Array.isArray(load.company) ? load.company[0] : load.company;
-                  const cuft = load.cubic_feet || load.cubic_feet_estimate;
-                  const ratePerCuft = load.rate_per_cuft;
-                  const linehaulTotal = load.linehaul_amount || (cuft && ratePerCuft ? cuft * ratePerCuft : null);
-                  const isPosted = load.posting_status === 'posted';
-
-                  return (
-                  <TableRow key={load.id}>
-                    <TableCell className="font-medium">
-                      <Link
-                        href={`/dashboard/loads/${load.id}`}
-                        className="text-foreground hover:text-primary"
-                      >
-                        {load.load_number || load.job_number}
-                      </Link>
-                      {load.internal_reference && (
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          Ref: {load.internal_reference}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {company?.name || '—'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {formatServiceType(load.service_type)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {load.pickup_city && load.pickup_state
-                        ? `${load.pickup_city}, ${load.pickup_state}`
-                        : '—'}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {load.delivery_city && load.delivery_state
-                        ? `${load.delivery_city}, ${load.delivery_state}`
-                        : load.dropoff_city && load.dropoff_state
-                          ? `${load.dropoff_city}, ${load.dropoff_state}`
-                          : '—'}
-                    </TableCell>
-                    <TableCell className="text-right text-sm">
-                      {cuft ? cuft.toLocaleString() : '—'}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(load.delivery_date || load.first_available_date || null)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {ratePerCuft ? (
-                        <div className="space-y-0.5">
-                          <div className="text-sm font-medium">
-                            ${ratePerCuft.toFixed(2)}/cuft
-                          </div>
-                          {isPosted && linehaulTotal && (
-                            <div className="text-xs text-muted-foreground">
-                              {formatCurrency(linehaulTotal, true)} total
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className={
-                          load.status === 'delivered'
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                            : load.status === 'canceled'
-                              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                              : load.status === 'in_transit'
-                                ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                                : load.status === 'assigned'
-                                  ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
-                                  : 'bg-muted text-muted-foreground'
-                        }
-                      >
-                        {formatStatus(load.status)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/dashboard/loads/${load.id}`}>Edit</Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      {/* Table with Sharing Features */}
+      <LoadsTableWithSharing
+        loads={loads}
+        publicBoardUrl={publicBoardUrl}
+        publicBoardSlug={publicBoardSlug}
+      />
     </div>
   );
 }
