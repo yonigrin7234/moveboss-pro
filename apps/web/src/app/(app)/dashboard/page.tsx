@@ -5,7 +5,7 @@ import { getCompaniesForUser, getCompaniesCountForUser } from '@/data/companies'
 import { getVerificationStateForUser } from '@/data/verification';
 import { getDashboardMode, type DashboardMode } from '@/lib/dashboardMode';
 
-// V4 Components - Hybrid Premium Layout
+// V4 Components - Premium Command Center Layout
 import { TopBar } from '@/components/dashboard/v4/TopBar';
 import { CriticalBlock } from '@/components/dashboard/v4/CriticalBlock';
 import { DriversNow, type DriverStatus } from '@/components/dashboard/v4/DriversNow';
@@ -59,7 +59,7 @@ export default async function DashboardPage() {
   }
 
   // ========================================
-  // PREPARE V4 DATA
+  // PREPARE DATA
   // ========================================
 
   // TopBar data
@@ -83,7 +83,7 @@ export default async function DashboardPage() {
     eta: driver.status === 'active' ? '2:30 PM' : undefined, // TODO: Get from real trip data
   }));
 
-  // KeyMetrics data - EXACTLY 4 cards
+  // KeyMetrics data
   const keyMetricsData = {
     activeTrips: 4, // TODO: Get from real trips where status = 'active'
     needDrivers: 4, // TODO: Get from real unassigned loads count
@@ -214,12 +214,12 @@ export default async function DashboardPage() {
   };
 
   // ========================================
-  // RENDER TIER-1 COMMAND CENTER LAYOUT
+  // RENDER PREMIUM COMMAND CENTER LAYOUT
   // ========================================
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* TIER 1: Hero Section - Giant Search */}
+    <div className="min-h-screen bg-muted/20">
+      {/* Top Bar - Compact Search + Status */}
       <TopBar
         mode={mode}
         fmcsaStatus={fmcsaStatus}
@@ -227,7 +227,7 @@ export default async function DashboardPage() {
         hasOverdue={hasOverdue}
       />
 
-      {/* TIER 1: Critical Alert - Sticky, screaming red when needed */}
+      {/* Critical Alert - Only show when critical */}
       {criticalCount > 0 && (
         <CriticalBlock
           message={criticalMessage}
@@ -235,36 +235,36 @@ export default async function DashboardPage() {
         />
       )}
 
-      {/* Main Command Center - Premium Tier Hierarchy */}
-      <div className="max-w-[1400px] mx-auto px-4 py-6 space-y-6">
-        {/* TIER 2: Drivers Live - Radio Board Strip */}
+      {/* Main Dashboard Content */}
+      <div className="max-w-[1600px] mx-auto px-6 py-8 space-y-6">
+        {/* Key Metrics - Clean Row */}
+        <KeyMetrics mode={mode} data={keyMetricsData} />
+
+        {/* Quick Actions */}
+        <QuickActions mode={mode} />
+
+        {/* Drivers Live - Answer: Where are my drivers? */}
         {mode !== 'broker' && driverStatusData.length > 0 && (
           <DriversNow drivers={driverStatusData} mode={mode} />
         )}
 
-        {/* TIER 2: Key Metrics - Square cards with HUGE text-7xl numbers */}
-        <KeyMetrics mode={mode} data={keyMetricsData} />
-
-        {/* TIER 2: Quick Actions - 3 centered pill buttons */}
-        <QuickActions mode={mode} />
-
-        {/* TIER 3: Unassigned Loads - Apple Reminders style, color-coded urgency */}
+        {/* Unassigned Loads - Answer: What requires my attention? */}
         {mode !== 'broker' && (
           <UnassignedLoads loads={unassignedLoadsData} />
         )}
 
-        {/* TIER 3: Today's Schedule - Timeline with vertical dots */}
-        {mode !== 'broker' && (
-          <TodaysSchedule events={scheduleData} />
-        )}
-
-        {/* TIER 3: Financials - Who Owes You + Collections side-by-side */}
+        {/* Financial Summary - Answer: Who owes me money? */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <WhoOwesYou receivables={receivablesData} total={moneyOwed} />
           <TodaysCollections collections={collectionsData} total={4800} />
         </div>
 
-        {/* TIER 4: Operations Panel - Recent activity, companies, drivers */}
+        {/* Today's Schedule */}
+        {mode !== 'broker' && (
+          <TodaysSchedule events={scheduleData} />
+        )}
+
+        {/* Operations Panel - Recent activity, companies, drivers */}
         <OperationsPanel
           companies={operationsPanelData.companies}
           drivers={operationsPanelData.drivers}

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Truck } from 'lucide-react';
+import { MapPin, Clock } from 'lucide-react';
 import type { DashboardMode } from '@/lib/dashboardMode';
 
 export interface DriverStatus {
@@ -17,18 +17,16 @@ interface DriversNowProps {
 }
 
 export function DriversNow({ drivers, mode }: DriversNowProps) {
-  const title = mode === 'broker' ? 'ACTIVE CARRIERS' : 'DRIVERS LIVE';
+  const title = mode === 'broker' ? 'Active Carriers' : 'Drivers Live';
 
   if (drivers.length === 0) {
     return null;
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between px-1">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {title}
-        </h2>
+    <div className="bg-white border border-border/40 rounded-lg p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         <Link
           href="/dashboard/drivers"
           className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
@@ -37,21 +35,19 @@ export function DriversNow({ drivers, mode }: DriversNowProps) {
         </Link>
       </div>
 
-      {/* Horizontal compact strip - Radio board style */}
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
         {drivers.slice(0, 12).map((driver) => (
           <Link
             key={driver.id}
             href={`/dashboard/drivers/${driver.id}`}
-            className="flex-shrink-0 flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-white border border-border/30 hover:border-border/60 hover:shadow-md transition-all duration-150 group"
+            className="flex-shrink-0 flex items-center gap-3 px-4 py-2.5 rounded-lg bg-muted/30 border border-border/40 hover:border-border/60 hover:bg-muted/50 transition-all duration-150 min-w-[200px]"
           >
-            {/* Avatar placeholder with status dot */}
             <div className="relative">
-              <div className="h-8 w-8 rounded-full bg-muted/50 flex items-center justify-center text-xs font-semibold text-foreground">
+              <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-foreground">
                 {driver.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
               </div>
               <div
-                className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white ${
+                className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white ${
                   driver.status === 'active'
                     ? 'bg-emerald-500'
                     : driver.status === 'available'
@@ -61,23 +57,24 @@ export function DriversNow({ drivers, mode }: DriversNowProps) {
               />
             </div>
             
-            {/* Driver info */}
-            <div className="flex flex-col min-w-0">
-              <p className="text-sm font-semibold text-foreground whitespace-nowrap truncate">
-                {driver.name}
-              </p>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground truncate">{driver.name}</p>
               {driver.location && (
-                <span className="text-xs text-muted-foreground whitespace-nowrap truncate">
-                  {driver.location}
-                  {driver.eta && driver.status === 'active' && ` • ETA ${driver.eta}`}
-                </span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                  <span className="text-xs text-muted-foreground truncate">
+                    {driver.location}
+                    {driver.eta && driver.status === 'active' && (
+                      <>
+                        {' • '}
+                        <Clock className="h-3 w-3 inline text-muted-foreground" />
+                        {driver.eta}
+                      </>
+                    )}
+                  </span>
+                </div>
               )}
             </div>
-
-            {/* Truck icon for active drivers */}
-            {driver.status === 'active' && (
-              <Truck className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-            )}
           </Link>
         ))}
       </div>

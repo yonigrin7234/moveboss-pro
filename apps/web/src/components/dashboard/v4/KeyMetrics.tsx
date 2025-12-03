@@ -54,15 +54,15 @@ interface MetricCardProps {
 }
 
 function MetricCard({ number, label, href, state, suffix }: MetricCardProps) {
-  const stateClasses = {
-    active: 'bg-white border-border/30',
-    success: 'bg-emerald-50/30 border-emerald-200/50',
-    warning: 'bg-amber-50/30 border-amber-200/50',
-    critical: 'bg-red-50/30 border-red-200/50',
-    neutral: 'bg-white border-border/30',
+  const stateStyles = {
+    active: 'bg-white border-border/40',
+    success: 'bg-emerald-50/50 border-emerald-200/50',
+    warning: 'bg-amber-50/50 border-amber-200/50',
+    critical: 'bg-red-50/50 border-red-200/50',
+    neutral: 'bg-white border-border/40',
   };
 
-  const numberClasses = {
+  const numberStyles = {
     active: 'text-emerald-700',
     success: 'text-emerald-700',
     warning: 'text-amber-700',
@@ -73,13 +73,13 @@ function MetricCard({ number, label, href, state, suffix }: MetricCardProps) {
   return (
     <Link
       href={href}
-      className={`block aspect-square p-4 rounded-lg border shadow-sm transition-all duration-150 hover:shadow-md ${stateClasses[state]}`}
+      className={`block p-5 rounded-lg border transition-all duration-150 hover:shadow-md ${stateStyles[state]}`}
     >
-      <p className={`text-7xl font-bold tabular-nums leading-none ${numberClasses[state]}`}>
+      <p className={`text-3xl font-bold tabular-nums leading-tight ${numberStyles[state]}`}>
         {number}
-        {suffix && <span className="text-2xl ml-1 font-medium text-muted-foreground">{suffix}</span>}
+        {suffix && <span className="text-lg ml-1 font-medium text-muted-foreground">{suffix}</span>}
       </p>
-      <p className="text-xs text-muted-foreground mt-3 uppercase tracking-wider">{label}</p>
+      <p className="text-xs text-muted-foreground mt-2 uppercase tracking-wider">{label}</p>
     </Link>
   );
 }
