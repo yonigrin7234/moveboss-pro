@@ -50,12 +50,12 @@ import {
 } from '@/components/ui/table';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { StatRow } from '@/components/dashboard/StatRow';
+import { TodaysFocus } from '@/components/dashboard/TodaysFocus';
 import {
-  TodaysFocus,
   getCarrierFocusItems,
   getBrokerFocusItems,
   type FocusItem,
-} from '@/components/dashboard/TodaysFocus';
+} from '@/lib/dashboardFocusItems';
 import { getDashboardMode, type DashboardMode } from '@/lib/dashboardMode';
 
 const activityIcons: Record<ActivityType, { icon: any; color: string }> = {
