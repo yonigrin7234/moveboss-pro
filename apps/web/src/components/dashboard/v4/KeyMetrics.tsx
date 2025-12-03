@@ -14,10 +14,9 @@ interface KeyMetricsProps {
 }
 
 export function KeyMetrics({ mode, data }: KeyMetricsProps) {
-  // ALWAYS show exactly 4 cards - no more, no less
-  // Square cards with HUGE text-7xl numbers
+  // Compact horizontal row - NOT squares
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <MetricCard
         number={data.activeTrips}
         label="Active Trips"
@@ -26,23 +25,22 @@ export function KeyMetrics({ mode, data }: KeyMetricsProps) {
       />
       <MetricCard
         number={data.needDrivers}
-        label="Loads Needing Drivers"
+        label="Need Drivers"
         href="/dashboard/assigned-loads?filter=unassigned"
         state={data.needDrivers > 5 ? 'critical' : data.needDrivers > 0 ? 'warning' : 'success'}
       />
       <MetricCard
-        number={data.availableCF}
-        label="Available Capacity"
+        number={data.availableCF.toLocaleString()}
+        label="Capacity"
         href="/dashboard/drivers?status=available"
         state={data.availableCF < 1000 ? 'warning' : 'neutral'}
         suffix="CF"
       />
       <MetricCard
         number={data.outstandingReceivables}
-        label="Outstanding Receivables"
+        label="Receivables"
         href="/dashboard/finance/receivables"
         state="neutral"
-        isMonetary
       />
     </div>
   );
@@ -54,41 +52,36 @@ interface MetricCardProps {
   href: string;
   state: 'active' | 'success' | 'warning' | 'critical' | 'neutral';
   suffix?: string;
-  isMonetary?: boolean;
 }
 
-function MetricCard({ number, label, href, state, suffix, isMonetary }: MetricCardProps) {
-  // Square cards with HUGE text-7xl numbers
+function MetricCard({ number, label, href, state, suffix }: MetricCardProps) {
+  // Compact cards with readable numbers
   const stateClasses = {
-    active: 'border-emerald-200/50 bg-white hover:bg-emerald-50/20',
-    success: 'border-emerald-200/50 bg-white hover:bg-emerald-50/20',
-    warning: 'border-amber-200/50 bg-white hover:bg-amber-50/20',
-    critical: 'border-red-200/50 bg-white hover:bg-red-50/20',
-    neutral: 'border-border/20 bg-white hover:bg-muted/20',
+    active: 'border-l-emerald-500 bg-emerald-50/50',
+    success: 'border-l-emerald-500 bg-emerald-50/50',
+    warning: 'border-l-amber-500 bg-amber-50/50',
+    critical: 'border-l-red-500 bg-red-50/50',
+    neutral: 'border-l-border bg-white',
   };
 
   const numberClasses = {
-    active: 'text-emerald-600',
-    success: 'text-emerald-600',
-    warning: 'text-amber-600',
-    critical: 'text-red-600',
+    active: 'text-emerald-700',
+    success: 'text-emerald-700',
+    warning: 'text-amber-700',
+    critical: 'text-red-700',
     neutral: 'text-foreground',
   };
 
   return (
     <Link
       href={href}
-      className={`block aspect-square p-6 rounded-2xl border transition-all duration-150 shadow-sm hover:shadow-md ${stateClasses[state]} group`}
+      className={`block px-4 py-3 rounded-lg border border-border/30 border-l-4 transition-all duration-150 hover:shadow-sm ${stateClasses[state]}`}
     >
-      <div className="h-full flex flex-col justify-between">
-        <p className={`text-7xl font-semibold tracking-tight tabular-nums ${numberClasses[state]} leading-none`}>
-          {isMonetary ? number : number}
-          {suffix && <span className="text-3xl ml-1 font-normal text-muted-foreground">{suffix}</span>}
-        </p>
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          {label}
-        </p>
-      </div>
+      <p className={`text-2xl font-bold tabular-nums ${numberClasses[state]}`}>
+        {number}
+        {suffix && <span className="text-sm ml-1 font-medium text-muted-foreground">{suffix}</span>}
+      </p>
+      <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
     </Link>
   );
 }

@@ -234,8 +234,8 @@ export default async function DashboardPage() {
         />
       )}
 
-      {/* Main Command Center - Reduced padding, increased breathing space */}
-      <div className="max-w-[1400px] mx-auto px-5 py-6 space-y-10">
+      {/* Main Command Center - Dense & Efficient */}
+      <div className="max-w-[1400px] mx-auto px-4 py-4 space-y-5">
         {/* TIER 2: Drivers Live - Radio Board Strip */}
         {mode !== 'broker' && driverStatusData.length > 0 && (
           <DriversNow drivers={driverStatusData} mode={mode} />
@@ -258,7 +258,7 @@ export default async function DashboardPage() {
         )}
 
         {/* TIER 3: Financials - Who Owes You + Collections side-by-side */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <WhoOwesYou receivables={receivablesData} total={moneyOwed} />
           <TodaysCollections collections={collectionsData} total={4800} />
         </div>

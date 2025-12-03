@@ -7,44 +7,32 @@ interface QuickActionsProps {
 }
 
 export function QuickActions({ mode }: QuickActionsProps) {
-  // 3 centered pill buttons - large, floating, rounded-full
+  // Compact inline buttons
   return (
-    <div className="flex items-center justify-center gap-4">
-      <ActionButton
+    <div className="flex items-center justify-center gap-2">
+      <Link
         href="/dashboard/marketplace"
-        icon={<Search className="h-5 w-5" />}
-        label="Find Load"
-      />
-      <ActionButton
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+      >
+        <Search className="h-4 w-4" />
+        <span>Find Load</span>
+      </Link>
+      <Link
         href="/dashboard/assigned-loads?action=assign"
-        icon={<UserPlus className="h-5 w-5" />}
-        label="Assign Driver"
-      />
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-white border border-border/50 text-foreground hover:bg-muted/50 transition-colors"
+      >
+        <UserPlus className="h-4 w-4" />
+        <span>Assign Driver</span>
+      </Link>
       {(mode === 'broker' || mode === 'hybrid') && (
-        <ActionButton
+        <Link
           href="/dashboard/posted-jobs/new"
-          icon={<Plus className="h-5 w-5" />}
-          label="Post Load"
-        />
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-white border border-border/50 text-foreground hover:bg-muted/50 transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Post Load</span>
+        </Link>
       )}
     </div>
-  );
-}
-
-interface ActionButtonProps {
-  href: string;
-  icon: React.ReactNode;
-  label: string;
-}
-
-function ActionButton({ href, icon, label }: ActionButtonProps) {
-  return (
-    <Link
-      href={href}
-      className="inline-flex items-center gap-3 px-8 py-4 rounded-full text-base font-semibold bg-white border-2 border-border/40 hover:border-border/60 text-foreground hover:bg-muted/20 transition-all duration-150 shadow-md hover:shadow-lg"
-    >
-      {icon}
-      <span>{label}</span>
-    </Link>
   );
 }
