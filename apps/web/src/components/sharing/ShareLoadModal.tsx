@@ -30,24 +30,21 @@ import {
   Loader2,
   ArrowRight,
   Package,
-  Calendar,
-  DollarSign,
 } from 'lucide-react';
+import { getRouteLocations, type LoadLocationFields } from '@/lib/sharing';
 
 interface ShareLoadModalProps {
   loadIds: string[];
   isOpen: boolean;
   onClose: () => void;
-  loads?: Array<{
-    id: string;
-    pickup_city?: string | null;
-    pickup_state?: string | null;
-    delivery_city?: string | null;
-    delivery_state?: string | null;
-    cubic_feet?: number | null;
-    total_rate?: number | null;
-    pickup_date?: string | null;
-  }>;
+  loads?: Array<
+    LoadLocationFields & {
+      id: string;
+      cubic_feet?: number | null;
+      total_rate?: number | null;
+      pickup_date?: string | null;
+    }
+  >;
 }
 
 type MessageFormat = 'whatsapp' | 'plain' | 'email';
@@ -164,14 +161,8 @@ export function ShareLoadModal({ loadIds, isOpen, onClose, loads }: ShareLoadMod
     link.click();
   };
 
-  const formatRoute = (load: NonNullable<typeof loads>[number]) => {
-    const origin = load.pickup_city && load.pickup_state
-      ? `${load.pickup_city}, ${load.pickup_state}`
-      : load.pickup_city || load.pickup_state || 'Origin';
-    const dest = load.delivery_city && load.delivery_state
-      ? `${load.delivery_city}, ${load.delivery_state}`
-      : load.delivery_city || load.delivery_state || 'Dest';
-    return { origin, dest };
+  const getLoadRoute = (load: NonNullable<typeof loads>[number]) => {
+    return getRouteLocations(load);
   };
 
   const formatCurrency = (amount: number | null | undefined) => {
@@ -237,7 +228,7 @@ export function ShareLoadModal({ loadIds, isOpen, onClose, loads }: ShareLoadMod
                   {loads && loads.length > 0 ? (
                     <div className="space-y-2">
                       {loads.slice(0, 5).map((load, idx) => {
-                        const { origin, dest } = formatRoute(load);
+                        const { origin, destination } = getLoadRoute(load);
                         return (
                           <div key={load.id} className="flex items-center gap-3 text-sm">
                             {loadIds.length > 1 && (
@@ -246,7 +237,7 @@ export function ShareLoadModal({ loadIds, isOpen, onClose, loads }: ShareLoadMod
                             <div className="flex items-center gap-1.5 flex-1 min-w-0">
                               <span className="truncate">{origin}</span>
                               <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                              <span className="truncate font-medium">{dest}</span>
+                              <span className="truncate font-medium">{destination}</span>
                             </div>
                             {load.cubic_feet && (
                               <span className="text-muted-foreground text-xs flex-shrink-0">

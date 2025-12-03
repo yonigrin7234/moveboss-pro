@@ -20,20 +20,18 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  getRouteLocations,
+  formatDate,
+  type LoadLocationFields,
+  type PickupDateFields,
+} from '@/lib/sharing';
 
-interface Load {
+interface Load extends LoadLocationFields, PickupDateFields {
   id: string;
   load_number: string;
-  pickup_city: string | null;
-  pickup_state: string | null;
-  pickup_date: string | null;
-  pickup_window_start: string | null;
-  pickup_window_end: string | null;
-  delivery_city: string | null;
-  delivery_state: string | null;
-  delivery_date: string | null;
-  delivery_window_start: string | null;
-  delivery_window_end: string | null;
+  pickup_postal_code?: string | null;
+  delivery_postal_code?: string | null;
   cubic_feet: number | null;
   rate_per_cuft: number | null;
   total_rate: number | null;
@@ -65,12 +63,6 @@ interface PublicBoardClientProps {
   };
 }
 
-function formatDate(dateString: string | null): string {
-  if (!dateString) return 'TBD';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
 function formatCurrency(amount: number | null): string {
   if (amount === null || amount === undefined) return 'Call';
   return new Intl.NumberFormat('en-US', {
@@ -82,14 +74,7 @@ function formatCurrency(amount: number | null): string {
 }
 
 function LoadCard({ load, showRates }: { load: Load; showRates: boolean }) {
-  const origin = load.pickup_city && load.pickup_state
-    ? `${load.pickup_city}, ${load.pickup_state}`
-    : load.pickup_city || load.pickup_state || 'TBD';
-
-  const dest = load.delivery_city && load.delivery_state
-    ? `${load.delivery_city}, ${load.delivery_state}`
-    : load.delivery_city || load.delivery_state || 'TBD';
-
+  const { origin, destination } = getRouteLocations(load);
   const pickupDate = formatDate(load.pickup_window_start || load.pickup_date);
 
   return (
@@ -106,7 +91,7 @@ function LoadCard({ load, showRates }: { load: Load; showRates: boolean }) {
         <div className="flex items-center gap-2">
           <ArrowRight className="h-4 w-4 text-primary" />
           <span className="font-semibold text-lg text-slate-900 dark:text-white group-hover:text-primary transition-colors">
-            {dest}
+            {destination}
           </span>
         </div>
       </div>

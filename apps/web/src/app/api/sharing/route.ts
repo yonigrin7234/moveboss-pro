@@ -1,31 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { createServiceRoleClient } from '@/lib/supabase-admin';
-
-// Types for sharing operations
-interface Load {
-  id: string;
-  load_number: string;
-  pickup_city: string;
-  pickup_state: string;
-  delivery_city: string;
-  delivery_state: string;
-  pickup_date: string;
-  pickup_window_start: string;
-  pickup_window_end: string;
-  delivery_date: string;
-  cubic_feet: number;
-  rate_per_cuft: number;
-  total_rate: number;
-  service_type: string;
-  status: string;
-  company_id: string;
-  description?: string;
-}
+import {
+  buildShareMessage,
+  type ShareableLoad,
+  type ShareFormat,
+} from '@/lib/sharing';
 
 interface GenerateTextRequest {
   loadIds: string[];
-  format: 'whatsapp' | 'plain' | 'email';
+  format: ShareFormat;
   includeLink: boolean;
   linkType: 'single' | 'batch' | 'board';
   companySlug?: string;
@@ -34,165 +18,6 @@ interface GenerateTextRequest {
 interface CreateBatchLinkRequest {
   loadIds: string[];
   expiresIn?: '1d' | '7d' | '30d' | 'never';
-}
-
-// Helper to format date
-function formatDate(dateString: string | null): string {
-  if (!dateString) return 'TBD';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-// Helper to format date range
-function formatDateRange(start: string | null, end: string | null): string {
-  if (!start && !end) return 'TBD';
-  if (start && end) {
-    const startDate = formatDate(start);
-    const endDate = formatDate(end);
-    return startDate === endDate ? startDate : `${startDate}–${endDate}`;
-  }
-  return formatDate(start || end);
-}
-
-// Helper to format currency
-function formatCurrency(amount: number | null): string {
-  if (amount === null || amount === undefined) return 'Call for rate';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
-// Helper to format route (city, state abbreviation)
-function formatRoute(originCity: string, originState: string, destCity: string, destState: string): string {
-  const origin = originCity && originState ? `${originCity}, ${originState}` : originCity || originState || 'TBD';
-  const dest = destCity && destState ? `${destCity}, ${destState}` : destCity || destState || 'TBD';
-  return `${origin} → ${dest}`;
-}
-
-// Generate WhatsApp formatted message for loads
-function generateWhatsAppMessage(loads: Load[], link: string, showRates: boolean = true): string {
-  if (loads.length === 1) {
-    const load = loads[0];
-    const route = formatRoute(load.pickup_city, load.pickup_state, load.delivery_city, load.delivery_state);
-    const pickupRange = formatDateRange(load.pickup_window_start || load.pickup_date, load.pickup_window_end);
-    const cf = load.cubic_feet ? `${load.cubic_feet.toLocaleString()} CF` : 'TBD';
-    const rate = showRates && load.rate_per_cuft ? `@ $${load.rate_per_cuft.toFixed(2)}/cf` : '';
-    const payout = showRates && load.total_rate ? formatCurrency(load.total_rate) : '';
-
-    let message = `🚚 *LOAD AVAILABLE*\n`;
-    message += `📍 ${route}\n`;
-    message += `📦 ${cf}${rate ? ` ${rate}` : ''}\n`;
-    message += `📅 Pickup: ${pickupRange}\n`;
-    if (payout) {
-      message += `💰 ${payout} payout\n`;
-    }
-    message += `\n🔗 Claim: ${link}`;
-
-    return message;
-  }
-
-  // Multiple loads
-  let message = `🚚 *${loads.length} LOADS AVAILABLE*\n\n`;
-
-  loads.forEach((load, index) => {
-    const route = formatRoute(load.pickup_city, load.pickup_state, load.delivery_city, load.delivery_state);
-    const pickupRange = formatDateRange(load.pickup_window_start || load.pickup_date, load.pickup_window_end);
-    const cf = load.cubic_feet ? `${load.cubic_feet.toLocaleString()} CF` : 'TBD';
-    const payout = showRates && load.total_rate ? ` - ${formatCurrency(load.total_rate)}` : '';
-
-    message += `*${index + 1}.* ${route}\n`;
-    message += `   📦 ${cf}${payout}\n`;
-    message += `   📅 ${pickupRange}\n\n`;
-  });
-
-  message += `🔗 View all: ${link}`;
-
-  return message;
-}
-
-// Generate plain text message
-function generatePlainMessage(loads: Load[], link: string, showRates: boolean = true): string {
-  if (loads.length === 1) {
-    const load = loads[0];
-    const route = formatRoute(load.pickup_city, load.pickup_state, load.delivery_city, load.delivery_state);
-    const pickupRange = formatDateRange(load.pickup_window_start || load.pickup_date, load.pickup_window_end);
-    const cf = load.cubic_feet ? `${load.cubic_feet.toLocaleString()} CF` : 'TBD';
-    const rate = showRates && load.rate_per_cuft ? `@ $${load.rate_per_cuft.toFixed(2)}/cf` : '';
-    const payout = showRates && load.total_rate ? formatCurrency(load.total_rate) : '';
-
-    let message = `LOAD AVAILABLE\n`;
-    message += `Route: ${route}\n`;
-    message += `Size: ${cf}${rate ? ` ${rate}` : ''}\n`;
-    message += `Pickup: ${pickupRange}\n`;
-    if (payout) {
-      message += `Payout: ${payout}\n`;
-    }
-    message += `\nClaim: ${link}`;
-
-    return message;
-  }
-
-  let message = `${loads.length} LOADS AVAILABLE\n\n`;
-
-  loads.forEach((load, index) => {
-    const route = formatRoute(load.pickup_city, load.pickup_state, load.delivery_city, load.delivery_state);
-    const pickupRange = formatDateRange(load.pickup_window_start || load.pickup_date, load.pickup_window_end);
-    const cf = load.cubic_feet ? `${load.cubic_feet.toLocaleString()} CF` : 'TBD';
-    const payout = showRates && load.total_rate ? ` - ${formatCurrency(load.total_rate)}` : '';
-
-    message += `${index + 1}. ${route}\n`;
-    message += `   ${cf}${payout} - Pickup: ${pickupRange}\n\n`;
-  });
-
-  message += `View all: ${link}`;
-
-  return message;
-}
-
-// Generate email HTML message
-function generateEmailMessage(loads: Load[], link: string, showRates: boolean = true): string {
-  const loadRows = loads.map(load => {
-    const route = formatRoute(load.pickup_city, load.pickup_state, load.delivery_city, load.delivery_state);
-    const pickupRange = formatDateRange(load.pickup_window_start || load.pickup_date, load.pickup_window_end);
-    const cf = load.cubic_feet ? `${load.cubic_feet.toLocaleString()} CF` : 'TBD';
-    const payout = showRates && load.total_rate ? formatCurrency(load.total_rate) : 'Call for rate';
-
-    return `
-      <tr>
-        <td style="padding: 12px; border-bottom: 1px solid #eee;">${route}</td>
-        <td style="padding: 12px; border-bottom: 1px solid #eee;">${cf}</td>
-        <td style="padding: 12px; border-bottom: 1px solid #eee;">${pickupRange}</td>
-        <td style="padding: 12px; border-bottom: 1px solid #eee;">${payout}</td>
-      </tr>
-    `;
-  }).join('');
-
-  return `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #1a1a1a;">${loads.length === 1 ? 'Load Available' : `${loads.length} Loads Available`}</h2>
-      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-        <thead>
-          <tr style="background: #f5f5f5;">
-            <th style="padding: 12px; text-align: left;">Route</th>
-            <th style="padding: 12px; text-align: left;">Size</th>
-            <th style="padding: 12px; text-align: left;">Pickup</th>
-            <th style="padding: 12px; text-align: left;">Payout</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${loadRows}
-        </tbody>
-      </table>
-      <p>
-        <a href="${link}" style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
-          View ${loads.length === 1 ? 'Load' : 'All Loads'}
-        </a>
-      </p>
-    </div>
-  `;
 }
 
 // Get base URL for links
@@ -281,19 +106,12 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Generate the formatted message
-      let text = '';
-      switch (format) {
-        case 'whatsapp':
-          text = generateWhatsAppMessage(loads as Load[], link, showRates);
-          break;
-        case 'email':
-          text = generateEmailMessage(loads as Load[], link, showRates);
-          break;
-        case 'plain':
-        default:
-          text = generatePlainMessage(loads as Load[], link, showRates);
-      }
+      // Generate the formatted message using unified builder
+      const text = buildShareMessage(loads as ShareableLoad[], {
+        format,
+        link,
+        showRates,
+      });
 
       // Track analytics
       const adminClient = createServiceRoleClient();

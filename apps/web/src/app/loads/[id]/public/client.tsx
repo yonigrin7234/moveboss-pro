@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
-  MapPin,
   Calendar,
   Package,
   ArrowRight,
@@ -15,35 +14,32 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  getRouteLocations,
+  formatDateRangeDisplay,
+  type LoadLocationFields,
+  type PickupDateFields,
+} from '@/lib/sharing';
 
-interface Load {
+interface Load extends LoadLocationFields, PickupDateFields {
   id: string;
   load_number: string;
-  pickup_city: string | null;
-  pickup_state: string | null;
-  pickup_date: string | null;
-  pickup_window_start: string | null;
-  pickup_window_end: string | null;
-  delivery_city: string | null;
-  delivery_state: string | null;
-  delivery_date: string | null;
-  delivery_window_start: string | null;
-  delivery_window_end: string | null;
+  pickup_postal_code?: string | null;
+  delivery_postal_code?: string | null;
   cubic_feet: number | null;
   rate_per_cuft: number | null;
   total_rate: number | null;
   service_type: string | null;
   description: string | null;
+  delivery_window_start?: string | null;
+  delivery_window_end?: string | null;
+  delivery_date?: string | null;
 }
 
-interface RelatedLoad {
+interface RelatedLoad extends LoadLocationFields {
   id: string;
   load_number: string;
-  pickup_city: string | null;
-  pickup_state: string | null;
   pickup_date: string | null;
-  delivery_city: string | null;
-  delivery_state: string | null;
   cubic_feet: number | null;
   total_rate: number | null;
 }
@@ -64,29 +60,6 @@ interface PublicLoadClientProps {
   load: Load;
   company: Company;
   relatedLoads: RelatedLoad[];
-}
-
-function formatDate(dateString: string | null): string {
-  if (!dateString) return 'TBD';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
-function formatDateRange(start: string | null, end: string | null): string {
-  if (!start && !end) return 'TBD';
-  if (start && end) {
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    if (startDate.toDateString() === endDate.toDateString()) {
-      return formatDate(start);
-    }
-    return `${formatDate(start)} - ${formatDate(end)}`;
-  }
-  return formatDate(start || end);
 }
 
 function formatCurrency(amount: number | null): string {
@@ -114,13 +87,7 @@ function formatServiceType(type: string | null): string {
 }
 
 function RelatedLoadCard({ load, showRates }: { load: RelatedLoad; showRates: boolean }) {
-  const origin = load.pickup_city && load.pickup_state
-    ? `${load.pickup_city}, ${load.pickup_state}`
-    : load.pickup_city || 'TBD';
-
-  const dest = load.delivery_city && load.delivery_state
-    ? `${load.delivery_city}, ${load.delivery_state}`
-    : load.delivery_city || 'TBD';
+  const { origin, destination } = getRouteLocations(load);
 
   return (
     <Link
@@ -131,7 +98,7 @@ function RelatedLoadCard({ load, showRates }: { load: RelatedLoad; showRates: bo
         <div className="flex items-center gap-1.5 text-sm text-slate-700 dark:text-slate-200">
           <span className="truncate max-w-[90px]">{origin}</span>
           <ArrowRight className="h-3 w-3 text-primary flex-shrink-0" />
-          <span className="truncate max-w-[90px] font-medium">{dest}</span>
+          <span className="truncate max-w-[90px] font-medium">{destination}</span>
         </div>
         <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-primary transition-colors" />
       </div>
@@ -150,20 +117,14 @@ function RelatedLoadCard({ load, showRates }: { load: RelatedLoad; showRates: bo
 export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClientProps) {
   const [showClaimOptions, setShowClaimOptions] = useState(false);
 
-  const origin = load.pickup_city && load.pickup_state
-    ? `${load.pickup_city}, ${load.pickup_state}`
-    : load.pickup_city || load.pickup_state || 'TBD';
+  const { origin, destination } = getRouteLocations(load);
 
-  const dest = load.delivery_city && load.delivery_state
-    ? `${load.delivery_city}, ${load.delivery_state}`
-    : load.delivery_city || load.delivery_state || 'TBD';
-
-  const pickupDate = formatDateRange(
+  const pickupDate = formatDateRangeDisplay(
     load.pickup_window_start || load.pickup_date,
     load.pickup_window_end
   );
 
-  const deliveryDate = formatDateRange(
+  const deliveryDate = formatDateRangeDisplay(
     load.delivery_window_start || load.delivery_date,
     load.delivery_window_end
   );
@@ -223,7 +184,7 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
               </div>
               <div className="flex-1 text-right">
                 <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Destination</p>
-                <p className="text-xl font-bold text-slate-900 dark:text-white">{dest}</p>
+                <p className="text-xl font-bold text-slate-900 dark:text-white">{destination}</p>
               </div>
             </div>
           </div>
@@ -326,7 +287,7 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
                         </a>
                       )}
                       {company.contact.email && (
-                        <a href={`mailto:${company.contact.email}?subject=Load Inquiry: ${load.load_number}&body=Hi, I'm interested in load ${load.load_number} (${origin} to ${dest}).`}>
+                        <a href={`mailto:${company.contact.email}?subject=Load Inquiry: ${load.load_number}&body=Hi, I'm interested in load ${load.load_number} (${origin} to ${destination}).`}>
                           <Button variant="outline" size="lg" className="w-full sm:w-auto">
                             <Mail className="h-4 w-4 mr-2" />
                             Email
