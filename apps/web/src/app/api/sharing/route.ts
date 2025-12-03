@@ -38,10 +38,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user's company
+    // Get user's company with name
     const { data: membership } = await supabase
       .from('company_memberships')
-      .select('company_id, companies(public_board_slug, public_board_show_rates)')
+      .select('company_id, companies(name, public_board_slug, public_board_show_rates)')
       .eq('user_id', user.id)
       .single();
 
@@ -50,7 +50,8 @@ export async function POST(request: NextRequest) {
     }
 
     const companyId = membership.company_id;
-    const companySettings = membership.companies as unknown as { public_board_slug: string; public_board_show_rates: boolean } | null;
+    const companySettings = membership.companies as unknown as { name: string; public_board_slug: string; public_board_show_rates: boolean } | null;
+    const companyName = companySettings?.name ?? 'Unknown Company';
     const showRates = companySettings?.public_board_show_rates ?? true;
 
     if (action === 'generate-text') {
@@ -72,38 +73,32 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Loads not found or not available' }, { status: 404 });
       }
 
-      // Generate the appropriate link
+      // Always generate a clean /share/[token] URL
       let link = '';
       const baseUrl = getBaseUrl();
 
       if (includeLink) {
-        if (linkType === 'single' && loads.length === 1) {
-          link = `${baseUrl}/loads/${loads[0].id}/public`;
-        } else if (linkType === 'board' && companySettings?.public_board_slug) {
-          link = `${baseUrl}/board/${companySettings.public_board_slug}`;
-        } else {
-          // Create batch link
-          const adminClient = createServiceRoleClient();
-          const token = crypto.randomUUID().replace(/-/g, '').slice(0, 24);
+        // Always create a share token for clean URLs
+        const adminClient = createServiceRoleClient();
+        const token = crypto.randomUUID().replace(/-/g, '').slice(0, 24);
 
-          const { error: insertError } = await adminClient
-            .from('load_share_links')
-            .insert({
-              company_id: companyId,
-              created_by: user.id,
-              load_ids: loadIds,
-              token,
-              expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days default
-              is_active: true,
-            });
+        const { error: insertError } = await adminClient
+          .from('load_share_links')
+          .insert({
+            company_id: companyId,
+            created_by: user.id,
+            load_ids: loadIds,
+            token,
+            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days default
+            is_active: true,
+          });
 
-          if (insertError) {
-            console.error('Error creating share link:', insertError);
-            return NextResponse.json({ error: 'Failed to create share link' }, { status: 500 });
-          }
-
-          link = `${baseUrl}/share/${token}`;
+        if (insertError) {
+          console.error('Error creating share link:', insertError);
+          return NextResponse.json({ error: 'Failed to create share link' }, { status: 500 });
         }
+
+        link = `${baseUrl}/share/${token}`;
       }
 
       // Generate the formatted message using unified builder
@@ -111,6 +106,7 @@ export async function POST(request: NextRequest) {
         format,
         link,
         showRates,
+        companyName,
       });
 
       // Track analytics

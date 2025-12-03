@@ -36,6 +36,7 @@ export interface BuildShareMessageOptions {
   format: ShareFormat;
   link?: string;
   showRates?: boolean;
+  companyName?: string;
 }
 
 /**
@@ -108,6 +109,20 @@ function buildPayoutLine(load: ShareableLoad, showRates: boolean): string {
 }
 
 /**
+ * Gets the header text based on template type
+ */
+function getHeaderText(templateType: 'LIVE_PICKUP' | 'RFD' | 'GENERIC'): string {
+  switch (templateType) {
+    case 'LIVE_PICKUP':
+      return 'LIVE LOAD PICKUP AVAILABLE';
+    case 'RFD':
+      return 'RFD LOAD AVAILABLE';
+    default:
+      return 'LOAD AVAILABLE';
+  }
+}
+
+/**
  * Builds a single load share message (WhatsApp/Plain)
  */
 export function buildSingleLoadMessage(
@@ -115,13 +130,17 @@ export function buildSingleLoadMessage(
   opts: BuildShareMessageOptions
 ): string {
   const showRates = opts.showRates ?? true;
+  const companyName = opts.companyName ?? '';
 
   if (opts.format === 'email') {
     return buildSingleLoadEmailMessage(load, opts);
   }
 
   const templateType = getSharingTemplateType(load);
-  const header = getTemplateHeader(templateType, 1);
+  const headerText = getHeaderText(templateType);
+  const header = companyName
+    ? `🚚 *${headerText}* — ${companyName}`
+    : `🚚 *${headerText}*`;
   const route = formatRoute(load);
   const cfLine = buildCFLine(load, showRates);
   const balanceLine = buildBalanceLine(load);
@@ -154,13 +173,10 @@ function buildSingleLoadEmailMessage(
   opts: BuildShareMessageOptions
 ): string {
   const showRates = opts.showRates ?? true;
+  const companyName = opts.companyName ?? '';
   const templateType = getSharingTemplateType(load);
-  const headerText =
-    templateType === 'LIVE_PICKUP'
-      ? 'LIVE LOAD PICKUP AVAILABLE'
-      : templateType === 'RFD'
-        ? 'RFD LOAD AVAILABLE'
-        : 'LOAD AVAILABLE';
+  const headerText = getHeaderText(templateType);
+  const fullHeader = companyName ? `${headerText} — ${companyName}` : headerText;
 
   const route = formatRoute(load);
   const cf = getCubicFeet(load);
@@ -189,7 +205,7 @@ function buildSingleLoadEmailMessage(
 
   return `
 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-  <h2 style="color: #1a1a1a; margin-bottom: 16px;">${headerText}</h2>
+  <h2 style="color: #1a1a1a; margin-bottom: 16px;">${fullHeader}</h2>
   <p style="font-size: 18px; color: #333; margin-bottom: 16px;"><strong>${route}</strong></p>
   ${
     details.length > 0
@@ -219,13 +235,23 @@ export function buildMultiLoadMessage(
   if (loads.length === 1) return buildSingleLoadMessage(loads[0], opts);
 
   const showRates = opts.showRates ?? true;
+  const companyName = opts.companyName ?? '';
 
   if (opts.format === 'email') {
     return buildMultiLoadEmailMessage(loads, opts);
   }
 
   const batchType = getBatchTemplateType(loads);
-  const header = getTemplateHeader(batchType, loads.length);
+  const batchHeaderText =
+    batchType === 'LIVE_PICKUP'
+      ? `${loads.length} LIVE LOAD PICKUPS AVAILABLE`
+      : batchType === 'RFD'
+        ? `${loads.length} RFD LOADS AVAILABLE`
+        : `${loads.length} LOADS AVAILABLE`;
+
+  const header = companyName
+    ? `🚚 *${batchHeaderText}* — ${companyName}`
+    : `🚚 *${batchHeaderText}*`;
 
   const items = loads.map((load, i) => {
     const route = formatRoute(load);
@@ -257,7 +283,7 @@ export function buildMultiLoadMessage(
       parts.push(formatCurrency(payout));
     }
 
-    const details = parts.length > 0 ? `\n    ${parts.join(' | ')}` : '';
+    const details = parts.length > 0 ? `\n    ${parts.join(' • ')}` : '';
     const emoji = getNumberEmoji(i + 1);
 
     return `${emoji} ${route}${details}`;
@@ -270,7 +296,7 @@ export function buildMultiLoadMessage(
 
   if (opts.link) {
     lines.push('');
-    lines.push(`📋 View all: ${opts.link}`);
+    lines.push(`📋 View details & claim: ${opts.link}`);
   }
 
   return lines.join('\n');
@@ -284,13 +310,15 @@ function buildMultiLoadEmailMessage(
   opts: BuildShareMessageOptions
 ): string {
   const showRates = opts.showRates ?? true;
+  const companyName = opts.companyName ?? '';
   const batchType = getBatchTemplateType(loads);
-  const headerText =
+  const batchHeaderText =
     batchType === 'LIVE_PICKUP'
       ? `${loads.length} Live Load Pickups Available`
       : batchType === 'RFD'
         ? `${loads.length} RFD Loads Available`
         : `${loads.length} Loads Available`;
+  const headerText = companyName ? `${batchHeaderText} — ${companyName}` : batchHeaderText;
 
   const loadRows = loads
     .map((load) => {
