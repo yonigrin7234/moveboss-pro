@@ -1,127 +1,21 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import {
-  CheckCircle,
-  Package,
-  Truck,
-  MapPin,
-  Receipt,
-  Flag,
-  CircleDot,
-  Clock,
-  Building2,
-  Users,
-  Boxes,
-  DollarSign,
-  Clipboard,
-  BadgeCheck,
-  AlertTriangle,
-} from 'lucide-react';
-
-import {
-  getCompaniesForUser,
-  getCompaniesCountForUser,
-  type Company,
-} from '@/data/companies';
-import { getComplianceAlertCounts } from '@/data/compliance-alerts';
-import { getVerificationStateForUser } from '@/data/verification';
-import { getOnboardingState } from '@/data/onboarding';
-import { ComplianceStatusWidget } from '@/components/compliance-status-widget';
-import { VerificationStatusWidget } from '@/components/verification-status-widget';
-import { SetupChecklist } from '@/components/setup-checklist';
-import { getDriversForUser, getDriverStatsForUser, type Driver } from '@/data/drivers';
-import { getRecentActivities, type ActivityType, type ActivityLogEntry } from '@/data/activity-log';
 import { getCurrentUser, createClient } from '@/lib/supabase-server';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { QuickActions } from '@/components/dashboard/QuickActions';
-import { StatRow } from '@/components/dashboard/StatRow';
-import { TodaysFocus } from '@/components/dashboard/TodaysFocus';
-import {
-  getCarrierFocusItems,
-  getBrokerFocusItems,
-  type FocusItem,
-} from '@/lib/dashboardFocusItems';
+import { getDriversForUser, getDriverStatsForUser, type Driver } from '@/data/drivers';
+import { getCompaniesForUser, getCompaniesCountForUser } from '@/data/companies';
+import { getVerificationStateForUser } from '@/data/verification';
 import { getDashboardMode, type DashboardMode } from '@/lib/dashboardMode';
-import { DriversNow, type DriverStatus } from '@/components/dashboard/v3/DriversNow';
-import { KeyMetrics } from '@/components/dashboard/v3/KeyMetrics';
-import { CriticalAlertBar } from '@/components/dashboard/v3/CriticalAlertBar';
-import { WhoOwesYou, type Receivable } from '@/components/dashboard/v3/WhoOwesYou';
-import { UnassignedLoads, type UnassignedLoad } from '@/components/dashboard/v3/UnassignedLoads';
 
-const activityIcons: Record<ActivityType, { icon: any; color: string }> = {
-  trip_started: { icon: Flag, color: 'text-blue-500' },
-  trip_completed: { icon: CheckCircle, color: 'text-emerald-500' },
-  load_accepted: { icon: CircleDot, color: 'text-green-500' },
-  loading_started: { icon: Package, color: 'text-purple-500' },
-  loading_finished: { icon: Package, color: 'text-purple-600' },
-  delivery_started: { icon: Truck, color: 'text-blue-500' },
-  delivery_completed: { icon: MapPin, color: 'text-green-600' },
-  expense_added: { icon: Receipt, color: 'text-yellow-500' },
-};
-
-function timeAgo(dateString: string) {
-  const now = new Date();
-  const then = new Date(dateString);
-  const seconds = Math.floor((now.getTime() - then.getTime()) / 1000);
-
-  if (seconds < 60) return 'Just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
-}
-
-const recentTrips = [
-  {
-    id: 'TRP-1042',
-    company: 'Zenith Freight',
-    status: 'En Route',
-    driver: 'Marta Jenkins',
-    date: 'Nov 20, 2025',
-  },
-  {
-    id: 'TRP-1037',
-    company: 'Blue Mountain Foods',
-    status: 'Completed',
-    driver: 'Andre Gomez',
-    date: 'Nov 18, 2025',
-  },
-  {
-    id: 'TRP-1031',
-    company: 'AeroParts Inc.',
-    status: 'Planned',
-    driver: 'Alana Pierce',
-    date: 'Nov 22, 2025',
-  },
-  {
-    id: 'TRP-1025',
-    company: 'Summit Goods',
-    status: 'Delayed',
-    driver: 'Liam Ford',
-    date: 'Nov 17, 2025',
-  },
-];
-
-const statusStyles: Record<string, string> = {
-  'En Route': 'bg-warning/10 text-warning-foreground border border-warning/20',
-  Completed: 'bg-success/10 text-success border border-success/20',
-  Planned: 'bg-info/10 text-info border border-info/20',
-  Delayed: 'bg-destructive/10 text-destructive border border-destructive/20',
-};
+// OBS Components
+import { TopBar } from '@/components/dashboard/obs/TopBar';
+import { CriticalBlock } from '@/components/dashboard/obs/CriticalBlock';
+import { DriversNow, type DriverStatus } from '@/components/dashboard/obs/DriversNow';
+import { KeyMetrics } from '@/components/dashboard/obs/KeyMetrics';
+import { QuickActions } from '@/components/dashboard/obs/QuickActions';
+import { UnassignedLoads, type UnassignedLoad } from '@/components/dashboard/obs/UnassignedLoads';
+import { TodaysSchedule, type ScheduleEvent } from '@/components/dashboard/obs/TodaysSchedule';
+import { WhoOwesYou, type Receivable } from '@/components/dashboard/obs/WhoOwesYou';
+import { TodaysCollections, type Collection } from '@/components/dashboard/obs/TodaysCollections';
+import { AttentionList, type AttentionItem } from '@/components/dashboard/obs/AttentionList';
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -130,110 +24,56 @@ export default async function DashboardPage() {
     redirect('/login');
   }
 
-  let companies: Company[] = [];
-  let totalCompanies = 0;
-  let drivers: Driver[] = [];
-  let driverStats = { totalDrivers: 0, activeDrivers: 0, suspendedDrivers: 0 };
-  let recentActivities: ActivityLogEntry[] = [];
-  let complianceCounts = { warning: 0, urgent: 0, critical: 0, expired: 0 };
-  let verificationState = await getVerificationStateForUser(user.id);
-  let onboardingState = await getOnboardingState(user.id);
-  let error: string | null = null;
-
   // Fetch company to determine dashboard mode
   const supabase = await createClient();
-  const { data: company, error: companyError } = await supabase
+  const { data: company } = await supabase
     .from('companies')
     .select('id, name, is_carrier, is_broker')
     .eq('owner_id', user.id)
     .eq('is_workspace_company', true)
     .single();
 
-  // Debug logging
-  console.log('[Dashboard] Company query result:', {
-    company,
-    companyError,
-    user_id: user.id,
-  });
-
-  if (companyError) {
-    console.error('[Dashboard] Error fetching company:', companyError);
-  }
-
   const mode: DashboardMode = getDashboardMode(company || {});
 
-  console.log('[Dashboard] Computed mode:', {
-    mode,
-    is_carrier: company?.is_carrier,
-    is_broker: company?.is_broker,
-  });
+  // Fetch data
+  let drivers: Driver[] = [];
+  let driverStats = { totalDrivers: 0, activeDrivers: 0, suspendedDrivers: 0 };
+  let verificationState = await getVerificationStateForUser(user.id);
 
   try {
-    const promises: Promise<any>[] = [
-      getCompaniesForUser(user.id).then((cs) => cs.slice(0, 5)),
-      getCompaniesCountForUser(user.id),
-      getRecentActivities(user.id, { limit: 5 }),
-    ];
+    const promises: Promise<any>[] = [];
 
     // Only fetch driver data if carrier or hybrid mode
     if (mode !== 'broker') {
       promises.push(
-        getDriversForUser(user.id).then((ds) => ds.slice(0, 5)),
-        getDriverStatsForUser(user.id),
-        getComplianceAlertCounts(user.id)
+        getDriversForUser(user.id),
+        getDriverStatsForUser(user.id)
       );
-    }
 
-    const results = await Promise.all(promises);
-
-    companies = results[0];
-    totalCompanies = results[1];
-    recentActivities = results[2];
-
-    if (mode !== 'broker') {
-      drivers = results[3];
-      driverStats = results[4];
-      complianceCounts = results[5];
+      const results = await Promise.all(promises);
+      drivers = results[0];
+      driverStats = results[1];
     }
   } catch (err) {
-    error = err instanceof Error ? err.message : 'Failed to load dashboard data';
+    console.error('Dashboard data error:', err);
   }
 
-  // Prepare data for StatRow component
-  const statData = {
-    companiesCount: totalCompanies,
-    activeTrips: 4, // TODO: Replace with real data
-    availableDrivers: driverStats.activeDrivers,
-    openCapacity: '38k', // TODO: Replace with real data
-    activeCarriers: totalCompanies, // TODO: Replace with real data
-    postedLoads: 12, // TODO: Replace with real data
-    pendingRequests: 3, // TODO: Replace with real data
-    outstandingBalance: '$24.5k', // TODO: Replace with real data
-  };
+  // ========================================
+  // PREPARE OBS DATA
+  // ========================================
 
-  // Generate Today's Focus items based on mode
-  let focusItems: FocusItem[] = [];
-  if (mode === 'carrier' || mode === 'hybrid') {
-    focusItems = getCarrierFocusItems({
-      unassignedLoads: 2, // TODO: Replace with real data
-      activeTrips: 4,
-      pendingSettlements: 1,
-      expiringDocs: 3,
-      outstandingBalance: 12500,
-    });
-  }
-  if (mode === 'broker' || mode === 'hybrid') {
-    const brokerItems = getBrokerFocusItems({
-      loadsNeedingCarriers: 5, // TODO: Replace with real data
-      pendingRequests: 3,
-      activeDeliveries: 8,
-      unpaidInvoices: 18000,
-      expiringQuotes: 2,
-    });
-    focusItems = [...focusItems, ...brokerItems];
-  }
+  // TopBar data
+  const fmcsaStatus: 'verified' | 'pending' | 'none' =
+    verificationState?.status === 'verified' ? 'verified' :
+    verificationState ? 'pending' : 'none';
+  const moneyOwed = 24500; // TODO: Get from real data
+  const hasOverdue = true; // TODO: Calculate from receivables
 
-  // Prepare driver status data for V3 DriversNow component
+  // CriticalBlock data
+  const criticalCount = 2; // TODO: Get from real unassigned loads with pickup TODAY
+  const criticalMessage = `${criticalCount} loads pickup TODAY with no driver assigned`;
+
+  // DriversNow data
   const driverStatusData: DriverStatus[] = drivers.map((driver) => ({
     id: driver.id,
     name: `${driver.first_name} ${driver.last_name}`,
@@ -242,427 +82,164 @@ export default async function DashboardPage() {
     location: 'Phoenix, AZ', // TODO: Get from real data
   }));
 
-  // Prepare receivables data for V3 WhoOwesYou component (mock data for now)
-  const receivablesData: Receivable[] = [
-    {
-      id: '1',
-      companyName: 'ABC Moving',
-      amount: 11200,
-      daysOutstanding: 72,
-    },
-    {
-      id: '2',
-      companyName: 'XYZ Van Lines',
-      amount: 4500,
-      daysOutstanding: 65,
-    },
-    {
-      id: '3',
-      companyName: 'R&B Moving',
-      amount: 2500,
-      daysOutstanding: 38,
-    },
-    {
-      id: '4',
-      companyName: 'Quick Move LLC',
-      amount: 3800,
-      daysOutstanding: 12,
-    },
-    {
-      id: '5',
-      companyName: 'Allied Partners',
-      amount: 2500,
-      daysOutstanding: 5,
-    },
-  ];
+  // KeyMetrics data
+  const keyMetricsData = {
+    activeTrips: 4, // TODO: Get from real data
+    needDrivers: 4, // TODO: Get from real unassigned loads
+    availableCF: 3200, // TODO: Calculate from available drivers
+    moneyOwed: '$24.5k',
+    postedLoads: 12, // TODO: Get from real data
+    pendingRequests: 3, // TODO: Get from real data
+    activeLoads: 8, // TODO: Get from real data
+  };
 
-  // Prepare unassigned loads data for V3 UnassignedLoads component (mock data for now)
+  // UnassignedLoads data (mock)
   const unassignedLoadsData: UnassignedLoad[] = mode !== 'broker' ? [
     {
       id: '1',
       origin: 'Phoenix, AZ',
       destination: 'Denver, CO',
-      pickupDate: new Date(Date.now() + 18 * 60 * 60 * 1000).toISOString(), // 18 hours from now (CRITICAL - today)
+      pickupDate: new Date(Date.now() + 18 * 60 * 60 * 1000).toISOString(),
       cubicFeet: 1200,
       value: 4500,
-      isUrgent: true,
-      isCritical: true,
     },
     {
       id: '2',
       origin: 'Los Angeles, CA',
       destination: 'Seattle, WA',
-      pickupDate: new Date(Date.now() + 30 * 60 * 60 * 1000).toISOString(), // 30 hours from now (URGENT - tomorrow)
+      pickupDate: new Date(Date.now() + 30 * 60 * 60 * 1000).toISOString(),
       cubicFeet: 850,
       value: 3200,
-      isUrgent: true,
-      isCritical: false,
     },
     {
       id: '3',
       origin: 'Miami, FL',
       destination: 'Boston, MA',
-      pickupDate: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(), // 3 days from now
+      pickupDate: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
       cubicFeet: 1500,
       value: 5800,
-      isUrgent: false,
-      isCritical: false,
-    },
-    {
-      id: '4',
-      origin: 'Dallas, TX',
-      destination: 'Chicago, IL',
-      pickupDate: new Date(Date.now() + 96 * 60 * 60 * 1000).toISOString(), // 4 days from now
-      cubicFeet: 650,
-      value: 2400,
-      isUrgent: false,
-      isCritical: false,
     },
   ] : [];
 
-  // Prepare key metrics data for V3 KeyMetrics component
-  const keyMetricsData = {
-    activeTrips: statData.activeTrips,
-    needDrivers: 4, // TODO: Get from real data
-    needDriversCF: 2850,
-    needDriversValue: 9975,
-    needDriversUrgent: 2, // Number with pickup TODAY
-    availableCF: 3200,
-    owedToYou: '$24.5k',
-    postedLoads: statData.postedLoads,
-    pendingRequests: statData.pendingRequests,
-    activeLoads: 8, // TODO: Get from real data
-    pendingSettlements: 1,
-  };
+  // TodaysSchedule data (mock)
+  const scheduleData: ScheduleEvent[] = mode !== 'broker' ? [
+    {
+      id: '1',
+      time: '09:00',
+      type: 'pickup',
+      location: 'Phoenix, AZ',
+      driver: 'John Doe',
+      loadId: 'L-123',
+    },
+    {
+      id: '2',
+      time: '14:30',
+      type: 'delivery',
+      location: 'Tucson, AZ',
+      driver: 'Jane Smith',
+      loadId: 'L-124',
+    },
+  ] : [];
 
-  // Determine if there's a critical alert (pickup TODAY with no driver)
-  const hasCriticalAlert = keyMetricsData.needDriversUrgent > 0;
+  // WhoOwesYou data (mock)
+  const receivablesData: Receivable[] = [
+    { id: '1', companyName: 'ABC Moving', amount: 11200, daysOutstanding: 72 },
+    { id: '2', companyName: 'XYZ Van Lines', amount: 4500, daysOutstanding: 65 },
+    { id: '3', companyName: 'R&B Moving', amount: 2500, daysOutstanding: 38 },
+    { id: '4', companyName: 'Quick Move LLC', amount: 3800, daysOutstanding: 12 },
+    { id: '5', companyName: 'Allied Partners', amount: 2500, daysOutstanding: 5 },
+  ];
+
+  // TodaysCollections data (mock)
+  const collectionsData: Collection[] = [
+    {
+      id: '1',
+      driverName: 'John Doe',
+      amount: 2500,
+      loadId: 'L-123',
+      time: '10:30',
+    },
+    {
+      id: '2',
+      driverName: 'Jane Smith',
+      amount: 2300,
+      loadId: 'L-124',
+      time: '14:15',
+    },
+  ];
+
+  // AttentionList data (mock)
+  const attentionItems: AttentionItem[] = [
+    {
+      id: '1',
+      severity: 'warning',
+      label: 'Pending Settlements',
+      count: 1,
+      href: '/dashboard/finance/settlements?status=pending',
+    },
+    {
+      id: '2',
+      severity: 'info',
+      label: 'Documents Expiring Soon',
+      count: 3,
+      href: '/dashboard/compliance',
+    },
+  ];
+
+  // ========================================
+  // RENDER OBS STRUCTURE
+  // ========================================
 
   return (
-    <div className="max-w-7xl w-full mx-auto px-6 lg:px-8 py-8 space-y-8">
-      {error && (
-        <Card className="border-destructive/50 bg-destructive/5">
-          <CardContent className="py-3 text-sm text-destructive">
-            Error loading dashboard: {error}
-          </CardContent>
-        </Card>
-      )}
+    <div className="min-h-screen bg-background">
+      {/* 1. TOP OPERATION BAR */}
+      <TopBar
+        mode={mode}
+        fmcsaStatus={fmcsaStatus}
+        moneyOwed={moneyOwed}
+        hasOverdue={hasOverdue}
+      />
 
-      {/* Setup Checklist - shows at top for new users */}
-      <SetupChecklist userRole={onboardingState?.role || 'carrier'} />
+      {/* Main Content */}
+      <div className="max-w-[1600px] mx-auto px-6 py-8 space-y-8">
+        {/* 2. CRITICAL BLOCK */}
+        {criticalCount > 0 && (
+          <CriticalBlock
+            message={criticalMessage}
+            href="/dashboard/assigned-loads?filter=unassigned"
+          />
+        )}
 
-      {/* Critical Alert Bar - Only shows if critical items */}
-      {hasCriticalAlert && (
-        <CriticalAlertBar
-          message={`${keyMetricsData.needDriversUrgent} loads pickup TODAY with no driver assigned`}
-          href="/dashboard/assigned-loads?filter=unassigned"
-          actionText="Assign now →"
-        />
-      )}
+        {/* 3. DRIVERS LIVE STATUS */}
+        {mode !== 'broker' && (
+          <DriversNow drivers={driverStatusData} mode={mode} />
+        )}
 
-      {/* Drivers Now - Section 3 */}
-      {mode !== 'broker' && (
-        <DriversNow drivers={driverStatusData} mode={mode} />
-      )}
+        {/* 4. KEY METRICS */}
+        <KeyMetrics mode={mode} data={keyMetricsData} />
 
-      {/* Key Metrics - Section 4 (Giant Numbers) */}
-      <KeyMetrics mode={mode} data={keyMetricsData} />
+        {/* 5. THREE PRIMARY ACTIONS */}
+        <QuickActions mode={mode} />
 
-      {/* Quick Actions - Section 5 */}
-      <QuickActions mode={mode} />
+        {/* 6. UNASSIGNED LOADS */}
+        {mode !== 'broker' && (
+          <UnassignedLoads loads={unassignedLoadsData} />
+        )}
 
-      {/* Unassigned Loads - Section 6 (Only for carriers/hybrid) */}
-      {mode !== 'broker' && unassignedLoadsData.length > 0 && (
-        <UnassignedLoads loads={unassignedLoadsData} mode={mode} />
-      )}
+        {/* 7. TODAY'S SCHEDULE */}
+        {mode !== 'broker' && (
+          <TodaysSchedule events={scheduleData} />
+        )}
 
-      {/* Health Panels - Keep from Phase 8 */}
-      <StatRow mode={mode} data={statData} />
-
-      {/* Premium Status Alert Bar - Compressed */}
-      {(verificationState || mode !== 'broker') && (
-        <div className="relative h-12 rounded-xl border-l-4 border-l-primary shadow-md bg-gradient-to-r from-accent/10 to-transparent border border-border/30 overflow-hidden">
-          <div className="h-full px-4 flex items-center gap-4">
-            {/* FMCSA Verification Status */}
-            {verificationState && (
-              <div className="flex items-center gap-2.5">
-                {verificationState.status === 'verified' ? (
-                  <>
-                    <div className="relative">
-                      <BadgeCheck className="h-4 w-4 text-success" />
-                      {/* Animated pulse ring */}
-                      <span className="absolute inset-0 rounded-full bg-success/30 animate-ping" />
-                    </div>
-                    <span className="text-xs font-semibold text-success">FMCSA Verified</span>
-                    {verificationState.fmcsa?.legalName && (
-                      <>
-                        <span className="text-xs text-muted-foreground">•</span>
-                        <span className="text-xs text-muted-foreground truncate max-w-[200px]">
-                          {verificationState.fmcsa.legalName}
-                        </span>
-                      </>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <BadgeCheck className="h-4 w-4 text-muted-foreground opacity-50" />
-                    <span className="text-xs font-medium text-foreground">Get Verified</span>
-                    <span className="text-xs text-muted-foreground">
-                      {verificationState.completedCount}/{verificationState.requirements.length}
-                    </span>
-                    <Link
-                      href="/dashboard/settings/company-profile"
-                      className="text-xs text-primary hover:underline ml-1"
-                    >
-                      Start →
-                    </Link>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Vertical divider */}
-            {verificationState && mode !== 'broker' && (
-              <div className="h-8 w-px bg-border/40" />
-            )}
-
-            {/* Compliance Status */}
-            {mode !== 'broker' && (
-              <div className="flex items-center gap-2.5">
-                {complianceCounts.warning + complianceCounts.urgent + complianceCounts.critical + complianceCounts.expired === 0 ? (
-                  <>
-                    <CheckCircle className="h-4 w-4 text-success" />
-                    <span className="text-xs font-semibold text-success">All Compliant</span>
-                  </>
-                ) : (
-                  <>
-                    <AlertTriangle className="h-4 w-4 text-destructive" />
-                    <span className="text-xs font-medium text-foreground">Compliance Alerts</span>
-                    <div className="flex gap-1.5">
-                      {complianceCounts.expired > 0 && (
-                        <Badge variant="destructive" className="text-[9px] h-4 px-1.5">
-                          {complianceCounts.expired} Expired
-                        </Badge>
-                      )}
-                      {complianceCounts.critical > 0 && (
-                        <Badge variant="pill-destructive" className="text-[9px] h-4 px-1.5">
-                          {complianceCounts.critical} Critical
-                        </Badge>
-                      )}
-                      {complianceCounts.urgent > 0 && (
-                        <Badge variant="pill-warning" className="text-[9px] h-4 px-1.5">
-                          {complianceCounts.urgent} Urgent
-                        </Badge>
-                      )}
-                    </div>
-                    <Link
-                      href="/dashboard/compliance/alerts"
-                      className="text-xs text-primary hover:underline ml-1"
-                    >
-                      View →
-                    </Link>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+        {/* 8 & 9. TWO-COLUMN: WHO OWES YOU + TODAY'S COLLECTIONS */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <WhoOwesYou receivables={receivablesData} total={moneyOwed} />
+          <TodaysCollections collections={collectionsData} total={4800} />
         </div>
-      )}
 
-      {/* Today's Focus Widget - Section 8 */}
-      {focusItems.length > 0 && (
-        <TodaysFocus mode={mode} items={focusItems} />
-      )}
-
-      {/* Who Owes You - Section 9 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <WhoOwesYou receivables={receivablesData} total={24500} />
-
-        {/* Placeholder for Today's Collections (Section 10) */}
-        <Card className="rounded-xl border-border/50">
-          <CardHeader className="px-6 py-5 border-b border-border/50">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                TODAY'S COLLECTIONS
-              </h3>
-              <span className="text-2xl font-semibold text-emerald-600">$4.8k</span>
-            </div>
-          </CardHeader>
-          <CardContent className="p-8 text-center">
-            <Clock className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">Collections feature coming soon</p>
-          </CardContent>
-        </Card>
+        {/* 10. ATTENTION ITEMS */}
+        <AttentionList items={attentionItems} />
       </div>
-
-      {/* Live Ops Panel - 3-Column Grid */}
-      <Card className="rounded-2xl shadow-sm border-border/30 bg-card">
-        <CardHeader className="py-2.5 px-5 border-b border-border/20">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-success"></span>
-              </span>
-              <span className="text-[10px] font-semibold text-success/80 uppercase tracking-wide">Live</span>
-            </div>
-            <CardTitle className="text-sm font-semibold tracking-tight">Operations</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="p-5">
-          <div className="grid gap-6 lg:grid-cols-3">
-            {/* Column 1: Recent Companies */}
-            <div>
-              <div className="flex items-center justify-between mb-2.5">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  {mode === 'broker' ? 'Recent Carriers' : 'Recent Companies'}
-                </h3>
-                <Link href="/dashboard/companies" className="text-[10px] text-primary hover:underline">
-                  View all →
-                </Link>
-              </div>
-              {companies.length === 0 ? (
-                <div className="py-4 text-center text-[11px] text-muted-foreground">
-                  No companies yet
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  {companies.slice(0, 3).map((company) => (
-                    <Link
-                      key={company.id}
-                      href={`/dashboard/companies/${company.id}`}
-                      className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-accent/50 transition-colors group"
-                    >
-                      <Building2 className="h-3.5 w-3.5 text-muted-foreground opacity-60" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-foreground group-hover:text-primary truncate">
-                          {company.name}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground/70">
-                          DOT: {company.dot_number ?? '—'}
-                        </p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Column 2: Driver Roster (for carriers/hybrid) or divider for broker */}
-            {mode !== 'broker' ? (
-              <div className="lg:border-l lg:pl-6 border-border/20">
-                <div className="flex items-center justify-between mb-2.5">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Driver Roster
-                  </h3>
-                  <Link href="/dashboard/drivers" className="text-[10px] text-primary hover:underline">
-                    View all →
-                  </Link>
-                </div>
-                {drivers.length === 0 ? (
-                  <div className="py-4 text-center text-[11px] text-muted-foreground">
-                    No drivers yet
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    {drivers.slice(0, 3).map((driver) => (
-                      <Link
-                        key={driver.id}
-                        href={`/dashboard/drivers/${driver.id}`}
-                        className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-accent/50 transition-colors group"
-                      >
-                        <Users className="h-3.5 w-3.5 text-muted-foreground opacity-60" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-foreground group-hover:text-primary truncate">
-                            {driver.first_name} {driver.last_name}
-                          </p>
-                        </div>
-                        <Badge variant="secondary" className="capitalize text-[9px] h-4">
-                          {driver.status}
-                        </Badge>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="lg:border-l lg:pl-6 border-border/20">
-                <div className="flex items-center justify-between mb-2.5">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Marketplace Stats
-                  </h3>
-                </div>
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2.5 p-2">
-                    <Package className="h-3.5 w-3.5 text-muted-foreground opacity-60" />
-                    <div className="flex-1">
-                      <p className="text-xs font-medium text-foreground">{statData.postedLoads} Posted Loads</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2.5 p-2">
-                    <Truck className="h-3.5 w-3.5 text-muted-foreground opacity-60" />
-                    <div className="flex-1">
-                      <p className="text-xs font-medium text-foreground">{statData.activeCarriers} Active Carriers</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2.5 p-2">
-                    <DollarSign className="h-3.5 w-3.5 text-muted-foreground opacity-60" />
-                    <div className="flex-1">
-                      <p className="text-xs font-medium text-foreground">{statData.outstandingBalance} Outstanding</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Column 3: Recent Activity */}
-            <div className="lg:border-l lg:pl-6 border-border/20">
-              <div className="flex items-center justify-between mb-2.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary"></span>
-                  </span>
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Recent Activity
-                  </h3>
-                </div>
-                <Link href="/dashboard/activity" className="text-[10px] text-primary hover:underline">
-                  View all →
-                </Link>
-              </div>
-              {recentActivities.length === 0 ? (
-                <div className="py-4 text-center">
-                  <Clock className="h-5 w-5 mx-auto mb-1.5 text-muted-foreground opacity-20" />
-                  <p className="text-[10px] text-muted-foreground">
-                    {mode !== 'broker' ? 'Activity from drivers will appear here' : 'Activity from carriers will appear here'}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  {recentActivities.slice(0, 3).map((activity) => {
-                    const config = activityIcons[activity.activity_type] || activityIcons.load_accepted;
-                    const Icon = config.icon;
-                    return (
-                      <div key={activity.id} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-accent/50 transition-colors">
-                        <div className={`${config.color}`}>
-                          <Icon className="h-3.5 w-3.5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-foreground truncate">{activity.title}</p>
-                          <span className="text-[9px] text-muted-foreground/70">
-                            {timeAgo(activity.created_at)}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
