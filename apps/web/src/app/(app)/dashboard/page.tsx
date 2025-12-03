@@ -5,17 +5,17 @@ import { getCompaniesForUser, getCompaniesCountForUser } from '@/data/companies'
 import { getVerificationStateForUser } from '@/data/verification';
 import { getDashboardMode, type DashboardMode } from '@/lib/dashboardMode';
 
-// OBS Components
-import { TopBar } from '@/components/dashboard/obs/TopBar';
-import { CriticalBlock } from '@/components/dashboard/obs/CriticalBlock';
-import { DriversNow, type DriverStatus } from '@/components/dashboard/obs/DriversNow';
-import { KeyMetrics } from '@/components/dashboard/obs/KeyMetrics';
-import { QuickActions } from '@/components/dashboard/obs/QuickActions';
-import { UnassignedLoads, type UnassignedLoad } from '@/components/dashboard/obs/UnassignedLoads';
-import { TodaysSchedule, type ScheduleEvent } from '@/components/dashboard/obs/TodaysSchedule';
-import { WhoOwesYou, type Receivable } from '@/components/dashboard/obs/WhoOwesYou';
-import { TodaysCollections, type Collection } from '@/components/dashboard/obs/TodaysCollections';
-import { AttentionList, type AttentionItem } from '@/components/dashboard/obs/AttentionList';
+// V4 Components - Hybrid Premium Layout
+import { TopBar } from '@/components/dashboard/v4/TopBar';
+import { CriticalBlock } from '@/components/dashboard/v4/CriticalBlock';
+import { DriversNow, type DriverStatus } from '@/components/dashboard/v4/DriversNow';
+import { KeyMetrics } from '@/components/dashboard/v4/KeyMetrics';
+import { QuickActions } from '@/components/dashboard/v4/QuickActions';
+import { UnassignedLoads, type UnassignedLoad } from '@/components/dashboard/v4/UnassignedLoads';
+import { TodaysSchedule, type ScheduleEvent } from '@/components/dashboard/v4/TodaysSchedule';
+import { WhoOwesYou, type Receivable } from '@/components/dashboard/v4/WhoOwesYou';
+import { TodaysCollections, type Collection } from '@/components/dashboard/v4/TodaysCollections';
+import { OperationsPanel } from '@/components/dashboard/v4/OperationsPanel';
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -59,38 +59,35 @@ export default async function DashboardPage() {
   }
 
   // ========================================
-  // PREPARE OBS DATA
+  // PREPARE V4 DATA
   // ========================================
 
   // TopBar data
   const fmcsaStatus: 'verified' | 'pending' | 'none' =
     verificationState?.status === 'verified' ? 'verified' :
     verificationState ? 'pending' : 'none';
-  const moneyOwed = 24500; // TODO: Get from real data
-  const hasOverdue = true; // TODO: Calculate from receivables
+  const moneyOwed = 24500; // TODO: Get from real receivables
+  const hasOverdue = true; // TODO: Calculate from receivables with days > 60
 
   // CriticalBlock data
   const criticalCount = 2; // TODO: Get from real unassigned loads with pickup TODAY
   const criticalMessage = `${criticalCount} loads pickup TODAY with no driver assigned`;
 
   // DriversNow data
-  const driverStatusData: DriverStatus[] = drivers.map((driver) => ({
+  const driverStatusData: DriverStatus[] = drivers.slice(0, 8).map((driver) => ({
     id: driver.id,
     name: `${driver.first_name} ${driver.last_name}`,
     status: driver.status === 'active' ? 'active' : 'available',
     activity: driver.status === 'active' ? 'Delivering' : 'Available',
-    location: 'Phoenix, AZ', // TODO: Get from real data
+    location: 'Phoenix, AZ', // TODO: Get from real GPS/location data
   }));
 
-  // KeyMetrics data
+  // KeyMetrics data - EXACTLY 4 cards
   const keyMetricsData = {
-    activeTrips: 4, // TODO: Get from real data
-    needDrivers: 4, // TODO: Get from real unassigned loads
-    availableCF: 3200, // TODO: Calculate from available drivers
-    moneyOwed: '$24.5k',
-    postedLoads: 12, // TODO: Get from real data
-    pendingRequests: 3, // TODO: Get from real data
-    activeLoads: 8, // TODO: Get from real data
+    activeTrips: 4, // TODO: Get from real trips where status = 'active'
+    needDrivers: 4, // TODO: Get from real unassigned loads count
+    availableCF: 3200, // TODO: Calculate from available drivers' truck capacity
+    outstandingReceivables: '$24.5k', // TODO: Format from real receivables total
   };
 
   // UnassignedLoads data (mock)
@@ -119,6 +116,14 @@ export default async function DashboardPage() {
       cubicFeet: 1500,
       value: 5800,
     },
+    {
+      id: '4',
+      origin: 'Dallas, TX',
+      destination: 'Chicago, IL',
+      pickupDate: new Date(Date.now() + 96 * 60 * 60 * 1000).toISOString(),
+      cubicFeet: 950,
+      value: 3800,
+    },
   ] : [];
 
   // TodaysSchedule data (mock)
@@ -133,11 +138,27 @@ export default async function DashboardPage() {
     },
     {
       id: '2',
+      time: '11:30',
+      type: 'pickup',
+      location: 'Scottsdale, AZ',
+      driver: 'Mike Johnson',
+      loadId: 'L-125',
+    },
+    {
+      id: '3',
       time: '14:30',
       type: 'delivery',
       location: 'Tucson, AZ',
       driver: 'Jane Smith',
       loadId: 'L-124',
+    },
+    {
+      id: '4',
+      time: '16:00',
+      type: 'delivery',
+      location: 'Mesa, AZ',
+      driver: 'Sarah Williams',
+      loadId: 'L-126',
     },
   ] : [];
 
@@ -168,31 +189,36 @@ export default async function DashboardPage() {
     },
   ];
 
-  // AttentionList data (mock)
-  const attentionItems: AttentionItem[] = [
-    {
-      id: '1',
-      severity: 'warning',
-      label: 'Pending Settlements',
-      count: 1,
-      href: '/dashboard/finance/settlements?status=pending',
-    },
-    {
-      id: '2',
-      severity: 'info',
-      label: 'Documents Expiring Soon',
-      count: 3,
-      href: '/dashboard/compliance',
-    },
-  ];
+  // OperationsPanel data (mock)
+  const operationsPanelData = {
+    companies: [
+      { id: '1', name: 'ABC Moving', dotNumber: '123456' },
+      { id: '2', name: 'XYZ Van Lines', dotNumber: '789012' },
+      { id: '3', name: 'R&B Moving', dotNumber: '345678' },
+      { id: '4', name: 'Quick Move LLC' },
+      { id: '5', name: 'Allied Partners', dotNumber: '901234' },
+    ],
+    drivers: drivers.slice(0, 5).map((driver) => ({
+      id: driver.id,
+      name: `${driver.first_name} ${driver.last_name}`,
+      status: (driver.status === 'active' ? 'active' : 'available') as 'active' | 'available' | 'offline',
+    })),
+    activities: [
+      { id: '1', description: 'Load L-123 assigned to John Doe', time: '2 hours ago' },
+      { id: '2', description: 'Payment received from ABC Moving', time: '3 hours ago' },
+      { id: '3', description: 'New load posted to marketplace', time: '5 hours ago' },
+      { id: '4', description: 'Driver Sarah Williams completed delivery', time: '6 hours ago' },
+      { id: '5', description: 'Load L-127 status updated to In Transit', time: '8 hours ago' },
+    ],
+  };
 
   // ========================================
-  // RENDER OBS STRUCTURE
+  // RENDER V4 HYBRID PREMIUM LAYOUT
   // ========================================
 
   return (
     <div className="min-h-screen bg-background">
-      {/* 1. TOP OPERATION BAR */}
+      {/* 1. GLOBAL SEARCH BAR - Centered, minimal */}
       <TopBar
         mode={mode}
         fmcsaStatus={fmcsaStatus}
@@ -200,9 +226,9 @@ export default async function DashboardPage() {
         hasOverdue={hasOverdue}
       />
 
-      {/* Main Content */}
-      <div className="max-w-[1600px] mx-auto px-6 py-8 space-y-8">
-        {/* 2. CRITICAL BLOCK */}
+      {/* Main Content - Heavy spacing, ultra-premium */}
+      <div className="max-w-[1400px] mx-auto px-6 py-8 space-y-8">
+        {/* 2. CRITICAL ALERT BAR - Only shows when needed */}
         {criticalCount > 0 && (
           <CriticalBlock
             message={criticalMessage}
@@ -210,35 +236,39 @@ export default async function DashboardPage() {
           />
         )}
 
-        {/* 3. DRIVERS LIVE STATUS */}
-        {mode !== 'broker' && (
+        {/* 3. DRIVERS LIVE STRIP - Subtle, horizontal row */}
+        {mode !== 'broker' && driverStatusData.length > 0 && (
           <DriversNow drivers={driverStatusData} mode={mode} />
         )}
 
-        {/* 4. KEY METRICS */}
+        {/* 4. KEY METRICS ROW - EXACTLY 4 CARDS, giant numbers */}
         <KeyMetrics mode={mode} data={keyMetricsData} />
 
-        {/* 5. THREE PRIMARY ACTIONS */}
+        {/* 5. QUICK ACTIONS - Slim, muted, NOT dominant */}
         <QuickActions mode={mode} />
 
-        {/* 6. UNASSIGNED LOADS */}
+        {/* 6. UNASSIGNED LOADS - Full priority, color-coded urgency */}
         {mode !== 'broker' && (
           <UnassignedLoads loads={unassignedLoadsData} />
         )}
 
-        {/* 7. TODAY'S SCHEDULE */}
+        {/* 7. TODAY'S SCHEDULE - Two-slot design (Pickups & Deliveries) */}
         {mode !== 'broker' && (
           <TodaysSchedule events={scheduleData} />
         )}
 
-        {/* 8 & 9. TWO-COLUMN: WHO OWES YOU + TODAY'S COLLECTIONS */}
+        {/* 8 & 9. WHO OWES YOU + TODAY'S COLLECTIONS - Side by side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <WhoOwesYou receivables={receivablesData} total={moneyOwed} />
           <TodaysCollections collections={collectionsData} total={4800} />
         </div>
 
-        {/* 10. ATTENTION ITEMS */}
-        <AttentionList items={attentionItems} />
+        {/* 10. OPERATIONS PANEL - Bottom-level info (Recent Companies, Driver Roster, Recent Activity) */}
+        <OperationsPanel
+          companies={operationsPanelData.companies}
+          drivers={operationsPanelData.drivers}
+          activities={operationsPanelData.activities}
+        />
       </div>
     </div>
   );
