@@ -27,8 +27,8 @@ interface QuickActionsProps {
 function PrimaryActionButton({ label, href, icon: Icon }: QuickAction) {
   return (
     <Link href={href} className="group block">
-      <div className="relative overflow-hidden p-3 rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5">
-        <div className="flex items-center gap-2.5">
+      <div className="relative overflow-hidden h-12 px-3 rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 flex items-center">
+        <div className="flex items-center gap-2.5 w-full">
           <div className="p-1.5 rounded-lg bg-white/20">
             <Icon className="h-4 w-4 text-white" />
           </div>
@@ -98,7 +98,7 @@ export function QuickActions({ mode }: QuickActionsProps) {
   if (mode === 'carrier') {
     return (
       <Card className="rounded-xl shadow-sm">
-        <CardContent className="p-4 space-y-2.5">
+        <CardContent className="p-4 space-y-2">
           {/* Primary Action */}
           <PrimaryActionButton {...carrierPrimary} />
 
@@ -123,7 +123,7 @@ export function QuickActions({ mode }: QuickActionsProps) {
   if (mode === 'broker') {
     return (
       <Card className="rounded-xl shadow-sm">
-        <CardContent className="p-4 space-y-2.5">
+        <CardContent className="p-4 space-y-2">
           {/* Primary Action */}
           <PrimaryActionButton {...brokerPrimary} />
 
@@ -148,13 +148,13 @@ export function QuickActions({ mode }: QuickActionsProps) {
   // Hybrid mode - show both with visual separation
   return (
     <Card className="rounded-xl shadow-sm">
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="p-4 space-y-2.5">
         {/* Carrier Actions Section */}
         <div>
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
             My Fleet
           </p>
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             <PrimaryActionButton {...carrierPrimary} />
             <div className="grid grid-cols-2 gap-2">
               {carrierSecondary.map((action) => (
@@ -174,10 +174,10 @@ export function QuickActions({ mode }: QuickActionsProps) {
 
         {/* Broker Actions Section */}
         <div>
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
             Marketplace
           </p>
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             <PrimaryActionButton {...brokerPrimary} />
             <div className="grid grid-cols-2 gap-2">
               {brokerSecondary.map((action) => (

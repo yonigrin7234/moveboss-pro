@@ -229,7 +229,7 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="max-w-7xl w-full mx-auto px-6 space-y-5 pt-4">
+    <div className="max-w-7xl w-full mx-auto px-6 space-y-6 pt-4">
       {/* Premium Hero Header - Compressed */}
       <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-accent/10 to-transparent border border-border/40 p-5">
         <div className="absolute top-3 left-3">
@@ -411,11 +411,14 @@ export default async function DashboardPage() {
       <Card className="rounded-2xl shadow-sm border-border/30 bg-card">
         <CardHeader className="py-2.5 px-5 border-b border-border/20">
           <div className="flex items-center gap-2">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-success"></span>
-            </span>
-            <CardTitle className="text-sm font-semibold tracking-tight">Live Operations</CardTitle>
+            <div className="flex items-center gap-1.5">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-success"></span>
+              </span>
+              <span className="text-[10px] font-semibold text-success/80 uppercase tracking-wide">Live</span>
+            </div>
+            <CardTitle className="text-sm font-semibold tracking-tight">Operations</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="p-5">

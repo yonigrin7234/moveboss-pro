@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
 import {
   AlertTriangle,
@@ -8,9 +11,12 @@ import {
   FileText,
   AlertCircle,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import type { DashboardMode } from '@/lib/dashboardMode';
 
 export interface FocusItem {
@@ -61,6 +67,8 @@ const severityConfig = {
 
 // Constants for item display limits
 const MAX_ITEMS_PER_CATEGORY = 6;
+const MAX_COLLAPSED_PER_CATEGORY = 2; // For hybrid mode
+const MAX_COLLAPSED_TOTAL = 4; // For single mode
 
 // Sort items by severity (urgent first, then warning, info, success)
 function sortBySeverity(items: FocusItem[]): FocusItem[] {
@@ -70,6 +78,8 @@ function sortBySeverity(items: FocusItem[]): FocusItem[] {
 }
 
 export function TodaysFocus({ mode, items }: TodaysFocusProps) {
+  const [expanded, setExpanded] = useState(false);
+
   // Helper to determine if an item is fleet-related
   const isFleetItem = (item: FocusItem) => {
     return (
@@ -111,19 +121,43 @@ export function TodaysFocus({ mode, items }: TodaysFocusProps) {
     const fleetItems = sortBySeverity(items.filter(isFleetItem));
     const brokerItems = sortBySeverity(items.filter(isBrokerItem));
 
-    const displayedFleetItems = fleetItems.slice(0, MAX_ITEMS_PER_CATEGORY);
-    const displayedBrokerItems = brokerItems.slice(0, MAX_ITEMS_PER_CATEGORY);
-    const hasMoreFleet = fleetItems.length > MAX_ITEMS_PER_CATEGORY;
-    const hasMoreBroker = brokerItems.length > MAX_ITEMS_PER_CATEGORY;
+    const displayedFleetItems = expanded
+      ? fleetItems
+      : fleetItems.slice(0, MAX_COLLAPSED_PER_CATEGORY);
+    const displayedBrokerItems = expanded
+      ? brokerItems
+      : brokerItems.slice(0, MAX_COLLAPSED_PER_CATEGORY);
+    const hasMoreFleet = fleetItems.length > MAX_COLLAPSED_PER_CATEGORY;
+    const hasMoreBroker = brokerItems.length > MAX_COLLAPSED_PER_CATEGORY;
 
     return (
       <Card className="rounded-2xl shadow-md border-border/30">
         <CardHeader className="py-2.5 px-5">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-semibold tracking-tight">Today's Focus</CardTitle>
-            <Badge variant="secondary" className="text-[9px] h-4 px-1.5">
-              {items.length}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-[9px] h-4 px-1.5">
+                {items.length}
+              </Badge>
+              {(hasMoreFleet || hasMoreBroker) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setExpanded(!expanded)}
+                  className="h-6 text-[10px] px-2"
+                >
+                  {expanded ? (
+                    <>
+                      Show less <ChevronUp className="h-3 w-3 ml-1" />
+                    </>
+                  ) : (
+                    <>
+                      Show all ({items.length}) <ChevronDown className="h-3 w-3 ml-1" />
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="px-5 pb-3 pt-0">
@@ -169,13 +203,6 @@ export function TodaysFocus({ mode, items }: TodaysFocusProps) {
                       );
                     })}
                   </div>
-                  {hasMoreFleet && (
-                    <div className="text-center pt-1">
-                      <span className="text-[10px] text-muted-foreground">
-                        +{fleetItems.length - MAX_ITEMS_PER_CATEGORY} more items
-                      </span>
-                    </div>
-                  )}
                 </>
               )}
             </div>
@@ -221,13 +248,6 @@ export function TodaysFocus({ mode, items }: TodaysFocusProps) {
                       );
                     })}
                   </div>
-                  {hasMoreBroker && (
-                    <div className="text-center pt-1">
-                      <span className="text-[10px] text-muted-foreground">
-                        +{brokerItems.length - MAX_ITEMS_PER_CATEGORY} more items
-                      </span>
-                    </div>
-                  )}
                 </>
               )}
             </div>
@@ -239,8 +259,10 @@ export function TodaysFocus({ mode, items }: TodaysFocusProps) {
 
   // Sort items by severity for single-mode views
   const sortedItems = sortBySeverity(visibleItems);
-  const displayedItems = sortedItems.slice(0, MAX_ITEMS_PER_CATEGORY);
-  const hasMore = sortedItems.length > MAX_ITEMS_PER_CATEGORY;
+  const displayedItems = expanded
+    ? sortedItems
+    : sortedItems.slice(0, MAX_COLLAPSED_TOTAL);
+  const hasMore = sortedItems.length > MAX_COLLAPSED_TOTAL;
 
   // Carrier and Broker modes - single list with severity sorting
   if (sortedItems.length === 0) {
@@ -267,9 +289,29 @@ export function TodaysFocus({ mode, items }: TodaysFocusProps) {
       <CardHeader className="py-2.5 px-5">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-semibold tracking-tight">Today's Focus</CardTitle>
-          <Badge variant="secondary" className="text-[9px] h-4 px-1.5">
-            {sortedItems.length}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-[9px] h-4 px-1.5">
+              {sortedItems.length}
+            </Badge>
+            {hasMore && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setExpanded(!expanded)}
+                className="h-6 text-[10px] px-2"
+              >
+                {expanded ? (
+                  <>
+                    Show less <ChevronUp className="h-3 w-3 ml-1" />
+                  </>
+                ) : (
+                  <>
+                    Show all ({sortedItems.length}) <ChevronDown className="h-3 w-3 ml-1" />
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="px-5 pb-3 pt-0">
@@ -302,13 +344,6 @@ export function TodaysFocus({ mode, items }: TodaysFocusProps) {
             );
           })}
         </div>
-        {hasMore && (
-          <div className="text-center pt-1.5">
-            <span className="text-[10px] text-muted-foreground">
-              +{sortedItems.length - MAX_ITEMS_PER_CATEGORY} more items
-            </span>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
