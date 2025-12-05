@@ -8,16 +8,18 @@
  */
 
 import React, { useCallback, useState, useMemo } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { DeliveryCompleteScreen } from '../../../../../../components/ui/DeliveryCompleteScreen';
 import { useLoadDetail } from '../../../../../../hooks/useLoadDetail';
 import { useLoadActions } from '../../../../../../hooks/useLoadActions';
 import { useDriverTripDetail } from '../../../../../../hooks/useDriverTrips';
+import { colors, typography, spacing } from '../../../../../../lib/theme';
 
 export default function CompleteDeliveryRoute() {
   const { id: tripId, loadId } = useLocalSearchParams<{ id: string; loadId: string }>();
   const router = useRouter();
-  const { load, refetch } = useLoadDetail(loadId);
+  const { load, loading, error, refetch } = useLoadDetail(loadId);
   const { trip } = useDriverTripDetail(tripId);
   const actions = useLoadActions(loadId, refetch);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -89,8 +91,50 @@ export default function CompleteDeliveryRoute() {
     }
   }, [router, tripId, nextLoadInfo]);
 
-  if (!load) {
-    return null;
+  // Loading state
+  if (loading) {
+    return (
+      <>
+        <Stack.Screen
+          options={{
+            headerShown: false,
+            presentation: 'fullScreenModal',
+            animation: 'slide_from_bottom',
+          }}
+        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </>
+    );
+  }
+
+  // Error state
+  if (error || !load) {
+    return (
+      <>
+        <Stack.Screen
+          options={{
+            headerShown: false,
+            presentation: 'fullScreenModal',
+            animation: 'slide_from_bottom',
+          }}
+        />
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>Unable to Load</Text>
+          <Text style={styles.errorMessage}>{error || 'Load not found'}</Text>
+          <View style={styles.errorActions}>
+            <TouchableOpacity style={styles.retryButton} onPress={refetch}>
+              <Text style={styles.retryText}>Try Again</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.backButton} onPress={handleCancel}>
+              <Text style={styles.backText}>Go Back</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </>
+    );
   }
 
   const loadNumber = load.job_number || load.load_number || 'Unknown';
@@ -116,3 +160,62 @@ export default function CompleteDeliveryRoute() {
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.lg,
+  },
+  loadingText: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
+  errorContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  errorTitle: {
+    ...typography.headline,
+    fontSize: 24,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+  },
+  errorActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  retryButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: 12,
+  },
+  retryText: {
+    ...typography.button,
+    color: colors.white,
+  },
+  backButton: {
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  backText: {
+    ...typography.button,
+    color: colors.textSecondary,
+  },
+});

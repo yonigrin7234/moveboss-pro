@@ -1,60 +1,23 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+/**
+ * TripDetailProvider - Shares trip data between parent and child routes
+ *
+ * This prevents multiple components from fetching the same trip data
+ * independently, which was causing infinite loops.
+ */
+
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Trip, TripWithLoads, TripExpense } from '../types';
-import { useAuth } from '../providers/AuthProvider';
+import { TripWithLoads } from '../types';
+import { useAuth } from './AuthProvider';
 
-export function useDriverTrips() {
-  const [trips, setTrips] = useState<Trip[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
-
-  const fetchTrips = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      // First get the driver record for this auth user
-      const { data: driver, error: driverError } = await supabase
-        .from('drivers')
-        .select('id, owner_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (driverError || !driver) {
-        setError('Driver profile not found');
-        setTrips([]);
-        return;
-      }
-
-      // Fetch trips assigned to this driver
-      const { data: tripsData, error: tripsError } = await supabase
-        .from('trips')
-        .select('*')
-        .eq('driver_id', driver.id)
-        .eq('owner_id', driver.owner_id)
-        .order('start_date', { ascending: false });
-
-      if (tripsError) {
-        throw tripsError;
-      }
-
-      setTrips(tripsData || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch trips');
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    fetchTrips();
-  }, [fetchTrips]);
-
-  return { trips, loading, error, refetch: fetchTrips };
+interface TripDetailContextType {
+  trip: TripWithLoads | null;
+  loading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
 }
+
+const TripDetailContext = createContext<TripDetailContextType | undefined>(undefined);
 
 // Helper to add timeout to promises
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
@@ -66,22 +29,26 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   ]);
 }
 
-export function useDriverTripDetail(tripId: string | null) {
+export function TripDetailProvider({
+  tripId,
+  children
+}: {
+  tripId: string | null;
+  children: React.ReactNode;
+}) {
   const [trip, setTrip] = useState<TripWithLoads | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
-  // Store values in refs to prevent callback recreation
+  // Refs for stable callback
   const userIdRef = useRef(user?.id);
   const tripIdRef = useRef(tripId);
   const isFetchingRef = useRef(false);
 
-  // Update refs when values change
   userIdRef.current = user?.id;
   tripIdRef.current = tripId;
 
-  // Stable callback that never changes - uses refs for values
   const fetchTrip = useCallback(async () => {
     const userId = userIdRef.current;
     const currentTripId = tripIdRef.current;
@@ -102,7 +69,7 @@ export function useDriverTripDetail(tripId: string | null) {
       setLoading(true);
       setError(null);
 
-      // Get driver record with timeout
+      // Get driver record
       const driverResult = await withTimeout(
         supabase
           .from('drivers')
@@ -120,7 +87,7 @@ export function useDriverTripDetail(tripId: string | null) {
         return;
       }
 
-      // Fetch trip with loads and expenses with timeout
+      // Fetch trip with loads and expenses
       const tripResult = await withTimeout(
         supabase
           .from('trips')
@@ -171,7 +138,7 @@ export function useDriverTripDetail(tripId: string | null) {
         throw tripError;
       }
 
-      // Verify this trip belongs to the driver (in case RLS isn't applied yet)
+      // Verify this trip belongs to the driver
       if (tripData && tripData.driver_id !== driver.id) {
         setError('Access denied');
         return;
@@ -184,9 +151,9 @@ export function useDriverTripDetail(tripId: string | null) {
       setLoading(false);
       isFetchingRef.current = false;
     }
-  }, []); // Empty deps - callback never changes
+  }, []);
 
-  // Only fetch when user.id or tripId changes (primitive values)
+  // Fetch when user.id or tripId changes
   useEffect(() => {
     if (user?.id && tripId) {
       fetchTrip();
@@ -195,30 +162,17 @@ export function useDriverTripDetail(tripId: string | null) {
     }
   }, [user?.id, tripId, fetchTrip]);
 
-  return { trip, loading, error, refetch: fetchTrip };
+  return (
+    <TripDetailContext.Provider value={{ trip, loading, error, refetch: fetchTrip }}>
+      {children}
+    </TripDetailContext.Provider>
+  );
 }
 
-export function useActiveTrip() {
-  const { trips, loading, error, refetch } = useDriverTrips();
-
-  // Find the active or en_route trip
-  const activeTrip = trips.find(t => t.status === 'active' || t.status === 'en_route') || null;
-
-  // Find upcoming planned trips
-  const upcomingTrips = trips.filter(t => t.status === 'planned');
-
-  // Find recent completed/settled trips
-  const recentTrips = trips
-    .filter(t => t.status === 'completed' || t.status === 'settled')
-    .slice(0, 5);
-
-  return {
-    activeTrip,
-    upcomingTrips,
-    recentTrips,
-    allTrips: trips,
-    loading,
-    error,
-    refetch,
-  };
+export function useTripDetailContext() {
+  const context = useContext(TripDetailContext);
+  if (context === undefined) {
+    throw new Error('useTripDetailContext must be used within a TripDetailProvider');
+  }
+  return context;
 }

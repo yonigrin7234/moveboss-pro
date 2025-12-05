@@ -1999,95 +1999,63 @@ export async function getLoadsGivenOut(userId: string): Promise<LoadGivenOut[]> 
 
   console.log('[getLoadsGivenOut] Workspace company:', workspaceCompany.id, 'for user:', userId);
 
-  // Query loads that belong to this company and have been assigned to a carrier
-  // Check both posted_by_company_id and company_id since they may be used differently
+  // Query EXACTLY like Posted Jobs page, but filter for assigned carriers
+  // This should work because Posted Jobs can see these loads with the same RLS
   const { data, error } = await supabase
     .from('loads')
     .select(`
       id,
       load_number,
-      origin_city,
-      origin_state,
-      destination_city,
-      destination_state,
-      estimated_cuft,
+      pickup_city,
+      pickup_state,
+      delivery_city,
+      delivery_state,
       cubic_feet,
+      cubic_feet_estimate,
       carrier_rate,
       load_status,
       posting_status,
       expected_load_date,
       expected_delivery_date,
-      assigned_at,
       carrier_assigned_at,
       carrier_confirmed_at,
-      pickup_city,
-      pickup_state,
-      delivery_city,
-      delivery_state,
       assigned_carrier_id,
-      company_id,
-      posted_by_company_id,
-      owner_id
+      assigned_carrier:assigned_carrier_id(id, name)
     `)
+    .eq('posted_by_company_id', workspaceCompany.id)
     .not('assigned_carrier_id', 'is', null)
-    .order('created_at', { ascending: false });
+    .order('carrier_assigned_at', { ascending: false, nullsFirst: false });
 
   if (error) {
     console.error('[getLoadsGivenOut] Error querying loads:', error);
     return [];
   }
 
-  console.log('[getLoadsGivenOut] All loads with assigned_carrier_id:', data?.length);
+  console.log('[getLoadsGivenOut] Found loads:', data?.length);
 
-  // Filter to loads that belong to this company (check multiple fields)
-  const companyLoads = (data || []).filter((load: any) => {
-    const matchesCompany =
-      load.posted_by_company_id === workspaceCompany.id ||
-      load.company_id === workspaceCompany.id ||
-      load.owner_id === userId;
-    if (load.assigned_carrier_id) {
-      console.log('[getLoadsGivenOut] Load', load.load_number, 'company match:', matchesCompany, {
-        posted_by: load.posted_by_company_id,
-        company_id: load.company_id,
-        owner_id: load.owner_id,
-        workspace: workspaceCompany.id,
-        userId,
-      });
-    }
-    return matchesCompany;
+  return (data || []).map((load: any) => {
+    // Handle the assigned_carrier join - could be object or array
+    const carrier = Array.isArray(load.assigned_carrier)
+      ? load.assigned_carrier[0]
+      : load.assigned_carrier;
+
+    return {
+      id: load.id,
+      load_number: load.load_number,
+      // Use pickup/delivery columns (these are what's in the DB)
+      origin_city: load.pickup_city,
+      origin_state: load.pickup_state,
+      destination_city: load.delivery_city,
+      destination_state: load.delivery_state,
+      estimated_cuft: load.cubic_feet_estimate ? Number(load.cubic_feet_estimate) : (load.cubic_feet ? Number(load.cubic_feet) : null),
+      carrier_rate: load.carrier_rate ? Number(load.carrier_rate) : null,
+      load_status: load.load_status || 'pending',
+      posting_status: load.posting_status || 'assigned',
+      expected_load_date: load.expected_load_date,
+      expected_delivery_date: load.expected_delivery_date,
+      assigned_at: load.carrier_assigned_at,
+      carrier_confirmed_at: load.carrier_confirmed_at,
+      carrier: carrier || null,
+    };
   });
-
-  console.log('[getLoadsGivenOut] Loads matching company:', companyLoads.length);
-
-  // Get carrier info for matching loads
-  const carrierIds = [...new Set(companyLoads.map((l: any) => l.assigned_carrier_id).filter(Boolean))];
-  const carrierMap = new Map<string, { id: string; name: string }>();
-
-  if (carrierIds.length > 0) {
-    const { data: carriers } = await supabase
-      .from('companies')
-      .select('id, name')
-      .in('id', carrierIds);
-
-    (carriers || []).forEach((c: any) => carrierMap.set(c.id, c));
-  }
-
-  return companyLoads.map((load: any) => ({
-    id: load.id,
-    load_number: load.load_number,
-    // Use pickup/delivery as fallback for origin/destination
-    origin_city: load.origin_city || load.pickup_city,
-    origin_state: load.origin_state || load.pickup_state,
-    destination_city: load.destination_city || load.delivery_city,
-    destination_state: load.destination_state || load.delivery_state,
-    estimated_cuft: load.estimated_cuft ? Number(load.estimated_cuft) : (load.cubic_feet ? Number(load.cubic_feet) : null),
-    carrier_rate: load.carrier_rate ? Number(load.carrier_rate) : null,
-    load_status: load.load_status || 'pending',
-    posting_status: load.posting_status || 'assigned',
-    expected_load_date: load.expected_load_date,
-    expected_delivery_date: load.expected_delivery_date,
-    assigned_at: load.carrier_assigned_at || load.assigned_at,
-    carrier_confirmed_at: load.carrier_confirmed_at,
-    carrier: carrierMap.get(load.assigned_carrier_id) || null,
-  }));
 }

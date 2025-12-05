@@ -26,8 +26,9 @@ export default function AppLayout() {
         headerShadowVisible: false,
         // Default: show tab bar
         tabBarStyle: { display: 'flex' },
-        // Fix for New Architecture
-        lazy: false,
+        // Enable lazy loading (default) - prevents all screens from rendering at once
+        // which can cause infinite loops with data fetching hooks
+        lazy: true,
         sceneStyle: { backgroundColor: colors.background },
       }}
     >
