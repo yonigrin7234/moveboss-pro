@@ -7,6 +7,7 @@ import { giveLoadBack } from '@/data/cancellations';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { GiveBackForm } from '@/components/give-back-form';
 import Link from 'next/link';
 import {
   ArrowRight,
@@ -18,7 +19,6 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
-  Undo2,
 } from 'lucide-react';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -61,35 +61,38 @@ export default async function AssignedLoadsPage() {
     (l) => l.load_status === 'delivered'
   );
 
-  async function handleGiveBack(formData: FormData): Promise<void> {
+  async function handleGiveBack(formData: FormData): Promise<{ success: boolean; error?: string }> {
     'use server';
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-      console.error('[handleGiveBack] Not authenticated');
-      redirect('/login');
+    try {
+      const currentUser = await getCurrentUser();
+      if (!currentUser) {
+        return { success: false, error: 'Not authenticated' };
+      }
+
+      const loadId = formData.get('load_id') as string;
+      const reasonCode = formData.get('reason_code') as string;
+      const carrierIdValue = formData.get('carrier_id') as string;
+
+      console.log('[handleGiveBack] Attempting give back:', { loadId, reasonCode, carrierIdValue });
+
+      if (!loadId || !reasonCode || !carrierIdValue) {
+        return { success: false, error: 'Missing required fields' };
+      }
+
+      const result = await giveLoadBack(loadId, currentUser.id, carrierIdValue, reasonCode);
+      console.log('[handleGiveBack] Result:', result);
+
+      if (!result.success) {
+        return { success: false, error: result.error };
+      }
+
+      revalidatePath('/dashboard/assigned-loads');
+      revalidatePath('/dashboard/load-board');
+      return { success: true };
+    } catch (error) {
+      console.error('[handleGiveBack] Exception:', error);
+      return { success: false, error: 'An unexpected error occurred' };
     }
-
-    const loadId = formData.get('load_id') as string;
-    const reasonCode = formData.get('reason_code') as string;
-    const carrierIdValue = formData.get('carrier_id') as string;
-
-    console.log('[handleGiveBack] Attempting give back:', { loadId, reasonCode, carrierIdValue });
-
-    if (!loadId || !reasonCode || !carrierIdValue) {
-      console.error('[handleGiveBack] Missing required fields:', { loadId, reasonCode, carrierIdValue });
-      redirect('/dashboard/assigned-loads');
-    }
-
-    const result = await giveLoadBack(loadId, currentUser.id, carrierIdValue, reasonCode);
-    console.log('[handleGiveBack] Result:', result);
-
-    if (!result.success) {
-      console.error('[handleGiveBack] Failed:', result.error);
-    }
-
-    revalidatePath('/dashboard/assigned-loads');
-    revalidatePath('/dashboard/load-board');
-    redirect('/dashboard/assigned-loads');
   }
 
   return (
@@ -260,31 +263,12 @@ export default async function AssignedLoadsPage() {
                     {/* Give Back form */}
                     {canGiveBack && (
                       <div className="mt-4 pt-4 border-t">
-                        <form action={handleGiveBack} className="flex items-center gap-3">
-                          <input type="hidden" name="load_id" value={load.id} />
-                          <input type="hidden" name="carrier_id" value={carrierId} />
-                          <select
-                            name="reason_code"
-                            className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm"
-                            required
-                          >
-                            <option value="">Select reason...</option>
-                            {reasonOptions.map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
-                          <Button
-                            type="submit"
-                            variant="outline"
-                            size="sm"
-                            className="text-orange-600 hover:text-orange-600 hover:bg-orange-500/10"
-                          >
-                            <Undo2 className="h-4 w-4 mr-1" />
-                            Give Back
-                          </Button>
-                        </form>
+                        <GiveBackForm
+                          loadId={load.id}
+                          carrierId={carrierId}
+                          reasonOptions={reasonOptions}
+                          onGiveBack={handleGiveBack}
+                        />
                       </div>
                     )}
                   </CardContent>
