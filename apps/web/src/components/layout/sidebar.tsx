@@ -32,6 +32,7 @@ import {
   Upload,
   PackagePlus,
   FileText,
+  Package,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -169,6 +170,14 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
         label: "Loads Given Out",
         href: "/dashboard/loads-given-out",
         icon: Send,
+        section: "posting",
+      })
+
+      // Find Trucks - Browse available capacity from carriers
+      items.push({
+        label: "Find Trucks",
+        href: "/dashboard/marketplace-capacity",
+        icon: Package,
         section: "posting",
       })
     }

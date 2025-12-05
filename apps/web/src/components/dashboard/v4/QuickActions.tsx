@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Search, UserPlus, Plus, DollarSign, FileText, Truck } from 'lucide-react';
+import { Search, UserPlus, Plus, DollarSign, FileText, Truck, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface QuickAction {
@@ -23,6 +23,11 @@ export function QuickActions({ needsDriverAssignment = 0 }: QuickActionsProps) {
       href: '/dashboard/load-board',
       icon: <Search className="h-4 w-4" />,
       primary: true,
+    },
+    {
+      label: 'Find Truck',
+      href: '/dashboard/marketplace-capacity',
+      icon: <Package className="h-4 w-4" />,
     },
     {
       label: needsDriverAssignment > 0 ? `Assign (${needsDriverAssignment})` : 'Assign Driver',
