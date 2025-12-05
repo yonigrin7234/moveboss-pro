@@ -26,26 +26,29 @@ export async function GET(request: Request) {
         .eq('is_workspace_company', true)
         .maybeSingle();
 
-      // Query ALL loads with assigned_carrier_id (ignoring filters)
-      const { data: allCarrierLoads, error: allLoadsError } = await supabase
+      // Query Posted Jobs style (what works)
+      const { data: postedJobsStyle, error: postedJobsError } = await supabase
         .from('loads')
         .select(`
-          id, load_number, owner_id, company_id, posted_by_company_id,
-          assigned_carrier_id, load_status, posting_status,
-          is_marketplace_visible, carrier_assigned_at
+          id, load_number, posting_type, posting_status,
+          assigned_carrier_id,
+          assigned_carrier:assigned_carrier_id(id, name)
         `)
-        .not('assigned_carrier_id', 'is', null)
+        .eq('posted_by_company_id', workspaceCompany?.id || '')
+        .not('posting_type', 'is', null)
         .order('created_at', { ascending: false })
         .limit(20);
 
-      // Query loads owned by this user
-      const { data: userLoads, error: userLoadsError } = await supabase
+      // Same query but with assigned_carrier_id filter
+      const { data: withCarrierFilter, error: withCarrierError } = await supabase
         .from('loads')
         .select(`
-          id, load_number, owner_id, company_id, posted_by_company_id,
-          assigned_carrier_id, load_status, posting_status
+          id, load_number, posting_type, posting_status,
+          assigned_carrier_id,
+          assigned_carrier:assigned_carrier_id(id, name)
         `)
-        .eq('owner_id', user.id)
+        .eq('posted_by_company_id', workspaceCompany?.id || '')
+        .not('assigned_carrier_id', 'is', null)
         .order('created_at', { ascending: false })
         .limit(20);
 
@@ -57,16 +60,16 @@ export async function GET(request: Request) {
         user: { id: user.id, email: user.email },
         workspaceCompany,
         companyError,
-        allCarrierLoads: {
-          count: allCarrierLoads?.length || 0,
-          data: allCarrierLoads,
-          error: allLoadsError,
+        postedJobsStyle: {
+          count: postedJobsStyle?.length || 0,
+          withCarrier: postedJobsStyle?.filter((l: any) => l.assigned_carrier_id)?.length || 0,
+          data: postedJobsStyle,
+          error: postedJobsError,
         },
-        userLoads: {
-          count: userLoads?.length || 0,
-          withCarrier: userLoads?.filter(l => l.assigned_carrier_id)?.length || 0,
-          data: userLoads,
-          error: userLoadsError,
+        withCarrierFilter: {
+          count: withCarrierFilter?.length || 0,
+          data: withCarrierFilter,
+          error: withCarrierError,
         },
         loadsGivenOutResult: {
           count: loadsGivenOut.length,

@@ -8,23 +8,92 @@
  * - Navigates to first load on success
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { TripStartScreen } from '../../../../components/ui/TripStartScreen';
-import { useDriverTripDetail } from '../../../../hooks/useDriverTrips';
 import { useTripActions } from '../../../../hooks/useTripActions';
 import { useImageUpload } from '../../../../hooks/useImageUpload';
-import { TripLoad } from '../../../../types';
+import { useAuth } from '../../../../providers/AuthProvider';
+import { supabase } from '../../../../lib/supabase';
+import { TripWithLoads, TripLoad } from '../../../../types';
 import { colors, typography, spacing } from '../../../../lib/theme';
 
 export default function TripStartRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { trip, loading, error, refetch } = useDriverTripDetail(id);
-  const tripActions = useTripActions(id || '', refetch);
+  const { user } = useAuth();
+
+  // Local state for trip data - simple one-time fetch
+  const [trip, setTrip] = useState<TripWithLoads | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const hasFetchedRef = useRef(false);
+
   const { uploadOdometerPhoto } = useImageUpload();
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Simple one-time fetch on mount
+  useEffect(() => {
+    if (hasFetchedRef.current || !user?.id || !id) {
+      if (!user?.id || !id) setLoading(false);
+      return;
+    }
+
+    hasFetchedRef.current = true;
+
+    const fetchTrip = async () => {
+      try {
+        // Get driver record
+        const { data: driver, error: driverError } = await supabase
+          .from('drivers')
+          .select('id, owner_id')
+          .eq('auth_user_id', user.id)
+          .single();
+
+        if (driverError || !driver) {
+          setError('Driver profile not found');
+          setLoading(false);
+          return;
+        }
+
+        // Fetch trip with loads
+        const { data: tripData, error: tripError } = await supabase
+          .from('trips')
+          .select(`
+            *,
+            trucks:truck_id (id, unit_number),
+            trip_loads (
+              id, trip_id, load_id, sequence_index, role,
+              loads (id)
+            )
+          `)
+          .eq('id', id)
+          .single();
+
+        if (tripError) {
+          throw tripError;
+        }
+
+        if (tripData && tripData.driver_id !== driver.id) {
+          setError('Access denied');
+          setLoading(false);
+          return;
+        }
+
+        setTrip(tripData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch trip');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTrip();
+  }, [user?.id, id]);
+
+  // Create trip actions with a no-op refetch since we don't need to refresh
+  const tripActions = useTripActions(id || '', () => Promise.resolve());
 
   // Find the first actionable load
   const findFirstLoad = useCallback((): TripLoad | null => {
@@ -81,6 +150,57 @@ export default function TripStartRoute() {
     }
   }, [router, id, findFirstLoad]);
 
+  const handleRetry = useCallback(() => {
+    hasFetchedRef.current = false;
+    setLoading(true);
+    setError(null);
+    // Trigger re-fetch by updating a dependency
+    // Since we check hasFetchedRef, we need to force a re-run
+    const fetchTrip = async () => {
+      hasFetchedRef.current = true;
+      try {
+        const { data: driver, error: driverError } = await supabase
+          .from('drivers')
+          .select('id, owner_id')
+          .eq('auth_user_id', user?.id)
+          .single();
+
+        if (driverError || !driver) {
+          setError('Driver profile not found');
+          setLoading(false);
+          return;
+        }
+
+        const { data: tripData, error: tripError } = await supabase
+          .from('trips')
+          .select(`
+            *,
+            trucks:truck_id (id, unit_number),
+            trip_loads (
+              id, trip_id, load_id, sequence_index, role,
+              loads (id)
+            )
+          `)
+          .eq('id', id)
+          .single();
+
+        if (tripError) throw tripError;
+        if (tripData && tripData.driver_id !== driver.id) {
+          setError('Access denied');
+          setLoading(false);
+          return;
+        }
+
+        setTrip(tripData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch trip');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTrip();
+  }, [user?.id, id]);
+
   // Loading state
   if (loading) {
     return (
@@ -115,7 +235,7 @@ export default function TripStartRoute() {
           <Text style={styles.errorTitle}>Unable to Load Trip</Text>
           <Text style={styles.errorMessage}>{error || 'Trip not found'}</Text>
           <View style={styles.errorActions}>
-            <TouchableOpacity style={styles.retryButton} onPress={refetch}>
+            <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
               <Text style={styles.retryText}>Try Again</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.backButton} onPress={handleCancel}>
