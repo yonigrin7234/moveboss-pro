@@ -71,141 +71,77 @@ export function useDriverTripDetail(tripId: string | null) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const hasFetched = useRef(false);
 
-  // Refs to prevent infinite loops and concurrent fetches
-  const isFetchingRef = useRef(false);
-  const lastFetchKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!user?.id || !tripId || hasFetched.current) return;
 
-  // Create a stable fetch function using useRef
-  const fetchTripRef = useRef<() => Promise<void>>();
+    hasFetched.current = true;
+    setLoading(true);
 
-  fetchTripRef.current = async () => {
-    const userId = user?.id;
-
-    // Prevent concurrent fetches
-    if (isFetchingRef.current) {
-      return;
-    }
-
-    if (!userId || !tripId) {
-      setLoading(false);
-      return;
-    }
-
-    // Create a unique key for this fetch
-    const fetchKey = `${userId}-${tripId}`;
-
-    // Skip if we already fetched with this exact key and have data
-    if (lastFetchKeyRef.current === fetchKey && trip) {
-      setLoading(false);
-      return;
-    }
-
-    isFetchingRef.current = true;
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Get driver record with timeout
-      const driverResult = await withTimeout(
-        supabase
+    const fetchData = async () => {
+      try {
+        // Get driver record first
+        const { data: driver, error: driverError } = await supabase
           .from('drivers')
           .select('id, owner_id')
-          .eq('auth_user_id', userId)
-          .single(),
-        10000,
-        'Connection timeout - please check your network'
-      );
+          .eq('auth_user_id', user.id)
+          .single();
 
-      const { data: driver, error: driverError } = driverResult;
+        if (driverError || !driver) {
+          setError('Driver profile not found');
+          return;
+        }
 
-      if (driverError || !driver) {
-        setError('Driver profile not found');
-        return;
-      }
-
-      // Fetch trip with loads and expenses with timeout
-      const tripResult = await withTimeout(
-        supabase
+        // Fetch trip with all relations
+        const { data: tripData, error: tripError } = await supabase
           .from('trips')
           .select(`
             *,
-            trucks:truck_id (
-              id,
-              unit_number,
-              make,
-              model,
-              year,
-              plate_number
-            ),
-            trailers:trailer_id (
-              id,
-              unit_number,
-              make,
-              model,
-              year,
-              plate_number
-            ),
+            trucks:truck_id (id, unit_number, make, model, year, plate_number),
+            trailers:trailer_id (id, unit_number, make, model, year, plate_number),
             trip_loads (
-              id,
-              trip_id,
-              load_id,
-              sequence_index,
-              role,
-              loads (
-                *,
-                companies:company_id (
-                  name,
-                  phone,
-                  trust_level
-                )
-              )
+              id, trip_id, load_id, sequence_index, role,
+              loads (*, companies:company_id (name, phone, trust_level))
             ),
             trip_expenses (*)
           `)
           .eq('id', tripId)
-          .single(),
-        15000,
-        'Connection timeout - please check your network'
-      );
+          .single();
 
-      const { data: tripData, error: tripError } = tripResult;
+        if (tripError) throw tripError;
 
-      if (tripError) {
-        throw tripError;
+        // Verify access
+        if (tripData && tripData.driver_id !== driver.id) {
+          setError('Access denied');
+          return;
+        }
+
+        setTrip(tripData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch trip');
+      } finally {
+        setLoading(false);
       }
+    };
 
-      // Verify this trip belongs to the driver (in case RLS isn't applied yet)
-      if (tripData && tripData.driver_id !== driver.id) {
-        setError('Access denied');
-        return;
-      }
+    fetchData();
+  }, [user?.id, tripId]);
 
-      lastFetchKeyRef.current = fetchKey;
-      setTrip(tripData);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch trip');
-    } finally {
-      setLoading(false);
-      isFetchingRef.current = false;
-    }
-  };
-
-  // Stable refetch function
   const refetch = useCallback(() => {
-    lastFetchKeyRef.current = null; // Clear to allow re-fetch
-    fetchTripRef.current?.();
+    hasFetched.current = false;
+    setLoading(true);
+    setError(null);
+    // Trigger re-fetch by forcing a state update
+    setTrip(null);
   }, []);
 
-  // Only fetch when user.id or tripId changes - NO function in deps
+  // Re-fetch when trip is set to null by refetch()
   useEffect(() => {
-    if (user?.id && tripId) {
-      fetchTripRef.current?.();
-    } else {
-      setLoading(false);
+    if (trip === null && !loading && hasFetched.current) {
+      hasFetched.current = false;
     }
-  }, [user?.id, tripId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [trip, loading]);
 
   return { trip, loading, error, refetch };
 }

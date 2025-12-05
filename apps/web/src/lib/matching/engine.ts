@@ -227,7 +227,13 @@ export async function findMatchingLoads(
   // Score each load
   const suggestions: ScoredSuggestion[] = [];
 
-  for (const load of loads as LoadForMatching[]) {
+  // Transform loads to handle Supabase array format for company
+  const transformedLoads: LoadForMatching[] = loads.map((load: any) => ({
+    ...load,
+    company: Array.isArray(load.company) ? load.company[0] || null : load.company,
+  }));
+
+  for (const load of transformedLoads) {
     const scored = await scoreLoadForTrip(
       load,
       context,
