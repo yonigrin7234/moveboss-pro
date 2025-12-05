@@ -398,22 +398,46 @@ export function TripPlannerMap({
     ] as [[number, number], [number, number]];
   }, [tripOrigin, tripDestination, loadMarkers]);
 
-  // Route line coordinates - includes all stops in sequence
+  // Route line coordinates - follows proper logistics order:
+  // 1. Trip origin
+  // 2. All unique pickup locations (deduplicated)
+  // 3. All delivery locations in the user's sequence order
+  // 4. Trip destination
   const routeLine = useMemo(() => {
     if (!tripOrigin || !tripDestination) return null;
 
     const points: [number, number][] = [[tripOrigin.lat, tripOrigin.lng]];
 
-    // Add assigned load stops (pickup then delivery for each load)
-    // Filter to only assigned loads (not marketplace)
-    const assignedMarkers = loadMarkers.filter(m => !m.isMarketplace);
+    // Get assigned markers in the user's ordered sequence
+    const assignedMarkersByLoadId = new Map(
+      loadMarkers.filter(m => !m.isMarketplace).map(m => [m.load.id, m])
+    );
+    const orderedMarkers = orderedAssignedLoads
+      .map(load => assignedMarkersByLoadId.get(load.id))
+      .filter((m): m is LoadMarker => m !== undefined);
 
-    for (const marker of assignedMarkers) {
-      // Add pickup location
+    // Collect unique pickup locations (deduplicate by coordinates)
+    const pickupLocations = new Map<string, { coords: GeoCoordinates; name: string }>();
+    for (const marker of orderedMarkers) {
       if (marker.originCoords) {
-        points.push([marker.originCoords.lat, marker.originCoords.lng]);
+        // Round coordinates to avoid floating point comparison issues
+        const key = `${marker.originCoords.lat.toFixed(3)},${marker.originCoords.lng.toFixed(3)}`;
+        if (!pickupLocations.has(key)) {
+          pickupLocations.set(key, {
+            coords: marker.originCoords,
+            name: `${marker.load.originCity}, ${marker.load.originState}`,
+          });
+        }
       }
-      // Add delivery location
+    }
+
+    // Add unique pickup locations
+    for (const pickup of pickupLocations.values()) {
+      points.push([pickup.coords.lat, pickup.coords.lng]);
+    }
+
+    // Add delivery locations in the user's sequence order
+    for (const marker of orderedMarkers) {
       if (marker.destinationCoords) {
         points.push([marker.destinationCoords.lat, marker.destinationCoords.lng]);
       }
@@ -423,36 +447,62 @@ export function TripPlannerMap({
     points.push([tripDestination.lat, tripDestination.lng]);
 
     return points;
-  }, [tripOrigin, tripDestination, loadMarkers]);
+  }, [tripOrigin, tripDestination, loadMarkers, orderedAssignedLoads]);
 
   // Calculate route segments with labels and distances
   const routeSegments = useMemo(() => {
     if (!tripOrigin || !tripDestination) return [];
 
     const segments: { from: string; to: string; distance: number }[] = [];
-    const assignedMarkers = loadMarkers.filter(m => !m.isMarketplace);
 
-    // Build list of stops with names
-    const stops: { name: string; coords: { lat: number; lng: number } }[] = [
-      { name: `${originCity}, ${originState}`, coords: tripOrigin },
+    // Get assigned markers in the user's ordered sequence
+    const assignedMarkersByLoadId = new Map(
+      loadMarkers.filter(m => !m.isMarketplace).map(m => [m.load.id, m])
+    );
+    const orderedMarkers = orderedAssignedLoads
+      .map(load => assignedMarkersByLoadId.get(load.id))
+      .filter((m): m is LoadMarker => m !== undefined);
+
+    // Build list of stops with proper logistics order
+    const stops: { name: string; coords: { lat: number; lng: number }; type: 'origin' | 'pickup' | 'delivery' | 'destination' }[] = [
+      { name: `${originCity}, ${originState}`, coords: tripOrigin, type: 'origin' },
     ];
 
-    for (const marker of assignedMarkers) {
+    // Collect unique pickup locations
+    const pickupLocations = new Map<string, { coords: GeoCoordinates; name: string }>();
+    for (const marker of orderedMarkers) {
       if (marker.originCoords) {
-        stops.push({
-          name: `Pickup: ${marker.load.originCity}, ${marker.load.originState}`,
-          coords: marker.originCoords,
-        });
+        const key = `${marker.originCoords.lat.toFixed(3)},${marker.originCoords.lng.toFixed(3)}`;
+        if (!pickupLocations.has(key)) {
+          pickupLocations.set(key, {
+            coords: marker.originCoords,
+            name: `${marker.load.originCity}, ${marker.load.originState}`,
+          });
+        }
       }
+    }
+
+    // Add unique pickup locations
+    for (const pickup of pickupLocations.values()) {
+      stops.push({
+        name: `Pickup: ${pickup.name}`,
+        coords: pickup.coords,
+        type: 'pickup',
+      });
+    }
+
+    // Add deliveries in user's sequence order
+    for (const marker of orderedMarkers) {
       if (marker.destinationCoords) {
         stops.push({
           name: `Delivery: ${marker.load.destinationCity}, ${marker.load.destinationState}`,
           coords: marker.destinationCoords,
+          type: 'delivery',
         });
       }
     }
 
-    stops.push({ name: `${destinationCity}, ${destinationState}`, coords: tripDestination });
+    stops.push({ name: `${destinationCity}, ${destinationState}`, coords: tripDestination, type: 'destination' });
 
     // Calculate distance between each stop
     for (let i = 0; i < stops.length - 1; i++) {
@@ -465,7 +515,7 @@ export function TripPlannerMap({
     }
 
     return segments;
-  }, [tripOrigin, tripDestination, loadMarkers, originCity, originState, destinationCity, destinationState]);
+  }, [tripOrigin, tripDestination, loadMarkers, orderedAssignedLoads, originCity, originState, destinationCity, destinationState]);
 
   // Calculate route distance - sum of all segments
   const routeDistance = useMemo(() => {
