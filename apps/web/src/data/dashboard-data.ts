@@ -23,17 +23,24 @@ export interface DashboardMetrics {
   collectedChangePercent: number | null;
 }
 
+export type UrgencyLevel = 'today' | 'tomorrow' | 'this_week' | 'later';
+
 export interface UnassignedJob {
   id: string;
   loadNumber: string | null;
   companyName: string | null;
   companyId: string | null;
   origin: string;
+  originZip: string | null;
   destination: string;
+  destinationZip: string | null;
   pickupDate: string | null;
+  pickupWindow: string | null;
   cubicFeet: number | null;
   rate: number | null;
   payout: number | null;
+  urgency: UrgencyLevel;
+  urgencyLabel: string;
 }
 
 export interface ReceivableCompany {
@@ -234,6 +241,44 @@ export async function getDashboardMetrics(userId: string): Promise<DashboardMetr
 }
 
 /**
+ * Calculate urgency level and label based on pickup date
+ */
+function calculateUrgency(pickupDate: string | null): { urgency: UrgencyLevel; urgencyLabel: string } {
+  if (!pickupDate) {
+    return { urgency: 'later', urgencyLabel: 'No date' };
+  }
+
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const pickup = new Date(pickupDate);
+  pickup.setHours(0, 0, 0, 0);
+
+  const diffDays = Math.ceil((pickup.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays <= 0) {
+    return { urgency: 'today', urgencyLabel: 'Today' };
+  } else if (diffDays === 1) {
+    return { urgency: 'tomorrow', urgencyLabel: 'Tomorrow' };
+  } else if (diffDays <= 7) {
+    return { urgency: 'this_week', urgencyLabel: pickup.toLocaleDateString('en-US', { weekday: 'short' }) };
+  } else {
+    return { urgency: 'later', urgencyLabel: pickup.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) };
+  }
+}
+
+/**
+ * Format location as "City, ST ZIP" - clean format for logistics
+ */
+function formatLocation(city: string | null, state: string | null, zip: string | null): string {
+  const parts = [city, state].filter(Boolean);
+  const location = parts.join(', ') || 'TBD';
+  if (zip) {
+    return `${location} ${zip}`;
+  }
+  return location;
+}
+
+/**
  * Get jobs needing driver assignment
  */
 export async function getUnassignedJobs(userId: string, limit = 10): Promise<UnassignedJob[]> {
@@ -247,9 +292,13 @@ export async function getUnassignedJobs(userId: string, limit = 10): Promise<Una
       job_number,
       pickup_city,
       pickup_state,
+      pickup_zip,
       delivery_city,
       delivery_state,
+      delivery_zip,
       pickup_date,
+      pickup_time_start,
+      pickup_time_end,
       cubic_feet,
       total_rate,
       linehaul_amount,
@@ -259,7 +308,7 @@ export async function getUnassignedJobs(userId: string, limit = 10): Promise<Una
     .eq('owner_id', userId)
     .is('assigned_driver_id', null)
     .in('load_status', ['pending', 'available', 'booked'])
-    .order('pickup_date', { ascending: true })
+    .order('pickup_date', { ascending: true, nullsFirst: false })
     .limit(limit);
 
   if (error) {
@@ -267,18 +316,42 @@ export async function getUnassignedJobs(userId: string, limit = 10): Promise<Una
     return [];
   }
 
-  return (data || []).map((load: any) => ({
-    id: load.id,
-    loadNumber: load.load_number || load.job_number,
-    companyName: load.company?.name || null,
-    companyId: load.company_id,
-    origin: [load.pickup_city, load.pickup_state].filter(Boolean).join(', ') || 'TBD',
-    destination: [load.delivery_city, load.delivery_state].filter(Boolean).join(', ') || 'TBD',
-    pickupDate: load.pickup_date,
-    cubicFeet: load.cubic_feet ? Number(load.cubic_feet) : null,
-    rate: load.linehaul_amount ? Number(load.linehaul_amount) : null,
-    payout: load.total_rate ? Number(load.total_rate) : (load.linehaul_amount ? Number(load.linehaul_amount) : null),
-  }));
+  return (data || []).map((load: any) => {
+    const { urgency, urgencyLabel } = calculateUrgency(load.pickup_date);
+
+    // Format pickup window (e.g., "8AM-12PM")
+    let pickupWindow: string | null = null;
+    if (load.pickup_time_start || load.pickup_time_end) {
+      const formatTime = (t: string) => {
+        const [h] = t.split(':');
+        const hour = parseInt(h, 10);
+        return hour >= 12 ? `${hour === 12 ? 12 : hour - 12}PM` : `${hour || 12}AM`;
+      };
+      if (load.pickup_time_start && load.pickup_time_end) {
+        pickupWindow = `${formatTime(load.pickup_time_start)}-${formatTime(load.pickup_time_end)}`;
+      } else if (load.pickup_time_start) {
+        pickupWindow = `From ${formatTime(load.pickup_time_start)}`;
+      }
+    }
+
+    return {
+      id: load.id,
+      loadNumber: load.load_number || load.job_number,
+      companyName: load.company?.name || null,
+      companyId: load.company_id,
+      origin: formatLocation(load.pickup_city, load.pickup_state, load.pickup_zip),
+      originZip: load.pickup_zip || null,
+      destination: formatLocation(load.delivery_city, load.delivery_state, load.delivery_zip),
+      destinationZip: load.delivery_zip || null,
+      pickupDate: load.pickup_date,
+      pickupWindow,
+      cubicFeet: load.cubic_feet ? Number(load.cubic_feet) : null,
+      rate: load.linehaul_amount ? Number(load.linehaul_amount) : null,
+      payout: load.total_rate ? Number(load.total_rate) : (load.linehaul_amount ? Number(load.linehaul_amount) : null),
+      urgency,
+      urgencyLabel,
+    };
+  });
 }
 
 /**
