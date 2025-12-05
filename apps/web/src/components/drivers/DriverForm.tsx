@@ -1143,6 +1143,57 @@ export function DriverForm({
                 </div>
               </CardContent>
             </Card>
+
+            {/* Location & Matching Settings */}
+            <Card className="border-indigo-200/60 bg-indigo-50/60 shadow-sm dark:bg-indigo-950/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Location & Load Matching</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Control GPS sharing and visibility for smart load matching suggestions.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between rounded-lg border border-indigo-200/70 bg-white/40 px-3 py-2 dark:bg-transparent">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Share GPS Location</p>
+                    <p className="text-xs text-muted-foreground">Allow location tracking for load suggestions</p>
+                  </div>
+                  <Checkbox
+                    id="location_sharing_enabled"
+                    name="location_sharing_enabled"
+                    defaultChecked={(initialData as any)?.location_sharing_enabled || false}
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border border-indigo-200/70 bg-white/40 px-3 py-2 dark:bg-transparent">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Auto-Post Capacity</p>
+                    <p className="text-xs text-muted-foreground">Automatically share remaining trailer capacity</p>
+                  </div>
+                  <Checkbox
+                    id="auto_post_capacity"
+                    name="auto_post_capacity"
+                    defaultChecked={(initialData as any)?.auto_post_capacity || false}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="capacity_visibility" className="text-sm">Capacity Visibility</Label>
+                  <SelectWithHiddenInput
+                    name="capacity_visibility"
+                    defaultValue={(initialData as any)?.capacity_visibility || 'private'}
+                  >
+                    <SelectTrigger id="capacity_visibility" className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="private">Private (only you see suggestions)</SelectItem>
+                      <SelectItem value="partners_only">Partners only</SelectItem>
+                      <SelectItem value="public">Public (visible on marketplace)</SelectItem>
+                    </SelectContent>
+                  </SelectWithHiddenInput>
+                  <p className="text-xs text-muted-foreground">Who can see this driver&apos;s available capacity</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         );
       case 4:

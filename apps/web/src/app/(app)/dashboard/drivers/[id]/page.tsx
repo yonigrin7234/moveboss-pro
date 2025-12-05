@@ -112,10 +112,14 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
       'notes',
       'login_method',
       'reset_portal_password',
+      // Location & matching settings
+      'location_sharing_enabled',
+      'auto_post_capacity',
+      'capacity_visibility',
     ];
 
     const rawData = extractFormValues(formData, fields, {
-      booleanFields: ['has_login'],
+      booleanFields: ['has_login', 'location_sharing_enabled', 'auto_post_capacity'],
     });
     const cleanedData = cleanFormValues(rawData);
     if (cleanedData.login_method === 'sms') cleanedData.login_method = 'phone';
@@ -265,6 +269,10 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
     pay_notes: driver.pay_notes ?? undefined,
     notes: driver.notes ?? undefined,
     auth_user_id: driver.auth_user_id ?? undefined,
+    // Location & matching settings
+    location_sharing_enabled: (driver as any).location_sharing_enabled ?? false,
+    auto_post_capacity: (driver as any).auto_post_capacity ?? false,
+    capacity_visibility: (driver as any).capacity_visibility ?? 'private',
   };
 
   const statusColors: Record<string, string> = {

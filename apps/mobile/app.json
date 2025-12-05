@@ -18,8 +18,13 @@
       "bundleIdentifier": "com.moveboss.driver",
       "infoPlist": {
         "UIBackgroundModes": [
-          "remote-notification"
+          "remote-notification",
+          "location",
+          "fetch"
         ],
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "MoveBoss needs your location to find matching loads near your deliveries and help your dispatcher optimize routes.",
+        "NSLocationAlwaysUsageDescription": "MoveBoss needs background location access to track your route and find matching loads even when the app is closed.",
+        "NSLocationWhenInUseUsageDescription": "MoveBoss needs your location to show nearby loads and help with navigation.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -31,7 +36,14 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.moveboss.driver",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ]
     },
     "plugins": [
       [
@@ -40,6 +52,16 @@
           "icon": "./assets/notification-icon.png",
           "color": "#0066CC",
           "sounds": []
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "MoveBoss needs your location to find matching loads near your deliveries.",
+          "locationAlwaysPermission": "MoveBoss needs background location access to track your route and find matching loads.",
+          "locationWhenInUsePermission": "MoveBoss needs your location to show nearby loads.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       "expo-font"

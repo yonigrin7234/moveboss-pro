@@ -51,6 +51,7 @@ import type { TripStatus, TripWithDetails, TripLoad, TripExpense } from '@/data/
 import type { Load } from '@/data/loads';
 import { TripMapTab } from '@/components/trips/TripMapTab';
 import { useToast } from '@/hooks/use-toast';
+import { LoadSuggestionsPanel } from '@/components/trip/LoadSuggestionsPanel';
 
 interface DriverOption {
   id: string;
@@ -956,6 +957,19 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, loadT
                   </form>
                 </CardContent>
               </Card>
+
+              {/* Smart Load Suggestions */}
+              <LoadSuggestionsPanel
+                tripId={trip.id}
+                onClaimLoad={async (loadId) => {
+                  // Add the claimed load to this trip
+                  const formData = new FormData();
+                  formData.append('load_id', loadId);
+                  formData.append('role', 'backhaul');
+                  formData.append('sequence_index', String(orderedLoads.length));
+                  await actions.addTripLoad(formData);
+                }}
+              />
             </div>
           </div>
         </TabsContent>
