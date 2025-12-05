@@ -1,52 +1,55 @@
-import Link from 'next/link';
-import { TrendingUp, TrendingDown, Truck, AlertTriangle, Package, DollarSign } from 'lucide-react';
-import type { DashboardMode } from '@/lib/dashboardMode';
+'use client';
 
-interface KeyMetricsData {
-  activeTrips: number;
-  needDrivers: number;
-  availableCF: number;
-  outstandingReceivables: string;
-}
+import Link from 'next/link';
+import { TrendingUp, TrendingDown, Truck, AlertTriangle, Users, DollarSign, FileText, AlertCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import type { DashboardMetrics } from '@/data/dashboard-data';
 
 interface KeyMetricsProps {
-  mode: DashboardMode;
-  data: KeyMetricsData;
+  metrics: DashboardMetrics;
 }
 
-export function KeyMetrics({ data }: KeyMetricsProps) {
+function formatCurrency(amount: number): string {
+  if (amount >= 1000000) {
+    return `$${(amount / 1000000).toFixed(1)}M`;
+  }
+  if (amount >= 1000) {
+    return `$${(amount / 1000).toFixed(1)}k`;
+  }
+  return `$${amount.toLocaleString()}`;
+}
+
+export function KeyMetrics({ metrics }: KeyMetricsProps) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <MetricCard
         icon={Truck}
-        number={data.activeTrips}
+        number={metrics.activeTrips}
         label="Active Trips"
         href="/dashboard/trips?status=active"
-        trend={data.activeTrips > 0 ? 'up' : undefined}
-        accent="emerald"
+        accent={metrics.activeTrips > 0 ? 'emerald' : 'neutral'}
       />
       <MetricCard
-        icon={AlertTriangle}
-        number={data.needDrivers}
-        label="Need Drivers"
-        href="/dashboard/assigned-loads?filter=unassigned"
-        accent={data.needDrivers > 3 ? 'red' : data.needDrivers > 0 ? 'amber' : 'gray'}
-        urgent={data.needDrivers > 3}
+        icon={Users}
+        number={`${metrics.driversOnRoad}/${metrics.totalDrivers}`}
+        label="Drivers on Road"
+        href="/dashboard/drivers"
+        accent={metrics.driversOnRoad > 0 ? 'blue' : 'neutral'}
       />
       <MetricCard
-        icon={Package}
-        number={data.availableCF.toLocaleString()}
-        label="Available CF"
-        href="/dashboard/drivers?status=available"
-        accent="gray"
-        suffix="cf"
+        icon={FileText}
+        number={metrics.pendingSettlements}
+        label="Pending Settlements"
+        href="/dashboard/settlements"
+        accent={metrics.pendingSettlements > 0 ? 'amber' : 'neutral'}
       />
       <MetricCard
-        icon={DollarSign}
-        number={data.outstandingReceivables}
-        label="Receivables"
-        href="/dashboard/finance/receivables"
-        accent="gray"
+        icon={AlertCircle}
+        number={metrics.overdueInvoices}
+        label="Overdue Invoices"
+        href="/dashboard/finance/receivables?filter=overdue"
+        accent={metrics.overdueInvoices > 0 ? 'red' : 'emerald'}
+        urgent={metrics.overdueInvoices > 3}
       />
     </div>
   );
@@ -57,51 +60,69 @@ interface MetricCardProps {
   number: number | string;
   label: string;
   href: string;
-  accent: 'emerald' | 'amber' | 'red' | 'gray';
+  accent: 'emerald' | 'amber' | 'red' | 'blue' | 'neutral';
   trend?: 'up' | 'down';
   urgent?: boolean;
-  suffix?: string;
 }
 
-function MetricCard({ icon: Icon, number, label, href, accent, trend, urgent, suffix }: MetricCardProps) {
-  const accentColors = {
-    emerald: 'border-l-emerald-500',
-    amber: 'border-l-amber-500',
-    red: 'border-l-red-500',
-    gray: 'border-l-gray-300',
+function MetricCard({ icon: Icon, number, label, href, accent, trend, urgent }: MetricCardProps) {
+  const accentConfig = {
+    emerald: {
+      border: 'border-l-emerald-500',
+      icon: 'text-emerald-600 dark:text-emerald-400',
+      iconBg: 'bg-emerald-500/10',
+    },
+    amber: {
+      border: 'border-l-amber-500',
+      icon: 'text-amber-600 dark:text-amber-400',
+      iconBg: 'bg-amber-500/10',
+    },
+    red: {
+      border: 'border-l-red-500',
+      icon: 'text-red-600 dark:text-red-400',
+      iconBg: 'bg-red-500/10',
+    },
+    blue: {
+      border: 'border-l-blue-500',
+      icon: 'text-blue-600 dark:text-blue-400',
+      iconBg: 'bg-blue-500/10',
+    },
+    neutral: {
+      border: 'border-l-border',
+      icon: 'text-muted-foreground',
+      iconBg: 'bg-muted',
+    },
   };
 
-  const iconColors = {
-    emerald: 'text-emerald-600',
-    amber: 'text-amber-600',
-    red: 'text-red-600',
-    gray: 'text-gray-400',
-  };
+  const config = accentConfig[accent];
 
   return (
     <Link
       href={href}
-      className={`
-        group relative bg-white rounded-lg border border-gray-200/80 border-l-[3px] ${accentColors[accent]}
-        p-4 hover:shadow-md hover:border-gray-300/80 transition-all duration-200
-        ${urgent ? 'ring-1 ring-red-100' : ''}
-      `}
+      className={cn(
+        "group relative rounded-lg border bg-card border-l-[3px] p-4 transition-all duration-200",
+        "hover:bg-accent/50 hover:shadow-sm hover:border-foreground/10",
+        config.border,
+        urgent && "ring-1 ring-red-500/20"
+      )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <p className="text-2xl font-semibold text-gray-900 tabular-nums tracking-tight">
+          <p className="text-2xl font-semibold text-foreground tabular-nums tracking-tight">
             {number}
-            {suffix && <span className="text-sm font-normal text-gray-400 ml-1 uppercase">{suffix}</span>}
           </p>
-          <p className="text-xs font-medium text-gray-500 mt-1 truncate">{label}</p>
+          <p className="text-xs font-medium text-muted-foreground mt-1 truncate">{label}</p>
         </div>
-        <div className={`flex-shrink-0 p-1.5 rounded-md bg-gray-50 ${iconColors[accent]}`}>
+        <div className={cn("flex-shrink-0 p-1.5 rounded-md", config.iconBg, config.icon)}>
           <Icon className="h-4 w-4" />
         </div>
       </div>
 
       {trend && (
-        <div className={`absolute top-2 right-2 ${trend === 'up' ? 'text-emerald-500' : 'text-red-500'}`}>
+        <div className={cn(
+          "absolute top-2 right-2",
+          trend === 'up' ? 'text-emerald-500' : 'text-red-500'
+        )}>
           {trend === 'up' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
         </div>
       )}

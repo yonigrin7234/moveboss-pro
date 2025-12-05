@@ -580,3 +580,114 @@ function formatRelativeTime(date: Date): string {
   if (diffHours < 24) return `${diffHours}h ago`;
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
+
+export interface ScheduleEvent {
+  id: string;
+  time: string;
+  type: 'pickup' | 'delivery';
+  location: string;
+  driver: string;
+  loadId: string;
+}
+
+/**
+ * Get today's scheduled pickups and deliveries
+ */
+export async function getTodaysSchedule(userId: string, limit = 10): Promise<ScheduleEvent[]> {
+  const supabase = await createClient();
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayIso = today.toISOString().split('T')[0];
+
+  // Get loads with today's pickup or delivery date
+  const { data, error } = await supabase
+    .from('loads')
+    .select(`
+      id,
+      pickup_date,
+      pickup_time_start,
+      delivery_date,
+      delivery_time_start,
+      pickup_city,
+      pickup_state,
+      delivery_city,
+      delivery_state,
+      assigned_driver_id,
+      driver:drivers!loads_assigned_driver_id_fkey(first_name, last_name)
+    `)
+    .eq('owner_id', userId)
+    .not('assigned_driver_id', 'is', null)
+    .or(`pickup_date.eq.${todayIso},delivery_date.eq.${todayIso}`)
+    .order('pickup_time_start', { ascending: true, nullsFirst: false })
+    .limit(limit * 2); // Get extra since we'll filter/split
+
+  if (error) {
+    console.error('[getTodaysSchedule] Error:', error.message);
+    return [];
+  }
+
+  const events: ScheduleEvent[] = [];
+
+  for (const load of data || []) {
+    const driverName = load.driver
+      ? `${(load.driver as any).first_name} ${(load.driver as any).last_name}`
+      : 'Unassigned';
+
+    // Add pickup if today
+    if (load.pickup_date === todayIso) {
+      const pickupTime = load.pickup_time_start
+        ? formatTimeShort(load.pickup_time_start)
+        : 'TBD';
+      const pickupLocation = [load.pickup_city, load.pickup_state]
+        .filter(Boolean)
+        .join(', ') || 'TBD';
+
+      events.push({
+        id: `${load.id}-pickup`,
+        time: pickupTime,
+        type: 'pickup',
+        location: pickupLocation,
+        driver: driverName,
+        loadId: load.id,
+      });
+    }
+
+    // Add delivery if today
+    if (load.delivery_date === todayIso) {
+      const deliveryTime = load.delivery_time_start
+        ? formatTimeShort(load.delivery_time_start)
+        : 'TBD';
+      const deliveryLocation = [load.delivery_city, load.delivery_state]
+        .filter(Boolean)
+        .join(', ') || 'TBD';
+
+      events.push({
+        id: `${load.id}-delivery`,
+        time: deliveryTime,
+        type: 'delivery',
+        location: deliveryLocation,
+        driver: driverName,
+        loadId: load.id,
+      });
+    }
+  }
+
+  // Sort by time and limit
+  return events
+    .sort((a, b) => {
+      if (a.time === 'TBD') return 1;
+      if (b.time === 'TBD') return -1;
+      return a.time.localeCompare(b.time);
+    })
+    .slice(0, limit);
+}
+
+function formatTimeShort(time: string): string {
+  const [h, m] = time.split(':');
+  const hour = parseInt(h, 10);
+  const minute = m || '00';
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+  return minute === '00' ? `${hour12}${ampm}` : `${hour12}:${minute}${ampm}`;
+}

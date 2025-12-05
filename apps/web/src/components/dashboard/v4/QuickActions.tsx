@@ -1,37 +1,76 @@
-import Link from 'next/link';
-import { Search, UserPlus, Plus } from 'lucide-react';
-import type { DashboardMode } from '@/lib/dashboardMode';
+'use client';
 
-interface QuickActionsProps {
-  mode: DashboardMode;
+import Link from 'next/link';
+import { Search, UserPlus, Plus, DollarSign, FileText, Truck } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface QuickAction {
+  label: string;
+  href: string;
+  icon: React.ReactNode;
+  primary?: boolean;
+  highlight?: boolean;
 }
 
-export function QuickActions({ mode }: QuickActionsProps) {
+interface QuickActionsProps {
+  needsDriverAssignment?: number;
+}
+
+export function QuickActions({ needsDriverAssignment = 0 }: QuickActionsProps) {
+  const actions: QuickAction[] = [
+    {
+      label: 'Find Load',
+      href: '/dashboard/marketplace',
+      icon: <Search className="h-4 w-4" />,
+      primary: true,
+    },
+    {
+      label: needsDriverAssignment > 0 ? `Assign (${needsDriverAssignment})` : 'Assign Driver',
+      href: '/dashboard/assigned-loads?filter=unassigned',
+      icon: <UserPlus className="h-4 w-4" />,
+      highlight: needsDriverAssignment > 0,
+    },
+    {
+      label: 'Post Load',
+      href: '/dashboard/posted-jobs/new',
+      icon: <Plus className="h-4 w-4" />,
+    },
+    {
+      label: 'New Trip',
+      href: '/dashboard/trips/new',
+      icon: <Truck className="h-4 w-4" />,
+    },
+    {
+      label: 'Record Payment',
+      href: '/dashboard/finance/payments/new',
+      icon: <DollarSign className="h-4 w-4" />,
+    },
+    {
+      label: 'Settle Driver',
+      href: '/dashboard/settlements/new',
+      icon: <FileText className="h-4 w-4" />,
+    },
+  ];
+
   return (
-    <div className="flex items-center justify-center gap-2">
-      <Link
-        href="/dashboard/marketplace"
-        className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 transition-colors"
-      >
-        <Search className="h-3.5 w-3.5" />
-        <span>Find Load</span>
-      </Link>
-      <Link
-        href="/dashboard/assigned-loads?action=assign"
-        className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md text-sm font-medium bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors"
-      >
-        <UserPlus className="h-3.5 w-3.5" />
-        <span>Assign Driver</span>
-      </Link>
-      {(mode === 'broker' || mode === 'hybrid') && (
+    <div className="flex flex-wrap items-center justify-center gap-2">
+      {actions.map((action) => (
         <Link
-          href="/dashboard/posted-jobs/new"
-          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md text-sm font-medium bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+          key={action.href}
+          href={action.href}
+          className={cn(
+            "inline-flex items-center gap-2 h-9 px-4 rounded-lg text-sm font-medium transition-all duration-150",
+            action.primary
+              ? "bg-foreground text-background hover:bg-foreground/90"
+              : action.highlight
+              ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/20"
+              : "bg-card text-foreground border border-border hover:bg-accent hover:border-foreground/10"
+          )}
         >
-          <Plus className="h-3.5 w-3.5" />
-          <span>Post Load</span>
+          {action.icon}
+          <span>{action.label}</span>
         </Link>
-      )}
+      ))}
     </div>
   );
 }

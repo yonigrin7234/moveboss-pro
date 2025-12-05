@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase-server';
-import { DollarSign, Banknote, AlertTriangle, Truck, Users, FileText, AlertCircle } from 'lucide-react';
+import { DollarSign, Banknote, AlertTriangle } from 'lucide-react';
 
 // Data queries - ALL REAL SUPABASE DATA
 import {
@@ -9,17 +9,19 @@ import {
   getReceivablesByCompany,
   getTodaysCollections,
   getLiveDriverStatuses,
-  getRecentDashboardActivity,
+  getTodaysSchedule,
 } from '@/data/dashboard-data';
 
-// Components with proper theming
+// V4 Components with proper theming
+import { CriticalBlock } from '@/components/dashboard/v4/CriticalBlock';
+import { QuickActions } from '@/components/dashboard/v4/QuickActions';
+import { DriversNow } from '@/components/dashboard/v4/DriversNow';
 import { PrimaryMetricCard } from '@/components/dashboard/v4/PrimaryMetricCard';
-import { SecondaryMetricCard } from '@/components/dashboard/v4/SecondaryMetricCard';
-import { JobsNeedingAssignment } from '@/components/dashboard/v4/JobsNeedingAssignment';
+import { KeyMetrics } from '@/components/dashboard/v4/KeyMetrics';
+import { LoadsAwaitingDispatch } from '@/components/dashboard/v4/LoadsAwaitingDispatch';
 import { WhoOwesYouMoney } from '@/components/dashboard/v4/WhoOwesYouMoney';
+import { TodaysSchedule } from '@/components/dashboard/v4/TodaysSchedule';
 import { DriverCollectionsToday } from '@/components/dashboard/v4/DriverCollectionsToday';
-import { LiveDriverStatusList } from '@/components/dashboard/v4/LiveDriverStatusList';
-import { RecentActivityFeed } from '@/components/dashboard/v4/RecentActivityFeed';
 import { DashboardActionBar } from '@/components/dashboard/v4/DashboardActionBar';
 
 export const dynamic = 'force-dynamic';
@@ -49,24 +51,38 @@ export default async function DashboardPage() {
     receivables,
     collections,
     driverStatuses,
-    recentActivity,
+    todaysSchedule,
   ] = await Promise.all([
     getDashboardMetrics(user.id),
     getUnassignedJobs(user.id, 6),
     getReceivablesByCompany(user.id, 5),
     getTodaysCollections(user.id, 5),
-    getLiveDriverStatuses(user.id, 6),
-    getRecentDashboardActivity(user.id, 8),
+    getLiveDriverStatuses(user.id, 10),
+    getTodaysSchedule(user.id, 8),
   ]);
 
-  const hasUrgentJobs = metrics.jobsNeedingAssignment > 0;
+  // Calculate urgency - single source of truth
   const urgentJobsCount = unassignedJobs.filter(j => j.urgency === 'today' || j.urgency === 'tomorrow').length;
+  const hasCriticalAlert = urgentJobsCount > 0 || metrics.overdueInvoices > 3;
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
+      {/* CRITICAL ALERT BAR - Only show when something needs immediate attention */}
+      {hasCriticalAlert && (
+        <CriticalBlock
+          message={
+            urgentJobsCount > 0
+              ? `${urgentJobsCount} load${urgentJobsCount > 1 ? 's' : ''} need drivers today/tomorrow`
+              : `${metrics.overdueInvoices} overdue invoices need attention`
+          }
+          href={urgentJobsCount > 0 ? '/dashboard/assigned-loads?filter=unassigned' : '/dashboard/finance/receivables?filter=overdue'}
+          actionText={urgentJobsCount > 0 ? 'Assign Now' : 'View Overdue'}
+        />
+      )}
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-        {/* Compact header */}
-        <div className="flex items-center justify-between mb-6">
+        {/* HEADER + QUICK ACTIONS */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
             <h1 className="text-xl font-semibold text-foreground">Command Center</h1>
             <p className="text-xs text-muted-foreground">
@@ -77,17 +93,16 @@ export default async function DashboardPage() {
               })}
             </p>
           </div>
-          {urgentJobsCount > 0 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-              </span>
-              <span className="text-xs font-semibold text-red-600 dark:text-red-400">
-                {urgentJobsCount} urgent
-              </span>
-            </div>
-          )}
+          <QuickActions needsDriverAssignment={metrics.jobsNeedingAssignment} />
+        </div>
+
+        {/* DRIVERS NOW - Hero section showing driver fleet status */}
+        <div className="mb-6">
+          <DriversNow
+            drivers={driverStatuses}
+            driversOnRoad={metrics.driversOnRoad}
+            totalDrivers={metrics.totalDrivers}
+          />
         </div>
 
         {/* PRIMARY METRICS - The 3 most important numbers */}
@@ -115,60 +130,43 @@ export default async function DashboardPage() {
             title="Awaiting Dispatch"
             value={metrics.jobsNeedingAssignment.toString()}
             subtitle={formatCurrency(metrics.jobsNeedingAssignmentValue) + ' value'}
-            accent={hasUrgentJobs ? 'amber' : 'emerald'}
+            accent={metrics.jobsNeedingAssignment > 0 ? (urgentJobsCount > 0 ? 'amber' : 'blue') : 'emerald'}
             pulse={urgentJobsCount > 0}
             icon={<AlertTriangle className="h-5 w-5" />}
+            href="/dashboard/assigned-loads?filter=unassigned"
           />
         </div>
 
-        {/* SECONDARY METRICS - Supporting numbers */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-6">
-          <SecondaryMetricCard
-            title="Active Trips"
-            value={metrics.activeTrips}
-            icon={<Truck className="h-4 w-4" />}
-            href="/dashboard/trips?status=active"
-          />
-
-          <SecondaryMetricCard
-            title="Drivers on Road"
-            value={`${metrics.driversOnRoad}/${metrics.totalDrivers}`}
-            icon={<Users className="h-4 w-4" />}
-            href="/dashboard/drivers"
-          />
-
-          <SecondaryMetricCard
-            title="Pending Settlements"
-            value={metrics.pendingSettlements}
-            icon={<FileText className="h-4 w-4" />}
-            href="/dashboard/settlements"
-          />
-
-          <SecondaryMetricCard
-            title="Overdue"
-            value={metrics.overdueInvoices}
-            icon={<AlertCircle className="h-4 w-4" />}
-            href="/dashboard/finance/receivables?filter=overdue"
-            highlight={metrics.overdueInvoices > 0}
-          />
+        {/* KEY METRICS - Secondary operational numbers */}
+        <div className="mb-6">
+          <KeyMetrics metrics={metrics} />
         </div>
 
         {/* MAIN CONTENT - Two column layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* LEFT COLUMN - 2/3 width - Operational focus */}
           <div className="lg:col-span-2 space-y-5">
-            <JobsNeedingAssignment jobs={unassignedJobs} />
+            {/* LOADS AWAITING DISPATCH - Single source of truth, replaces JobsNeedingAssignment */}
+            <LoadsAwaitingDispatch
+              loads={unassignedJobs}
+              totalCount={metrics.jobsNeedingAssignment}
+              totalValue={metrics.jobsNeedingAssignmentValue}
+            />
+
+            {/* WHO OWES YOU MONEY */}
             <WhoOwesYouMoney companies={receivables} />
           </div>
 
-          {/* RIGHT COLUMN - 1/3 width - Status & activity */}
+          {/* RIGHT COLUMN - 1/3 width - Schedule & Collections */}
           <div className="space-y-5">
+            {/* TODAY'S SCHEDULE - Pickups & Deliveries */}
+            <TodaysSchedule events={todaysSchedule} />
+
+            {/* TODAY'S COLLECTIONS */}
             <DriverCollectionsToday
               collections={collections}
               total={metrics.collectedToday}
             />
-            <LiveDriverStatusList drivers={driverStatuses} />
-            <RecentActivityFeed activities={recentActivity} />
           </div>
         </div>
       </div>
