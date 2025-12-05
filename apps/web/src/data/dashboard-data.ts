@@ -494,13 +494,10 @@ export async function getTodaysCollections(userId: string, limit = 10): Promise<
 export async function getLiveDriverStatuses(userId: string, limit = 10): Promise<LiveDriverStatus[]> {
   const supabase = await createClient();
 
-  // Get all active drivers with their assigned truck
+  // Get all active drivers
   const { data: drivers, error: driversError } = await supabase
     .from('drivers')
-    .select(`
-      id, first_name, last_name, phone, status, assigned_truck_id,
-      truck:trucks!drivers_assigned_truck_id_fkey(cubic_capacity)
-    `)
+    .select('id, first_name, last_name, phone, status, assigned_truck_id')
     .eq('owner_id', userId)
     .eq('status', 'active')
     .order('first_name', { ascending: true })
@@ -509,6 +506,26 @@ export async function getLiveDriverStatuses(userId: string, limit = 10): Promise
   if (driversError) {
     console.error('[getLiveDriverStatuses] Error:', driversError.message);
     return [];
+  }
+
+  // Get truck IDs that are assigned to drivers
+  const truckIds = (drivers || [])
+    .map(d => d.assigned_truck_id)
+    .filter(Boolean) as string[];
+
+  // Fetch trucks with capacity
+  const truckCapacityMap = new Map<string, number>();
+  if (truckIds.length > 0) {
+    const { data: trucks } = await supabase
+      .from('trucks')
+      .select('id, cubic_capacity')
+      .in('id', truckIds);
+
+    for (const truck of trucks || []) {
+      if (truck.cubic_capacity) {
+        truckCapacityMap.set(truck.id, truck.cubic_capacity);
+      }
+    }
   }
 
   // Get active trips with delivery info to determine who's on the road
@@ -537,8 +554,10 @@ export async function getLiveDriverStatuses(userId: string, limit = 10): Promise
     let availableDate: string | null = null;
     let availableLocation: string | null = null;
 
-    // Get truck capacity
-    const truckCapacity = driver.truck?.cubic_capacity || null;
+    // Get truck capacity from the map
+    const truckCapacity = driver.assigned_truck_id
+      ? truckCapacityMap.get(driver.assigned_truck_id) || null
+      : null;
 
     if (trip) {
       status = trip.status === 'en_route' ? 'in_transit' : 'delivering';
