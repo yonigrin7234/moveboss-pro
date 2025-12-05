@@ -30,13 +30,10 @@ CREATE TABLE IF NOT EXISTS load_photos (
 
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 CREATE INDEX IF NOT EXISTS idx_load_photos_load ON load_photos(load_id);
 CREATE INDEX IF NOT EXISTS idx_load_photos_type ON load_photos(load_id, photo_type);
-
 -- RLS
 ALTER TABLE load_photos ENABLE ROW LEVEL SECURITY;
-
 -- Users involved with load can view photos
 DROP POLICY IF EXISTS "Users can view load photos" ON load_photos;
 CREATE POLICY "Users can view load photos"
@@ -51,26 +48,22 @@ CREATE POLICY "Users can view load photos"
       )
     )
   );
-
 -- Users can insert photos for their loads
 DROP POLICY IF EXISTS "Users can insert load photos" ON load_photos;
 CREATE POLICY "Users can insert load photos"
   ON load_photos FOR INSERT
   WITH CHECK (uploaded_by_id = auth.uid());
-
 -- Users can delete their own photos
 DROP POLICY IF EXISTS "Users can delete own photos" ON load_photos;
 CREATE POLICY "Users can delete own photos"
   ON load_photos FOR DELETE
   USING (uploaded_by_id = auth.uid());
-
 -- ============================================
 -- UPDATE LOADS TABLE FOR PHOTO COUNTS
 -- ============================================
 
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS loading_photo_count INTEGER DEFAULT 0;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS delivery_photo_count INTEGER DEFAULT 0;
-
 -- ============================================
 -- FUNCTION TO UPDATE PHOTO COUNTS
 -- ============================================
@@ -107,13 +100,11 @@ BEGIN
   END IF;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 DROP TRIGGER IF EXISTS update_photo_counts_trigger ON load_photos;
 CREATE TRIGGER update_photo_counts_trigger
   AFTER INSERT OR DELETE ON load_photos
   FOR EACH ROW
   EXECUTE FUNCTION update_load_photo_counts();
-
 -- ============================================
 -- COMPANY PHOTO REQUIREMENTS (OPTIONAL)
 -- ============================================

@@ -20,16 +20,12 @@ CREATE TABLE IF NOT EXISTS email_preferences (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 CREATE INDEX IF NOT EXISTS idx_email_prefs_user ON email_preferences(user_id);
-
 -- RLS
 ALTER TABLE email_preferences ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Users can manage own email preferences"
   ON email_preferences FOR ALL
   USING (user_id = auth.uid());
-
 -- Insert default preferences for existing users
 INSERT INTO email_preferences (user_id)
 SELECT id FROM profiles

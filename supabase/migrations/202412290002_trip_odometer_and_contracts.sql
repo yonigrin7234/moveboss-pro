@@ -1,5 +1,4 @@
 BEGIN;
-
 -- Trips: odometer + status expansion
 ALTER TABLE public.trips
   ADD COLUMN IF NOT EXISTS odometer_start numeric(12,2),
@@ -7,16 +6,13 @@ ALTER TABLE public.trips
   ADD COLUMN IF NOT EXISTS odometer_start_photo_url text,
   ADD COLUMN IF NOT EXISTS odometer_end_photo_url text,
   ADD COLUMN IF NOT EXISTS actual_miles numeric(12,2);
-
 -- Update status check to include planned, active, completed, settled, cancelled
 ALTER TABLE public.trips
   DROP CONSTRAINT IF EXISTS trips_status_check;
-
 ALTER TABLE public.trips
   ADD CONSTRAINT trips_status_check CHECK (
     status IN ('planned', 'active', 'en_route', 'completed', 'settled', 'cancelled')
   );
-
 -- Loads: contract and settlement-related fields
 ALTER TABLE public.loads
   ADD COLUMN IF NOT EXISTS actual_cuft_loaded numeric(12,2),
@@ -56,9 +52,7 @@ ALTER TABLE public.loads
   ADD COLUMN IF NOT EXISTS storage_days_billed integer,
   ADD COLUMN IF NOT EXISTS storage_notes text,
   ADD COLUMN IF NOT EXISTS company_approved_exception_delivery boolean DEFAULT false;
-
 COMMIT;
-
 -- Trip expenses enhancements: expense_type, paid_by, receipt_photo_url (required), notes
 BEGIN;
 ALTER TABLE public.trip_expenses
@@ -66,7 +60,6 @@ ALTER TABLE public.trip_expenses
   ADD COLUMN IF NOT EXISTS paid_by text,
   ADD COLUMN IF NOT EXISTS receipt_photo_url text,
   ADD COLUMN IF NOT EXISTS notes text;
-
 ALTER TABLE public.trip_expenses
   ALTER COLUMN receipt_photo_url SET NOT NULL;
 COMMIT;

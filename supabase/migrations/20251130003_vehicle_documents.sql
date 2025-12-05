@@ -10,11 +10,9 @@ ALTER TABLE trucks ADD COLUMN IF NOT EXISTS ifta_expiry DATE;
 ALTER TABLE trucks ADD COLUMN IF NOT EXISTS inspection_photo_url TEXT;
 ALTER TABLE trucks ADD COLUMN IF NOT EXISTS permit_photo_url TEXT;
 ALTER TABLE trucks ADD COLUMN IF NOT EXISTS permit_expiry DATE;
-
 -- TRAILERS: Add document photo URLs
 ALTER TABLE trailers ADD COLUMN IF NOT EXISTS registration_photo_url TEXT;
 ALTER TABLE trailers ADD COLUMN IF NOT EXISTS inspection_photo_url TEXT;
-
 -- Add comments for documentation
 COMMENT ON COLUMN trucks.registration_photo_url IS 'Photo of truck registration document';
 COMMENT ON COLUMN trucks.registration_expiry IS 'Expiration date of registration';
@@ -26,7 +24,6 @@ COMMENT ON COLUMN trucks.inspection_photo_url IS 'Photo of annual inspection sti
 COMMENT ON COLUMN trucks.inspection_expiry IS 'Expiration date of annual inspection';
 COMMENT ON COLUMN trucks.permit_photo_url IS 'Photo of operating authority/MC permit';
 COMMENT ON COLUMN trucks.permit_expiry IS 'Expiration date of operating permit';
-
 COMMENT ON COLUMN trailers.registration_photo_url IS 'Photo of trailer registration document';
 COMMENT ON COLUMN trailers.registration_expiry IS 'Expiration date of registration';
 COMMENT ON COLUMN trailers.inspection_photo_url IS 'Photo of annual inspection sticker';

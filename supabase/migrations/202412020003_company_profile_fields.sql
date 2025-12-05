@@ -1,5 +1,4 @@
 BEGIN;
-
 ALTER TABLE public.companies
   ADD COLUMN IF NOT EXISTS address_line1 TEXT,
   ADD COLUMN IF NOT EXISTS address_line2 TEXT,
@@ -12,5 +11,4 @@ ALTER TABLE public.companies
   ADD COLUMN IF NOT EXISTS notes TEXT,
   ADD COLUMN IF NOT EXISTS dot_number TEXT,
   ADD COLUMN IF NOT EXISTS mc_number TEXT;
-
 COMMIT;

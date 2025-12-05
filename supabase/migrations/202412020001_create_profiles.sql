@@ -1,5 +1,4 @@
 BEGIN;
-
 -- Create profiles table if it does not exist
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
@@ -11,17 +10,14 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 -- Updated at trigger
 DROP TRIGGER IF EXISTS set_profiles_updated_at ON public.profiles;
 CREATE TRIGGER set_profiles_updated_at
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW
   EXECUTE FUNCTION public.set_updated_at();
-
 -- Enable RLS
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-
 -- Policies: allow users to manage their own profile
 DO $$
 BEGIN
@@ -56,5 +52,4 @@ BEGIN
       WITH CHECK (id = auth.uid());
   END IF;
 END $$;
-
 COMMIT;

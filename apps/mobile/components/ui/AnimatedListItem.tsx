@@ -17,9 +17,8 @@ import Animated, {
   withDelay,
   withTiming,
   runOnJS,
-  FadeInUp,
+  FadeIn,
   FadeOutRight,
-  Layout,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
@@ -133,9 +132,8 @@ export function AnimatedListItem({
   return (
     <GestureDetector gesture={composedGesture}>
       <Animated.View
-        entering={FadeInUp.delay(delay).springify().damping(15)}
+        entering={FadeIn.delay(delay)}
         exiting={FadeOutRight.duration(200)}
-        layout={Layout.springify().damping(15)}
         style={[styles.container, animatedStyle, style]}
       >
         {children}
@@ -165,8 +163,7 @@ export function AnimatedItem({
 
   return (
     <Animated.View
-      entering={FadeInUp.delay(delay).springify().damping(15)}
-      layout={Layout.springify().damping(15)}
+      entering={FadeIn.delay(delay)}
       style={style}
     >
       {children}

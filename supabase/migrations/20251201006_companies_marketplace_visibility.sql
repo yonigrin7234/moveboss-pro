@@ -18,7 +18,6 @@ AS $$
     AND is_marketplace_visible = true
   );
 $$;
-
 -- Add policy to allow viewing companies with marketplace loads
 DROP POLICY IF EXISTS companies_marketplace_select ON public.companies;
 CREATE POLICY companies_marketplace_select
@@ -28,9 +27,7 @@ CREATE POLICY companies_marketplace_select
     -- Allow if company has marketplace-visible loads
     public.company_has_marketplace_loads(id)
   );
-
 COMMENT ON FUNCTION public.company_has_marketplace_loads IS
   'Checks if a company has any marketplace-visible loads. Used for RLS on companies table.';
-
 COMMENT ON POLICY companies_marketplace_select ON public.companies IS
   'Allows viewing companies that have posted loads to the marketplace';

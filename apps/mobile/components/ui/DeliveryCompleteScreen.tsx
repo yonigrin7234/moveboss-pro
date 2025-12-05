@@ -21,7 +21,6 @@ import Animated, {
   withSpring,
   withSequence,
   FadeIn,
-  SlideInUp,
 } from 'react-native-reanimated';
 import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
 import { haptics } from '../../lib/haptics';
@@ -123,7 +122,7 @@ export function DeliveryCompleteScreen({
 
       {/* Content */}
       <View style={styles.content}>
-        <Animated.View entering={SlideInUp.delay(150).springify()} style={styles.heroSection}>
+        <Animated.View entering={FadeIn.delay(100)} style={styles.heroSection}>
           <IconWithBackground
             name="package"
             size={48}
@@ -136,7 +135,7 @@ export function DeliveryCompleteScreen({
         </Animated.View>
 
         <Animated.View
-          entering={SlideInUp.delay(250).springify()}
+          entering={FadeIn.delay(200)}
           style={styles.addressCard}
         >
           <Text style={styles.addressLabel}>DELIVERED TO</Text>
@@ -152,7 +151,7 @@ export function DeliveryCompleteScreen({
 
       {/* Complete Button */}
       <Animated.View
-        entering={SlideInUp.delay(350).springify()}
+        entering={FadeIn.delay(300)}
         style={styles.footer}
       >
         <TouchableOpacity

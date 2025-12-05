@@ -26,10 +26,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withSequence,
-  withDelay,
-  runOnJS,
   FadeIn,
-  SlideInUp,
 } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
@@ -180,37 +177,36 @@ export function TripStartScreen({
         {/* Content */}
         <View style={styles.content}>
           {/* Title */}
-          <Animated.View entering={SlideInUp.delay(150).springify()}>
+          <Animated.View entering={FadeIn.delay(100)}>
             <Text style={styles.title}>Start Trip</Text>
             <Text style={styles.tripInfo}>Trip #{tripNumber}</Text>
             {truckUnit && <Text style={styles.truckInfo}>Truck: {truckUnit}</Text>}
           </Animated.View>
 
           {/* Odometer Input */}
-          <Animated.View
-            entering={SlideInUp.delay(250).springify()}
-            style={[styles.inputSection, inputStyle]}
-          >
-            <Text style={styles.inputLabel}>STARTING ODOMETER</Text>
-            <TextInput
-              style={styles.odometerInput}
-              value={odometer}
-              onChangeText={(text) => {
-                setOdometer(text);
-                setError(null);
-              }}
-              placeholder="00000"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="numeric"
-              maxLength={7}
-              autoFocus
-            />
-            <Text style={styles.inputHint}>Enter current mileage</Text>
+          <Animated.View entering={FadeIn.delay(200)}>
+            <Animated.View style={[styles.inputSection, inputStyle]}>
+              <Text style={styles.inputLabel}>STARTING ODOMETER</Text>
+              <TextInput
+                style={styles.odometerInput}
+                value={odometer}
+                onChangeText={(text) => {
+                  setOdometer(text);
+                  setError(null);
+                }}
+                placeholder="00000"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="numeric"
+                maxLength={7}
+                autoFocus
+              />
+              <Text style={styles.inputHint}>Enter current mileage</Text>
+            </Animated.View>
           </Animated.View>
 
           {/* Photo Section */}
           <Animated.View
-            entering={SlideInUp.delay(350).springify()}
+            entering={FadeIn.delay(300)}
             style={styles.photoSection}
           >
             <Text style={styles.inputLabel}>ODOMETER PHOTO</Text>
@@ -239,7 +235,7 @@ export function TripStartScreen({
 
         {/* Start Button */}
         <Animated.View
-          entering={SlideInUp.delay(450).springify()}
+          entering={FadeIn.delay(400)}
           style={styles.footer}
         >
           <TouchableOpacity

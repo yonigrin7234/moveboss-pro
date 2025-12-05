@@ -17,7 +17,6 @@ ALTER TABLE loads ADD COLUMN IF NOT EXISTS origin_contact_phone TEXT;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS origin_contact_email TEXT;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS origin_gate_code TEXT;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS origin_notes TEXT;
-
 -- Destination columns (shown on marketplace listing)
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS destination_city TEXT;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS destination_state TEXT;
@@ -29,14 +28,11 @@ ALTER TABLE loads ADD COLUMN IF NOT EXISTS destination_contact_phone TEXT;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS destination_contact_email TEXT;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS destination_gate_code TEXT;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS destination_notes TEXT;
-
 -- Size estimate (for marketplace display)
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS estimated_cuft INTEGER;
-
 -- Load status for marketplace workflow
 -- Values: pending, accepted, in_transit, delivered, cancelled
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS load_status TEXT DEFAULT 'pending';
-
 -- ============================================
 -- INDEXES FOR MARKETPLACE QUERIES
 -- ============================================
@@ -45,7 +41,6 @@ CREATE INDEX IF NOT EXISTS idx_loads_destination_location ON loads(destination_s
 CREATE INDEX IF NOT EXISTS idx_loads_load_status ON loads(load_status);
 CREATE INDEX IF NOT EXISTS idx_loads_marketplace_query ON loads(is_marketplace_visible, load_status, posted_to_marketplace_at DESC)
   WHERE is_marketplace_visible = true;
-
 -- ============================================
 -- COMMENTS
 -- ============================================

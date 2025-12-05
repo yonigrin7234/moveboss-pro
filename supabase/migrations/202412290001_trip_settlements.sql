@@ -1,5 +1,4 @@
 BEGIN;
-
 -- Trip settlements
 CREATE TABLE IF NOT EXISTS public.trip_settlements (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -16,10 +15,8 @@ CREATE TABLE IF NOT EXISTS public.trip_settlements (
   closed_at timestamptz DEFAULT now(),
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS trip_settlements_owner_id_idx ON public.trip_settlements(owner_id);
 CREATE INDEX IF NOT EXISTS trip_settlements_trip_id_idx ON public.trip_settlements(trip_id);
-
 -- Settlement line items
 CREATE TABLE IF NOT EXISTS public.settlement_line_items (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -34,10 +31,8 @@ CREATE TABLE IF NOT EXISTS public.settlement_line_items (
   amount numeric(14,2) NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS settlement_line_items_owner_id_idx ON public.settlement_line_items(owner_id);
 CREATE INDEX IF NOT EXISTS settlement_line_items_settlement_id_idx ON public.settlement_line_items(settlement_id);
-
 -- Receivables (customer/broker)
 CREATE TABLE IF NOT EXISTS public.receivables (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -51,10 +46,8 @@ CREATE TABLE IF NOT EXISTS public.receivables (
   reference text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS receivables_owner_id_idx ON public.receivables(owner_id);
 CREATE INDEX IF NOT EXISTS receivables_company_id_idx ON public.receivables(company_id);
-
 -- Payables (drivers/vendors)
 CREATE TABLE IF NOT EXISTS public.payables (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -70,16 +63,13 @@ CREATE TABLE IF NOT EXISTS public.payables (
   reference text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS payables_owner_id_idx ON public.payables(owner_id);
 CREATE INDEX IF NOT EXISTS payables_driver_id_idx ON public.payables(driver_id);
-
 -- RLS
 ALTER TABLE public.trip_settlements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.settlement_line_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.receivables ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payables ENABLE ROW LEVEL SECURITY;
-
 -- Policies: owner_id must match auth.uid()
 DO $$
 BEGIN
@@ -111,5 +101,4 @@ BEGIN
       WITH CHECK (owner_id = auth.uid());
   END IF;
 END $$;
-
 COMMIT;

@@ -6,7 +6,6 @@ ALTER TABLE loads ADD COLUMN IF NOT EXISTS marketplace_request_id UUID REFERENCE
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS is_from_marketplace BOOLEAN DEFAULT false;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS source_company_id UUID REFERENCES companies(id);
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS source_company_name TEXT;
-
 -- Add operational status tracking for marketplace visibility
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS operational_status TEXT DEFAULT 'unassigned';
 -- Values: 'unassigned', 'assigned_to_driver', 'en_route_to_pickup', 'at_pickup',
@@ -15,7 +14,6 @@ ALTER TABLE loads ADD COLUMN IF NOT EXISTS operational_status TEXT DEFAULT 'unas
 -- Add assigned driver name for quick display (in addition to assigned_driver_id)
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS marketplace_driver_name TEXT;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS last_status_update TIMESTAMPTZ;
-
 -- Create status updates log table for audit trail
 CREATE TABLE IF NOT EXISTS load_status_updates (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -30,7 +28,6 @@ CREATE TABLE IF NOT EXISTS load_status_updates (
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
-
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_loads_marketplace_request ON loads(marketplace_request_id) WHERE marketplace_request_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_loads_is_from_marketplace ON loads(is_from_marketplace) WHERE is_from_marketplace = true;
@@ -38,13 +35,10 @@ CREATE INDEX IF NOT EXISTS idx_loads_source_company ON loads(source_company_id) 
 CREATE INDEX IF NOT EXISTS idx_loads_operational_status ON loads(operational_status);
 CREATE INDEX IF NOT EXISTS idx_load_status_updates_load ON load_status_updates(load_id);
 CREATE INDEX IF NOT EXISTS idx_load_status_updates_time ON load_status_updates(updated_at DESC);
-
 -- Add trip_id to loads for direct assignment
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS trip_id UUID REFERENCES trips(id);
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS trip_load_order INTEGER;
-
 CREATE INDEX IF NOT EXISTS idx_loads_trip ON loads(trip_id) WHERE trip_id IS NOT NULL;
-
 -- Function to update operational status and log the change
 CREATE OR REPLACE FUNCTION update_load_operational_status(
   p_load_id UUID,
@@ -88,10 +82,8 @@ BEGIN
   END IF;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- Enable RLS on new table
 ALTER TABLE load_status_updates ENABLE ROW LEVEL SECURITY;
-
 -- RLS policies for load_status_updates (drop first to be idempotent)
 DROP POLICY IF EXISTS "Users can view status updates for their company loads" ON load_status_updates;
 CREATE POLICY "Users can view status updates for their company loads"
@@ -105,7 +97,6 @@ USING (
     OR source_company_id IN (SELECT id FROM companies WHERE owner_id = auth.uid())
   )
 );
-
 DROP POLICY IF EXISTS "Users can insert status updates for their loads" ON load_status_updates;
 CREATE POLICY "Users can insert status updates for their loads"
 ON load_status_updates FOR INSERT
@@ -116,7 +107,6 @@ WITH CHECK (
     OR assigned_carrier_id IN (SELECT id FROM companies WHERE owner_id = auth.uid())
   )
 );
-
 -- Comment on new columns
 COMMENT ON COLUMN loads.marketplace_request_id IS 'Links to the load_request that was accepted';
 COMMENT ON COLUMN loads.is_from_marketplace IS 'True if this load came from marketplace assignment';

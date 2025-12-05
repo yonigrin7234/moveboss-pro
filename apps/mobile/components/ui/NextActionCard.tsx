@@ -15,7 +15,6 @@ import Animated, {
   withSequence,
   withTiming,
   Easing,
-  FadeInUp,
   FadeIn,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
@@ -86,11 +85,9 @@ export function NextActionCard({ action, onAction }: NextActionCardProps) {
   const isPayment = action.type === 'collect_payment';
 
   return (
-    <Animated.View
-      entering={FadeInUp.springify().damping(15)}
-      style={[styles.container, animatedStyle]}
-    >
-      <Pressable onPress={handlePress} style={styles.pressable}>
+    <View style={styles.container}>
+      <Animated.View style={animatedStyle}>
+        <Pressable onPress={handlePress} style={styles.pressable}>
         <LinearGradient
           colors={
             isPayment
@@ -153,17 +150,15 @@ export function NextActionCard({ action, onAction }: NextActionCardProps) {
             </View>
           </View>
         </LinearGradient>
-      </Pressable>
-    </Animated.View>
+        </Pressable>
+      </Animated.View>
+    </View>
   );
 }
 
 function NoActionCard() {
   return (
-    <Animated.View
-      entering={FadeIn.springify().damping(15)}
-      style={styles.noActionContainer}
-    >
+    <View style={styles.noActionContainer}>
       <View style={styles.noActionContent}>
         <View style={styles.noActionIconContainer}>
           <Icon name="check-circle" size={48} color={colors.success} />

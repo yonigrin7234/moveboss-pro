@@ -22,7 +22,6 @@ AS $$
     AND public.is_trip_driver(t.driver_id)
   );
 $$;
-
 -- Drop and recreate the policy using the helper function
 DROP POLICY IF EXISTS companies_driver_select_policy ON public.companies;
 CREATE POLICY companies_driver_select_policy
@@ -31,6 +30,5 @@ CREATE POLICY companies_driver_select_policy
   USING (
     public.driver_has_company_access(id)
   );
-
 COMMENT ON FUNCTION public.driver_has_company_access IS
   'Checks if current user (as driver) has access to a company through trip assignments. Uses SECURITY DEFINER to bypass loads RLS.';

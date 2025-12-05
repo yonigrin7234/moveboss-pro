@@ -17,7 +17,6 @@ import {
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, {
   FadeIn,
-  FadeInUp,
   FadeOut,
   useSharedValue,
   useAnimatedStyle,
@@ -225,7 +224,7 @@ export default function CollectPaymentScreen() {
 
       <View style={styles.container}>
         {/* Big Amount Header */}
-        <Animated.View entering={FadeInUp.delay(100)} style={styles.header}>
+        <Animated.View entering={FadeIn.delay(100)} style={styles.header}>
           <Text style={styles.headerLabel}>AMOUNT DUE</Text>
           <Text style={styles.amount}>${balanceDue.toLocaleString()}</Text>
           <Text style={styles.customerName}>{customerName}</Text>
@@ -419,7 +418,7 @@ function PaymentButton({ label, icon, color, index, onPress }: PaymentButtonProp
 
   return (
     <Animated.View
-      entering={FadeInUp.delay(200 + index * 100)}
+      entering={FadeIn.delay(200 + index * 100)}
       style={animatedStyle}
     >
       <Pressable

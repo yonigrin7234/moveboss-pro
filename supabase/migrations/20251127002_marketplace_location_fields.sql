@@ -19,7 +19,6 @@ ALTER TABLE loads ADD COLUMN IF NOT EXISTS pickup_contact_phone TEXT;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS pickup_gate_code TEXT;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS pickup_access_hours TEXT;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS pickup_instructions TEXT;
-
 -- ============================================
 -- DELIVERY LOCATION DETAILS
 -- ============================================
@@ -31,7 +30,6 @@ ALTER TABLE loads ADD COLUMN IF NOT EXISTS delivery_contact_name TEXT;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS delivery_contact_phone TEXT;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS delivery_gate_code TEXT;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS delivery_instructions TEXT;
-
 -- ============================================
 -- AVAILABILITY
 -- ============================================
@@ -53,25 +51,21 @@ ALTER TABLE loads ADD COLUMN IF NOT EXISTS equipment_type TEXT;
 -- ============================================
 
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS pieces_count INTEGER;
-
 -- ============================================
 -- LOAD REQUESTS - Add creates_partnership field
 -- ============================================
 
 ALTER TABLE load_requests ADD COLUMN IF NOT EXISTS creates_partnership BOOLEAN DEFAULT false;
-
 -- ============================================
 -- INDEXES FOR MARKETPLACE QUERIES
 -- ============================================
 
 CREATE INDEX IF NOT EXISTS idx_loads_marketplace ON loads(is_marketplace_visible, load_status, posted_to_marketplace_at DESC)
   WHERE is_marketplace_visible = true;
-
 CREATE INDEX IF NOT EXISTS idx_loads_origin ON loads(origin_state, origin_city);
 CREATE INDEX IF NOT EXISTS idx_loads_destination ON loads(destination_state, destination_city);
 CREATE INDEX IF NOT EXISTS idx_loads_equipment ON loads(equipment_type) WHERE equipment_type IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_load_requests_carrier_owner ON load_requests(carrier_owner_id);
-
 -- ============================================
 -- COMMENTS
 -- ============================================

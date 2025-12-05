@@ -19,7 +19,6 @@ CREATE POLICY companies_carrier_requests_select
       AND l.owner_id = auth.uid()
     )
   );
-
 -- Also allow carriers to see the company that posted loads they're requesting
 DROP POLICY IF EXISTS companies_load_poster_select ON public.companies;
 CREATE POLICY companies_load_poster_select

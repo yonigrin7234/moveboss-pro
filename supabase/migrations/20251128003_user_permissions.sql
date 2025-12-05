@@ -11,11 +11,11 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS can_view_financials BOOLEAN DEFAUL
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS can_manage_settlements BOOLEAN DEFAULT false;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS invited_by UUID REFERENCES profiles(id);
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS invited_at TIMESTAMPTZ;
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS permission_preset TEXT; -- 'admin', 'dispatcher', 'fleet_manager', 'accountant', 'operations', 'custom'
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS permission_preset TEXT;
+-- 'admin', 'dispatcher', 'fleet_manager', 'accountant', 'operations', 'custom'
 
 -- Add company_id to profiles if not exists (for team membership)
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id) ON DELETE SET NULL;
-
 -- Set existing company owners as admins with full permissions
 UPDATE profiles
 SET
@@ -32,7 +32,6 @@ SET
   permission_preset = 'admin'
 WHERE role IN ('company', 'carrier', 'owner_operator')
   AND is_admin IS NOT true;
-
 -- Create invitations table for pending invites
 CREATE TABLE IF NOT EXISTS team_invitations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -48,18 +47,14 @@ CREATE TABLE IF NOT EXISTS team_invitations (
 
   UNIQUE(company_id, email)
 );
-
 -- Enable RLS on team_invitations
 ALTER TABLE team_invitations ENABLE ROW LEVEL SECURITY;
-
 -- Index for looking up invitations by token
 CREATE INDEX IF NOT EXISTS idx_team_invitations_token ON team_invitations(token);
 CREATE INDEX IF NOT EXISTS idx_team_invitations_email ON team_invitations(email);
 CREATE INDEX IF NOT EXISTS idx_team_invitations_company ON team_invitations(company_id);
-
 -- Index for profiles company_id
 CREATE INDEX IF NOT EXISTS idx_profiles_company_id ON profiles(company_id);
-
 -- RLS policies for team_invitations
 DO $$
 BEGIN

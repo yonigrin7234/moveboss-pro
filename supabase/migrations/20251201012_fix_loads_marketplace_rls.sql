@@ -6,7 +6,6 @@
 
 -- Drop the existing policy
 DROP POLICY IF EXISTS loads_select_policy ON public.loads;
-
 -- Recreate with correct condition
 CREATE POLICY loads_select_policy
   ON public.loads
@@ -21,6 +20,5 @@ CREATE POLICY loads_select_policy
     -- Or loads where user's company is the assigned carrier (using SECURITY DEFINER function)
     OR public.user_owns_assigned_carrier(assigned_carrier_id)
   );
-
 COMMENT ON POLICY loads_select_policy ON public.loads IS
   'Allows viewing marketplace loads (posted), own loads, and assigned loads';

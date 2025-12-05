@@ -1997,7 +1997,10 @@ export async function getLoadsGivenOut(userId: string): Promise<LoadGivenOut[]> 
     return [];
   }
 
-  // Use same join syntax as Posted Jobs page
+  console.log('[getLoadsGivenOut] Workspace company:', workspaceCompany.id, 'for user:', userId);
+
+  // Query loads that belong to this company and have been assigned to a carrier
+  // Check both posted_by_company_id and company_id since they may be used differently
   const { data, error } = await supabase
     .from('loads')
     .select(`
@@ -2022,20 +2025,54 @@ export async function getLoadsGivenOut(userId: string): Promise<LoadGivenOut[]> 
       delivery_city,
       delivery_state,
       assigned_carrier_id,
-      assigned_carrier:assigned_carrier_id(id, name)
+      company_id,
+      posted_by_company_id,
+      owner_id
     `)
-    .eq('posted_by_company_id', workspaceCompany.id)
     .not('assigned_carrier_id', 'is', null)
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('[getLoadsGivenOut] Error:', error);
+    console.error('[getLoadsGivenOut] Error querying loads:', error);
     return [];
   }
 
-  console.log('[getLoadsGivenOut] Found loads:', data?.length, 'for company:', workspaceCompany.id);
+  console.log('[getLoadsGivenOut] All loads with assigned_carrier_id:', data?.length);
 
-  return (data || []).map((load: any) => ({
+  // Filter to loads that belong to this company (check multiple fields)
+  const companyLoads = (data || []).filter((load: any) => {
+    const matchesCompany =
+      load.posted_by_company_id === workspaceCompany.id ||
+      load.company_id === workspaceCompany.id ||
+      load.owner_id === userId;
+    if (load.assigned_carrier_id) {
+      console.log('[getLoadsGivenOut] Load', load.load_number, 'company match:', matchesCompany, {
+        posted_by: load.posted_by_company_id,
+        company_id: load.company_id,
+        owner_id: load.owner_id,
+        workspace: workspaceCompany.id,
+        userId,
+      });
+    }
+    return matchesCompany;
+  });
+
+  console.log('[getLoadsGivenOut] Loads matching company:', companyLoads.length);
+
+  // Get carrier info for matching loads
+  const carrierIds = [...new Set(companyLoads.map((l: any) => l.assigned_carrier_id).filter(Boolean))];
+  const carrierMap = new Map<string, { id: string; name: string }>();
+
+  if (carrierIds.length > 0) {
+    const { data: carriers } = await supabase
+      .from('companies')
+      .select('id, name')
+      .in('id', carrierIds);
+
+    (carriers || []).forEach((c: any) => carrierMap.set(c.id, c));
+  }
+
+  return companyLoads.map((load: any) => ({
     id: load.id,
     load_number: load.load_number,
     // Use pickup/delivery as fallback for origin/destination
@@ -2051,6 +2088,6 @@ export async function getLoadsGivenOut(userId: string): Promise<LoadGivenOut[]> 
     expected_delivery_date: load.expected_delivery_date,
     assigned_at: load.carrier_assigned_at || load.assigned_at,
     carrier_confirmed_at: load.carrier_confirmed_at,
-    carrier: Array.isArray(load.assigned_carrier) ? load.assigned_carrier[0] : load.assigned_carrier,
+    carrier: carrierMap.get(load.assigned_carrier_id) || null,
   }));
 }

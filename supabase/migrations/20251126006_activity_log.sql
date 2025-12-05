@@ -29,21 +29,17 @@ CREATE TABLE IF NOT EXISTS activity_log (
   -- When
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- Index for fast queries
 CREATE INDEX IF NOT EXISTS idx_activity_log_owner_id ON activity_log(owner_id);
 CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON activity_log(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_activity_log_driver_id ON activity_log(driver_id);
 CREATE INDEX IF NOT EXISTS idx_activity_log_trip_id ON activity_log(trip_id);
-
 -- Enable RLS
 ALTER TABLE activity_log ENABLE ROW LEVEL SECURITY;
-
 -- RLS policies
 CREATE POLICY "Owners can view their activity logs"
   ON activity_log FOR SELECT
   USING (owner_id = auth.uid());
-
 CREATE POLICY "System can insert activity logs"
   ON activity_log FOR INSERT
   WITH CHECK (true);

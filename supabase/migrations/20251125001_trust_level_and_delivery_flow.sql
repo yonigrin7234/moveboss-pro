@@ -7,7 +7,6 @@
 
 -- Add trust_level column to companies
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS trust_level TEXT DEFAULT 'cod_required';
-
 -- Add constraint for valid trust levels
 DO $$ BEGIN
   ALTER TABLE companies ADD CONSTRAINT companies_trust_level_check
@@ -15,7 +14,6 @@ DO $$ BEGIN
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
-
 -- ============================================================================
 -- 2. ADD LOADING/DELIVERY TRACKING FIELDS TO LOADS
 -- ============================================================================
@@ -25,26 +23,20 @@ ALTER TABLE loads ADD COLUMN IF NOT EXISTS loading_started_at TIMESTAMPTZ;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS loading_completed_at TIMESTAMPTZ;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS loading_notes TEXT;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS loading_photos TEXT[];
-
 -- Delivery workflow fields
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS delivery_started_at TIMESTAMPTZ;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS delivery_completed_at TIMESTAMPTZ;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS delivery_notes TEXT;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS delivery_photos TEXT[];
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS signature_url TEXT;
-
 -- Origin arrival (when driver arrives at pickup)
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS origin_arrival_at TIMESTAMPTZ;
-
 -- Load report photo (photo of customer's load sheet at pickup)
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS load_report_photo_url TEXT;
-
 -- Delivery report photo (photo of signed delivery receipt)
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS delivery_report_photo_url TEXT;
-
 -- Company approved exception for delivery (for COD companies that approve delivery without payment)
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS company_approved_exception_delivery BOOLEAN DEFAULT false;
-
 -- ============================================================================
 -- 3. CREATE LOAD_PAYMENTS TABLE
 -- ============================================================================
@@ -75,26 +67,19 @@ CREATE TABLE IF NOT EXISTS load_payments (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- RLS for load_payments
 ALTER TABLE load_payments ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Users can view own load_payments" ON load_payments
   FOR SELECT USING (owner_id = auth.uid());
-
 CREATE POLICY "Users can insert own load_payments" ON load_payments
   FOR INSERT WITH CHECK (owner_id = auth.uid());
-
 CREATE POLICY "Users can update own load_payments" ON load_payments
   FOR UPDATE USING (owner_id = auth.uid());
-
 CREATE POLICY "Users can delete own load_payments" ON load_payments
   FOR DELETE USING (owner_id = auth.uid());
-
 -- Index for load lookups
 CREATE INDEX IF NOT EXISTS idx_load_payments_load_id ON load_payments(load_id);
 CREATE INDEX IF NOT EXISTS idx_load_payments_owner_id ON load_payments(owner_id);
-
 -- ============================================================================
 -- 4. CREATE ACCESSORIALS TABLE
 -- ============================================================================
@@ -123,26 +108,19 @@ CREATE TABLE IF NOT EXISTS accessorials (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- RLS for accessorials
 ALTER TABLE accessorials ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Users can view own accessorials" ON accessorials
   FOR SELECT USING (owner_id = auth.uid());
-
 CREATE POLICY "Users can insert own accessorials" ON accessorials
   FOR INSERT WITH CHECK (owner_id = auth.uid());
-
 CREATE POLICY "Users can update own accessorials" ON accessorials
   FOR UPDATE USING (owner_id = auth.uid());
-
 CREATE POLICY "Users can delete own accessorials" ON accessorials
   FOR DELETE USING (owner_id = auth.uid());
-
 -- Index for load lookups
 CREATE INDEX IF NOT EXISTS idx_accessorials_load_id ON accessorials(load_id);
 CREATE INDEX IF NOT EXISTS idx_accessorials_owner_id ON accessorials(owner_id);
-
 -- ============================================================================
 -- 5. ADD LOAD STATUS FOR DRIVER WORKFLOW
 -- ============================================================================
@@ -151,7 +129,6 @@ CREATE INDEX IF NOT EXISTS idx_accessorials_owner_id ON accessorials(owner_id);
 -- Adding a separate load_status field for the driver workflow state machine.
 
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS load_status TEXT DEFAULT 'pending';
-
 -- Add constraint for valid load statuses
 DO $$ BEGIN
   ALTER TABLE loads ADD CONSTRAINT loads_load_status_check
@@ -159,7 +136,6 @@ DO $$ BEGIN
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
-
 -- ============================================================================
 -- 6. ADD UPDATED_AT TRIGGERS
 -- ============================================================================
@@ -172,21 +148,18 @@ BEGIN
   RETURN NEW;
 END;
 $$ language 'plpgsql';
-
 -- Trigger for load_payments
 DROP TRIGGER IF EXISTS update_load_payments_updated_at ON load_payments;
 CREATE TRIGGER update_load_payments_updated_at
   BEFORE UPDATE ON load_payments
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
-
 -- Trigger for accessorials
 DROP TRIGGER IF EXISTS update_accessorials_updated_at ON accessorials;
 CREATE TRIGGER update_accessorials_updated_at
   BEFORE UPDATE ON accessorials
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
-
 -- ============================================================================
 -- DONE
--- ============================================================================
+-- ============================================================================;

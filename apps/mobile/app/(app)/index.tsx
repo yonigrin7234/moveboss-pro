@@ -15,13 +15,7 @@ import {
   Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import Animated, {
-  FadeInDown,
-  FadeInUp,
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from 'react-native-reanimated';
+// Layout animations temporarily disabled for stability testing
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../providers/AuthProvider';
 import { useDriverProfile } from '../../hooks/useDriverProfile';
@@ -86,7 +80,7 @@ export default function HomeScreen() {
       showsVerticalScrollIndicator={false}
     >
       {/* Header */}
-      <Animated.View entering={FadeInDown.delay(100)} style={styles.header}>
+      <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>
             {getGreeting()}
@@ -97,32 +91,30 @@ export default function HomeScreen() {
         <Pressable style={styles.signOutButton} onPress={handleSignOut}>
           <Text style={styles.signOutText}>Sign Out</Text>
         </Pressable>
-      </Animated.View>
+      </View>
 
       {/* Error State */}
       {error && (
-        <Animated.View entering={FadeInDown} style={styles.errorCard}>
+        <View style={styles.errorCard}>
           <Text style={styles.errorText}>{error}</Text>
-        </Animated.View>
+        </View>
       )}
 
-      {/* THE ONE ACTION - Most prominent */}
-      <Animated.View entering={FadeInUp.delay(200)}>
-        <NextActionCard action={nextAction} />
-      </Animated.View>
+      {/* THE ONE ACTION - Most prominent - NextActionCard has its own animation */}
+      <NextActionCard action={nextAction} />
 
       {/* Quick Stats Row */}
-      <Animated.View entering={FadeInUp.delay(300)}>
+      <View>
         <QuickStats
           earnings={stats.todayEarnings}
           miles={stats.todayMiles}
           loadsCompleted={stats.loadsCompleted}
           loadsTotal={stats.loadsTotal > 0 ? stats.loadsTotal : undefined}
         />
-      </Animated.View>
+      </View>
 
       {/* Quick Actions Row */}
-      <Animated.View entering={FadeInUp.delay(400)} style={styles.quickActions}>
+      <View style={styles.quickActions}>
         <QuickActionButton
           icon="truck"
           label="Trips"
@@ -140,11 +132,11 @@ export default function HomeScreen() {
           label="Earnings"
           onPress={() => router.push('/(app)/earnings')}
         />
-      </Animated.View>
+      </View>
 
       {/* Document Alert - if expired */}
       {hasActiveTrip && expiredCount > 0 && (
-        <Animated.View entering={FadeInUp.delay(500)}>
+        <View>
           <Pressable
             style={styles.alertCard}
             onPress={() => router.push('/(app)/documents')}
@@ -163,12 +155,12 @@ export default function HomeScreen() {
               <Icon name="chevron-right" size="md" color={colors.textMuted} />
             </View>
           </Pressable>
-        </Animated.View>
+        </View>
       )}
 
       {/* Upcoming Section (Collapsible) */}
       {upcomingTrips.length > 0 && (
-        <Animated.View entering={FadeInUp.delay(600)} style={styles.section}>
+        <View style={styles.section}>
           <Pressable
             style={styles.sectionHeader}
             onPress={() => setShowUpcoming(!showUpcoming)}
@@ -197,28 +189,28 @@ export default function HomeScreen() {
               ))}
             </View>
           )}
-        </Animated.View>
+        </View>
       )}
 
       {/* More Actions Hint */}
       {pendingActions.length > 1 && (
-        <Animated.View entering={FadeInUp.delay(700)} style={styles.moreActions}>
+        <View style={styles.moreActions}>
           <Text style={styles.moreActionsText}>
             {pendingActions.length - 1} more action
             {pendingActions.length > 2 ? 's' : ''} pending
           </Text>
-        </Animated.View>
+        </View>
       )}
 
       {/* Empty State */}
       {!loading && upcomingTrips.length === 0 && nextAction.type === 'no_action' && (
-        <Animated.View entering={FadeInUp.delay(500)} style={styles.emptyState}>
+        <View style={styles.emptyState}>
           <Icon name="truck" size={48} color={colors.textMuted} />
           <Text style={styles.emptyTitle}>No Active Trips</Text>
           <Text style={styles.emptySubtitle}>
             New assignments will appear here automatically
           </Text>
-        </Animated.View>
+        </View>
       )}
     </ScrollView>
   );
@@ -234,8 +226,6 @@ interface QuickActionButtonProps {
   onPress: () => void;
 }
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
 function QuickActionButton({
   icon,
   label,
@@ -243,30 +233,17 @@ function QuickActionButton({
   badgeVariant,
   onPress,
 }: QuickActionButtonProps) {
-  const scale = useSharedValue(1);
-
-  const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
-  }, []);
-
-  const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
-  }, []);
-
   const handlePress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress();
   }, [onPress]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
   return (
-    <AnimatedPressable
-      style={[styles.quickActionButton, animatedStyle]}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
+    <Pressable
+      style={({ pressed }) => [
+        styles.quickActionButton,
+        pressed && styles.quickActionButtonPressed,
+      ]}
       onPress={handlePress}
     >
       <View style={styles.quickActionIconContainer}>
@@ -285,7 +262,7 @@ function QuickActionButton({
         )}
       </View>
       <Text style={styles.quickActionLabel}>{label}</Text>
-    </AnimatedPressable>
+    </Pressable>
   );
 }
 
@@ -393,6 +370,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     ...shadows.sm,
+  },
+  quickActionButtonPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.97 }],
   },
   quickActionIconContainer: {
     position: 'relative',

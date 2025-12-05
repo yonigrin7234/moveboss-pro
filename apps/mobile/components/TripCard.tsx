@@ -10,19 +10,12 @@
 
 import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Trip } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { Icon } from './ui';
 import { colors, typography, spacing, radius, shadows } from '../lib/theme';
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface TripCardProps {
   trip: Trip;
@@ -31,7 +24,6 @@ interface TripCardProps {
 
 export function TripCard({ trip, variant = 'default' }: TripCardProps) {
   const router = useRouter();
-  const scale = useSharedValue(1);
 
   const formatRoute = () => {
     const origin = [trip.origin_city, trip.origin_state].filter(Boolean).join(', ');
@@ -58,29 +50,18 @@ export function TripCard({ trip, variant = 'default' }: TripCardProps) {
   // Estimate pay (if available)
   const estimatedPay = (trip as any).estimated_driver_pay || (trip as any).driver_pay;
 
-  const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.97, { damping: 15, stiffness: 400 });
-  }, []);
-
-  const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
-  }, []);
-
   const handlePress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(`/(app)/trips/${trip.id}`);
   }, [trip.id, router]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
   if (variant === 'compact') {
     return (
-      <AnimatedPressable
-        style={[styles.compactCard, animatedStyle]}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
+      <Pressable
+        style={({ pressed }) => [
+          styles.compactCard,
+          pressed && styles.cardPressed,
+        ]}
         onPress={handlePress}
       >
         <View style={styles.compactHeader}>
@@ -128,15 +109,16 @@ export function TripCard({ trip, variant = 'default' }: TripCardProps) {
             </Text>
           </View>
         )}
-      </AnimatedPressable>
+      </Pressable>
     );
   }
 
   return (
-    <AnimatedPressable
-      style={[styles.card, animatedStyle]}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
+    <Pressable
+      style={({ pressed }) => [
+        styles.card,
+        pressed && styles.cardPressed,
+      ]}
       onPress={handlePress}
     >
       <View style={styles.header}>
@@ -200,7 +182,7 @@ export function TripCard({ trip, variant = 'default' }: TripCardProps) {
         <Text style={styles.viewDetails}>View Details</Text>
         <Icon name="chevron-right" size="sm" color={colors.primary} />
       </View>
-    </AnimatedPressable>
+    </Pressable>
   );
 }
 
@@ -214,6 +196,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     ...shadows.md,
+  },
+  cardPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
   },
   header: {
     flexDirection: 'row',

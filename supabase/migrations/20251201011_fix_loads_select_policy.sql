@@ -17,10 +17,8 @@ AS $$
     AND c.owner_id = auth.uid()
   );
 $$;
-
 -- Drop the existing policy
 DROP POLICY IF EXISTS loads_select_policy ON public.loads;
-
 -- Recreate with SECURITY DEFINER function
 CREATE POLICY loads_select_policy
   ON public.loads
@@ -34,9 +32,7 @@ CREATE POLICY loads_select_policy
     -- Or loads where user's company is the assigned carrier (using SECURITY DEFINER function)
     OR public.user_owns_assigned_carrier(assigned_carrier_id)
   );
-
 COMMENT ON FUNCTION public.user_owns_assigned_carrier IS
   'Checks if the current user owns the company assigned as carrier. Used for RLS on loads table.';
-
 COMMENT ON POLICY loads_select_policy ON public.loads IS
   'Allows viewing marketplace loads, own loads, and assigned loads';

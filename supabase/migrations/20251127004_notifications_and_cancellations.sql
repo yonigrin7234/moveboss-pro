@@ -16,27 +16,21 @@ CREATE TABLE IF NOT EXISTS notifications (
   read_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_company ON notifications(company_id, is_read, created_at DESC);
-
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Users can view own notifications" ON notifications;
 CREATE POLICY "Users can view own notifications"
   ON notifications FOR SELECT
   USING (user_id = auth.uid());
-
 DROP POLICY IF EXISTS "Users can update own notifications" ON notifications;
 CREATE POLICY "Users can update own notifications"
   ON notifications FOR UPDATE
   USING (user_id = auth.uid());
-
 DROP POLICY IF EXISTS "System can insert notifications" ON notifications;
 CREATE POLICY "System can insert notifications"
   ON notifications FOR INSERT
   WITH CHECK (true);
-
 -- ============================================
 -- LOAD CANCELLATIONS TRACKING
 -- ============================================
@@ -71,11 +65,9 @@ CREATE TABLE IF NOT EXISTS load_cancellations (
   canceled_at TIMESTAMPTZ DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 CREATE INDEX IF NOT EXISTS idx_cancellations_carrier ON load_cancellations(canceled_by_company_id);
 CREATE INDEX IF NOT EXISTS idx_cancellations_affected ON load_cancellations(affected_company_id);
 CREATE INDEX IF NOT EXISTS idx_cancellations_load ON load_cancellations(load_id);
-
 -- ============================================
 -- RELIABILITY STATS ON COMPANIES
 -- ============================================
@@ -83,11 +75,9 @@ CREATE INDEX IF NOT EXISTS idx_cancellations_load ON load_cancellations(load_id)
 -- Carrier stats (when they give loads back)
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS loads_given_back INTEGER DEFAULT 0;
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS loads_accepted_total INTEGER DEFAULT 0;
-
 -- Company stats (when they cancel carriers)
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS loads_canceled_on_carriers INTEGER DEFAULT 0;
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS loads_assigned_total INTEGER DEFAULT 0;
-
 -- ============================================
 -- FUNCTIONS FOR INCREMENTING STATS
 -- ============================================
@@ -101,7 +91,6 @@ BEGIN
   WHERE id = p_company_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- Function to increment loads_canceled_on_carriers
 CREATE OR REPLACE FUNCTION increment_loads_canceled(p_company_id UUID)
 RETURNS void AS $$
@@ -111,7 +100,6 @@ BEGIN
   WHERE id = p_company_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- Function to increment loads_accepted_total (call when carrier accepts load)
 CREATE OR REPLACE FUNCTION increment_loads_accepted(p_company_id UUID)
 RETURNS void AS $$
@@ -121,7 +109,6 @@ BEGIN
   WHERE id = p_company_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- Function to increment loads_assigned_total (call when company assigns carrier)
 CREATE OR REPLACE FUNCTION increment_loads_assigned(p_company_id UUID)
 RETURNS void AS $$
@@ -131,7 +118,6 @@ BEGIN
   WHERE id = p_company_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- ============================================
 -- COMMENTS
 -- ============================================

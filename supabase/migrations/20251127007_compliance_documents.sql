@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS compliance_document_types (
   expiration_days INTEGER, -- NULL = never expires
   sort_order INTEGER DEFAULT 0
 );
-
 INSERT INTO compliance_document_types (id, name, description, is_required, expiration_days, sort_order) VALUES
   ('w9', 'W-9 Form', 'IRS tax form for independent contractors', true, NULL, 1),
   ('insurance_certificate', 'Certificate of Insurance', 'Proof of cargo and liability insurance', true, 365, 2),
@@ -18,7 +17,6 @@ INSERT INTO compliance_document_types (id, name, description, is_required, expir
   ('mc_authority', 'MC Authority', 'Motor Carrier operating authority', false, NULL, 4),
   ('dot_registration', 'DOT Registration', 'Department of Transportation registration', false, NULL, 5)
 ON CONFLICT (id) DO NOTHING;
-
 -- ============================================
 -- COMPLIANCE REQUESTS TABLE
 -- ============================================
@@ -62,11 +60,9 @@ CREATE TABLE IF NOT EXISTS compliance_requests (
   -- One request per document type per partnership
   UNIQUE(partnership_id, document_type_id)
 );
-
 CREATE INDEX IF NOT EXISTS idx_compliance_requests_partnership ON compliance_requests(partnership_id);
 CREATE INDEX IF NOT EXISTS idx_compliance_requests_carrier ON compliance_requests(carrier_id);
 CREATE INDEX IF NOT EXISTS idx_compliance_requests_status ON compliance_requests(status);
-
 -- ============================================
 -- UPDATE COMPLIANCE DOCUMENTS TABLE
 -- ============================================
@@ -78,48 +74,41 @@ ALTER TABLE compliance_documents ADD COLUMN IF NOT EXISTS uploaded_by_id UUID RE
 ALTER TABLE compliance_documents ADD COLUMN IF NOT EXISTS file_name TEXT;
 ALTER TABLE compliance_documents ADD COLUMN IF NOT EXISTS file_size INTEGER;
 ALTER TABLE compliance_documents ADD COLUMN IF NOT EXISTS mime_type TEXT;
-
 -- ============================================
 -- UPDATE PARTNERSHIP STATUS BASED ON COMPLIANCE
 -- ============================================
 
 ALTER TABLE company_partnerships ADD COLUMN IF NOT EXISTS compliance_complete BOOLEAN DEFAULT false;
 ALTER TABLE company_partnerships ADD COLUMN IF NOT EXISTS compliance_pending_count INTEGER DEFAULT 0;
-
 -- ============================================
 -- RLS POLICIES
 -- ============================================
 
 ALTER TABLE compliance_requests ENABLE ROW LEVEL SECURITY;
-
 -- Companies can see requests they created
 CREATE POLICY "Companies can view their compliance requests"
   ON compliance_requests FOR SELECT
   USING (
     requesting_company_id IN (SELECT id FROM companies WHERE owner_id = auth.uid())
   );
-
 -- Carriers can see requests for them
 CREATE POLICY "Carriers can view their compliance requests"
   ON compliance_requests FOR SELECT
   USING (
     carrier_id IN (SELECT id FROM companies WHERE owner_id = auth.uid())
   );
-
 -- Companies can insert requests
 CREATE POLICY "Companies can create compliance requests"
   ON compliance_requests FOR INSERT
   WITH CHECK (
     requesting_company_id IN (SELECT id FROM companies WHERE owner_id = auth.uid())
   );
-
 -- Companies can update (approve/reject)
 CREATE POLICY "Companies can update compliance requests"
   ON compliance_requests FOR UPDATE
   USING (
     requesting_company_id IN (SELECT id FROM companies WHERE owner_id = auth.uid())
   );
-
 -- Carriers can update (upload)
 CREATE POLICY "Carriers can update their compliance requests"
   ON compliance_requests FOR UPDATE

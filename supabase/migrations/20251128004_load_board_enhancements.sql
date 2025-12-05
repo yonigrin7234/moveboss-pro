@@ -11,10 +11,8 @@ ALTER TABLE loads ADD COLUMN IF NOT EXISTS load_subtype TEXT;
 
 -- Add counter offer setting
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS is_open_to_counter BOOLEAN DEFAULT false;
-
 -- Add RFD availability date (NULL = ready now)
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS rfd_date DATE;
-
 -- Update existing loads to have proper load_subtype based on load_type
 UPDATE loads
 SET load_subtype = CASE
@@ -23,24 +21,23 @@ SET load_subtype = CASE
   ELSE NULL
 END
 WHERE posting_type = 'load' AND load_subtype IS NULL;
-
 -- ============================================
 -- LOAD_REQUESTS TABLE ADDITIONS
 -- ============================================
 
 -- Request type: 'accept_listed' (accepts posted rate) or 'counter_offer'
 ALTER TABLE load_requests ADD COLUMN IF NOT EXISTS request_type TEXT DEFAULT 'accept_listed';
-
 -- Counter offer rate (per CF)
 ALTER TABLE load_requests ADD COLUMN IF NOT EXISTS counter_offer_rate NUMERIC(10,4);
-
 -- Proposed load/pickup dates
 ALTER TABLE load_requests ADD COLUMN IF NOT EXISTS proposed_load_date_start DATE;
-ALTER TABLE load_requests ADD COLUMN IF NOT EXISTS proposed_load_date_end DATE; -- NULL if specific date
+ALTER TABLE load_requests ADD COLUMN IF NOT EXISTS proposed_load_date_end DATE;
+-- NULL if specific date
 
 -- Proposed delivery dates
 ALTER TABLE load_requests ADD COLUMN IF NOT EXISTS proposed_delivery_date_start DATE;
-ALTER TABLE load_requests ADD COLUMN IF NOT EXISTS proposed_delivery_date_end DATE; -- NULL if specific date
+ALTER TABLE load_requests ADD COLUMN IF NOT EXISTS proposed_delivery_date_end DATE;
+-- NULL if specific date
 
 -- ============================================
 -- INDEXES
@@ -50,10 +47,8 @@ ALTER TABLE load_requests ADD COLUMN IF NOT EXISTS proposed_delivery_date_end DA
 CREATE INDEX IF NOT EXISTS idx_loads_posting_type ON loads(posting_type);
 CREATE INDEX IF NOT EXISTS idx_loads_load_subtype ON loads(load_subtype);
 CREATE INDEX IF NOT EXISTS idx_loads_rfd_date ON loads(rfd_date);
-
 -- Index for counter offer requests
 CREATE INDEX IF NOT EXISTS idx_load_requests_request_type ON load_requests(request_type);
-
 -- ============================================
 -- COMMENTS
 -- ============================================

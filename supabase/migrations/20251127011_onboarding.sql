@@ -7,7 +7,6 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role TEXT;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT false;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS onboarding_step INTEGER DEFAULT 0;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS onboarding_data JSONB DEFAULT '{}';
-
 -- Role options: 'company', 'carrier', 'owner_operator', 'driver'
 -- company = Moving company/broker that posts loads
 -- carrier = Trucking company that hauls loads (has multiple drivers)
@@ -16,7 +15,6 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS onboarding_data JSONB DEFAULT '{}'
 
 CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
 CREATE INDEX IF NOT EXISTS idx_profiles_onboarding ON profiles(onboarding_completed);
-
 -- ============================================
 -- DRIVER INVITE CODES
 -- ============================================
@@ -32,13 +30,10 @@ CREATE TABLE IF NOT EXISTS driver_invite_codes (
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 CREATE INDEX IF NOT EXISTS idx_invite_codes_code ON driver_invite_codes(code);
 CREATE INDEX IF NOT EXISTS idx_invite_codes_carrier ON driver_invite_codes(carrier_id);
-
 -- RLS
 ALTER TABLE driver_invite_codes ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Carrier owners can manage invite codes" ON driver_invite_codes;
 CREATE POLICY "Carrier owners can manage invite codes"
   ON driver_invite_codes FOR ALL
@@ -47,12 +42,10 @@ CREATE POLICY "Carrier owners can manage invite codes"
       SELECT id FROM companies WHERE owner_id = auth.uid()
     )
   );
-
 DROP POLICY IF EXISTS "Anyone can read active codes for joining" ON driver_invite_codes;
 CREATE POLICY "Anyone can read active codes for joining"
   ON driver_invite_codes FOR SELECT
   USING (is_active = true AND (expires_at IS NULL OR expires_at > NOW()));
-
 -- ============================================
 -- FUNCTION TO GENERATE INVITE CODE
 -- ============================================
@@ -70,7 +63,6 @@ BEGIN
   RETURN result;
 END;
 $$ LANGUAGE plpgsql;
-
 -- Function to increment invite uses
 CREATE OR REPLACE FUNCTION increment_invite_uses(invite_code TEXT)
 RETURNS void AS $$
@@ -80,28 +72,3 @@ BEGIN
   WHERE code = invite_code;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- ============================================
--- AUTO-CREATE PROFILE ON USER SIGNUP
--- ============================================
-
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.profiles (id, email, full_name, onboarding_completed)
-  VALUES (
-    NEW.id,
-    NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name'),
-    false
-  )
-  ON CONFLICT (id) DO NOTHING;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Trigger on auth.users
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

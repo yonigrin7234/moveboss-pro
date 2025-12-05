@@ -7,11 +7,11 @@
 
 -- Add HHG authorization field
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS fmcsa_hhg_authorized BOOLEAN DEFAULT FALSE;
-ALTER TABLE companies ADD COLUMN IF NOT EXISTS fmcsa_cargo_carried JSONB; -- Array of cargo types from FMCSA
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS fmcsa_cargo_carried JSONB;
+-- Array of cargo types from FMCSA
 
 COMMENT ON COLUMN companies.fmcsa_hhg_authorized IS 'Whether carrier is authorized to haul Household Goods (HHG)';
 COMMENT ON COLUMN companies.fmcsa_cargo_carried IS 'Array of cargo types the carrier is authorized to haul';
-
 -- Create a partial unique index on DOT number for verified workspace companies
 -- This allows:
 -- - Multiple companies to have the same DOT if they're not verified (e.g., partner companies)
@@ -21,7 +21,6 @@ ON companies(dot_number)
 WHERE dot_number IS NOT NULL
   AND fmcsa_verified = TRUE
   AND is_workspace_company = TRUE;
-
 -- Add a function to check DOT availability before verification
 CREATE OR REPLACE FUNCTION check_dot_availability(
   p_dot_number TEXT,

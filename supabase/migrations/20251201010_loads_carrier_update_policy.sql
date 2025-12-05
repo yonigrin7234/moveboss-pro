@@ -25,7 +25,6 @@ CREATE POLICY loads_carrier_update_policy
       AND c.owner_id = auth.uid()
     )
   );
-
 -- Also allow load owners to update their own loads
 CREATE POLICY loads_owner_update_policy
   ON public.loads
@@ -33,9 +32,7 @@ CREATE POLICY loads_owner_update_policy
   TO authenticated
   USING (owner_id = auth.uid())
   WITH CHECK (owner_id = auth.uid());
-
 COMMENT ON POLICY loads_carrier_update_policy ON public.loads IS
   'Allows assigned carriers to update loads (confirm, assign driver, change status)';
-
 COMMENT ON POLICY loads_owner_update_policy ON public.loads IS
   'Allows load owners to update their own loads';

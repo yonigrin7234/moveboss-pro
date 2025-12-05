@@ -8,23 +8,19 @@
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS company_rate NUMERIC(10,2);
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS company_rate_type TEXT DEFAULT 'per_cuft';
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS rate_is_fixed BOOLEAN DEFAULT false;
-
 -- Carrier's final rate (after acceptance)
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS carrier_rate NUMERIC(10,2);
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS carrier_rate_type TEXT DEFAULT 'per_cuft';
-
 -- Marketplace visibility
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS is_marketplace_visible BOOLEAN DEFAULT false;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS push_to_partners BOOLEAN DEFAULT false;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS posted_to_marketplace_at TIMESTAMPTZ;
-
 -- Carrier confirmation
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS carrier_confirmed_at TIMESTAMPTZ;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS expected_load_date DATE;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS assigned_driver_id UUID REFERENCES drivers(id);
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS assigned_driver_name TEXT;
 ALTER TABLE loads ADD COLUMN IF NOT EXISTS assigned_driver_phone TEXT;
-
 -- ============================================
 -- LOAD REQUESTS TABLE
 -- ============================================
@@ -70,30 +66,24 @@ CREATE TABLE IF NOT EXISTS load_requests (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_load_requests_load ON load_requests(load_id);
 CREATE INDEX IF NOT EXISTS idx_load_requests_carrier ON load_requests(carrier_id);
 CREATE INDEX IF NOT EXISTS idx_load_requests_status ON load_requests(status);
-
 -- RLS
 ALTER TABLE load_requests ENABLE ROW LEVEL SECURITY;
-
 -- Carriers can see their own requests
 CREATE POLICY "Carriers can view own requests"
   ON load_requests FOR SELECT
   USING (carrier_owner_id = auth.uid());
-
 -- Carriers can create requests
 CREATE POLICY "Carriers can create requests"
   ON load_requests FOR INSERT
   WITH CHECK (carrier_owner_id = auth.uid());
-
 -- Carriers can update own requests (withdraw)
 CREATE POLICY "Carriers can update own requests"
   ON load_requests FOR UPDATE
   USING (carrier_owner_id = auth.uid());
-
 -- Load owners can see requests on their loads
 CREATE POLICY "Load owners can view requests"
   ON load_requests FOR SELECT
@@ -104,7 +94,6 @@ CREATE POLICY "Load owners can view requests"
       AND loads.owner_id = auth.uid()
     )
   );
-
 -- Load owners can update requests (accept/decline)
 CREATE POLICY "Load owners can update requests"
   ON load_requests FOR UPDATE
@@ -115,7 +104,6 @@ CREATE POLICY "Load owners can update requests"
       AND loads.owner_id = auth.uid()
     )
   );
-
 -- ============================================
 -- NOTIFICATIONS TABLE (for future use)
 -- ============================================
@@ -149,22 +137,17 @@ CREATE TABLE IF NOT EXISTS notifications (
   -- Timestamps
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_company ON notifications(company_id, is_read, created_at DESC);
-
 -- RLS
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Users can view own notifications"
   ON notifications FOR SELECT
   USING (user_id = auth.uid());
-
 CREATE POLICY "Users can update own notifications"
   ON notifications FOR UPDATE
   USING (user_id = auth.uid());
-
 -- ============================================
 -- PLATFORM STATS ON COMPANIES (for trust/reputation)
 -- ============================================
@@ -173,7 +156,6 @@ ALTER TABLE companies ADD COLUMN IF NOT EXISTS platform_loads_completed INTEGER 
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS platform_on_time_rate NUMERIC(5,2);
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS platform_rating NUMERIC(3,2);
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS platform_member_since DATE;
-
 -- ============================================
 -- COMMENTS
 -- ============================================

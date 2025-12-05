@@ -5,7 +5,6 @@
 
 -- Drop the existing marketplace policy
 DROP POLICY IF EXISTS loads_marketplace_select_policy ON public.loads;
-
 -- Create a simpler policy that explicitly allows:
 -- 1. Viewing marketplace-visible loads (for any authenticated user)
 -- 2. Viewing own loads
@@ -26,6 +25,5 @@ CREATE POLICY loads_select_policy
       AND c.owner_id = auth.uid()
     )
   );
-
 COMMENT ON POLICY loads_select_policy ON public.loads IS
   'Allows viewing marketplace loads, own loads, and assigned loads';

@@ -11,7 +11,6 @@ ALTER TABLE storage_locations ADD COLUMN IF NOT EXISTS has_loading_dock BOOLEAN 
 ALTER TABLE storage_locations ADD COLUMN IF NOT EXISTS dock_height TEXT;
 ALTER TABLE storage_locations ADD COLUMN IF NOT EXISTS appointment_required BOOLEAN DEFAULT false;
 ALTER TABLE storage_locations ADD COLUMN IF NOT EXISTS appointment_instructions TEXT;
-
 -- Public Storage-specific fields
 ALTER TABLE storage_locations ADD COLUMN IF NOT EXISTS facility_brand TEXT;
 ALTER TABLE storage_locations ADD COLUMN IF NOT EXISTS facility_phone TEXT;
@@ -19,11 +18,9 @@ ALTER TABLE storage_locations ADD COLUMN IF NOT EXISTS unit_numbers TEXT;
 ALTER TABLE storage_locations ADD COLUMN IF NOT EXISTS account_name TEXT;
 ALTER TABLE storage_locations ADD COLUMN IF NOT EXISTS account_number TEXT;
 ALTER TABLE storage_locations ADD COLUMN IF NOT EXISTS authorization_notes TEXT;
-
 -- Truck Accessibility (both types)
 ALTER TABLE storage_locations ADD COLUMN IF NOT EXISTS truck_accessibility TEXT DEFAULT 'full';
 ALTER TABLE storage_locations ADD COLUMN IF NOT EXISTS accessibility_notes TEXT;
-
 -- Add constraint for truck_accessibility if not exists
 DO $$
 BEGIN
@@ -34,7 +31,6 @@ BEGIN
       CHECK (truck_accessibility IS NULL OR truck_accessibility IN ('full', 'limited', 'none'));
   END IF;
 END $$;
-
 -- Note: existing gate_code field can serve as access_code for public storage
 -- Note: existing access_hours field serves for both types
 -- Note: existing access_instructions field can serve for notes

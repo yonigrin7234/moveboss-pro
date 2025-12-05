@@ -11,6 +11,8 @@ config.resolver.extraNodeModules = {
   react: path.resolve(projectRoot, 'node_modules/react'),
   'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
   'react-native-reanimated': path.resolve(projectRoot, 'node_modules/react-native-reanimated'),
+  'react-native-worklets': path.resolve(projectRoot, 'node_modules/react-native-worklets'),
+  'react-native-svg': path.resolve(projectRoot, 'node_modules/react-native-svg'),
 };
 
 // Watch folders for monorepo

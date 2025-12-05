@@ -13,12 +13,9 @@ CREATE TABLE IF NOT EXISTS load_status_history (
   updated_by_id UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 CREATE INDEX IF NOT EXISTS idx_load_status_history_load ON load_status_history(load_id, created_at);
-
 -- RLS
 ALTER TABLE load_status_history ENABLE ROW LEVEL SECURITY;
-
 -- Anyone involved with the load can view history
 CREATE POLICY "Users can view load status history"
   ON load_status_history FOR SELECT
@@ -31,12 +28,10 @@ CREATE POLICY "Users can view load status history"
       ))
     )
   );
-
 -- Carriers can insert status updates
 CREATE POLICY "Carriers can insert status updates"
   ON load_status_history FOR INSERT
   WITH CHECK (updated_by_id = auth.uid());
-
 -- ============================================
 -- FUNCTION TO INCREMENT COMPLETED LOADS
 -- ============================================
@@ -49,7 +44,6 @@ BEGIN
   WHERE id = company_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- ============================================
 -- ADD TIMESTAMP COLUMNS TO LOADS FOR TRACKING
 -- ============================================

@@ -1,5 +1,4 @@
 BEGIN;
-
 ALTER TABLE public.companies
   ADD COLUMN IF NOT EXISTS legal_name TEXT,
   ADD COLUMN IF NOT EXISTS contact_name TEXT,
@@ -14,9 +13,7 @@ ALTER TABLE public.companies
   ADD COLUMN IF NOT EXISTS company_role TEXT,
   ADD COLUMN IF NOT EXISTS default_distance_unit TEXT,
   ADD COLUMN IF NOT EXISTS notes TEXT;
-
 -- company_capabilities already added in a prior migration; keep idempotent add here too
 ALTER TABLE public.companies
   ADD COLUMN IF NOT EXISTS company_capabilities TEXT[] NOT NULL DEFAULT '{}';
-
 COMMIT;

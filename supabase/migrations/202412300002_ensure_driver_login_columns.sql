@@ -1,5 +1,4 @@
 BEGIN;
-
 -- ============================================================================
 -- DRIVERS TABLE - Ensure login-related columns exist with proper constraints
 -- ============================================================================
@@ -31,7 +30,6 @@ BEGIN
       ALTER COLUMN has_login SET NOT NULL;
   END IF;
 END $$;
-
 -- Ensure login_method column exists with CHECK constraint
 DO $$
 BEGIN
@@ -57,7 +55,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- Ensure auth_user_id column exists
 DO $$
 BEGIN
@@ -71,7 +68,6 @@ BEGIN
       ADD COLUMN auth_user_id UUID;
   END IF;
 END $$;
-
 -- Ensure email column exists
 DO $$
 BEGIN
@@ -85,7 +81,6 @@ BEGIN
       ADD COLUMN email TEXT;
   END IF;
 END $$;
-
 -- Ensure phone column exists
 DO $$
 BEGIN
@@ -99,7 +94,6 @@ BEGIN
       ADD COLUMN phone TEXT;
   END IF;
 END $$;
-
 -- Add foreign key constraint on auth_user_id if it doesn't exist
 DO $$
 BEGIN
@@ -115,9 +109,6 @@ BEGIN
       ON DELETE SET NULL;
   END IF;
 END $$;
-
 -- Add index on auth_user_id if it doesn't exist
 CREATE INDEX IF NOT EXISTS idx_drivers_auth_user_id ON public.drivers(auth_user_id);
-
 COMMIT;
-

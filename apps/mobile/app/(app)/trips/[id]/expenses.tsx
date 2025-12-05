@@ -11,7 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import Animated, { FadeInUp, FadeInDown, Layout } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useTripExpenses, useExpenseActions, CreateExpenseInput } from '../../../../hooks/useExpenseActions';
@@ -208,7 +208,7 @@ export default function ExpensesScreen() {
           }
         >
           {error && (
-            <Animated.View entering={FadeInUp} style={styles.errorCard}>
+            <Animated.View entering={FadeIn} style={styles.errorCard}>
               <Text style={styles.errorText}>{error}</Text>
             </Animated.View>
           )}
@@ -218,7 +218,7 @@ export default function ExpensesScreen() {
             <SkeletonStats style={{ marginBottom: 20 }} />
           ) : (
             <Animated.View
-              entering={FadeInUp.springify().damping(15)}
+              entering={FadeIn.duration(300)}
               style={styles.summaryCard}
             >
               <View style={styles.summaryItem}>
@@ -237,7 +237,7 @@ export default function ExpensesScreen() {
 
           {/* Add Expense Button or Form */}
           {!showForm ? (
-            <Animated.View entering={FadeInUp.delay(100).springify()}>
+            <Animated.View entering={FadeIn.delay(100)}>
               <TouchableOpacity
                 style={styles.addButton}
                 onPress={() => setShowForm(true)}
@@ -247,7 +247,7 @@ export default function ExpensesScreen() {
             </Animated.View>
           ) : (
             <Animated.View
-              entering={FadeInDown.springify().damping(15)}
+              entering={FadeIn.duration(300)}
               style={styles.formCard}
             >
               <Text style={styles.formTitle}>New Expense</Text>
@@ -386,7 +386,7 @@ export default function ExpensesScreen() {
 
           {/* Expenses List */}
           <Animated.View
-            entering={FadeInUp.delay(200).springify()}
+            entering={FadeIn.delay(200)}
             style={styles.section}
           >
             <Text style={styles.sectionTitle}>
@@ -403,8 +403,7 @@ export default function ExpensesScreen() {
                 {visibleExpenses.map((expense, index) => (
                   <Animated.View
                     key={expense.id}
-                    entering={FadeInUp.delay(getStaggerDelay(index)).springify().damping(15)}
-                    layout={Layout.springify().damping(15)}
+                    entering={FadeIn.delay(getStaggerDelay(index))}
                   >
                     <TouchableOpacity
                       style={styles.expenseItem}

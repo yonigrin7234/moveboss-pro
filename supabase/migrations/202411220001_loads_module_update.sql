@@ -1,5 +1,4 @@
 BEGIN;
-
 -- Migration to update loads table to new schema structure
 -- This migration transforms the existing loads table to match the new specification
 
@@ -36,7 +35,6 @@ ALTER TABLE public.loads
   ADD COLUMN IF NOT EXISTS packing_rate numeric(12,2),
   ADD COLUMN IF NOT EXISTS materials_rate numeric(12,2),
   ADD COLUMN IF NOT EXISTS accessorials_rate numeric(12,2);
-
 -- Step 2: Migrate data from old columns to new columns
 UPDATE public.loads
 SET
@@ -64,14 +62,12 @@ SET
   accessorials_rate = accessorials_total,
   service_type = 'other'
 WHERE load_number IS NULL OR service_type IS NULL;
-
 -- Step 3: Set defaults for required fields
 UPDATE public.loads
 SET
   load_number = COALESCE(load_number, 'LOAD-' || substring(id::text, 1, 8)),
   service_type = COALESCE(service_type, 'other')
 WHERE load_number IS NULL OR service_type IS NULL;
-
 -- Step 4: Drop old foreign key constraints first
 ALTER TABLE public.loads
   DROP CONSTRAINT IF EXISTS loads_customer_company_id_fkey,
@@ -79,7 +75,6 @@ ALTER TABLE public.loads
   DROP CONSTRAINT IF EXISTS loads_driver_id_fkey,
   DROP CONSTRAINT IF EXISTS loads_truck_id_fkey,
   DROP CONSTRAINT IF EXISTS loads_trailer_id_fkey;
-
 -- Step 5: Drop old columns
 ALTER TABLE public.loads
   DROP COLUMN IF EXISTS reference_number,
@@ -106,52 +101,41 @@ ALTER TABLE public.loads
   DROP COLUMN IF EXISTS estimated_cubic_ft,
   DROP COLUMN IF EXISTS estimated_weight_lbs,
   DROP COLUMN IF EXISTS accessorials_total;
-
 -- Step 6: Rename new columns to final names
 ALTER TABLE public.loads
   RENAME COLUMN pickup_date_new TO pickup_date;
-
 ALTER TABLE public.loads
   RENAME COLUMN delivery_date_new TO delivery_date;
-
 -- Step 7: Add new foreign key constraints
 ALTER TABLE public.loads
   ADD CONSTRAINT loads_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE SET NULL,
   ADD CONSTRAINT loads_assigned_driver_id_fkey FOREIGN KEY (assigned_driver_id) REFERENCES public.drivers(id) ON DELETE SET NULL,
   ADD CONSTRAINT loads_assigned_truck_id_fkey FOREIGN KEY (assigned_truck_id) REFERENCES public.trucks(id) ON DELETE SET NULL,
   ADD CONSTRAINT loads_assigned_trailer_id_fkey FOREIGN KEY (assigned_trailer_id) REFERENCES public.trailers(id) ON DELETE SET NULL;
-
 -- Step 8: Make required columns NOT NULL
 ALTER TABLE public.loads
   ALTER COLUMN load_number SET NOT NULL,
   ALTER COLUMN service_type SET DEFAULT 'other';
-
 ALTER TABLE public.loads
   ALTER COLUMN service_type SET NOT NULL;
-
 -- Step 9: Add unique constraint on (owner_id, load_number)
 ALTER TABLE public.loads
   ADD CONSTRAINT loads_owner_load_number_unique UNIQUE (owner_id, load_number);
-
 -- Step 10: Add check constraint for service_type
 ALTER TABLE public.loads
   ADD CONSTRAINT loads_service_type_check CHECK (
     service_type IN ('hhg_local', 'hhg_long_distance', 'commercial', 'storage_in', 'storage_out', 'freight', 'other')
   );
-
 -- Step 11: Update status check constraint
 ALTER TABLE public.loads
   DROP CONSTRAINT IF EXISTS loads_status_check;
-
 ALTER TABLE public.loads
   ADD CONSTRAINT loads_status_check CHECK (
     status IN ('pending', 'assigned', 'in_transit', 'delivered', 'canceled')
   );
-
 -- Step 12: Update default status
 ALTER TABLE public.loads
   ALTER COLUMN status SET DEFAULT 'pending';
-
 -- Step 13: Update existing status values to match new enum
 UPDATE public.loads
 SET status = CASE
@@ -163,7 +147,6 @@ SET status = CASE
   WHEN status = 'cancelled' THEN 'canceled'
   ELSE 'pending'
 END;
-
 -- Step 14: Add/update indexes
 DROP INDEX IF EXISTS loads_owner_id_idx;
 CREATE INDEX loads_owner_id_idx ON public.loads (owner_id);
@@ -173,6 +156,4 @@ CREATE INDEX IF NOT EXISTS loads_assigned_driver_id_idx ON public.loads (assigne
 CREATE INDEX IF NOT EXISTS loads_assigned_truck_id_idx ON public.loads (assigned_truck_id);
 CREATE INDEX IF NOT EXISTS loads_assigned_trailer_id_idx ON public.loads (assigned_trailer_id);
 CREATE INDEX IF NOT EXISTS loads_status_idx ON public.loads (status);
-
 COMMIT;
-
