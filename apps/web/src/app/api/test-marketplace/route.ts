@@ -55,10 +55,20 @@ export async function GET(request: Request) {
       // Get the actual function result
       const loadsGivenOut = await getLoadsGivenOut(user.id);
 
+      // Also do a second workspace company lookup to compare
+      const { data: secondWorkspaceCompany } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('owner_id', user.id)
+        .eq('is_workspace_company', true)
+        .maybeSingle();
+
       return NextResponse.json({
         testType: 'loads-given-out',
         user: { id: user.id, email: user.email },
         workspaceCompany,
+        secondWorkspaceCompanyId: secondWorkspaceCompany?.id,
+        workspaceIdsMatch: workspaceCompany?.id === secondWorkspaceCompany?.id,
         companyError,
         postedJobsStyle: {
           count: postedJobsStyle?.length || 0,
