@@ -63,24 +63,33 @@ export default async function AssignedLoadsPage() {
 
   async function handleGiveBack(formData: FormData): Promise<void> {
     'use server';
-    const currentUser = await getCurrentUser();
-    if (!currentUser) throw new Error('Not authenticated');
+    try {
+      const currentUser = await getCurrentUser();
+      if (!currentUser) {
+        console.error('[handleGiveBack] Not authenticated');
+        return;
+      }
 
-    const loadId = formData.get('load_id') as string;
-    const reasonCode = formData.get('reason_code') as string;
-    const carrierIdValue = formData.get('carrier_id') as string;
+      const loadId = formData.get('load_id') as string;
+      const reasonCode = formData.get('reason_code') as string;
+      const carrierIdValue = formData.get('carrier_id') as string;
 
-    if (!loadId || !reasonCode || !carrierIdValue) {
-      throw new Error('Missing required fields');
+      if (!loadId || !reasonCode || !carrierIdValue) {
+        console.error('[handleGiveBack] Missing required fields:', { loadId, reasonCode, carrierIdValue });
+        return;
+      }
+
+      const result = await giveLoadBack(loadId, currentUser.id, carrierIdValue, reasonCode);
+      if (!result.success) {
+        console.error('[handleGiveBack] Failed:', result.error);
+        return;
+      }
+
+      revalidatePath('/dashboard/assigned-loads');
+      revalidatePath('/dashboard/load-board');
+    } catch (error) {
+      console.error('[handleGiveBack] Exception:', error);
     }
-
-    const result = await giveLoadBack(loadId, currentUser.id, carrierIdValue, reasonCode);
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to give back load');
-    }
-
-    revalidatePath('/dashboard/assigned-loads');
-    revalidatePath('/dashboard/load-board');
   }
 
   return (

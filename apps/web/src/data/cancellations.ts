@@ -130,6 +130,7 @@ export async function giveLoadBack(
       assigned_driver_name: null,
       assigned_driver_phone: null,
       load_status: 'pending',
+      posting_status: 'posted', // Reset posting status so it shows on marketplace
       is_marketplace_visible: true,
       updated_at: new Date().toISOString(),
     })
