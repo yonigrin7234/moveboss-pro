@@ -77,7 +77,7 @@ export default async function LoadsGivenOutPage() {
                   : null;
 
               return (
-                <Link key={load.id} href={`/dashboard/loads/${load.id}`}>
+                <Link key={load.id} href={`/dashboard/posted-jobs/${load.id}`}>
                   <Card className="hover:bg-muted/50 transition-colors cursor-pointer border-yellow-500/30">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
@@ -142,7 +142,7 @@ export default async function LoadsGivenOutPage() {
                   : null;
 
               return (
-                <Link key={load.id} href={`/dashboard/loads/${load.id}`}>
+                <Link key={load.id} href={`/dashboard/posted-jobs/${load.id}`}>
                   <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
@@ -207,7 +207,7 @@ export default async function LoadsGivenOutPage() {
                   : null;
 
               return (
-                <Link key={load.id} href={`/dashboard/loads/${load.id}`}>
+                <Link key={load.id} href={`/dashboard/posted-jobs/${load.id}`}>
                   <Card className="hover:bg-muted/50 transition-colors cursor-pointer opacity-70">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
