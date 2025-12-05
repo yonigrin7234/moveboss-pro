@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/supabase-server';
+import { CommandPalette } from '@/components/CommandPalette';
 
 export default async function AppLayout({
   children,
@@ -12,6 +13,10 @@ export default async function AppLayout({
     redirect('/login');
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <CommandPalette />
+    </>
+  );
 }
-
