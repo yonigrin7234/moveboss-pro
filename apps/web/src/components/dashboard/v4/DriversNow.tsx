@@ -118,11 +118,24 @@ export function DriversNow({ drivers, driversOnRoad, totalDrivers }: DriversNowP
                 </div>
               </div>
 
-              {/* Location or status details */}
-              {driver.location ? (
+              {/* Capacity & availability info */}
+              {isActive && driver.truckCapacity && driver.availableDate && driver.availableLocation ? (
+                <div className="text-[11px] text-muted-foreground leading-tight">
+                  <span className="font-semibold text-foreground">{driver.truckCapacity.toLocaleString()} CF</span>
+                  {' '}empty{' '}
+                  <span className="font-medium text-blue-600 dark:text-blue-400">{driver.availableDate}</span>
+                  {' '}in{' '}
+                  <span className="truncate">{driver.availableLocation}</span>
+                </div>
+              ) : driver.location ? (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <MapPin className="h-3 w-3 flex-shrink-0" />
                   <span className="truncate">{driver.location}</span>
+                </div>
+              ) : driver.truckCapacity ? (
+                <div className="text-[11px] text-muted-foreground">
+                  <span className="font-semibold text-foreground">{driver.truckCapacity.toLocaleString()} CF</span>
+                  {' '}available now
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

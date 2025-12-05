@@ -71,6 +71,10 @@ export interface LiveDriverStatus {
   location: string | null;
   eta: string | null;
   phone: string | null;
+  // Capacity info
+  truckCapacity: number | null;
+  availableDate: string | null;
+  availableLocation: string | null;
 }
 
 export interface ActivityEvent {
@@ -485,15 +489,18 @@ export async function getTodaysCollections(userId: string, limit = 10): Promise<
 }
 
 /**
- * Get live driver statuses
+ * Get live driver statuses with capacity info
  */
 export async function getLiveDriverStatuses(userId: string, limit = 10): Promise<LiveDriverStatus[]> {
   const supabase = await createClient();
 
-  // Get all active drivers
+  // Get all active drivers with their assigned truck
   const { data: drivers, error: driversError } = await supabase
     .from('drivers')
-    .select('id, first_name, last_name, phone, status')
+    .select(`
+      id, first_name, last_name, phone, status, assigned_truck_id,
+      truck:trucks!drivers_assigned_truck_id_fkey(cubic_capacity)
+    `)
     .eq('owner_id', userId)
     .eq('status', 'active')
     .order('first_name', { ascending: true })
@@ -504,10 +511,14 @@ export async function getLiveDriverStatuses(userId: string, limit = 10): Promise
     return [];
   }
 
-  // Get active trips to determine who's on the road
+  // Get active trips with delivery info to determine who's on the road
   const { data: activeTrips } = await supabase
     .from('trips')
-    .select('driver_id, status, destination_city, destination_state')
+    .select(`
+      driver_id, status,
+      destination_city, destination_state,
+      delivery_date
+    `)
     .eq('owner_id', userId)
     .in('status', ['active', 'en_route'])
     .not('driver_id', 'is', null);
@@ -519,14 +530,25 @@ export async function getLiveDriverStatuses(userId: string, limit = 10): Promise
     }
   }
 
-  return (drivers || []).map(driver => {
+  return (drivers || []).map((driver: any) => {
     const trip = tripByDriver.get(driver.id);
     let status: LiveDriverStatus['status'] = 'available';
     let location: string | null = null;
+    let availableDate: string | null = null;
+    let availableLocation: string | null = null;
+
+    // Get truck capacity
+    const truckCapacity = driver.truck?.cubic_capacity || null;
 
     if (trip) {
       status = trip.status === 'en_route' ? 'in_transit' : 'delivering';
       location = [trip.destination_city, trip.destination_state].filter(Boolean).join(', ') || null;
+
+      // Set when/where driver will be available after current trip
+      availableLocation = location;
+      if (trip.delivery_date) {
+        availableDate = formatAvailableDate(trip.delivery_date);
+      }
     }
 
     return {
@@ -535,10 +557,27 @@ export async function getLiveDriverStatuses(userId: string, limit = 10): Promise
       initials: `${driver.first_name[0]}${driver.last_name[0]}`.toUpperCase(),
       status,
       location,
-      eta: null, // Would need real-time tracking
+      eta: null,
       phone: driver.phone,
+      truckCapacity,
+      availableDate,
+      availableLocation,
     };
   });
+}
+
+function formatAvailableDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr);
+  target.setHours(0, 0, 0, 0);
+
+  const diffDays = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays <= 0) return 'Today';
+  if (diffDays === 1) return 'Tomorrow';
+  return date.toLocaleDateString('en-US', { weekday: 'short' });
 }
 
 /**

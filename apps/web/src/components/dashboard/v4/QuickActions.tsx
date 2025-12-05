@@ -20,7 +20,7 @@ export function QuickActions({ needsDriverAssignment = 0 }: QuickActionsProps) {
   const actions: QuickAction[] = [
     {
       label: 'Find Load',
-      href: '/dashboard/marketplace',
+      href: '/dashboard/load-board',
       icon: <Search className="h-4 w-4" />,
       primary: true,
     },
@@ -32,7 +32,7 @@ export function QuickActions({ needsDriverAssignment = 0 }: QuickActionsProps) {
     },
     {
       label: 'Post Load',
-      href: '/dashboard/posted-jobs/new',
+      href: '/dashboard/post-load',
       icon: <Plus className="h-4 w-4" />,
     },
     {
@@ -42,12 +42,12 @@ export function QuickActions({ needsDriverAssignment = 0 }: QuickActionsProps) {
     },
     {
       label: 'Record Payment',
-      href: '/dashboard/finance/payments/new',
+      href: '/dashboard/finance/receivables',
       icon: <DollarSign className="h-4 w-4" />,
     },
     {
       label: 'Settle Driver',
-      href: '/dashboard/settlements/new',
+      href: '/dashboard/settlements',
       icon: <FileText className="h-4 w-4" />,
     },
   ];
