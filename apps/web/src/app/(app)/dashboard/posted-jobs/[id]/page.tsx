@@ -11,6 +11,7 @@ import { ReliabilityBadge } from '@/components/reliability-badge';
 import { LoadRequestActions } from '@/components/load-request-actions';
 import { checkCarrierCompliance } from '@/data/compliance-alerts';
 import { getLoadRequests, acceptLoadRequest, declineLoadRequest } from '@/data/marketplace';
+import { getLoadStatusHistory } from '@/data/load-status';
 import {
   ArrowLeft,
   ArrowRight,
@@ -28,6 +29,10 @@ import {
   Shield,
   ExternalLink,
   Users,
+  Building2,
+  Navigation,
+  Phone,
+  User,
 } from 'lucide-react';
 
 interface PageProps {
@@ -47,6 +52,7 @@ interface PostedJob {
   pickup_date_end: string | null;
   pickup_date: string | null;
   rfd_date: string | null;
+  expected_load_date: string | null;
   // Origin
   pickup_city: string | null;
   pickup_state: string | null;
@@ -65,6 +71,7 @@ interface PostedJob {
   cubic_feet_estimate: number | null;
   rate_per_cuft: number | null;
   company_rate: number | null;
+  carrier_rate: number | null;
   balance_due: number | null;
   linehaul_amount: number | null;
   // Requirements
@@ -74,7 +81,12 @@ interface PostedJob {
   current_storage_location: string | null;
   // Carrier assignment
   assigned_carrier_id: string | null;
-  assigned_carrier: { id: string; name: string } | null;
+  assigned_carrier: { id: string; name: string; phone?: string } | null;
+  carrier_confirmed_at: string | null;
+  load_status: string;
+  // Driver assignment
+  assigned_driver_name: string | null;
+  assigned_driver_phone: string | null;
 }
 
 interface LoadRequest {
@@ -211,6 +223,26 @@ function formatDateTime(date: string | null) {
   });
 }
 
+function getStatusOrder(status: string): number {
+  const order: Record<string, number> = {
+    pending: 0,
+    accepted: 1,
+    loading: 2,
+    loaded: 3,
+    in_transit: 4,
+    delivered: 5,
+  };
+  return order[status] ?? 0;
+}
+
+const loadStatusConfig: Record<string, { label: string; color: string }> = {
+  accepted: { label: 'Ready to Load', color: 'bg-blue-500/20 text-blue-400' },
+  loading: { label: 'Loading', color: 'bg-yellow-500/20 text-yellow-400' },
+  loaded: { label: 'Loaded', color: 'bg-orange-500/20 text-orange-400' },
+  in_transit: { label: 'In Transit', color: 'bg-purple-500/20 text-purple-400' },
+  delivered: { label: 'Delivered', color: 'bg-green-500/20 text-green-400' },
+};
+
 function getOrigin(job: PostedJob) {
   // For RFD loads, use loading/storage location
   if (job.load_type === 'rfd' || job.posting_type === 'load') {
@@ -263,17 +295,19 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
     .from('loads')
     .select(`
       id, job_number, load_number, load_type, posting_type, posting_status, posted_at,
-      pickup_date_start, pickup_date_end, pickup_date, rfd_date,
+      pickup_date_start, pickup_date_end, pickup_date, rfd_date, expected_load_date,
       pickup_city, pickup_state, pickup_zip,
       loading_city, loading_state,
       dropoff_city, dropoff_state, dropoff_postal_code,
       delivery_city, delivery_state, delivery_postal_code,
-      cubic_feet, cubic_feet_estimate, rate_per_cuft, company_rate,
+      cubic_feet, cubic_feet_estimate, rate_per_cuft, company_rate, carrier_rate,
       balance_due, linehaul_amount,
       truck_requirement, is_open_to_counter,
       current_storage_location,
       assigned_carrier_id,
-      assigned_carrier:assigned_carrier_id(id, name)
+      assigned_carrier:assigned_carrier_id(id, name, phone),
+      carrier_confirmed_at, load_status,
+      assigned_driver_name, assigned_driver_phone
     `)
     .eq('id', id)
     .eq('posted_by_company_id', workspaceCompany.id)
@@ -289,6 +323,11 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
   }
 
   const postedJob = job as unknown as PostedJob;
+
+  // Fetch status history if carrier is assigned
+  const statusHistory = postedJob.assigned_carrier_id
+    ? await getLoadStatusHistory(id)
+    : [];
 
   // Fetch requests for this job
   const requests = (await getLoadRequests(id)) as unknown as LoadRequest[];
@@ -342,13 +381,16 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
   const origin = getOrigin(postedJob);
   const destination = getDestination(postedJob);
   const cuft = postedJob.cubic_feet || postedJob.cubic_feet_estimate;
-  const rate = postedJob.rate_per_cuft || postedJob.company_rate;
+  const rate = postedJob.carrier_rate || postedJob.rate_per_cuft || postedJob.company_rate;
   const totalValue = rate && cuft ? rate * cuft : null;
   const price = postedJob.posting_type === 'pickup' ? postedJob.balance_due : postedJob.linehaul_amount;
   const priceLabel = postedJob.posting_type === 'pickup' ? 'Balance Due' : 'Linehaul';
   const dateDisplay = postedJob.pickup_date_start && postedJob.pickup_date_end
     ? `${formatDate(postedJob.pickup_date_start)} - ${formatDate(postedJob.pickup_date_end)}`
     : formatDate(postedJob.pickup_date || postedJob.rfd_date);
+  const loadDate = postedJob.expected_load_date || postedJob.pickup_date || postedJob.rfd_date;
+  const isAssigned = !!postedJob.assigned_carrier_id;
+  const loadStatus = loadStatusConfig[postedJob.load_status] || loadStatusConfig.accepted;
 
   return (
     <div className="space-y-6">
@@ -465,31 +507,190 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
         </CardContent>
       </Card>
 
-      {/* Already Assigned Banner */}
-      {postedJob.assigned_carrier_id && (
-        <Card className="border-green-500/30 bg-green-500/5">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-green-500" />
-              <div className="flex-1">
-                <p className="font-medium">
-                  Assigned to {postedJob.assigned_carrier?.name}
+      {/* Tracking View - When carrier is assigned */}
+      {isAssigned && (
+        <>
+          {/* Quick Stats Cards */}
+          <div className="grid grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-4 text-center">
+                <Package className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
+                <p className="text-lg font-bold">{cuft ?? '-'}</p>
+                <p className="text-xs text-muted-foreground">CUFT</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <DollarSign className="h-5 w-5 mx-auto mb-1 text-green-500" />
+                <p className="text-lg font-bold text-green-500">
+                  ${rate?.toFixed(2) ?? '-'}
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  This job has been assigned to a carrier
+                <p className="text-xs text-muted-foreground">per CF</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <Calendar className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
+                <p className="text-lg font-bold">
+                  {loadDate ? new Date(loadDate).toLocaleDateString() : 'TBD'}
                 </p>
+                <p className="text-xs text-muted-foreground">Load Date</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Total Value Card */}
+          {totalValue && (
+            <Card className="border-green-500/30 bg-green-500/5">
+              <CardContent className="p-4 text-center">
+                <p className="text-sm text-muted-foreground">Total Value</p>
+                <p className="text-2xl font-bold text-green-500">
+                  ${totalValue.toLocaleString()}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Carrier Info Card */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-green-500/10 flex items-center justify-center">
+                    <Building2 className="h-5 w-5 text-green-500" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">{postedJob.assigned_carrier?.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {postedJob.carrier_confirmed_at
+                        ? `Confirmed ${formatDate(postedJob.carrier_confirmed_at)}`
+                        : 'Awaiting confirmation'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge className={loadStatus.color}>{loadStatus.label}</Badge>
+                  {postedJob.assigned_carrier?.phone && (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={`tel:${postedJob.assigned_carrier.phone}`}>
+                        <Phone className="h-4 w-4" />
+                      </a>
+                    </Button>
+                  )}
+                </div>
               </div>
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/dashboard/loads/${postedJob.id}`}>
-                  View Load Details
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          {/* Driver Info */}
+          {postedJob.assigned_driver_name && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                      <User className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="font-medium">{postedJob.assigned_driver_name}</p>
+                      <p className="text-sm text-muted-foreground">Assigned Driver</p>
+                    </div>
+                  </div>
+                  {postedJob.assigned_driver_phone && (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={`tel:${postedJob.assigned_driver_phone}`}>
+                        <Phone className="h-4 w-4 mr-2" />
+                        Call Driver
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Status Timeline - Read Only */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Load Progress
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[
+                  { status: 'accepted', label: 'Confirmed', icon: CheckCircle2 },
+                  { status: 'loading', label: 'Loading', icon: Package },
+                  { status: 'loaded', label: 'Loaded', icon: Truck },
+                  { status: 'in_transit', label: 'In Transit', icon: Navigation },
+                  { status: 'delivered', label: 'Delivered', icon: CheckCircle2 },
+                ].map((step) => {
+                  const isCompleted = getStatusOrder(postedJob.load_status) >= getStatusOrder(step.status);
+                  const isCurrent = postedJob.load_status === step.status;
+                  const StepIcon = step.icon;
+                  const historyEntry = statusHistory.find((h) => h.status === step.status);
+
+                  return (
+                    <div key={step.status} className="flex items-center gap-3">
+                      <div
+                        className={`
+                          h-8 w-8 rounded-full flex items-center justify-center
+                          ${isCompleted ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'}
+                          ${isCurrent ? 'ring-2 ring-green-500 ring-offset-2' : ''}
+                        `}
+                      >
+                        <StepIcon className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1">
+                        <p className={`font-medium ${isCompleted ? '' : 'text-muted-foreground'}`}>
+                          {step.label}
+                        </p>
+                        {historyEntry && (
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(historyEntry.created_at).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {postedJob.load_status === 'delivered' && (
+                <div className="mt-4 p-4 bg-green-500/10 rounded-lg text-center">
+                  <CheckCircle2 className="h-8 w-8 mx-auto text-green-500 mb-2" />
+                  <p className="font-medium text-green-600">Load Delivered!</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Route Summary */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground">From</p>
+                  <p className="font-semibold">
+                    {origin.city}, {origin.state}
+                  </p>
+                </div>
+                <ArrowRight className="h-5 w-5 text-muted-foreground" />
+                <div className="flex-1 text-right">
+                  <p className="text-sm text-muted-foreground">To</p>
+                  <p className="font-semibold">
+                    {destination.city}, {destination.state}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
 
-      {/* Incoming Requests Section */}
+      {/* Incoming Requests Section - Only show when not assigned */}
+      {!isAssigned && (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold flex items-center gap-2">
@@ -750,6 +951,7 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
