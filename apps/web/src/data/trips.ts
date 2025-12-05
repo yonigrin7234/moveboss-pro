@@ -844,6 +844,17 @@ export async function addLoadToTrip(
     assertOwnership(supabase, 'loads', input.load_id, userId, 'Load'),
   ]);
 
+  // Check if load has been assigned to an external carrier via marketplace
+  const { data: loadData } = await supabase
+    .from('loads')
+    .select('assigned_carrier_id')
+    .eq('id', input.load_id)
+    .single();
+
+  if (loadData?.assigned_carrier_id) {
+    throw new Error('This load has been assigned to an external carrier and cannot be added to your trip. The carrier will dispatch this load.');
+  }
+
   // Check if load is already on another trip and remove it first
   const { data: existingAssignment } = await supabase
     .from('trip_loads')

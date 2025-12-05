@@ -147,12 +147,13 @@ export async function getDashboardMetrics(userId: string): Promise<DashboardMetr
       .gte('created_at', yesterdayIso)
       .lt('created_at', todayIso),
 
-    // Unassigned loads (no driver, status pending/available)
+    // Unassigned loads (no driver, not assigned to external carrier, status pending/available)
     supabase
       .from('loads')
       .select('id, total_rate, linehaul_amount')
       .eq('owner_id', userId)
       .is('assigned_driver_id', null)
+      .is('assigned_carrier_id', null)
       .in('load_status', ['pending', 'available', 'booked']),
 
     // Active trips
@@ -311,6 +312,7 @@ export async function getUnassignedJobs(userId: string, limit = 10): Promise<Una
     `)
     .eq('owner_id', userId)
     .is('assigned_driver_id', null)
+    .is('assigned_carrier_id', null) // Exclude loads assigned to external carriers
     .in('load_status', ['pending', 'available', 'booked'])
     .order('pickup_date', { ascending: true, nullsFirst: false })
     .limit(limit);
