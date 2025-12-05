@@ -16,7 +16,6 @@ import {
   Clock,
   ArrowRight,
   Loader2,
-  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -52,10 +51,12 @@ const typeLabels = {
 };
 
 const quickActions = [
-  { id: 'post-load', label: 'Post Load', href: '/dashboard/posted-jobs/new', icon: Plus },
+  { id: 'post-load', label: 'Post Load', href: '/dashboard/post-load', icon: Plus },
   { id: 'add-driver', label: 'Add Driver', href: '/dashboard/drivers/new', icon: UserPlus },
-  { id: 'record-payment', label: 'Record Payment', href: '/dashboard/finance/payments/new', icon: Banknote },
-  { id: 'fleet-map', label: 'Fleet Map', href: '/dashboard/map', icon: Map },
+  { id: 'new-trip', label: 'New Trip', href: '/dashboard/trips/new', icon: Truck },
+  { id: 'fleet-map', label: 'Live Fleet', href: '/dashboard/live-fleet', icon: Map },
+  { id: 'receivables', label: 'Receivables', href: '/dashboard/finance/receivables', icon: Banknote },
+  { id: 'add-company', label: 'Add Company', href: '/dashboard/companies/new', icon: Building2 },
 ];
 
 export function CommandPalette() {
