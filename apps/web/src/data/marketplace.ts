@@ -1997,6 +1997,7 @@ export async function getLoadsGivenOut(userId: string): Promise<LoadGivenOut[]> 
     return [];
   }
 
+  // Use same join syntax as Posted Jobs page
   const { data, error } = await supabase
     .from('loads')
     .select(`
@@ -2020,16 +2021,19 @@ export async function getLoadsGivenOut(userId: string): Promise<LoadGivenOut[]> 
       pickup_state,
       delivery_city,
       delivery_state,
-      carrier:companies!loads_assigned_carrier_id_fkey(id, name)
+      assigned_carrier_id,
+      assigned_carrier:assigned_carrier_id(id, name)
     `)
     .eq('posted_by_company_id', workspaceCompany.id)
     .not('assigned_carrier_id', 'is', null)
-    .order('carrier_assigned_at', { ascending: false, nullsFirst: false });
+    .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('Error fetching loads given out:', error);
+    console.error('[getLoadsGivenOut] Error:', error);
     return [];
   }
+
+  console.log('[getLoadsGivenOut] Found loads:', data?.length, 'for company:', workspaceCompany.id);
 
   return (data || []).map((load: any) => ({
     id: load.id,
@@ -2047,6 +2051,6 @@ export async function getLoadsGivenOut(userId: string): Promise<LoadGivenOut[]> 
     expected_delivery_date: load.expected_delivery_date,
     assigned_at: load.carrier_assigned_at || load.assigned_at,
     carrier_confirmed_at: load.carrier_confirmed_at,
-    carrier: Array.isArray(load.carrier) ? load.carrier[0] : load.carrier,
+    carrier: Array.isArray(load.assigned_carrier) ? load.assigned_carrier[0] : load.assigned_carrier,
   }));
 }
