@@ -1999,32 +1999,35 @@ export async function getLoadsGivenOut(userId: string): Promise<LoadGivenOut[]> 
 
   console.log('[getLoadsGivenOut] Workspace company:', workspaceCompany.id, 'for user:', userId);
 
-  // Query EXACTLY like Posted Jobs page, but filter for assigned carriers
-  // This should work because Posted Jobs can see these loads with the same RLS
-  const { data, error } = await supabase
+  // First, let's do the EXACT same query as the working test endpoint
+  const { data: testQuery, error: testError } = await supabase
     .from('loads')
     .select(`
-      id,
-      load_number,
-      pickup_city,
-      pickup_state,
-      delivery_city,
-      delivery_state,
-      cubic_feet,
-      cubic_feet_estimate,
-      carrier_rate,
-      load_status,
-      posting_status,
-      expected_load_date,
-      expected_delivery_date,
-      carrier_assigned_at,
-      carrier_confirmed_at,
+      id, load_number, posting_type, posting_status,
       assigned_carrier_id,
       assigned_carrier:assigned_carrier_id(id, name)
     `)
     .eq('posted_by_company_id', workspaceCompany.id)
     .not('assigned_carrier_id', 'is', null)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  console.log('[getLoadsGivenOut] Test query result:', testQuery?.length, 'error:', testError?.message);
+
+  // Now try without the join
+  const { data: noJoinQuery, error: noJoinError } = await supabase
+    .from('loads')
+    .select('id, load_number, assigned_carrier_id')
+    .eq('posted_by_company_id', workspaceCompany.id)
+    .not('assigned_carrier_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  console.log('[getLoadsGivenOut] No-join query result:', noJoinQuery?.length, 'error:', noJoinError?.message);
+
+  // Use the test query result as our data
+  const data = testQuery;
+  const error = testError;
 
   if (error) {
     console.error('[getLoadsGivenOut] Error querying loads:', error);
@@ -2042,19 +2045,18 @@ export async function getLoadsGivenOut(userId: string): Promise<LoadGivenOut[]> 
     return {
       id: load.id,
       load_number: load.load_number,
-      // Use pickup/delivery columns (these are what's in the DB)
-      origin_city: load.pickup_city,
-      origin_state: load.pickup_state,
-      destination_city: load.delivery_city,
-      destination_state: load.delivery_state,
-      estimated_cuft: load.cubic_feet_estimate ? Number(load.cubic_feet_estimate) : (load.cubic_feet ? Number(load.cubic_feet) : null),
-      carrier_rate: load.carrier_rate ? Number(load.carrier_rate) : null,
-      load_status: load.load_status || 'pending',
+      origin_city: null, // Not selected in simple query
+      origin_state: null,
+      destination_city: null,
+      destination_state: null,
+      estimated_cuft: null,
+      carrier_rate: null,
+      load_status: load.posting_status || 'assigned',
       posting_status: load.posting_status || 'assigned',
-      expected_load_date: load.expected_load_date,
-      expected_delivery_date: load.expected_delivery_date,
-      assigned_at: load.carrier_assigned_at,
-      carrier_confirmed_at: load.carrier_confirmed_at,
+      expected_load_date: null,
+      expected_delivery_date: null,
+      assigned_at: null,
+      carrier_confirmed_at: null,
       carrier: carrier || null,
     };
   });
