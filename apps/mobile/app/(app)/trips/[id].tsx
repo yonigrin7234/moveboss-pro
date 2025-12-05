@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDriverTripDetail } from '../../../hooks/useDriverTrips';
 import { useTripActions } from '../../../hooks/useTripActions';
 import { StatusBadge } from '../../../components/StatusBadge';
+import { Icon } from '../../../components/ui';
 import { TripLoad, TripStatus, LoadStatus } from '../../../types';
 import { colors, typography, spacing, radius, shadows } from '../../../lib/theme';
 
@@ -404,7 +405,10 @@ function TripActionCard({
           style={styles.startTripButton}
           onPress={() => router.push(`/(app)/trips/${tripId}/start`)}
         >
-          <Text style={styles.startTripButtonText}>Start Trip 🚀</Text>
+          <View style={styles.startTripButtonContent}>
+            <Text style={styles.startTripButtonText}>Start Trip</Text>
+            <Icon name="rocket" size="md" color={colors.white} />
+          </View>
         </TouchableOpacity>
       </View>
     );
@@ -834,6 +838,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 12,
     elevation: 6,
+  },
+  startTripButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
   },
   startTripButtonText: {
     ...typography.headline,

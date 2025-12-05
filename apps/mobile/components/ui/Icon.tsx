@@ -136,6 +136,8 @@ import {
   Fingerprint,
   QrCode,
   Scan,
+  Rocket,
+  Route,
   type LucideIcon,
 } from 'lucide-react-native';
 import { colors } from '../../lib/theme';
@@ -150,6 +152,8 @@ const iconMap = {
   package: Package,
   box: Box,
   layers: Layers,
+  rocket: Rocket,
+  route: Route,
 
   // Money & Payments
   dollar: DollarSign,
@@ -553,6 +557,7 @@ export function ActionIcon({
 
 export const emojiToIcon: Record<string, IconName> = {
   '🚚': 'truck',
+  '🚀': 'rocket',
   '📦': 'package',
   '💰': 'dollar',
   '💵': 'banknote',

@@ -1,7 +1,28 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+/**
+ * TripCard - Premium Trip Card Component
+ *
+ * Features:
+ * - Smooth press animations (scale 0.97)
+ * - Premium design system styling
+ * - Shows CUFT, loads count, estimated pay
+ * - Subtle shadows for depth
+ */
+
+import React, { useCallback } from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { Trip } from '../types';
 import { StatusBadge } from './StatusBadge';
+import { Icon } from './ui';
+import { colors, typography, spacing, radius, shadows } from '../lib/theme';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface TripCardProps {
   trip: Trip;
@@ -10,6 +31,7 @@ interface TripCardProps {
 
 export function TripCard({ trip, variant = 'default' }: TripCardProps) {
   const router = useRouter();
+  const scale = useSharedValue(1);
 
   const formatRoute = () => {
     const origin = [trip.origin_city, trip.origin_state].filter(Boolean).join(', ');
@@ -17,42 +39,113 @@ export function TripCard({ trip, variant = 'default' }: TripCardProps) {
     if (origin && destination) {
       return `${origin} → ${destination}`;
     }
-    return origin || destination || 'No route set';
+    return origin || destination || 'Route pending';
   };
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return null;
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
-  const handlePress = () => {
+  // Get loads count from trip_loads
+  const loadsCount = (trip as any).trip_loads?.length || 0;
+
+  // Estimate pay (if available)
+  const estimatedPay = (trip as any).estimated_driver_pay || (trip as any).driver_pay;
+
+  const handlePressIn = useCallback(() => {
+    scale.value = withSpring(0.97, { damping: 15, stiffness: 400 });
+  }, []);
+
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+  }, []);
+
+  const handlePress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(`/(app)/trips/${trip.id}`);
-  };
+  }, [trip.id, router]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   if (variant === 'compact') {
     return (
-      <TouchableOpacity style={styles.compactCard} onPress={handlePress}>
+      <AnimatedPressable
+        style={[styles.compactCard, animatedStyle]}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={handlePress}
+      >
         <View style={styles.compactHeader}>
-          <Text style={styles.compactTripNumber}>Trip #{trip.trip_number}</Text>
+          <View style={styles.compactTitleRow}>
+            <Icon name="truck" size="sm" color={colors.primary} />
+            <Text style={styles.compactTripNumber}>Trip #{trip.trip_number}</Text>
+          </View>
           <StatusBadge status={trip.status} size="small" />
         </View>
+
         <Text style={styles.compactRoute} numberOfLines={1}>
           {formatRoute()}
         </Text>
-        {trip.start_date && (
-          <Text style={styles.compactDate}>{formatDate(trip.start_date)}</Text>
+
+        <View style={styles.compactDetails}>
+          {trip.start_date && (
+            <View style={styles.compactDetailItem}>
+              <Icon name="calendar" size="xs" color={colors.textMuted} />
+              <Text style={styles.compactDetailText}>{formatDate(trip.start_date)}</Text>
+            </View>
+          )}
+          {loadsCount > 0 && (
+            <View style={styles.compactDetailItem}>
+              <Icon name="package" size="xs" color={colors.textMuted} />
+              <Text style={styles.compactDetailText}>
+                {loadsCount} load{loadsCount !== 1 ? 's' : ''}
+              </Text>
+            </View>
+          )}
+          {trip.total_cuft && trip.total_cuft > 0 && (
+            <View style={styles.compactDetailItem}>
+              <Icon name="box" size="xs" color={colors.textMuted} />
+              <Text style={styles.compactDetailText}>
+                {trip.total_cuft.toLocaleString()} CUFT
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {estimatedPay && (
+          <View style={styles.compactPayRow}>
+            <Text style={styles.compactPayLabel}>Est. Pay</Text>
+            <Text style={styles.compactPayValue}>
+              ${estimatedPay.toLocaleString()}
+            </Text>
+          </View>
         )}
-      </TouchableOpacity>
+      </AnimatedPressable>
     );
   }
 
   return (
-    <TouchableOpacity style={styles.card} onPress={handlePress}>
+    <AnimatedPressable
+      style={[styles.card, animatedStyle]}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={handlePress}
+    >
       <View style={styles.header}>
-        <View>
-          <Text style={styles.tripNumber}>Trip #{trip.trip_number}</Text>
-          <Text style={styles.route}>{formatRoute()}</Text>
+        <View style={styles.headerLeft}>
+          <View style={styles.titleRow}>
+            <Icon name="truck" size="md" color={colors.primary} />
+            <Text style={styles.tripNumber}>Trip #{trip.trip_number}</Text>
+          </View>
+          <Text style={styles.route} numberOfLines={2}>{formatRoute()}</Text>
         </View>
         <StatusBadge status={trip.status} />
       </View>
@@ -60,105 +153,209 @@ export function TripCard({ trip, variant = 'default' }: TripCardProps) {
       <View style={styles.details}>
         {trip.start_date && (
           <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>Start Date</Text>
+            <View style={styles.detailIconRow}>
+              <Icon name="calendar" size="sm" color={colors.textMuted} />
+              <Text style={styles.detailLabel}>Date</Text>
+            </View>
             <Text style={styles.detailValue}>{formatDate(trip.start_date)}</Text>
+          </View>
+        )}
+        {loadsCount > 0 && (
+          <View style={styles.detailItem}>
+            <View style={styles.detailIconRow}>
+              <Icon name="package" size="sm" color={colors.textMuted} />
+              <Text style={styles.detailLabel}>Loads</Text>
+            </View>
+            <Text style={styles.detailValue}>{loadsCount}</Text>
+          </View>
+        )}
+        {trip.total_cuft && trip.total_cuft > 0 && (
+          <View style={styles.detailItem}>
+            <View style={styles.detailIconRow}>
+              <Icon name="box" size="sm" color={colors.textMuted} />
+              <Text style={styles.detailLabel}>CUFT</Text>
+            </View>
+            <Text style={styles.detailValue}>{trip.total_cuft.toLocaleString()}</Text>
           </View>
         )}
         {trip.actual_miles && (
           <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>Miles</Text>
+            <View style={styles.detailIconRow}>
+              <Icon name="navigation" size="sm" color={colors.textMuted} />
+              <Text style={styles.detailLabel}>Miles</Text>
+            </View>
             <Text style={styles.detailValue}>{trip.actual_miles.toLocaleString()}</Text>
-          </View>
-        )}
-        {trip.total_cuft && (
-          <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>CUFT</Text>
-            <Text style={styles.detailValue}>{trip.total_cuft.toLocaleString()}</Text>
           </View>
         )}
       </View>
 
+      {estimatedPay && (
+        <View style={styles.paySection}>
+          <Text style={styles.payLabel}>Estimated Pay</Text>
+          <Text style={styles.payValue}>${estimatedPay.toLocaleString()}</Text>
+        </View>
+      )}
+
       <View style={styles.footer}>
-        <Text style={styles.viewDetails}>View Details →</Text>
+        <Text style={styles.viewDetails}>View Details</Text>
+        <Icon name="chevron-right" size="sm" color={colors.primary} />
       </View>
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 
 const styles = StyleSheet.create({
+  // Default variant
   card: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    padding: spacing.cardPaddingLarge,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.md,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
+  },
+  headerLeft: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
   },
   tripNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
+    ...typography.headline,
+    color: colors.textPrimary,
   },
   route: {
-    fontSize: 16,
-    color: '#888',
+    ...typography.body,
+    color: colors.textSecondary,
+    marginLeft: spacing.xl + spacing.sm,
   },
   details: {
     flexDirection: 'row',
-    gap: 24,
-    marginBottom: 16,
+    flexWrap: 'wrap',
+    gap: spacing.lg,
+    marginBottom: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
-  detailItem: {},
+  detailItem: {
+    minWidth: 70,
+  },
+  detailIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.xxs,
+  },
   detailLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 2,
+    ...typography.label,
+    color: colors.textMuted,
+    fontSize: 10,
   },
   detailValue: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: '500',
+    ...typography.subheadline,
+    color: colors.textPrimary,
+    marginLeft: spacing.lg + spacing.xs,
+  },
+  paySection: {
+    backgroundColor: colors.successSoft,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  payLabel: {
+    ...typography.caption,
+    color: colors.success,
+  },
+  payValue: {
+    ...typography.headline,
+    color: colors.success,
   },
   footer: {
-    borderTopWidth: 1,
-    borderTopColor: '#3a3a4e',
-    paddingTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: spacing.xs,
   },
   viewDetails: {
-    color: '#0066CC',
-    fontSize: 14,
-    fontWeight: '600',
+    ...typography.buttonSmall,
+    color: colors.primary,
   },
+
   // Compact variant
   compactCard: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.cardPadding,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.sm,
   },
   compactHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
+  },
+  compactTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   compactTripNumber: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
+    ...typography.subheadline,
+    color: colors.textPrimary,
   },
   compactRoute: {
-    fontSize: 14,
-    color: '#888',
-    marginBottom: 4,
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
   },
-  compactDate: {
-    fontSize: 12,
-    color: '#666',
+  compactDetails: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  compactDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  compactDetailText: {
+    ...typography.caption,
+    color: colors.textMuted,
+  },
+  compactPayRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  compactPayLabel: {
+    ...typography.caption,
+    color: colors.textMuted,
+  },
+  compactPayValue: {
+    ...typography.subheadline,
+    color: colors.success,
+    fontWeight: '600',
   },
 });

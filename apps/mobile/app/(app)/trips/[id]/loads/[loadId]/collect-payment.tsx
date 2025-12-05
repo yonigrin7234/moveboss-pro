@@ -309,7 +309,7 @@ export default function CollectPaymentScreen() {
               </View>
             ) : (
               <Pressable style={styles.cameraButton} onPress={takePhoto}>
-                <Text style={styles.cameraIcon}>📷</Text>
+                <Icon name="camera" size={32} color={colors.textSecondary} />
                 <Text style={styles.cameraText}>Tap to take photo</Text>
               </Pressable>
             )}

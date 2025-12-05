@@ -18,6 +18,9 @@ import { useRouter } from 'expo-router';
 import Animated, {
   FadeInDown,
   FadeInUp,
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../providers/AuthProvider';
@@ -31,7 +34,7 @@ import {
   Icon,
   IconName,
 } from '../../components/ui';
-import { colors, typography, spacing, radius } from '../../lib/theme';
+import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
 import { TripWithLoads } from '../../types';
 
 export default function HomeScreen() {
@@ -231,6 +234,8 @@ interface QuickActionButtonProps {
   onPress: () => void;
 }
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 function QuickActionButton({
   icon,
   label,
@@ -238,13 +243,32 @@ function QuickActionButton({
   badgeVariant,
   onPress,
 }: QuickActionButtonProps) {
+  const scale = useSharedValue(1);
+
+  const handlePressIn = useCallback(() => {
+    scale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
+  }, []);
+
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+  }, []);
+
   const handlePress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress();
   }, [onPress]);
 
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
   return (
-    <Pressable style={styles.quickActionButton} onPress={handlePress}>
+    <AnimatedPressable
+      style={[styles.quickActionButton, animatedStyle]}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={handlePress}
+    >
       <View style={styles.quickActionIconContainer}>
         <Icon name={icon} size="lg" color={colors.textPrimary} />
         {badge !== undefined && (
@@ -261,7 +285,7 @@ function QuickActionButton({
         )}
       </View>
       <Text style={styles.quickActionLabel}>{label}</Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -368,6 +392,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
+    ...shadows.sm,
   },
   quickActionIconContainer: {
     position: 'relative',

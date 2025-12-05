@@ -35,6 +35,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
 import { SuccessCelebration } from './SuccessCelebration';
+import { Icon } from './Icon';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -222,7 +223,7 @@ export function TripStartScreen({
               </TouchableOpacity>
             ) : (
               <TouchableOpacity style={styles.cameraButton} onPress={takePhoto}>
-                <Text style={styles.cameraIcon}>📷</Text>
+                <Icon name="camera" size={32} color={colors.textSecondary} />
                 <Text style={styles.cameraText}>Take Photo</Text>
               </TouchableOpacity>
             )}

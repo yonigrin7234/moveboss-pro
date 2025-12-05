@@ -1,0 +1,22 @@
+diff --git a/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js b/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js
+index 39d48b8..67f93d1 100644
+--- a/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js
++++ b/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js
+@@ -89,7 +89,7 @@ export function BottomTabView(props) {
+         } = descriptors[route.key];
+         const {
+           animation = 'none',
+-          transitionSpec = NAMED_TRANSITIONS_PRESETS[animation].transitionSpec
++          transitionSpec = NAMED_TRANSITIONS_PRESETS[animation]?.transitionSpec
+         } = options;
+         let spec = transitionSpec;
+         if (route.key !== previousRouteKey && route.key !== focusedRouteKey) {
+@@ -173,7 +173,7 @@ export function BottomTabView(props) {
+         const {
+           lazy = true,
+           animation = 'none',
+-          sceneStyleInterpolator = NAMED_TRANSITIONS_PRESETS[animation].sceneStyleInterpolator
++          sceneStyleInterpolator = NAMED_TRANSITIONS_PRESETS[animation]?.sceneStyleInterpolator
+         } = descriptor.options;
+         const isFocused = state.index === index;
+         const isPreloaded = state.preloadedRouteKeys.includes(route.key);
