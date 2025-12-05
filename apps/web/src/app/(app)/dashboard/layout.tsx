@@ -50,6 +50,10 @@ export default async function DashboardLayout({
         status: workspaceCompany.status,
         isBroker: workspaceCompany.is_broker ?? false,
         isCarrier: workspaceCompany.is_carrier ?? false,
+        fmcsaVerified: (workspaceCompany as any).fmcsa_verified ?? null,
+        fmcsaAllowedToOperate: (workspaceCompany as any).fmcsa_allowed_to_operate ?? null,
+        fmcsaCommonAuthority: (workspaceCompany as any).fmcsa_common_authority ?? null,
+        fmcsaLastChecked: (workspaceCompany as any).fmcsa_last_checked ?? null,
       }
     : undefined
 

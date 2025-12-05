@@ -17,6 +17,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { NotificationBell } from "@/components/notification-bell"
 import { createClient } from "@/lib/supabase-client"
 import { cn } from "@/lib/utils"
+import { FMCSAVerificationBadge } from "@/components/FMCSAVerificationBadge"
 
 // Convert string to Title Case (proper capitalization)
 function toTitleCase(str: string): string {
@@ -36,6 +37,10 @@ interface TopNavProps {
     name?: string | null
     dbaName?: string | null
     status?: string | null
+    fmcsaVerified?: boolean | null
+    fmcsaAllowedToOperate?: boolean | null
+    fmcsaCommonAuthority?: string | null
+    fmcsaLastChecked?: string | null
   }
   unreadNotifications?: number
 }
@@ -125,9 +130,17 @@ export function TopNav({ user, company, unreadNotifications = 0 }: TopNavProps) 
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">
-            {companyDisplayName}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-muted-foreground">
+              {companyDisplayName}
+            </p>
+            <FMCSAVerificationBadge
+              fmcsaVerified={company?.fmcsaVerified}
+              fmcsaAllowedToOperate={company?.fmcsaAllowedToOperate}
+              fmcsaCommonAuthority={company?.fmcsaCommonAuthority}
+              fmcsaLastChecked={company?.fmcsaLastChecked}
+            />
+          </div>
         </div>
 
         <div className="flex items-center gap-2">

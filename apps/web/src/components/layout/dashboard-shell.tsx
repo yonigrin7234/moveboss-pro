@@ -25,6 +25,10 @@ interface DashboardShellProps {
     status?: string | null
     isBroker?: boolean
     isCarrier?: boolean
+    fmcsaVerified?: boolean | null
+    fmcsaAllowedToOperate?: boolean | null
+    fmcsaCommonAuthority?: string | null
+    fmcsaLastChecked?: string | null
   }
   role?: string | null
   unreadNotifications?: number
