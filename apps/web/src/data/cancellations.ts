@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase-server';
+import { createServiceRoleClient } from '@/lib/supabase-admin';
 import {
   notifyRequestWithdrawn,
   notifyLoadGivenBack,
@@ -104,8 +105,12 @@ export async function giveLoadBack(
   // Determine load stage
   const loadStage = load.carrier_confirmed_at ? 'confirmed' : 'accepted';
 
+  // Use service role client to bypass RLS for database updates
+  // We've already verified the carrier is assigned to this load above
+  const adminClient = createServiceRoleClient();
+
   // Record cancellation
-  const { error: cancelError } = await supabase.from('load_cancellations').insert({
+  const { error: cancelError } = await adminClient.from('load_cancellations').insert({
     load_id: loadId,
     load_number: load.load_number,
     canceled_by_type: 'carrier',
@@ -123,7 +128,7 @@ export async function giveLoadBack(
   }
 
   // Update load - remove carrier, put back on marketplace
-  const { error: loadError } = await supabase
+  const { error: loadError } = await adminClient
     .from('loads')
     .update({
       assigned_carrier_id: null,
@@ -147,8 +152,8 @@ export async function giveLoadBack(
     return { success: false, error: loadError.message };
   }
 
-  // Update request status
-  await supabase
+  // Update request status - also use admin client
+  await adminClient
     .from('load_requests')
     .update({
       status: 'withdrawn',
@@ -159,7 +164,7 @@ export async function giveLoadBack(
     .eq('status', 'accepted');
 
   // Update carrier stats
-  await supabase.rpc('increment_loads_given_back', { p_company_id: carrierId });
+  await adminClient.rpc('increment_loads_given_back', { p_company_id: carrierId });
 
   // Notify company
   const reasonLabels: Record<string, string> = {
