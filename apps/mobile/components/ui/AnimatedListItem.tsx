@@ -1,15 +1,12 @@
 /**
  * AnimatedListItem - Animated wrapper for list items
  *
- * Features:
- * - Staggered fade-in animation based on index
- * - Press scale animation
- * - Swipe to delete with slide-out animation
- * - Exit animation on delete
+ * FIXED: Removed layout animations (entering/exiting) that conflict with
+ * animated styles. Now uses only animated styles for all animations.
  */
 
 import React, { useCallback, useEffect } from 'react';
-import { StyleSheet, ViewStyle } from 'react-native';
+import { StyleSheet, ViewStyle, View } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -17,8 +14,6 @@ import Animated, {
   withDelay,
   withTiming,
   runOnJS,
-  FadeIn,
-  FadeOutRight,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
@@ -49,26 +44,14 @@ export function AnimatedListItem({
 }: AnimatedListItemProps) {
   const scale = useSharedValue(1);
   const translateX = useSharedValue(0);
-  const opacity = useSharedValue(1);
+  const opacity = useSharedValue(0); // Start at 0 for fade-in
   const startX = useSharedValue(0);
-  const isDeleting = useSharedValue(false);
 
-  // Press animation
-  const handlePressIn = useCallback(() => {
-    if (disabled) return;
-    scale.value = withSpring(0.98, springs.snappy);
-  }, [disabled]);
-
-  const handlePressOut = useCallback(() => {
-    if (disabled) return;
-    scale.value = withSpring(1, springs.snappy);
-  }, [disabled]);
-
-  const handlePress = useCallback(() => {
-    if (disabled || !onPress) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onPress();
-  }, [disabled, onPress]);
+  // Staggered fade-in on mount (replaces layout animation)
+  useEffect(() => {
+    const delay = getStaggerDelay(index, baseDelay, maxDelay);
+    opacity.value = withDelay(delay, withTiming(1, { duration: 200 }));
+  }, [index, baseDelay, maxDelay]);
 
   // Swipe to delete gesture
   const panGesture = Gesture.Pan()
@@ -84,8 +67,7 @@ export function AnimatedListItem({
     .onEnd((event) => {
       // Check if swipe exceeds threshold
       if (Math.abs(translateX.value) > deleteThreshold || event.velocityX < -500) {
-        // Trigger delete
-        isDeleting.value = true;
+        // Trigger delete with slide-out animation
         translateX.value = withTiming(-500, { duration: timings.normal });
         opacity.value = withTiming(0, { duration: timings.normal }, () => {
           if (onDelete) {
@@ -127,15 +109,9 @@ export function AnimatedListItem({
     opacity: opacity.value,
   }));
 
-  const delay = getStaggerDelay(index, baseDelay, maxDelay);
-
   return (
     <GestureDetector gesture={composedGesture}>
-      <Animated.View
-        entering={FadeIn.delay(delay)}
-        exiting={FadeOutRight.duration(200)}
-        style={[styles.container, animatedStyle, style]}
-      >
+      <Animated.View style={[styles.container, animatedStyle, style]}>
         {children}
       </Animated.View>
     </GestureDetector>
@@ -159,13 +135,19 @@ export function AnimatedItem({
   style,
   baseDelay = 50,
 }: AnimatedItemProps) {
-  const delay = getStaggerDelay(index, baseDelay);
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    const delay = getStaggerDelay(index, baseDelay);
+    opacity.value = withDelay(delay, withTiming(1, { duration: 200 }));
+  }, [index, baseDelay]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
 
   return (
-    <Animated.View
-      entering={FadeIn.delay(delay)}
-      style={style}
-    >
+    <Animated.View style={[animatedStyle, style]}>
       {children}
     </Animated.View>
   );
@@ -176,22 +158,17 @@ export function AnimatedItem({
  */
 export function useAnimatedListItem(index: number, baseDelay = 50) {
   const opacity = useSharedValue(0);
-  const translateY = useSharedValue(20);
-  const scale = useSharedValue(0.95);
+  const translateY = useSharedValue(10);
 
   useEffect(() => {
     const delay = getStaggerDelay(index, baseDelay);
-    opacity.value = withDelay(delay, withSpring(1, springs.smooth));
+    opacity.value = withDelay(delay, withTiming(1, { duration: 200 }));
     translateY.value = withDelay(delay, withSpring(0, springs.smooth));
-    scale.value = withDelay(delay, withSpring(1, springs.smooth));
   }, [index, baseDelay]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
-    transform: [
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
+    transform: [{ translateY: translateY.value }],
   }));
 
   return animatedStyle;

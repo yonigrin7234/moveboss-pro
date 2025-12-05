@@ -9,18 +9,19 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { Alert } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { TripStartScreen } from '../../../../components/ui/TripStartScreen';
 import { useDriverTripDetail } from '../../../../hooks/useDriverTrips';
 import { useTripActions } from '../../../../hooks/useTripActions';
 import { useImageUpload } from '../../../../hooks/useImageUpload';
 import { TripLoad } from '../../../../types';
+import { colors, typography, spacing } from '../../../../lib/theme';
 
 export default function TripStartRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { trip, refetch } = useDriverTripDetail(id);
+  const { trip, loading, error, refetch } = useDriverTripDetail(id);
   const tripActions = useTripActions(id || '', refetch);
   const { uploadOdometerPhoto } = useImageUpload();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -80,8 +81,50 @@ export default function TripStartRoute() {
     }
   }, [router, id, findFirstLoad]);
 
-  if (!trip) {
-    return null;
+  // Loading state
+  if (loading) {
+    return (
+      <>
+        <Stack.Screen
+          options={{
+            headerShown: false,
+            presentation: 'fullScreenModal',
+            animation: 'slide_from_bottom',
+          }}
+        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading trip...</Text>
+        </View>
+      </>
+    );
+  }
+
+  // Error state
+  if (error || !trip) {
+    return (
+      <>
+        <Stack.Screen
+          options={{
+            headerShown: false,
+            presentation: 'fullScreenModal',
+            animation: 'slide_from_bottom',
+          }}
+        />
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>Unable to Load Trip</Text>
+          <Text style={styles.errorMessage}>{error || 'Trip not found'}</Text>
+          <View style={styles.errorActions}>
+            <TouchableOpacity style={styles.retryButton} onPress={refetch}>
+              <Text style={styles.retryText}>Try Again</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.backButton} onPress={handleCancel}>
+              <Text style={styles.backText}>Go Back</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </>
+    );
   }
 
   return (
@@ -103,3 +146,62 @@ export default function TripStartRoute() {
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.lg,
+  },
+  loadingText: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
+  errorContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  errorTitle: {
+    ...typography.headline,
+    fontSize: 24,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+  },
+  errorActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  retryButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: 12,
+  },
+  retryText: {
+    ...typography.button,
+    color: colors.white,
+  },
+  backButton: {
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  backText: {
+    ...typography.button,
+    color: colors.textSecondary,
+  },
+});

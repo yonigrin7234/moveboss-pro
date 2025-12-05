@@ -42,6 +42,10 @@ export function Skeleton({
       -1,
       false
     );
+    // Cleanup on unmount
+    return () => {
+      shimmerProgress.value = 0;
+    };
   }, []);
 
   const shimmerStyle = useAnimatedStyle(() => {

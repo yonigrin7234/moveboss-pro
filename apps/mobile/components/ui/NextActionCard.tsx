@@ -15,7 +15,6 @@ import Animated, {
   withSequence,
   withTiming,
   Easing,
-  FadeIn,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -39,7 +38,7 @@ export function NextActionCard({ action, onAction }: NextActionCardProps) {
   const scale = useSharedValue(1);
   const pulseOpacity = useSharedValue(0.5);
 
-  // Pulse animation for urgent actions
+  // Pulse animation for urgent actions - with cleanup
   React.useEffect(() => {
     if (action.type === 'collect_payment' || action.type === 'complete_delivery') {
       pulseOpacity.value = withRepeat(
@@ -51,6 +50,11 @@ export function NextActionCard({ action, onAction }: NextActionCardProps) {
         true
       );
     }
+
+    // Cleanup: cancel animation on unmount
+    return () => {
+      pulseOpacity.value = 0.5;
+    };
   }, [action.type]);
 
   const handlePress = useCallback(() => {
@@ -168,7 +172,7 @@ function NoActionCard() {
           No pending tasks. Pull down to refresh.
         </Text>
       </View>
-    </Animated.View>
+    </View>
   );
 }
 

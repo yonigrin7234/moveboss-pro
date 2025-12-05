@@ -87,6 +87,12 @@ export function StatusGlow({
           glowScale.value = withTiming(1, { duration: 300 });
         }, duration);
         return () => clearTimeout(timeout);
+      } else {
+        // Cleanup for infinite animations
+        return () => {
+          glowOpacity.value = 0;
+          glowScale.value = 1;
+        };
       }
     } else {
       glowOpacity.value = withTiming(0, { duration: 300 });
@@ -146,6 +152,9 @@ export function useStatusGlow(status: StatusType, active = true, duration = 3000
           glowOpacity.value = withTiming(0, { duration: 300 });
         }, duration);
         return () => clearTimeout(timeout);
+      } else {
+        // Cleanup for infinite animations
+        return () => { glowOpacity.value = 0; };
       }
     } else {
       glowOpacity.value = withTiming(0, { duration: 300 });

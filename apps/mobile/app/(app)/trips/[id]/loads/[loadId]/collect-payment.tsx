@@ -16,8 +16,6 @@ import {
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, {
-  FadeIn,
-  FadeOut,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
@@ -224,40 +222,31 @@ export default function CollectPaymentScreen() {
 
       <View style={styles.container}>
         {/* Big Amount Header */}
-        <Animated.View entering={FadeIn.delay(100)} style={styles.header}>
+        <View style={styles.header}>
           <Text style={styles.headerLabel}>AMOUNT DUE</Text>
           <Text style={styles.amount}>${balanceDue.toLocaleString()}</Text>
           <Text style={styles.customerName}>{customerName}</Text>
-        </Animated.View>
+        </View>
 
         {/* Step: Select Payment Method */}
         {step === 'select' && (
-          <Animated.View
-            entering={FadeIn}
-            exiting={FadeOut}
-            style={styles.content}
-          >
+          <View style={styles.content}>
             <Text style={styles.stepTitle}>How did they pay?</Text>
             <View style={styles.paymentGrid}>
-              {PAYMENT_OPTIONS.map((option, index) => (
+              {PAYMENT_OPTIONS.map((option) => (
                 <PaymentButton
                   key={option.value}
                   {...option}
-                  index={index}
                   onPress={() => handleSelectPayment(option.value)}
                 />
               ))}
             </View>
-          </Animated.View>
+          </View>
         )}
 
         {/* Step: Zelle Recipient */}
         {step === 'zelle' && (
-          <Animated.View
-            entering={FadeIn}
-            exiting={FadeOut}
-            style={styles.content}
-          >
+          <View style={styles.content}>
             <Pressable onPress={handleBack} style={styles.backButton}>
               <Text style={styles.backText}>← Back</Text>
             </Pressable>
@@ -274,16 +263,12 @@ export default function CollectPaymentScreen() {
                 </Pressable>
               ))}
             </View>
-          </Animated.View>
+          </View>
         )}
 
         {/* Step: Photo */}
         {step === 'photo' && (
-          <Animated.View
-            entering={FadeIn}
-            exiting={FadeOut}
-            style={styles.content}
-          >
+          <View style={styles.content}>
             <Pressable onPress={handleBack} style={styles.backButton}>
               <Text style={styles.backText}>← Back</Text>
             </Pressable>
@@ -312,16 +297,12 @@ export default function CollectPaymentScreen() {
                 <Text style={styles.cameraText}>Tap to take photo</Text>
               </Pressable>
             )}
-          </Animated.View>
+          </View>
         )}
 
         {/* Step: Confirm */}
         {step === 'confirm' && (
-          <Animated.View
-            entering={FadeIn}
-            exiting={FadeOut}
-            style={styles.content}
-          >
+          <View style={styles.content}>
             <Pressable onPress={handleBack} style={styles.backButton}>
               <Text style={styles.backText}>← Back</Text>
             </Pressable>
@@ -373,7 +354,7 @@ export default function CollectPaymentScreen() {
                 Uploading... {progress}%
               </Text>
             )}
-          </Animated.View>
+          </View>
         )}
       </View>
 
@@ -397,11 +378,10 @@ interface PaymentButtonProps {
   label: string;
   icon: IconName;
   color: string;
-  index: number;
   onPress: () => void;
 }
 
-function PaymentButton({ label, icon, color, index, onPress }: PaymentButtonProps) {
+function PaymentButton({ label, icon, color, onPress }: PaymentButtonProps) {
   const scale = useSharedValue(1);
 
   const handlePressIn = () => {
@@ -417,10 +397,7 @@ function PaymentButton({ label, icon, color, index, onPress }: PaymentButtonProp
   }));
 
   return (
-    <Animated.View
-      entering={FadeIn.delay(200 + index * 100)}
-      style={animatedStyle}
-    >
+    <Animated.View style={animatedStyle}>
       <Pressable
         style={[styles.paymentButton, { borderColor: color }]}
         onPress={onPress}

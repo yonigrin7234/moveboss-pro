@@ -29,7 +29,8 @@ import { haptics } from '../../lib/haptics';
 import { Icon, IconName } from './Icon';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const NUM_PARTICLES = 20;
+// Reduced from 20 to 8 particles for better performance
+const NUM_PARTICLES = 8;
 
 interface SuccessCelebrationProps {
   title: string;

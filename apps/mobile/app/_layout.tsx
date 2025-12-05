@@ -3,8 +3,7 @@ import 'react-native-reanimated';
 
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import { View, Text, StyleSheet } from 'react-native';
 import {
   useFonts,
   Inter_400Regular,
@@ -43,10 +42,10 @@ function RootLayoutNav() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Animated.View entering={FadeIn.duration(300)} style={styles.logoContainer}>
-          <Animated.Text style={styles.logoText}>MoveBoss</Animated.Text>
-          <Animated.Text style={styles.logoSubtext}>Loading...</Animated.Text>
-        </Animated.View>
+        <View style={styles.logoContainer}>
+          <Text style={styles.logoText}>MoveBoss</Text>
+          <Text style={styles.logoSubtext}>Loading...</Text>
+        </View>
       </View>
     );
   }

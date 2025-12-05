@@ -81,6 +81,12 @@ export function PremiumBadge({
         -1,
         false
       );
+
+      // Cleanup infinite animations on unmount
+      return () => {
+        pulseScale.value = 1;
+        pulseOpacity.value = 0;
+      };
     } else {
       pulseScale.value = 1;
       pulseOpacity.value = 0;

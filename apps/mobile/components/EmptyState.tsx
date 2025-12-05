@@ -19,7 +19,6 @@ import Animated, {
   withRepeat,
   withTiming,
   Easing,
-  FadeIn,
 } from 'react-native-reanimated';
 import { colors, typography, spacing, radius } from '../lib/theme';
 import { springs } from '../lib/animations';
@@ -56,41 +55,32 @@ export function EmptyState({
   compact = false,
 }: EmptyStateProps) {
   return (
-    <Animated.View
-      entering={FadeIn.duration(400)}
-      style={[styles.container, compact && styles.containerCompact]}
-    >
+    <View style={[styles.container, compact && styles.containerCompact]}>
       <View style={[styles.illustrationContainer, compact && styles.illustrationCompact]}>
         <Illustration type={illustration} size={compact ? ILLUSTRATION_SIZE * 0.7 : ILLUSTRATION_SIZE} />
       </View>
 
-      <Animated.Text
-        entering={FadeIn.delay(200)}
-        style={[styles.title, compact && styles.titleCompact]}
-      >
+      <Text style={[styles.title, compact && styles.titleCompact]}>
         {title}
-      </Animated.Text>
+      </Text>
 
       {description && (
-        <Animated.Text
-          entering={FadeIn.delay(300)}
-          style={[styles.description, compact && styles.descriptionCompact]}
-        >
+        <Text style={[styles.description, compact && styles.descriptionCompact]}>
           {description}
-        </Animated.Text>
+        </Text>
       )}
 
       {action && (
-        <Animated.View entering={FadeIn.delay(400)}>
+        <View>
           <Pressable
             style={styles.actionButton}
             onPress={action.onPress}
           >
             <Text style={styles.actionButtonText}>{action.label}</Text>
           </Pressable>
-        </Animated.View>
+        </View>
       )}
-    </Animated.View>
+    </View>
   );
 }
 
@@ -136,6 +126,7 @@ function NoTripsIllustration({ size }: { size: number }) {
       -1,
       true
     );
+    return () => { bounce.value = 0; };
   }, []);
 
   const truckStyle = useAnimatedStyle(() => ({
@@ -182,6 +173,7 @@ function NoDocumentsIllustration({ size }: { size: number }) {
       -1,
       true
     );
+    return () => { float.value = 0; };
   }, []);
 
   const floatStyle = useAnimatedStyle(() => ({
@@ -259,6 +251,10 @@ function AllDoneIllustration({ size }: { size: number }) {
         true
       )
     );
+    return () => {
+      scale.value = 0;
+      sparkleOpacity.value = 0;
+    };
   }, []);
 
   const checkStyle = useAnimatedStyle(() => ({
@@ -304,6 +300,7 @@ function ErrorIllustration({ size }: { size: number }) {
       -1,
       false
     );
+    return () => { wobble.value = 0; };
   }, []);
 
   const wobbleStyle = useAnimatedStyle(() => ({
@@ -341,6 +338,7 @@ function OfflineIllustration({ size }: { size: number }) {
       -1,
       true
     );
+    return () => { pulse.value = 1; };
   }, []);
 
   const pulseStyle = useAnimatedStyle(() => ({

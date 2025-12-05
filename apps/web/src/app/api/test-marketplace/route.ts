@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser, createClient } from '@/lib/supabase-server';
-import { getCarrierAssignedLoads, getAssignedLoadDetails, assignLoadToTrip } from '@/data/marketplace';
+import { getCarrierAssignedLoads, getAssignedLoadDetails, assignLoadToTrip, getLoadsGivenOut } from '@/data/marketplace';
 import { getTripsForLoadAssignment } from '@/data/trips';
 
 export async function GET(request: Request) {
@@ -12,9 +12,70 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const loadId = searchParams.get('loadId');
+    const testType = searchParams.get('test') || 'carrier-assigned';
 
     const supabase = await createClient();
 
+    // ===== TEST: LOADS GIVEN OUT =====
+    if (testType === 'loads-given-out') {
+      // Get workspace company
+      const { data: workspaceCompany, error: companyError } = await supabase
+        .from('companies')
+        .select('id, name, owner_id, is_workspace_company')
+        .eq('owner_id', user.id)
+        .eq('is_workspace_company', true)
+        .maybeSingle();
+
+      // Query ALL loads with assigned_carrier_id (ignoring filters)
+      const { data: allCarrierLoads, error: allLoadsError } = await supabase
+        .from('loads')
+        .select(`
+          id, load_number, owner_id, company_id, posted_by_company_id,
+          assigned_carrier_id, load_status, posting_status,
+          is_marketplace_visible, carrier_assigned_at
+        `)
+        .not('assigned_carrier_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      // Query loads owned by this user
+      const { data: userLoads, error: userLoadsError } = await supabase
+        .from('loads')
+        .select(`
+          id, load_number, owner_id, company_id, posted_by_company_id,
+          assigned_carrier_id, load_status, posting_status
+        `)
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      // Get the actual function result
+      const loadsGivenOut = await getLoadsGivenOut(user.id);
+
+      return NextResponse.json({
+        testType: 'loads-given-out',
+        user: { id: user.id, email: user.email },
+        workspaceCompany,
+        companyError,
+        allCarrierLoads: {
+          count: allCarrierLoads?.length || 0,
+          data: allCarrierLoads,
+          error: allLoadsError,
+        },
+        userLoads: {
+          count: userLoads?.length || 0,
+          withCarrier: userLoads?.filter(l => l.assigned_carrier_id)?.length || 0,
+          data: userLoads,
+          error: userLoadsError,
+        },
+        loadsGivenOutResult: {
+          count: loadsGivenOut.length,
+          data: loadsGivenOut,
+        },
+      });
+    }
+
+    // ===== EXISTING TEST: CARRIER ASSIGNED =====
     // Get user's workspace company
     const { data: carrier, error: carrierError } = await supabase
       .from('companies')

@@ -1,12 +1,8 @@
 /**
  * TripStartScreen - Full-screen focused trip start experience
  *
- * Features:
- * - Large odometer input with big numbers
- * - Camera button for odometer photo
- * - "Let's Go" animated button
- * - Success celebration on start
- * - Auto-navigate to first load
+ * FIXED: Removed layout animations (FadeIn.delay) that conflict with
+ * animated styles. Screens now render immediately without jank.
  */
 
 import React, { useState, useCallback } from 'react';
@@ -26,7 +22,6 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withSequence,
-  FadeIn,
 } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
@@ -57,7 +52,7 @@ export function TripStartScreen({
   const [showSuccess, setShowSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Animation values
+  // Animation values - only for interactive feedback
   const buttonScale = useSharedValue(1);
   const shakeX = useSharedValue(0);
 
@@ -168,47 +163,42 @@ export function TripStartScreen({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {/* Header */}
-        <Animated.View entering={FadeIn.delay(100)} style={styles.header}>
+        <View style={styles.header}>
           <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
             <Text style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
 
         {/* Content */}
         <View style={styles.content}>
           {/* Title */}
-          <Animated.View entering={FadeIn.delay(100)}>
+          <View>
             <Text style={styles.title}>Start Trip</Text>
             <Text style={styles.tripInfo}>Trip #{tripNumber}</Text>
             {truckUnit && <Text style={styles.truckInfo}>Truck: {truckUnit}</Text>}
-          </Animated.View>
+          </View>
 
           {/* Odometer Input */}
-          <Animated.View entering={FadeIn.delay(200)}>
-            <Animated.View style={[styles.inputSection, inputStyle]}>
-              <Text style={styles.inputLabel}>STARTING ODOMETER</Text>
-              <TextInput
-                style={styles.odometerInput}
-                value={odometer}
-                onChangeText={(text) => {
-                  setOdometer(text);
-                  setError(null);
-                }}
-                placeholder="00000"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="numeric"
-                maxLength={7}
-                autoFocus
-              />
-              <Text style={styles.inputHint}>Enter current mileage</Text>
-            </Animated.View>
+          <Animated.View style={[styles.inputSection, inputStyle]}>
+            <Text style={styles.inputLabel}>STARTING ODOMETER</Text>
+            <TextInput
+              style={styles.odometerInput}
+              value={odometer}
+              onChangeText={(text) => {
+                setOdometer(text);
+                setError(null);
+              }}
+              placeholder="00000"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="numeric"
+              maxLength={7}
+              autoFocus
+            />
+            <Text style={styles.inputHint}>Enter current mileage</Text>
           </Animated.View>
 
           {/* Photo Section */}
-          <Animated.View
-            entering={FadeIn.delay(300)}
-            style={styles.photoSection}
-          >
+          <View style={styles.photoSection}>
             <Text style={styles.inputLabel}>ODOMETER PHOTO</Text>
             {photoUri ? (
               <TouchableOpacity style={styles.photoPreviewContainer} onPress={takePhoto}>
@@ -223,21 +213,18 @@ export function TripStartScreen({
                 <Text style={styles.cameraText}>Take Photo</Text>
               </TouchableOpacity>
             )}
-          </Animated.View>
+          </View>
 
           {/* Error */}
           {error && (
-            <Animated.View entering={FadeIn} style={styles.errorContainer}>
+            <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{error}</Text>
-            </Animated.View>
+            </View>
           )}
         </View>
 
         {/* Start Button */}
-        <Animated.View
-          entering={FadeIn.delay(400)}
-          style={styles.footer}
-        >
+        <View style={styles.footer}>
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={handleStart}
@@ -255,7 +242,7 @@ export function TripStartScreen({
               </Text>
             </Animated.View>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
       </KeyboardAvoidingView>
     </View>
   );
@@ -352,9 +339,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxl,
     paddingHorizontal: spacing.xxxl,
     minWidth: SCREEN_WIDTH - 80,
-  },
-  cameraIcon: {
-    fontSize: 32,
   },
   cameraText: {
     ...typography.headline,

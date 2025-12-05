@@ -11,14 +11,13 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+// Layout animations removed to prevent conflicts with New Architecture
+import { Stack, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useTripExpenses, useExpenseActions, CreateExpenseInput } from '../../../../hooks/useExpenseActions';
 import { useImageUpload } from '../../../../hooks/useImageUpload';
 import { useToast, SkeletonCard, SkeletonStats } from '../../../../components/ui';
 import { ExpenseCategory, ExpensePaidBy, TripExpense } from '../../../../types';
-import { getStaggerDelay } from '../../../../lib/animations';
 
 const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string }[] = [
   { value: 'fuel', label: 'Fuel' },
@@ -41,7 +40,6 @@ export default function ExpensesScreen() {
   const { expenses, loading, error, refetch } = useTripExpenses(tripId);
   const actions = useExpenseActions(tripId, refetch);
   const { uploading, progress, uploadReceiptPhoto } = useImageUpload();
-  const router = useRouter();
   const toast = useToast();
   const amountInputRef = useRef<TextInput>(null);
 
@@ -208,19 +206,16 @@ export default function ExpensesScreen() {
           }
         >
           {error && (
-            <Animated.View entering={FadeIn} style={styles.errorCard}>
+            <View style={styles.errorCard}>
               <Text style={styles.errorText}>{error}</Text>
-            </Animated.View>
+            </View>
           )}
 
           {/* Summary */}
           {loading && expenses.length === 0 ? (
             <SkeletonStats style={{ marginBottom: 20 }} />
           ) : (
-            <Animated.View
-              entering={FadeIn.duration(300)}
-              style={styles.summaryCard}
-            >
+            <View style={styles.summaryCard}>
               <View style={styles.summaryItem}>
                 <Text style={styles.summaryLabel}>Total Expenses</Text>
                 <Text style={styles.summaryValue}>{formatCurrency(totalExpenses)}</Text>
@@ -232,24 +227,21 @@ export default function ExpensesScreen() {
                   {formatCurrency(reimbursable)}
                 </Text>
               </View>
-            </Animated.View>
+            </View>
           )}
 
           {/* Add Expense Button or Form */}
           {!showForm ? (
-            <Animated.View entering={FadeIn.delay(100)}>
+            <View>
               <TouchableOpacity
                 style={styles.addButton}
                 onPress={() => setShowForm(true)}
               >
                 <Text style={styles.addButtonText}>+ Add Expense</Text>
               </TouchableOpacity>
-            </Animated.View>
+            </View>
           ) : (
-            <Animated.View
-              entering={FadeIn.duration(300)}
-              style={styles.formCard}
-            >
+            <View style={styles.formCard}>
               <Text style={styles.formTitle}>New Expense</Text>
 
               {/* Category Selection */}
@@ -381,14 +373,11 @@ export default function ExpensesScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
-            </Animated.View>
+            </View>
           )}
 
           {/* Expenses List */}
-          <Animated.View
-            entering={FadeIn.delay(200)}
-            style={styles.section}
-          >
+          <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               Expenses ({visibleExpenses.length})
             </Text>
@@ -400,11 +389,8 @@ export default function ExpensesScreen() {
               </View>
             ) : (
               <View style={styles.expensesList}>
-                {visibleExpenses.map((expense, index) => (
-                  <Animated.View
-                    key={expense.id}
-                    entering={FadeIn.delay(getStaggerDelay(index))}
-                  >
+                {visibleExpenses.map((expense) => (
+                  <View key={expense.id}>
                     <TouchableOpacity
                       style={styles.expenseItem}
                       onLongPress={() => handleDelete(expense)}
@@ -428,12 +414,12 @@ export default function ExpensesScreen() {
                       </View>
                       <Text style={styles.expenseAmount}>{formatCurrency(expense.amount)}</Text>
                     </TouchableOpacity>
-                  </Animated.View>
+                  </View>
                 ))}
               </View>
             )}
             <Text style={styles.hint}>Hold to delete • Undo available for 5 seconds</Text>
-          </Animated.View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </>

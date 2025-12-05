@@ -1,10 +1,8 @@
 /**
- * DeliveryCompleteScreen - Full-screen delivery completion celebration
+ * DeliveryCompleteScreen - Full-screen delivery completion
  *
- * Features:
- * - Prominent "Complete Delivery" button
- * - Success celebration with confetti
- * - Auto-navigate to next load or trip summary
+ * FIXED: Removed layout animations (FadeIn.delay) that conflict with
+ * animated styles. Screens now render immediately without jank.
  */
 
 import React, { useState, useCallback } from 'react';
@@ -20,7 +18,6 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withSequence,
-  FadeIn,
 } from 'react-native-reanimated';
 import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
 import { haptics } from '../../lib/haptics';
@@ -52,7 +49,7 @@ export function DeliveryCompleteScreen({
   const [showSuccess, setShowSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Animation values
+  // Animation values - only for interactive feedback
   const buttonScale = useSharedValue(1);
 
   const handleComplete = useCallback(async () => {
@@ -71,7 +68,6 @@ export function DeliveryCompleteScreen({
       const result = await onComplete();
 
       if (result.success) {
-        // Celebration happens in SuccessCelebration component
         setShowSuccess(true);
       } else {
         setError(result.error || 'Failed to complete delivery');
@@ -114,15 +110,15 @@ export function DeliveryCompleteScreen({
   return (
     <View style={styles.container}>
       {/* Header */}
-      <Animated.View entering={FadeIn.delay(100)} style={styles.header}>
+      <View style={styles.header}>
         <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
           <Text style={styles.cancelText}>Cancel</Text>
         </TouchableOpacity>
-      </Animated.View>
+      </View>
 
       {/* Content */}
       <View style={styles.content}>
-        <Animated.View entering={FadeIn.delay(100)} style={styles.heroSection}>
+        <View style={styles.heroSection}>
           <IconWithBackground
             name="package"
             size={48}
@@ -132,28 +128,22 @@ export function DeliveryCompleteScreen({
           />
           <Text style={styles.title}>Complete Delivery</Text>
           <Text style={styles.loadInfo}>Load #{loadNumber}</Text>
-        </Animated.View>
+        </View>
 
-        <Animated.View
-          entering={FadeIn.delay(200)}
-          style={styles.addressCard}
-        >
+        <View style={styles.addressCard}>
           <Text style={styles.addressLabel}>DELIVERED TO</Text>
           <Text style={styles.addressText}>{deliveryAddress}</Text>
-        </Animated.View>
+        </View>
 
         {error && (
-          <Animated.View entering={FadeIn} style={styles.errorContainer}>
+          <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
-          </Animated.View>
+          </View>
         )}
       </View>
 
       {/* Complete Button */}
-      <Animated.View
-        entering={FadeIn.delay(300)}
-        style={styles.footer}
-      >
+      <View style={styles.footer}>
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={handleComplete}
@@ -174,7 +164,7 @@ export function DeliveryCompleteScreen({
             Next up: Load #{nextLoadNumber}
           </Text>
         )}
-      </Animated.View>
+      </View>
     </View>
   );
 }
