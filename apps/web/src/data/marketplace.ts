@@ -1979,10 +1979,23 @@ export interface LoadGivenOut {
 
 /**
  * Get loads that the current user has given out to external carriers
- * These are loads owned by the user that have been assigned to carriers via marketplace
+ * These are loads posted by the user's company that have been assigned to carriers via marketplace
  */
 export async function getLoadsGivenOut(userId: string): Promise<LoadGivenOut[]> {
   const supabase = await createClient();
+
+  // First get user's workspace company (same approach as Posted Jobs page)
+  const { data: workspaceCompany } = await supabase
+    .from('companies')
+    .select('id')
+    .eq('owner_id', userId)
+    .eq('is_workspace_company', true)
+    .maybeSingle();
+
+  if (!workspaceCompany) {
+    console.log('[getLoadsGivenOut] No workspace company found for user:', userId);
+    return [];
+  }
 
   const { data, error } = await supabase
     .from('loads')
@@ -1994,18 +2007,24 @@ export async function getLoadsGivenOut(userId: string): Promise<LoadGivenOut[]> 
       destination_city,
       destination_state,
       estimated_cuft,
+      cubic_feet,
       carrier_rate,
       load_status,
       posting_status,
       expected_load_date,
       expected_delivery_date,
       assigned_at,
+      carrier_assigned_at,
       carrier_confirmed_at,
+      pickup_city,
+      pickup_state,
+      delivery_city,
+      delivery_state,
       carrier:companies!loads_assigned_carrier_id_fkey(id, name)
     `)
-    .eq('owner_id', userId)
+    .eq('posted_by_company_id', workspaceCompany.id)
     .not('assigned_carrier_id', 'is', null)
-    .order('assigned_at', { ascending: false, nullsFirst: false });
+    .order('carrier_assigned_at', { ascending: false, nullsFirst: false });
 
   if (error) {
     console.error('Error fetching loads given out:', error);
@@ -2015,17 +2034,18 @@ export async function getLoadsGivenOut(userId: string): Promise<LoadGivenOut[]> 
   return (data || []).map((load: any) => ({
     id: load.id,
     load_number: load.load_number,
-    origin_city: load.origin_city,
-    origin_state: load.origin_state,
-    destination_city: load.destination_city,
-    destination_state: load.destination_state,
-    estimated_cuft: load.estimated_cuft ? Number(load.estimated_cuft) : null,
+    // Use pickup/delivery as fallback for origin/destination
+    origin_city: load.origin_city || load.pickup_city,
+    origin_state: load.origin_state || load.pickup_state,
+    destination_city: load.destination_city || load.delivery_city,
+    destination_state: load.destination_state || load.delivery_state,
+    estimated_cuft: load.estimated_cuft ? Number(load.estimated_cuft) : (load.cubic_feet ? Number(load.cubic_feet) : null),
     carrier_rate: load.carrier_rate ? Number(load.carrier_rate) : null,
     load_status: load.load_status || 'pending',
     posting_status: load.posting_status || 'assigned',
     expected_load_date: load.expected_load_date,
     expected_delivery_date: load.expected_delivery_date,
-    assigned_at: load.assigned_at,
+    assigned_at: load.carrier_assigned_at || load.assigned_at,
     carrier_confirmed_at: load.carrier_confirmed_at,
     carrier: Array.isArray(load.carrier) ? load.carrier[0] : load.carrier,
   }));
