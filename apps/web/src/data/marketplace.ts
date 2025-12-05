@@ -2024,7 +2024,7 @@ export async function getLoadsGivenOut(userId: string): Promise<LoadGivenOut[]> 
     `)
     .eq('posted_by_company_id', workspaceCompany.id)
     .not('assigned_carrier_id', 'is', null)
-    .order('carrier_assigned_at', { ascending: false, nullsFirst: false });
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error('[getLoadsGivenOut] Error querying loads:', error);

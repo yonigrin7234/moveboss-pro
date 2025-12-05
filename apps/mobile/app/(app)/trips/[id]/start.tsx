@@ -19,6 +19,16 @@ import { supabase } from '../../../../lib/supabase';
 import { TripWithLoads, TripLoad } from '../../../../types';
 import { colors, typography, spacing } from '../../../../lib/theme';
 
+// Helper to add timeout to promises
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(message)), ms)
+    ),
+  ]);
+}
+
 export default function TripStartRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -44,12 +54,18 @@ export default function TripStartRoute() {
 
     const fetchTrip = async () => {
       try {
-        // Get driver record
-        const { data: driver, error: driverError } = await supabase
-          .from('drivers')
-          .select('id, owner_id')
-          .eq('auth_user_id', user.id)
-          .single();
+        // Get driver record with timeout
+        const driverResult = await withTimeout(
+          supabase
+            .from('drivers')
+            .select('id, owner_id')
+            .eq('auth_user_id', user.id)
+            .single(),
+          10000,
+          'Connection timeout - please check your network'
+        );
+
+        const { data: driver, error: driverError } = driverResult;
 
         if (driverError || !driver) {
           setError('Driver profile not found');
@@ -57,19 +73,25 @@ export default function TripStartRoute() {
           return;
         }
 
-        // Fetch trip with loads
-        const { data: tripData, error: tripError } = await supabase
-          .from('trips')
-          .select(`
-            *,
-            trucks:truck_id (id, unit_number),
-            trip_loads (
-              id, trip_id, load_id, sequence_index, role,
-              loads (id)
-            )
-          `)
-          .eq('id', id)
-          .single();
+        // Fetch trip with loads with timeout
+        const tripResult = await withTimeout(
+          supabase
+            .from('trips')
+            .select(`
+              *,
+              trucks:truck_id (id, unit_number),
+              trip_loads (
+                id, trip_id, load_id, sequence_index, role,
+                loads (id)
+              )
+            `)
+            .eq('id', id)
+            .single(),
+          15000,
+          'Connection timeout - please check your network'
+        );
+
+        const { data: tripData, error: tripError } = tripResult;
 
         if (tripError) {
           throw tripError;
@@ -154,16 +176,22 @@ export default function TripStartRoute() {
     hasFetchedRef.current = false;
     setLoading(true);
     setError(null);
-    // Trigger re-fetch by updating a dependency
-    // Since we check hasFetchedRef, we need to force a re-run
+
     const fetchTrip = async () => {
       hasFetchedRef.current = true;
       try {
-        const { data: driver, error: driverError } = await supabase
-          .from('drivers')
-          .select('id, owner_id')
-          .eq('auth_user_id', user?.id)
-          .single();
+        // Get driver record with timeout
+        const driverResult = await withTimeout(
+          supabase
+            .from('drivers')
+            .select('id, owner_id')
+            .eq('auth_user_id', user?.id)
+            .single(),
+          10000,
+          'Connection timeout - please check your network'
+        );
+
+        const { data: driver, error: driverError } = driverResult;
 
         if (driverError || !driver) {
           setError('Driver profile not found');
@@ -171,18 +199,25 @@ export default function TripStartRoute() {
           return;
         }
 
-        const { data: tripData, error: tripError } = await supabase
-          .from('trips')
-          .select(`
-            *,
-            trucks:truck_id (id, unit_number),
-            trip_loads (
-              id, trip_id, load_id, sequence_index, role,
-              loads (id)
-            )
-          `)
-          .eq('id', id)
-          .single();
+        // Fetch trip with loads with timeout
+        const tripResult = await withTimeout(
+          supabase
+            .from('trips')
+            .select(`
+              *,
+              trucks:truck_id (id, unit_number),
+              trip_loads (
+                id, trip_id, load_id, sequence_index, role,
+                loads (id)
+              )
+            `)
+            .eq('id', id)
+            .single(),
+          15000,
+          'Connection timeout - please check your network'
+        );
+
+        const { data: tripData, error: tripError } = tripResult;
 
         if (tripError) throw tripError;
         if (tripData && tripData.driver_id !== driver.id) {

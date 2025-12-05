@@ -72,26 +72,31 @@ export function useDriverTripDetail(tripId: string | null) {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
-  // Store values in refs to prevent callback recreation
-  const userIdRef = useRef(user?.id);
-  const tripIdRef = useRef(tripId);
+  // Refs to prevent infinite loops and concurrent fetches
   const isFetchingRef = useRef(false);
+  const lastFetchKeyRef = useRef<string | null>(null);
 
-  // Update refs when values change
-  userIdRef.current = user?.id;
-  tripIdRef.current = tripId;
+  // Create a stable fetch function using useRef
+  const fetchTripRef = useRef<() => Promise<void>>();
 
-  // Stable callback that never changes - uses refs for values
-  const fetchTrip = useCallback(async () => {
-    const userId = userIdRef.current;
-    const currentTripId = tripIdRef.current;
+  fetchTripRef.current = async () => {
+    const userId = user?.id;
 
     // Prevent concurrent fetches
     if (isFetchingRef.current) {
       return;
     }
 
-    if (!userId || !currentTripId) {
+    if (!userId || !tripId) {
+      setLoading(false);
+      return;
+    }
+
+    // Create a unique key for this fetch
+    const fetchKey = `${userId}-${tripId}`;
+
+    // Skip if we already fetched with this exact key and have data
+    if (lastFetchKeyRef.current === fetchKey && trip) {
       setLoading(false);
       return;
     }
@@ -159,7 +164,7 @@ export function useDriverTripDetail(tripId: string | null) {
             ),
             trip_expenses (*)
           `)
-          .eq('id', currentTripId)
+          .eq('id', tripId)
           .single(),
         15000,
         'Connection timeout - please check your network'
@@ -177,6 +182,7 @@ export function useDriverTripDetail(tripId: string | null) {
         return;
       }
 
+      lastFetchKeyRef.current = fetchKey;
       setTrip(tripData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch trip');
@@ -184,18 +190,24 @@ export function useDriverTripDetail(tripId: string | null) {
       setLoading(false);
       isFetchingRef.current = false;
     }
-  }, []); // Empty deps - callback never changes
+  };
 
-  // Only fetch when user.id or tripId changes (primitive values)
+  // Stable refetch function
+  const refetch = useCallback(() => {
+    lastFetchKeyRef.current = null; // Clear to allow re-fetch
+    fetchTripRef.current?.();
+  }, []);
+
+  // Only fetch when user.id or tripId changes - NO function in deps
   useEffect(() => {
     if (user?.id && tripId) {
-      fetchTrip();
+      fetchTripRef.current?.();
     } else {
       setLoading(false);
     }
-  }, [user?.id, tripId, fetchTrip]);
+  }, [user?.id, tripId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { trip, loading, error, refetch: fetchTrip };
+  return { trip, loading, error, refetch };
 }
 
 export function useActiveTrip() {
