@@ -1985,7 +1985,7 @@ export async function getLoadsGivenOut(userId: string): Promise<LoadGivenOut[]> 
   const supabase = await createClient();
 
   // First get user's workspace company (same approach as Posted Jobs page)
-  const { data: workspaceCompany } = await supabase
+  const { data: workspaceCompany, error: companyError } = await supabase
     .from('companies')
     .select('id')
     .eq('owner_id', userId)
@@ -1993,48 +1993,40 @@ export async function getLoadsGivenOut(userId: string): Promise<LoadGivenOut[]> 
     .maybeSingle();
 
   if (!workspaceCompany) {
-    console.log('[getLoadsGivenOut] No workspace company found for user:', userId);
+    console.log('[getLoadsGivenOut] No workspace company found for user:', userId, 'error:', companyError);
     return [];
   }
 
-  console.log('[getLoadsGivenOut] Workspace company:', workspaceCompany.id, 'for user:', userId);
-
-  // First, let's do the EXACT same query as the working test endpoint
-  const { data: testQuery, error: testError } = await supabase
+  // Query loads that this company posted AND have been assigned to a carrier
+  const { data, error } = await supabase
     .from('loads')
     .select(`
-      id, load_number, posting_type, posting_status,
+      id,
+      load_number,
+      pickup_city,
+      pickup_state,
+      delivery_city,
+      delivery_state,
+      cubic_feet,
+      cubic_feet_estimate,
+      carrier_rate,
+      load_status,
+      posting_status,
+      expected_load_date,
+      expected_delivery_date,
+      carrier_assigned_at,
+      carrier_confirmed_at,
       assigned_carrier_id,
       assigned_carrier:assigned_carrier_id(id, name)
     `)
     .eq('posted_by_company_id', workspaceCompany.id)
     .not('assigned_carrier_id', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(20);
-
-  console.log('[getLoadsGivenOut] Test query result:', testQuery?.length, 'error:', testError?.message);
-
-  // Now try without the join
-  const { data: noJoinQuery, error: noJoinError } = await supabase
-    .from('loads')
-    .select('id, load_number, assigned_carrier_id')
-    .eq('posted_by_company_id', workspaceCompany.id)
-    .not('assigned_carrier_id', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(20);
-
-  console.log('[getLoadsGivenOut] No-join query result:', noJoinQuery?.length, 'error:', noJoinError?.message);
-
-  // Use the test query result as our data
-  const data = testQuery;
-  const error = testError;
+    .order('carrier_assigned_at', { ascending: false, nullsFirst: false });
 
   if (error) {
     console.error('[getLoadsGivenOut] Error querying loads:', error);
     return [];
   }
-
-  console.log('[getLoadsGivenOut] Found loads:', data?.length);
 
   return (data || []).map((load: any) => {
     // Handle the assigned_carrier join - could be object or array
@@ -2045,19 +2037,155 @@ export async function getLoadsGivenOut(userId: string): Promise<LoadGivenOut[]> 
     return {
       id: load.id,
       load_number: load.load_number,
-      origin_city: null, // Not selected in simple query
-      origin_state: null,
-      destination_city: null,
-      destination_state: null,
-      estimated_cuft: null,
-      carrier_rate: null,
-      load_status: load.posting_status || 'assigned',
+      origin_city: load.pickup_city,
+      origin_state: load.pickup_state,
+      destination_city: load.delivery_city,
+      destination_state: load.delivery_state,
+      estimated_cuft: load.cubic_feet || load.cubic_feet_estimate,
+      carrier_rate: load.carrier_rate,
+      load_status: load.load_status || 'pending',
       posting_status: load.posting_status || 'assigned',
-      expected_load_date: null,
-      expected_delivery_date: null,
-      assigned_at: null,
-      carrier_confirmed_at: null,
+      expected_load_date: load.expected_load_date,
+      expected_delivery_date: load.expected_delivery_date,
+      assigned_at: load.carrier_assigned_at,
+      carrier_confirmed_at: load.carrier_confirmed_at,
       carrier: carrier || null,
     };
   });
+}
+
+/**
+ * Debug version that returns diagnostic info - use for troubleshooting
+ */
+export async function getLoadsGivenOutDebug(userId: string): Promise<{
+  loads: LoadGivenOut[];
+  debug: {
+    userId: string;
+    workspaceCompanyId: string | null;
+    companyError: string | null;
+    queryCount: number;
+    queryError: string | null;
+    rawData: unknown[];
+    // Additional debug info
+    authUser: { id: string; email: string } | null;
+    byOwnerCount: number;
+    byOwnerError: string | null;
+    byPostedByCount: number;
+    byPostedByError: string | null;
+  };
+}> {
+  const supabase = await createClient();
+
+  // Check auth state in function context
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+
+  // First get user's workspace company
+  const { data: workspaceCompany, error: companyError } = await supabase
+    .from('companies')
+    .select('id')
+    .eq('owner_id', userId)
+    .eq('is_workspace_company', true)
+    .maybeSingle();
+
+  if (!workspaceCompany) {
+    return {
+      loads: [],
+      debug: {
+        userId,
+        workspaceCompanyId: null,
+        companyError: companyError?.message || 'No workspace company found',
+        queryCount: 0,
+        queryError: null,
+        rawData: [],
+        authUser: authUser ? { id: authUser.id, email: authUser.email || '' } : null,
+        byOwnerCount: 0,
+        byOwnerError: null,
+        byPostedByCount: 0,
+        byPostedByError: null,
+      },
+    };
+  }
+
+  // Test 1: Query by owner_id (should work due to RLS)
+  const { data: byOwner, error: byOwnerError } = await supabase
+    .from('loads')
+    .select('id, load_number, assigned_carrier_id')
+    .eq('owner_id', userId)
+    .not('assigned_carrier_id', 'is', null)
+    .limit(10);
+
+  // Test 2: Query by posted_by_company_id
+  const { data: byPostedBy, error: byPostedByError } = await supabase
+    .from('loads')
+    .select('id, load_number, assigned_carrier_id')
+    .eq('posted_by_company_id', workspaceCompany.id)
+    .not('assigned_carrier_id', 'is', null)
+    .limit(10);
+
+  // Main query for actual data
+  const { data, error } = await supabase
+    .from('loads')
+    .select(`
+      id,
+      load_number,
+      pickup_city,
+      pickup_state,
+      delivery_city,
+      delivery_state,
+      cubic_feet,
+      cubic_feet_estimate,
+      carrier_rate,
+      load_status,
+      posting_status,
+      expected_load_date,
+      expected_delivery_date,
+      carrier_assigned_at,
+      carrier_confirmed_at,
+      assigned_carrier_id,
+      assigned_carrier:assigned_carrier_id(id, name)
+    `)
+    .eq('posted_by_company_id', workspaceCompany.id)
+    .not('assigned_carrier_id', 'is', null)
+    .order('carrier_assigned_at', { ascending: false, nullsFirst: false });
+
+  const loads = (data || []).map((load: any) => {
+    const carrier = Array.isArray(load.assigned_carrier)
+      ? load.assigned_carrier[0]
+      : load.assigned_carrier;
+
+    return {
+      id: load.id,
+      load_number: load.load_number,
+      origin_city: load.pickup_city,
+      origin_state: load.pickup_state,
+      destination_city: load.delivery_city,
+      destination_state: load.delivery_state,
+      estimated_cuft: load.cubic_feet || load.cubic_feet_estimate,
+      carrier_rate: load.carrier_rate,
+      load_status: load.load_status || 'pending',
+      posting_status: load.posting_status || 'assigned',
+      expected_load_date: load.expected_load_date,
+      expected_delivery_date: load.expected_delivery_date,
+      assigned_at: load.carrier_assigned_at,
+      carrier_confirmed_at: load.carrier_confirmed_at,
+      carrier: carrier || null,
+    };
+  });
+
+  return {
+    loads,
+    debug: {
+      userId,
+      workspaceCompanyId: workspaceCompany.id,
+      companyError: null,
+      queryCount: data?.length || 0,
+      queryError: error?.message || null,
+      rawData: data || [],
+      authUser: authUser ? { id: authUser.id, email: authUser.email || '' } : null,
+      byOwnerCount: byOwner?.length || 0,
+      byOwnerError: byOwnerError?.message || null,
+      byPostedByCount: byPostedBy?.length || 0,
+      byPostedByError: byPostedByError?.message || null,
+    },
+  };
 }

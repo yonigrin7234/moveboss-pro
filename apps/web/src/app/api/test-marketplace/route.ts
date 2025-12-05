@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser, createClient } from '@/lib/supabase-server';
-import { getCarrierAssignedLoads, getAssignedLoadDetails, assignLoadToTrip, getLoadsGivenOut } from '@/data/marketplace';
+import { getCarrierAssignedLoads, getAssignedLoadDetails, assignLoadToTrip, getLoadsGivenOut, getLoadsGivenOutDebug } from '@/data/marketplace';
 import { getTripsForLoadAssignment } from '@/data/trips';
 
 export async function GET(request: Request) {
@@ -52,8 +52,8 @@ export async function GET(request: Request) {
         .order('created_at', { ascending: false })
         .limit(20);
 
-      // Get the actual function result
-      const loadsGivenOut = await getLoadsGivenOut(user.id);
+      // Get the actual function result with debug info
+      const loadsGivenOutDebugResult = await getLoadsGivenOutDebug(user.id);
 
       // Also do a second workspace company lookup to compare
       const { data: secondWorkspaceCompany } = await supabase
@@ -82,8 +82,9 @@ export async function GET(request: Request) {
           error: withCarrierError,
         },
         loadsGivenOutResult: {
-          count: loadsGivenOut.length,
-          data: loadsGivenOut,
+          count: loadsGivenOutDebugResult.loads.length,
+          data: loadsGivenOutDebugResult.loads,
+          debug: loadsGivenOutDebugResult.debug,
         },
       });
     }
