@@ -77,23 +77,29 @@ export async function giveLoadBack(
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
 
-  // Get load details
-  const { data: load } = await supabase
+  // Get load details - avoid joining companies due to RLS
+  const { data: load, error: loadQueryError } = await supabase
     .from('loads')
-    .select(
-      `
-      *,
-      company:companies!loads_company_id_fkey(id, name),
-      carrier:companies!loads_assigned_carrier_id_fkey(id, name)
-    `
-    )
+    .select('*, source_company_name')
     .eq('id', loadId)
     .eq('assigned_carrier_id', carrierId)
     .single();
 
+  if (loadQueryError) {
+    console.error('[giveLoadBack] Load query error:', loadQueryError);
+    return { success: false, error: loadQueryError.message };
+  }
+
   if (!load) {
     return { success: false, error: 'Load not found or not assigned to you' };
   }
+
+  // Get carrier name separately (carrier should be able to read their own company)
+  const { data: carrierCompany } = await supabase
+    .from('companies')
+    .select('id, name')
+    .eq('id', carrierId)
+    .single();
 
   // Determine load stage
   const loadStage = load.carrier_confirmed_at ? 'confirmed' : 'accepted';
@@ -161,16 +167,18 @@ export async function giveLoadBack(
     equipment_issue: 'Equipment issue',
     found_better_load: 'Found better load',
     emergency: 'Emergency',
+    capacity_issue: 'Capacity issue',
+    equipment_breakdown: 'Equipment breakdown',
+    driver_unavailable: 'Driver unavailable',
+    scheduling_conflict: 'Scheduling conflict',
     other: reasonDetails || 'Other',
   };
-
-  const carrier = Array.isArray(load.carrier) ? load.carrier[0] : load.carrier;
 
   await notifyLoadGivenBack(
     load.owner_id,
     load.company_id,
     loadId,
-    carrier?.name || 'Carrier',
+    carrierCompany?.name || 'Carrier',
     load.load_number,
     reasonLabels[reasonCode] || reasonCode
   );

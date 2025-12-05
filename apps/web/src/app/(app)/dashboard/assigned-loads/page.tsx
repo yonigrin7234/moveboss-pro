@@ -63,33 +63,33 @@ export default async function AssignedLoadsPage() {
 
   async function handleGiveBack(formData: FormData): Promise<void> {
     'use server';
-    try {
-      const currentUser = await getCurrentUser();
-      if (!currentUser) {
-        console.error('[handleGiveBack] Not authenticated');
-        return;
-      }
-
-      const loadId = formData.get('load_id') as string;
-      const reasonCode = formData.get('reason_code') as string;
-      const carrierIdValue = formData.get('carrier_id') as string;
-
-      if (!loadId || !reasonCode || !carrierIdValue) {
-        console.error('[handleGiveBack] Missing required fields:', { loadId, reasonCode, carrierIdValue });
-        return;
-      }
-
-      const result = await giveLoadBack(loadId, currentUser.id, carrierIdValue, reasonCode);
-      if (!result.success) {
-        console.error('[handleGiveBack] Failed:', result.error);
-        return;
-      }
-
-      revalidatePath('/dashboard/assigned-loads');
-      revalidatePath('/dashboard/load-board');
-    } catch (error) {
-      console.error('[handleGiveBack] Exception:', error);
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      console.error('[handleGiveBack] Not authenticated');
+      redirect('/login');
     }
+
+    const loadId = formData.get('load_id') as string;
+    const reasonCode = formData.get('reason_code') as string;
+    const carrierIdValue = formData.get('carrier_id') as string;
+
+    console.log('[handleGiveBack] Attempting give back:', { loadId, reasonCode, carrierIdValue });
+
+    if (!loadId || !reasonCode || !carrierIdValue) {
+      console.error('[handleGiveBack] Missing required fields:', { loadId, reasonCode, carrierIdValue });
+      redirect('/dashboard/assigned-loads');
+    }
+
+    const result = await giveLoadBack(loadId, currentUser.id, carrierIdValue, reasonCode);
+    console.log('[handleGiveBack] Result:', result);
+
+    if (!result.success) {
+      console.error('[handleGiveBack] Failed:', result.error);
+    }
+
+    revalidatePath('/dashboard/assigned-loads');
+    revalidatePath('/dashboard/load-board');
+    redirect('/dashboard/assigned-loads');
   }
 
   return (
