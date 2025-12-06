@@ -69,7 +69,9 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
   ]);
 
   // Only brokers/moving companies can post to marketplace
-  const canPostToMarketplace = workspaceCompany?.is_broker === true;
+  // AND only for loads belonging to the user's own company (not external company loads)
+  const isOwnCompanyLoad = load.company_id === workspaceCompany?.id;
+  const canPostToMarketplace = workspaceCompany?.is_broker === true && isOwnCompanyLoad;
 
   // Filter out trips that already have this load assigned
   const availableTrips = trips.filter((trip) => trip.id !== load.trip_id);
@@ -316,7 +318,7 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
 
       {/* Status Badge and Actions */}
       <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <span
             className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
               load.status === 'delivered'
@@ -332,6 +334,11 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
           >
             {formatStatus(load.status)}
           </span>
+          {!isOwnCompanyLoad && (
+            <span className="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800">
+              External Company
+            </span>
+          )}
         </div>
 
         {/* Load Actions: Post to Marketplace, Assign to Trip */}
