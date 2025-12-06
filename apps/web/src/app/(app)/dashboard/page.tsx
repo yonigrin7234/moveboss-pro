@@ -124,6 +124,7 @@ export default async function DashboardPage() {
             percentChange={metrics.collectedChangePercent}
             accent="blue"
             icon={<Banknote className="h-5 w-5" />}
+            href="/dashboard/finance/receivables"
           />
 
           <PrimaryMetricCard
