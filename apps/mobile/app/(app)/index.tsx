@@ -15,7 +15,6 @@ import {
   Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-// Layout animations temporarily disabled for stability testing
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../providers/AuthProvider';
 import { useDriverProfile } from '../../hooks/useDriverProfile';
@@ -26,11 +25,10 @@ import {
   QuickStats,
   SwipeableActionCard,
   Icon,
-  IconName,
   NextActionSkeleton,
   SkeletonStats,
-  Skeleton,
 } from '../../components/ui';
+import { QuickActionButton, UpcomingTripCard, DocumentAlertCard } from '../../components/dashboard';
 import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
 import { TripWithLoads } from '../../types';
 
@@ -48,10 +46,8 @@ export default function HomeScreen() {
     isRefreshing,
   } = useDriverDashboard();
 
-  // Show skeleton on initial load (no cached data yet)
   const showSkeleton = loading && !isRefreshing && nextAction.type === 'no_action' && upcomingTrips.length === 0;
-  const { hasActiveTrip, truck, trailer, expiredCount } =
-    useVehicleDocuments();
+  const { hasActiveTrip, truck, trailer, expiredCount } = useVehicleDocuments();
   const router = useRouter();
   const [showUpcoming, setShowUpcoming] = useState(true);
 
@@ -107,7 +103,7 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* THE ONE ACTION - Most prominent */}
+      {/* THE ONE ACTION */}
       {showSkeleton ? (
         <NextActionSkeleton style={{ marginBottom: spacing.lg }} />
       ) : (
@@ -118,14 +114,12 @@ export default function HomeScreen() {
       {showSkeleton ? (
         <SkeletonStats style={{ marginBottom: spacing.lg }} />
       ) : (
-        <View>
-          <QuickStats
-            earnings={stats.todayEarnings}
-            miles={stats.todayMiles}
-            loadsCompleted={stats.loadsCompleted}
-            loadsTotal={stats.loadsTotal > 0 ? stats.loadsTotal : undefined}
-          />
-        </View>
+        <QuickStats
+          earnings={stats.todayEarnings}
+          miles={stats.todayMiles}
+          loadsCompleted={stats.loadsCompleted}
+          loadsTotal={stats.loadsTotal > 0 ? stats.loadsTotal : undefined}
+        />
       )}
 
       {/* Quick Actions Row */}
@@ -149,31 +143,17 @@ export default function HomeScreen() {
         />
       </View>
 
-      {/* Document Alert - if expired */}
+      {/* Document Alert */}
       {hasActiveTrip && expiredCount > 0 && (
-        <View>
-          <Pressable
-            style={styles.alertCard}
-            onPress={() => router.push('/(app)/documents')}
-          >
-            <View style={styles.alertContent}>
-              <Icon name="alert-triangle" size="lg" color={colors.warning} />
-              <View style={styles.alertText}>
-                <Text style={styles.alertTitle}>
-                  {expiredCount} Document{expiredCount > 1 ? 's' : ''} Expired
-                </Text>
-                <Text style={styles.alertSubtitle}>
-                  {truck?.unit_number}
-                  {trailer ? ` + ${trailer.unit_number}` : ''} - Tap to view
-                </Text>
-              </View>
-              <Icon name="chevron-right" size="md" color={colors.textMuted} />
-            </View>
-          </Pressable>
-        </View>
+        <DocumentAlertCard
+          expiredCount={expiredCount}
+          truckUnitNumber={truck?.unit_number}
+          trailerUnitNumber={trailer?.unit_number}
+          onPress={() => router.push('/(app)/documents')}
+        />
       )}
 
-      {/* Upcoming Section (Collapsible) */}
+      {/* Upcoming Section */}
       {upcomingTrips.length > 0 && (
         <View style={styles.section}>
           <Pressable
@@ -217,7 +197,7 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Empty State - Only show when NOT loading and truly empty */}
+      {/* Empty State */}
       {!loading && !error && upcomingTrips.length === 0 && nextAction.type === 'no_action' && (
         <View style={styles.emptyState}>
           <Icon name="truck" size={48} color={colors.textMuted} />
@@ -231,99 +211,12 @@ export default function HomeScreen() {
   );
 }
 
-// === Sub-components ===
-
-interface QuickActionButtonProps {
-  icon: IconName;
-  label: string;
-  badge?: number;
-  badgeVariant?: 'error' | 'warning';
-  onPress: () => void;
-}
-
-function QuickActionButton({
-  icon,
-  label,
-  badge,
-  badgeVariant,
-  onPress,
-}: QuickActionButtonProps) {
-  const handlePress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onPress();
-  }, [onPress]);
-
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.quickActionButton,
-        pressed && styles.quickActionButtonPressed,
-      ]}
-      onPress={handlePress}
-    >
-      <View style={styles.quickActionIconContainer}>
-        <Icon name={icon} size="lg" color={colors.textPrimary} />
-        {badge !== undefined && (
-          <View
-            style={[
-              styles.quickActionBadge,
-              badgeVariant === 'error'
-                ? styles.badgeError
-                : styles.badgeWarning,
-            ]}
-          >
-            <Text style={styles.quickActionBadgeText}>{badge}</Text>
-          </View>
-        )}
-      </View>
-      <Text style={styles.quickActionLabel}>{label}</Text>
-    </Pressable>
-  );
-}
-
-interface UpcomingTripCardProps {
-  trip: TripWithLoads;
-}
-
-function UpcomingTripCard({ trip }: UpcomingTripCardProps) {
-  const route = `${trip.origin_city || '?'}, ${trip.origin_state || ''} → ${trip.destination_city || '?'}, ${trip.destination_state || ''}`;
-  const loadCount = trip.trip_loads?.length || 0;
-  const dateStr = trip.start_date
-    ? new Date(trip.start_date).toLocaleDateString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-      })
-    : 'TBD';
-
-  return (
-    <View style={styles.upcomingCard}>
-      <View style={styles.upcomingCardLeft}>
-        <Text style={styles.upcomingTripNumber}>Trip #{trip.trip_number}</Text>
-        <Text style={styles.upcomingRoute} numberOfLines={1}>
-          {route}
-        </Text>
-      </View>
-      <View style={styles.upcomingCardRight}>
-        <Text style={styles.upcomingDate}>{dateStr}</Text>
-        <Text style={styles.upcomingLoads}>
-          {loadCount} load{loadCount !== 1 ? 's' : ''}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-// === Helpers ===
-
 function getGreeting(): string {
   const hour = new Date().getHours();
   if (hour < 12) return 'Good morning';
   if (hour < 17) return 'Good afternoon';
   return 'Good evening';
 }
-
-// === Styles ===
 
 const styles = StyleSheet.create({
   container: {
@@ -376,85 +269,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginBottom: spacing.lg,
   },
-  quickActionButton: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadows.sm,
-  },
-  quickActionButtonPressed: {
-    opacity: 0.7,
-    transform: [{ scale: 0.97 }],
-  },
-  quickActionIconContainer: {
-    position: 'relative',
-    marginBottom: spacing.sm,
-  },
-  quickActionIcon: {
-    fontSize: 24,
-  },
-  quickActionBadge: {
-    position: 'absolute',
-    top: -6,
-    right: -10,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeError: {
-    backgroundColor: colors.error,
-  },
-  badgeWarning: {
-    backgroundColor: colors.warning,
-  },
-  quickActionBadgeText: {
-    color: colors.white,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  quickActionLabel: {
-    ...typography.caption,
-    color: colors.textPrimary,
-  },
-  alertCard: {
-    backgroundColor: colors.errorSoft,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.error,
-  },
-  alertContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  alertIcon: {
-    fontSize: 24,
-    marginRight: spacing.md,
-  },
-  alertText: {
-    flex: 1,
-  },
-  alertTitle: {
-    ...typography.subheadline,
-    color: colors.error,
-  },
-  alertSubtitle: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
-  },
-  alertArrow: {
-    color: colors.error,
-    fontSize: 18,
-  },
   section: {
     marginBottom: spacing.lg,
   },
@@ -473,36 +287,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   upcomingList: {},
-  upcomingCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  upcomingCardLeft: {
-    flex: 1,
-  },
-  upcomingCardRight: {
-    alignItems: 'flex-end',
-  },
-  upcomingTripNumber: {
-    ...typography.subheadline,
-    color: colors.textPrimary,
-    marginBottom: spacing.xxs,
-  },
-  upcomingRoute: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  upcomingDate: {
-    ...typography.caption,
-    color: colors.primary,
-    marginBottom: spacing.xxs,
-  },
-  upcomingLoads: {
-    ...typography.caption,
-    color: colors.textMuted,
-  },
   moreActions: {
     alignItems: 'center',
     paddingVertical: spacing.lg,
@@ -515,10 +299,6 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     paddingVertical: spacing.xxxl,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: spacing.lg,
   },
   emptyTitle: {
     ...typography.headline,
