@@ -674,9 +674,10 @@ export async function updateTrip(
 ): Promise<Trip> {
   const supabase = clientOverride ?? (await createClient());
 
+  // EQUIPMENT INHERITANCE: Also fetch truck_id and trailer_id to detect changes
   const { data: currentTrip, error: fetchError } = await supabase
     .from('trips')
-    .select('status, driver_id, odometer_start, odometer_end, odometer_start_photo_url, odometer_end_photo_url')
+    .select('status, driver_id, truck_id, trailer_id, odometer_start, odometer_end, odometer_start_photo_url, odometer_end_photo_url')
     .eq('id', id)
     .eq('owner_id', userId)
     .single();
@@ -821,6 +822,15 @@ export async function updateTrip(
     }
   }
 
+  // EQUIPMENT INHERITANCE: Sync equipment to loads when truck or trailer changes
+  const equipmentChanged =
+    ('truck_id' in input && input.truck_id !== (currentTrip as any).truck_id) ||
+    ('trailer_id' in input && input.trailer_id !== (currentTrip as any).trailer_id);
+
+  if (equipmentChanged) {
+    await syncTripEquipmentToLoads(id, userId);
+  }
+
   return data as Trip;
 }
 
@@ -875,10 +885,11 @@ export async function addLoadToTrip(
       .eq('owner_id', userId);
   }
 
-  // Get trip info to check for driver
+  // Get trip info to check for driver and equipment
+  // EQUIPMENT INHERITANCE: Also fetch truck_id and trailer_id
   const { data: trip } = await supabase
     .from('trips')
-    .select('driver_id, share_driver_with_companies')
+    .select('driver_id, share_driver_with_companies, truck_id, trailer_id')
     .eq('id', tripId)
     .single();
 
@@ -930,8 +941,19 @@ export async function addLoadToTrip(
     throw new Error(`Failed to add load to trip: ${error.message}`);
   }
 
+  // EQUIPMENT INHERITANCE: Sync truck/trailer from trip to newly added load
+  if (trip?.truck_id || trip?.trailer_id) {
+    await supabase
+      .from('loads')
+      .update({
+        assigned_truck_id: trip.truck_id || null,
+        assigned_trailer_id: trip.trailer_id || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', input.load_id);
+  }
+
   // If trip has driver, sync to this newly added load
-  // TODO: Also sync truck/trailer to load via syncTripEquipmentToLoads() when implemented
   if (trip?.driver_id) {
     const { data: driver } = await supabase
       .from('drivers')
@@ -998,10 +1020,10 @@ export async function addLoadToTrip(
 }
 
 /**
- * TODO: Sync truck/trailer from trip to all its loads.
+ * EQUIPMENT INHERITANCE: Sync truck/trailer from trip to all its loads.
  *
- * When a trip's truck_id or trailer_id is updated, this function should
- * update the assigned_truck_id and assigned_trailer_id on all loads
+ * When a trip's truck_id or trailer_id is updated, this function
+ * updates the assigned_truck_id and assigned_trailer_id on all loads
  * that are part of this trip (via trip_loads join table).
  *
  * This ensures equipment is managed through trips as the single source of truth,
@@ -1009,20 +1031,60 @@ export async function addLoadToTrip(
  *
  * Call sites:
  * - updateTrip() when truck_id or trailer_id changes
- * - addLoadToTrip() after load is added (see TODO comment above)
+ * - addLoadToTrip() after load is added
  *
  * @param tripId - The trip whose equipment should be synced
  * @param userId - The owner for permission checks
  */
 export async function syncTripEquipmentToLoads(
-  _tripId: string,
-  _userId: string
-): Promise<void> {
-  // TODO: Implement equipment sync
-  // 1. Fetch trip with truck_id and trailer_id
-  // 2. Fetch all loads via trip_loads join
-  // 3. Update each load's assigned_truck_id and assigned_trailer_id
-  console.log('syncTripEquipmentToLoads: Not yet implemented');
+  tripId: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  // Fetch trip's equipment
+  const { data: trip, error: tripError } = await supabase
+    .from('trips')
+    .select('truck_id, trailer_id')
+    .eq('id', tripId)
+    .eq('owner_id', userId)
+    .single();
+
+  if (tripError) {
+    console.error('syncTripEquipmentToLoads: Failed to fetch trip', tripError);
+    return { success: false, error: tripError.message };
+  }
+
+  // Get all loads on this trip
+  const { data: tripLoads } = await supabase
+    .from('trip_loads')
+    .select('load_id')
+    .eq('trip_id', tripId)
+    .eq('owner_id', userId);
+
+  if (!tripLoads || tripLoads.length === 0) {
+    return { success: true }; // No loads to update
+  }
+
+  const loadIds = tripLoads.map((tl) => tl.load_id);
+
+  // EQUIPMENT INHERITANCE: Update all loads with trip's equipment
+  const { error: updateError } = await supabase
+    .from('loads')
+    .update({
+      assigned_truck_id: trip.truck_id || null,
+      assigned_trailer_id: trip.trailer_id || null,
+      updated_at: new Date().toISOString(),
+    })
+    .in('id', loadIds);
+
+  if (updateError) {
+    console.error('syncTripEquipmentToLoads: Failed to update loads', updateError);
+    return { success: false, error: updateError.message };
+  }
+
+  console.log(`syncTripEquipmentToLoads: Synced equipment to ${loadIds.length} loads for trip ${tripId}`);
+  return { success: true };
 }
 
 export async function removeLoadFromTrip(tripId: string, loadId: string, userId: string): Promise<void> {
@@ -1046,8 +1108,9 @@ export async function removeLoadFromTrip(tripId: string, loadId: string, userId:
     throw new Error(`Failed to remove load from trip: ${error.message}`);
   }
 
-  // DRIVER ASSIGNMENT RULE UPDATE: Clear driver AND delivery_order when load is removed from trip
-  // Driver is now inherited from trip, so removing from trip means no driver
+  // DRIVER ASSIGNMENT RULE UPDATE + EQUIPMENT INHERITANCE:
+  // Clear driver, equipment, AND delivery_order when load is removed from trip
+  // Both driver and equipment are now inherited from trip, so removing means clearing both
   await supabase
     .from('loads')
     .update({
@@ -1055,6 +1118,8 @@ export async function removeLoadFromTrip(tripId: string, loadId: string, userId:
       assigned_driver_id: null,
       assigned_driver_name: null,
       assigned_driver_phone: null,
+      assigned_truck_id: null,
+      assigned_trailer_id: null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', loadId)

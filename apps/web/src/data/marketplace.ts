@@ -1315,6 +1315,11 @@ export async function getAssignedLoadDetails(
   assigned_driver_id: string | null;
   assigned_driver_name: string | null;
   assigned_driver_phone: string | null;
+  // Equipment (inherited from trip)
+  assigned_truck_id: string | null;
+  assigned_truck_unit_number: string | null;
+  assigned_trailer_id: string | null;
+  assigned_trailer_unit_number: string | null;
   // Instructions
   special_instructions: string | null;
   // Company
@@ -1381,6 +1386,28 @@ export async function getAssignedLoadDetails(
     }
   }
 
+  // EQUIPMENT INHERITANCE: Fetch truck and trailer data separately
+  let truckData: { id: string; unit_number: string } | null = null;
+  let trailerData: { id: string; unit_number: string } | null = null;
+
+  if (data.assigned_truck_id) {
+    const { data: truck } = await supabase
+      .from('trucks')
+      .select('id, unit_number')
+      .eq('id', data.assigned_truck_id)
+      .maybeSingle();
+    if (truck) truckData = truck;
+  }
+
+  if (data.assigned_trailer_id) {
+    const { data: trailer } = await supabase
+      .from('trailers')
+      .select('id, unit_number')
+      .eq('id', data.assigned_trailer_id)
+      .maybeSingle();
+    if (trailer) trailerData = trailer;
+  }
+
   // Map DB field names to interface field names
   const load = data as any;
   return {
@@ -1423,6 +1450,11 @@ export async function getAssignedLoadDetails(
     assigned_driver_id: load.assigned_driver_id,
     assigned_driver_name: load.assigned_driver_name,
     assigned_driver_phone: load.assigned_driver_phone,
+    // EQUIPMENT INHERITANCE: Include truck/trailer info
+    assigned_truck_id: load.assigned_truck_id || null,
+    assigned_truck_unit_number: truckData?.unit_number || null,
+    assigned_trailer_id: load.assigned_trailer_id || null,
+    assigned_trailer_unit_number: trailerData?.unit_number || null,
     special_instructions: load.special_instructions,
     company: companyData,
     trip_id: load.trip_id || null,

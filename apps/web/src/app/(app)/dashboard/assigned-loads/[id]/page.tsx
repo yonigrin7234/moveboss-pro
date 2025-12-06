@@ -599,6 +599,93 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
         </CardContent>
       </Card>
 
+      {/* Equipment Assignment */}
+      {/* EQUIPMENT INHERITANCE: Equipment is inherited from trips */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Truck className="h-5 w-5" />
+            Equipment Assignment
+          </CardTitle>
+          {(load.assigned_truck_id || load.assigned_trailer_id) ? (
+            <CardDescription className="flex items-center gap-1 text-green-500">
+              <CheckCircle className="h-4 w-4" />
+              Equipment assigned {load.trip_id && '(via trip)'}
+            </CardDescription>
+          ) : load.trip_id ? (
+            <CardDescription className="flex items-center gap-1 text-yellow-500">
+              <AlertCircle className="h-4 w-4" />
+              No equipment on trip yet
+            </CardDescription>
+          ) : (
+            <CardDescription className="flex items-center gap-1 text-orange-500">
+              <AlertTriangle className="h-4 w-4" />
+              Assign to a trip to set equipment
+            </CardDescription>
+          )}
+        </CardHeader>
+        <CardContent>
+          {(load.assigned_truck_id || load.assigned_trailer_id) ? (
+            /* Equipment info is read-only, inherited from trip */
+            <div className="p-4 bg-muted/50 rounded-lg space-y-3">
+              {load.assigned_truck_unit_number && (
+                <div className="flex items-center gap-2">
+                  <Truck className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Truck:</span>
+                  <span className="font-medium">{load.assigned_truck_unit_number}</span>
+                </div>
+              )}
+              {load.assigned_trailer_unit_number && (
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Trailer:</span>
+                  <span className="font-medium">{load.assigned_trailer_unit_number}</span>
+                </div>
+              )}
+              {load.trip_id && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Equipment is inherited from the assigned trip. To change equipment, update the trip.
+                </p>
+              )}
+            </div>
+          ) : !load.trip_id ? (
+            /* Show message when no trip assigned */
+            <div className="p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+              <p className="text-sm text-orange-700 dark:text-orange-400">
+                This load cannot have equipment until it is assigned to a trip.
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Truck and trailer are assigned at the trip level and automatically inherited by all loads on that trip.
+                Scroll down to assign this load to a trip first.
+              </p>
+              <a
+                href="#trip-assignment"
+                className="inline-flex items-center gap-1 text-sm text-orange-600 hover:underline mt-3"
+              >
+                <Route className="h-4 w-4" />
+                Assign to Trip →
+              </a>
+            </div>
+          ) : (
+            /* Load is on a trip but trip has no equipment - show message */
+            <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+              <p className="text-sm text-yellow-700 dark:text-yellow-400">
+                This load is on a trip, but the trip has no equipment assigned yet.
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Assign a truck and trailer to the trip to automatically set equipment for all loads.
+              </p>
+              <Button variant="outline" size="sm" className="mt-3" asChild>
+                <Link href={`/dashboard/trips/${load.trip_id}`}>
+                  <Route className="h-4 w-4 mr-2" />
+                  Go to Trip
+                </Link>
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Trip Assignment */}
       <Card id="trip-assignment">
         <CardHeader>

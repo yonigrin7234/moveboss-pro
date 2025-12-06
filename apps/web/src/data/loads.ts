@@ -767,10 +767,10 @@ export async function updateLoad(
 ): Promise<Load> {
   const supabase = await createClient();
 
-  // Verify load ownership
-  const { error: loadError } = await supabase
+  // Verify load ownership and get trip_id
+  const { data: loadData, error: loadError } = await supabase
     .from('loads')
-    .select('id')
+    .select('id, trip_id')
     .eq('id', id)
     .eq('owner_id', userId)
     .single();
@@ -780,6 +780,28 @@ export async function updateLoad(
       throw new Error('Load not found or you do not have permission to update it');
     }
     throw new Error(`Failed to verify load: ${loadError.message}`);
+  }
+
+  // EQUIPMENT INHERITANCE: Block direct equipment updates on loads
+  // Equipment is managed by the trip. Assign load to a trip to inherit equipment.
+  if (input.assigned_truck_id !== undefined || input.assigned_trailer_id !== undefined) {
+    console.warn(
+      `[EQUIPMENT INHERITANCE] Attempted to update equipment on load ${id}. ` +
+      'Equipment is managed by trips. Ignoring equipment fields.'
+    );
+    // Remove equipment fields from input - they will be ignored
+    delete (input as any).assigned_truck_id;
+    delete (input as any).assigned_trailer_id;
+  }
+
+  // DRIVER ASSIGNMENT RULE: Block direct driver updates on loads without trip
+  // Drivers are assigned at the trip level and inherited by loads.
+  if (input.assigned_driver_id !== undefined && !loadData.trip_id) {
+    console.warn(
+      `[DRIVER ASSIGNMENT RULE] Attempted to assign driver to load ${id} without trip_id. ` +
+      'Drivers should only be assigned via trips. Ignoring driver field.'
+    );
+    delete (input as any).assigned_driver_id;
   }
 
   // Verify company ownership if updating
@@ -795,7 +817,8 @@ export async function updateLoad(
     }
   }
 
-  // Verify optional assignments if updating
+  // Verify optional driver assignment if updating
+  // NOTE: Equipment validation removed - equipment fields are deleted above and cannot reach this point
   if (input.assigned_driver_id !== undefined) {
     if (input.assigned_driver_id) {
       const { error: driverError } = await supabase
@@ -810,34 +833,6 @@ export async function updateLoad(
     }
   }
 
-  if (input.assigned_truck_id !== undefined) {
-    if (input.assigned_truck_id) {
-      const { error: truckError } = await supabase
-        .from('trucks')
-        .select('id')
-        .eq('id', input.assigned_truck_id)
-        .eq('owner_id', userId)
-        .single();
-      if (truckError) {
-        throw new Error('Truck not found or you do not have access to it');
-      }
-    }
-  }
-
-  if (input.assigned_trailer_id !== undefined) {
-    if (input.assigned_trailer_id) {
-      const { error: trailerError } = await supabase
-        .from('trailers')
-        .select('id')
-        .eq('id', input.assigned_trailer_id)
-        .eq('owner_id', userId)
-        .single();
-      if (trailerError) {
-        throw new Error('Trailer not found or you do not have access to it');
-      }
-    }
-  }
-
   const payload: Record<string, string | number | boolean | string[] | null> = {};
 
   if (input.load_number !== undefined) payload.load_number = input.load_number;
@@ -845,9 +840,8 @@ export async function updateLoad(
   if (input.service_type !== undefined) payload.service_type = input.service_type;
   if (input.company_id !== undefined) payload.company_id = input.company_id;
   if (input.assigned_driver_id !== undefined) payload.assigned_driver_id = nullable(input.assigned_driver_id);
-  if (input.assigned_truck_id !== undefined) payload.assigned_truck_id = nullable(input.assigned_truck_id);
-  if (input.assigned_trailer_id !== undefined)
-    payload.assigned_trailer_id = nullable(input.assigned_trailer_id);
+  // NOTE: Equipment fields (assigned_truck_id, assigned_trailer_id) are deleted from input above
+  // and cannot reach this payload assignment code. They are managed by trips via syncTripEquipmentToLoads().
   if (input.pickup_date !== undefined) payload.pickup_date = normalizeDate(input.pickup_date);
   if (input.pickup_window_start !== undefined)
     payload.pickup_window_start = normalizeDateTime(input.pickup_window_start);
