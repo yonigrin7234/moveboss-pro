@@ -783,6 +783,8 @@ export async function acceptLoadRequest(
       operational_status: 'unassigned',
       last_status_update: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      // Load flow type: carrier purchased from marketplace → skips Pickup wizard step
+      load_flow_type: 'marketplace_purchase',
     })
     .eq('id', request.load_id);
 

@@ -73,6 +73,21 @@ export type LoadSource = 'own_customer' | 'partner' | 'marketplace';
 // Posting type for marketplace/partner loads
 export type PostingType = 'pickup' | 'load' | 'live_load';
 
+/**
+ * LoadFlowType indicates how a load was created/originated.
+ * This is a NEW dimension, NOT a replacement for load_type, posting_type, or load_source.
+ *
+ * Used in web app to control wizard step visibility:
+ * - 'hhg_originated': Moving company created job for own customer → shows all steps
+ * - 'storage_out_rfd': RFD from storage → skips Pickup step
+ * - 'marketplace_purchase': Carrier bought from marketplace → skips Pickup step
+ * - 'carrier_intake': Carrier manually intakes job from another company → skips Pickup step
+ * - null: Legacy loads → shows all steps (backward compatible)
+ *
+ * Note: Mobile does NOT change behavior based on this field yet - type awareness only.
+ */
+export type LoadFlowType = 'hhg_originated' | 'storage_out_rfd' | 'marketplace_purchase' | 'carrier_intake';
+
 export interface Load {
   id: string;
   owner_id: string;
@@ -170,6 +185,8 @@ export interface Load {
     phone: string | null;
     trust_level?: 'trusted' | 'cod_required';
   } | null;
+  // Load flow type - how the load was created (used for web wizard step visibility)
+  load_flow_type?: LoadFlowType | null;
 }
 
 export interface TripLoad {

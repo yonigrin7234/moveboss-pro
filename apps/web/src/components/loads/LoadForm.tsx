@@ -2,7 +2,14 @@
 
 import { useActionState, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { type NewLoadInput, type LoadStatus, type ServiceType } from '@/data/loads';
+import {
+  type NewLoadInput,
+  type LoadStatus,
+  type ServiceType,
+  type LoadFlowType,
+  type WizardStepId,
+  getVisibleWizardSteps,
+} from '@/data/loads';
 import { type Company } from '@/data/companies';
 import { type Driver } from '@/data/drivers';
 import { type Truck, type Trailer } from '@/data/fleet';
@@ -70,6 +77,8 @@ interface LoadFormProps {
   ) => Promise<{ errors?: Record<string, string> } | null>;
   submitLabel?: string;
   cancelHref?: string;
+  /** Controls wizard step visibility based on how the load was created */
+  loadFlowType?: LoadFlowType | null;
 }
 
 const statusOptions: { value: LoadStatus; label: string }[] = [
@@ -90,7 +99,7 @@ const serviceTypeOptions: { value: ServiceType; label: string }[] = [
   { value: 'other', label: 'Other' },
 ];
 
-const STEPS = [
+const ALL_STEPS: { id: WizardStepId; title: string; description: string }[] = [
   { id: 'basics', title: 'Basics', description: 'Identity & assignment' },
   { id: 'pickup', title: 'Pickup', description: 'Dates & origin' },
   { id: 'delivery', title: 'Delivery', description: 'Destination timing' },
@@ -124,10 +133,16 @@ export function LoadForm({
   onSubmit,
   submitLabel = 'Save load',
   cancelHref = '/dashboard/loads',
+  loadFlowType,
 }: LoadFormProps) {
   const [state, formAction, pending] = useActionState(onSubmit, null);
   const [currentStep, setCurrentStep] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Get visible steps based on load flow type
+  const visibleStepIds = getVisibleWizardSteps(loadFlowType);
+  const STEPS = ALL_STEPS.filter((step) => visibleStepIds.includes(step.id));
+
   const [snapshot, setSnapshot] = useState({
     loadNumber: initialData?.load_number || '',
     companyId: initialData?.company_id || '',
@@ -141,12 +156,11 @@ export function LoadForm({
     linehaulRate: (initialData as any)?.linehaul_rate?.toString() || '',
     totalRate: (initialData as any)?.total_rate?.toString() || '',
   });
-  const sectionIndex: Record<string, number> = {
-    basics: 0,
-    pickup: 1,
-    delivery: 2,
-    financials: 3,
-  };
+  // Build section index dynamically based on visible steps
+  const sectionIndex: Record<string, number> = {};
+  STEPS.forEach((step, index) => {
+    sectionIndex[step.id] = index;
+  });
   const getCompanyName = (id?: string | null) => {
     if (!id) {
       return 'Not selected';
@@ -251,9 +265,9 @@ export function LoadForm({
     }
   };
 
-  const renderStepContent = (stepIndex: number) => {
-    switch (stepIndex) {
-      case 0:
+  const renderStepContent = (stepId: WizardStepId) => {
+    switch (stepId) {
+      case 'basics':
         return (
           <div className="space-y-3">
             <Card>
@@ -395,7 +409,7 @@ export function LoadForm({
             </Card>
           </div>
         );
-      case 1:
+      case 'pickup':
         return (
           <div className="space-y-3">
             <Card>
@@ -555,7 +569,7 @@ export function LoadForm({
             </Card>
           </div>
         );
-      case 2:
+      case 'delivery':
         return (
           <Card>
             <CardHeader className="pb-2">
@@ -661,7 +675,7 @@ export function LoadForm({
             </CardContent>
           </Card>
         );
-      case 3:
+      case 'financials':
         return (
           <div className="space-y-3">
             <Card>
@@ -940,33 +954,38 @@ export function LoadForm({
       </aside>
 
       <form ref={formRef} action={formAction} className="space-y-6">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className={cn(
+          "grid gap-3 sm:grid-cols-2",
+          STEPS.length === 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"
+        )}>
           {[
             {
-              id: 'basics',
+              id: 'basics' as WizardStepId,
               title: 'Basics ready',
               body: 'Customer & service type set.',
               complete: Boolean(snapshot.companyId && snapshot.serviceType),
             },
             {
-              id: 'pickup',
+              id: 'pickup' as WizardStepId,
               title: 'Pickup ready',
               body: 'Origin city/state set.',
               complete: Boolean(snapshot.pickupCity),
             },
             {
-              id: 'delivery',
+              id: 'delivery' as WizardStepId,
               title: 'Delivery ready',
               body: 'Destination city/state set.',
               complete: Boolean(snapshot.deliveryCity),
             },
             {
-              id: 'financials',
+              id: 'financials' as WizardStepId,
               title: 'Revenue ready',
               body: 'Linehaul/total + status set.',
               complete: Boolean(snapshot.linehaulRate || snapshot.totalRate || snapshot.status),
             },
-          ].map((card) => (
+          ]
+            .filter((card) => visibleStepIds.includes(card.id))
+            .map((card) => (
             <button
               key={card.id}
               type="button"
@@ -1009,7 +1028,7 @@ export function LoadForm({
             aria-hidden={currentStep !== index}
             className={cn(currentStep !== index && 'hidden')}
           >
-            {renderStepContent(index)}
+            {renderStepContent(step.id)}
           </section>
         ))}
 

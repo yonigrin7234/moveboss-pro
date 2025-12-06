@@ -35,6 +35,7 @@ export default async function NewLoadPage() {
     const fields = [
       'load_type',
       'load_source',
+      'load_flow_type',
       'internal_reference',
       'service_type',
       'company_id',

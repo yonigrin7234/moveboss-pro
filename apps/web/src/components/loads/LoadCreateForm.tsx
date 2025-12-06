@@ -358,6 +358,8 @@ export function LoadCreateForm({
     <form action={formAction} className="space-y-6">
       <input type="hidden" name="load_type" value={loadType} />
       <input type="hidden" name="load_source" value={loadSource} />
+      {/* Load flow type: "My Customer" = hhg_originated, "From Company" = carrier_intake */}
+      <input type="hidden" name="load_flow_type" value={loadSource === 'own_customer' ? 'hhg_originated' : 'carrier_intake'} />
       <input type="hidden" name="trip_id" value={selectedTripId} />
       <input type="hidden" name="load_order" value={loadOrder} />
 
