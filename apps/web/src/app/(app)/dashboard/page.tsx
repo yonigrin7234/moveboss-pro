@@ -165,7 +165,7 @@ export default async function DashboardPage() {
         {/* HEADER + QUICK ACTIONS */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-xl font-semibold text-foreground">Command Center</h1>
+            <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
             <p className="text-xs text-muted-foreground">
               {new Date().toLocaleDateString('en-US', {
                 weekday: 'long',
