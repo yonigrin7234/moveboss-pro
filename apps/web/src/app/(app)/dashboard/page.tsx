@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase-server';
 import { DollarSign, Banknote, AlertTriangle } from 'lucide-react';
 
-// Data queries - ALL REAL SUPABASE DATA
+// Data queries
 import {
   getDashboardMetrics,
   getUnassignedJobs,
@@ -11,8 +11,15 @@ import {
   getLiveDriverStatuses,
   getTodaysSchedule,
 } from '@/data/dashboard-data';
+import { getOnboardingState } from '@/data/onboarding';
+import { getWorkspaceCompanyForUser } from '@/data/companies';
+import {
+  getBrokerDashboardData,
+  getCarrierDashboardData,
+  getOwnerOperatorDashboardData,
+} from '@/data/role-dashboards';
 
-// V4 Components with proper theming
+// V4 Components
 import { CriticalBlock } from '@/components/dashboard/v4/CriticalBlock';
 import { QuickActions } from '@/components/dashboard/v4/QuickActions';
 import { DriversNow } from '@/components/dashboard/v4/DriversNow';
@@ -23,6 +30,11 @@ import { WhoOwesYouMoney } from '@/components/dashboard/v4/WhoOwesYouMoney';
 import { TodaysSchedule } from '@/components/dashboard/v4/TodaysSchedule';
 import { DriverCollectionsToday } from '@/components/dashboard/v4/DriverCollectionsToday';
 import { DashboardActionBar } from '@/components/dashboard/v4/DashboardActionBar';
+
+// Role-specific dashboards
+import { BrokerDashboard } from '@/components/dashboard/v4/BrokerDashboard';
+import { CarrierDashboard } from '@/components/dashboard/v4/CarrierDashboard';
+import { OwnerOperatorDashboard } from '@/components/dashboard/v4/OwnerOperatorDashboard';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,7 +56,65 @@ export default async function DashboardPage() {
     redirect('/login');
   }
 
-  // Fetch all dashboard data in parallel - ALL REAL DATA FROM SUPABASE
+  // Fetch role and company info
+  const [onboardingState, workspaceCompany] = await Promise.all([
+    getOnboardingState(user.id),
+    getWorkspaceCompanyForUser(user.id),
+  ]);
+
+  const role = onboardingState?.role;
+  const isBroker = workspaceCompany?.is_broker ?? false;
+  const isCarrier = workspaceCompany?.is_carrier ?? false;
+
+  // Determine which dashboard to show
+  // Broker: role=company, isBroker=true, isCarrier=false
+  // Moving Company: role=company, isBroker=true, isCarrier=true
+  // Carrier: role=carrier
+  // Owner-Operator: role=owner_operator
+
+  // BROKER DASHBOARD
+  if (role === 'company' && isBroker && !isCarrier) {
+    const data = await getBrokerDashboardData(user.id);
+    return (
+      <BrokerDashboard
+        loadsPosted={data.loadsPosted}
+        pendingRequests={data.pendingRequests}
+        loadsInTransit={data.loadsInTransit}
+        metrics={data.metrics}
+      />
+    );
+  }
+
+  // CARRIER DASHBOARD
+  if (role === 'carrier') {
+    const data = await getCarrierDashboardData(user.id);
+    return (
+      <CarrierDashboard
+        assignedLoads={data.assignedLoads}
+        drivers={data.drivers}
+        availableLoads={data.availableLoads}
+        metrics={data.metrics}
+      />
+    );
+  }
+
+  // OWNER-OPERATOR DASHBOARD
+  if (role === 'owner_operator') {
+    const data = await getOwnerOperatorDashboardData(user.id);
+    return (
+      <OwnerOperatorDashboard
+        currentLoad={data.currentLoad}
+        upcomingLoads={data.upcomingLoads}
+        availableLoads={data.availableLoads}
+        metrics={data.metrics}
+      />
+    );
+  }
+
+  // MOVING COMPANY DASHBOARD (default) - Full operations view
+  // This is for role=company with isBroker=true and isCarrier=true
+  // Or any fallback case
+
   const [
     metrics,
     unassignedJobs,
@@ -61,13 +131,12 @@ export default async function DashboardPage() {
     getTodaysSchedule(user.id, 8),
   ]);
 
-  // Calculate urgency - single source of truth
   const urgentJobsCount = unassignedJobs.filter(j => j.urgency === 'today' || j.urgency === 'tomorrow').length;
   const hasCriticalAlert = urgentJobsCount > 0 || metrics.overdueInvoices > 3;
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      {/* CRITICAL ALERT BAR - Only show when something needs immediate attention */}
+      {/* CRITICAL ALERT BAR */}
       {hasCriticalAlert && (
         <CriticalBlock
           message={
@@ -96,7 +165,7 @@ export default async function DashboardPage() {
           <QuickActions needsDriverAssignment={metrics.jobsNeedingAssignment} />
         </div>
 
-        {/* DRIVERS NOW - Hero section showing driver fleet status */}
+        {/* DRIVERS NOW */}
         <div className="mb-6">
           <DriversNow
             drivers={driverStatuses}
@@ -105,7 +174,7 @@ export default async function DashboardPage() {
           />
         </div>
 
-        {/* PRIMARY METRICS - The 3 most important numbers */}
+        {/* PRIMARY METRICS */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
           <PrimaryMetricCard
             title="Money Owed"
@@ -138,32 +207,24 @@ export default async function DashboardPage() {
           />
         </div>
 
-        {/* KEY METRICS - Secondary operational numbers */}
+        {/* KEY METRICS */}
         <div className="mb-6">
           <KeyMetrics metrics={metrics} />
         </div>
 
-        {/* MAIN CONTENT - Two column layout */}
+        {/* MAIN CONTENT */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* LEFT COLUMN - 2/3 width - Operational focus */}
           <div className="lg:col-span-2 space-y-5">
-            {/* LOADS AWAITING DISPATCH - Single source of truth, replaces JobsNeedingAssignment */}
             <LoadsAwaitingDispatch
               loads={unassignedJobs}
               totalCount={metrics.jobsNeedingAssignment}
               totalValue={metrics.jobsNeedingAssignmentValue}
             />
-
-            {/* WHO OWES YOU MONEY */}
             <WhoOwesYouMoney companies={receivables} />
           </div>
 
-          {/* RIGHT COLUMN - 1/3 width - Schedule & Collections */}
           <div className="space-y-5">
-            {/* TODAY'S SCHEDULE - Pickups & Deliveries */}
             <TodaysSchedule events={todaysSchedule} />
-
-            {/* TODAY'S COLLECTIONS */}
             <DriverCollectionsToday
               collections={collections}
               total={metrics.collectedToday}
@@ -172,7 +233,6 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Fixed bottom action bar (mobile only) */}
       <DashboardActionBar />
     </div>
   );
