@@ -5,36 +5,35 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Image,
-  Platform,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLoadDetail } from '../../../../../../hooks/useLoadDetail';
 import { useLoadActions } from '../../../../../../hooks/useLoadActions';
 import { useImageUpload } from '../../../../../../hooks/useImageUpload';
-import { useToast, LoadDetailSkeleton, Icon, IconName } from '../../../../../../components/ui';
+import { useToast, LoadDetailSkeleton } from '../../../../../../components/ui';
 import { PaymentMethod, ZelleRecipient } from '../../../../../../types';
 import { DamageDocumentation } from '../../../../../../components/DamageDocumentation';
-import { colors, typography, spacing, radius, shadows } from '../../../../../../lib/theme';
+import {
+  ContractDetailsSection,
+  PaymentCollectionSection,
+  DeliveryScheduleSection,
+  PaperworkSection,
+  SummaryCard,
+} from '../../../../../../components/pickup';
+import { colors, typography, spacing, radius } from '../../../../../../lib/theme';
 
-const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: IconName }[] = [
-  { value: 'cash', label: 'Cash', icon: 'banknote' },
-  { value: 'cashier_check', label: "Cashier's Check", icon: 'credit-card' },
-  { value: 'money_order', label: 'Money Order', icon: 'file-text' },
-  { value: 'personal_check', label: 'Personal Check', icon: 'edit' },
-  { value: 'zelle', label: 'Zelle', icon: 'phone' },
-  { value: 'already_paid', label: 'No Payment', icon: 'check-circle' },
-];
-
-const ZELLE_RECIPIENTS: { value: ZelleRecipient; label: string }[] = [
-  { value: 'owner', label: 'Owner' },
-  { value: 'driver', label: 'Driver (Me)' },
-  { value: 'original_company', label: 'Original Company' },
-];
+interface AccessorialsState {
+  shuttle: string;
+  longCarry: string;
+  stairs: string;
+  bulky: string;
+  packing: string;
+  other: string;
+  notes: string;
+}
 
 export default function PickupCompletionScreen() {
   const { id: tripId, loadId } = useLocalSearchParams<{ id: string; loadId: string }>();
@@ -50,15 +49,16 @@ export default function PickupCompletionScreen() {
   const [linehaulOverride, setLinehaulOverride] = useState('');
   const [balanceDue, setBalanceDue] = useState('');
 
-  // Accessorials state (collapsed by default)
-  const [showAccessorials, setShowAccessorials] = useState(false);
-  const [shuttle, setShuttle] = useState('');
-  const [longCarry, setLongCarry] = useState('');
-  const [stairs, setStairs] = useState('');
-  const [bulky, setBulky] = useState('');
-  const [packing, setPacking] = useState('');
-  const [otherAccessorial, setOtherAccessorial] = useState('');
-  const [accessorialNotes, setAccessorialNotes] = useState('');
+  // Accessorials state
+  const [accessorials, setAccessorials] = useState<AccessorialsState>({
+    shuttle: '',
+    longCarry: '',
+    stairs: '',
+    bulky: '',
+    packing: '',
+    other: '',
+    notes: '',
+  });
 
   // Payment state
   const [amountCollected, setAmountCollected] = useState('0');
@@ -73,8 +73,6 @@ export default function PickupCompletionScreen() {
   const [rfdDate, setRfdDate] = useState<Date | null>(tomorrow);
   const [rfdDateEnd, setRfdDateEnd] = useState<Date | null>(null);
   const [deliveryNotes, setDeliveryNotes] = useState('');
-  const [showRfdPicker, setShowRfdPicker] = useState(false);
-  const [showRfdEndPicker, setShowRfdEndPicker] = useState(false);
 
   // Documentation state
   const [contractPhoto, setContractPhoto] = useState<string | null>(null);
@@ -99,14 +97,14 @@ export default function PickupCompletionScreen() {
 
   const accessorialsTotal = useMemo(() => {
     return (
-      (parseFloat(shuttle) || 0) +
-      (parseFloat(longCarry) || 0) +
-      (parseFloat(stairs) || 0) +
-      (parseFloat(bulky) || 0) +
-      (parseFloat(packing) || 0) +
-      (parseFloat(otherAccessorial) || 0)
+      (parseFloat(accessorials.shuttle) || 0) +
+      (parseFloat(accessorials.longCarry) || 0) +
+      (parseFloat(accessorials.stairs) || 0) +
+      (parseFloat(accessorials.bulky) || 0) +
+      (parseFloat(accessorials.packing) || 0) +
+      (parseFloat(accessorials.other) || 0)
     );
-  }, [shuttle, longCarry, stairs, bulky, packing, otherAccessorial]);
+  }, [accessorials]);
 
   const totalContract = linehaulTotal + accessorialsTotal;
   const balanceDueNum = parseFloat(balanceDue) || 0;
@@ -129,6 +127,21 @@ export default function PickupCompletionScreen() {
     (!requiresZelleRecipient || zelleRecipient !== null);
 
   const canSubmit = isValid && !submitting && !uploading;
+
+  // Accessorial change handler
+  const handleAccessorialChange = (field: keyof AccessorialsState, value: string) => {
+    setAccessorials(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Payment method change handler
+  const handlePaymentMethodChange = (method: PaymentMethod) => {
+    setPaymentMethod(method);
+    if (method !== 'zelle') setZelleRecipient(null);
+    if (!['cashier_check', 'money_order', 'personal_check'].includes(method)) {
+      setPaymentPhotoFront(null);
+      setPaymentPhotoBack(null);
+    }
+  };
 
   // Take photo helper
   const takePhoto = async (): Promise<string | null> => {
@@ -179,12 +192,6 @@ export default function PickupCompletionScreen() {
       toast.warning('No paperwork photos captured');
     }
 
-    await doSubmit();
-  };
-
-  const doSubmit = async () => {
-    if (!rfdDate) return;
-
     setSubmitting(true);
     try {
       // Upload photos
@@ -220,13 +227,13 @@ export default function PickupCompletionScreen() {
         contractLinehaulTotal: linehaulTotal,
         contractBalanceDue: balanceDueNum,
         accessorials: {
-          shuttle: parseFloat(shuttle) || 0,
-          longCarry: parseFloat(longCarry) || 0,
-          stairs: parseFloat(stairs) || 0,
-          bulky: parseFloat(bulky) || 0,
-          packing: parseFloat(packing) || 0,
-          other: parseFloat(otherAccessorial) || 0,
-          notes: accessorialNotes || null,
+          shuttle: parseFloat(accessorials.shuttle) || 0,
+          longCarry: parseFloat(accessorials.longCarry) || 0,
+          stairs: parseFloat(accessorials.stairs) || 0,
+          bulky: parseFloat(accessorials.bulky) || 0,
+          packing: parseFloat(accessorials.packing) || 0,
+          other: parseFloat(accessorials.other) || 0,
+          notes: accessorials.notes || null,
         },
         amountCollectedAtPickup: collectedNum,
         paymentMethod: collectedNum > 0 ? paymentMethod : null,
@@ -252,20 +259,6 @@ export default function PickupCompletionScreen() {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return `$${amount.toFixed(2)}`;
-  };
-
-  const formatDate = (date: Date | null) => {
-    if (!date) return 'Select date';
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
   };
 
   if (error) {
@@ -350,459 +343,61 @@ export default function PickupCompletionScreen() {
         <DamageDocumentation loadId={loadId} onUpdate={refetch} />
 
         {/* Section 3: Contract Details */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Contract Details</Text>
-          <Text style={styles.sectionSubtitle}>Final contract numbers</Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Rate per CUFT</Text>
-            <View style={styles.currencyInput}>
-              <Text style={styles.currencyPrefix}>$</Text>
-              <TextInput
-                style={styles.inputWithPrefix}
-                value={ratePerCuft}
-                onChangeText={setRatePerCuft}
-                placeholder="0.00"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="decimal-pad"
-              />
-            </View>
-          </View>
-
-          <View style={styles.calculatedRow}>
-            <Text style={styles.calculatedLabel}>
-              Linehaul ({actualCuft} × ${rateNum.toFixed(2)})
-            </Text>
-            <Text style={styles.calculatedValue}>{formatCurrency(calculatedLinehaul)}</Text>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Linehaul Override (if different)</Text>
-            <View style={styles.currencyInput}>
-              <Text style={styles.currencyPrefix}>$</Text>
-              <TextInput
-                style={styles.inputWithPrefix}
-                value={linehaulOverride}
-                onChangeText={setLinehaulOverride}
-                placeholder={calculatedLinehaul.toFixed(2)}
-                placeholderTextColor={colors.textMuted}
-                keyboardType="decimal-pad"
-              />
-            </View>
-          </View>
-
-          {/* Accessorials (Collapsible) */}
-          <TouchableOpacity
-            style={styles.collapsibleHeader}
-            onPress={() => setShowAccessorials(!showAccessorials)}
-          >
-            <View>
-              <Text style={styles.collapsibleTitle}>Accessorials</Text>
-              {accessorialsTotal > 0 && (
-                <Text style={styles.collapsibleSubtitle}>
-                  Total: {formatCurrency(accessorialsTotal)}
-                </Text>
-              )}
-            </View>
-            <Text style={styles.collapseIcon}>{showAccessorials ? '−' : '+'}</Text>
-          </TouchableOpacity>
-
-          {showAccessorials && (
-            <View style={styles.accessorialGrid}>
-              <View style={styles.accessorialItem}>
-                <Text style={styles.accessorialLabel}>Shuttle</Text>
-                <View style={styles.currencyInputSmall}>
-                  <Text style={styles.currencyPrefixSmall}>$</Text>
-                  <TextInput
-                    style={styles.accessorialInput}
-                    value={shuttle}
-                    onChangeText={setShuttle}
-                    placeholder="0"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-              </View>
-              <View style={styles.accessorialItem}>
-                <Text style={styles.accessorialLabel}>Long Carry</Text>
-                <View style={styles.currencyInputSmall}>
-                  <Text style={styles.currencyPrefixSmall}>$</Text>
-                  <TextInput
-                    style={styles.accessorialInput}
-                    value={longCarry}
-                    onChangeText={setLongCarry}
-                    placeholder="0"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-              </View>
-              <View style={styles.accessorialItem}>
-                <Text style={styles.accessorialLabel}>Stairs</Text>
-                <View style={styles.currencyInputSmall}>
-                  <Text style={styles.currencyPrefixSmall}>$</Text>
-                  <TextInput
-                    style={styles.accessorialInput}
-                    value={stairs}
-                    onChangeText={setStairs}
-                    placeholder="0"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-              </View>
-              <View style={styles.accessorialItem}>
-                <Text style={styles.accessorialLabel}>Bulky Items</Text>
-                <View style={styles.currencyInputSmall}>
-                  <Text style={styles.currencyPrefixSmall}>$</Text>
-                  <TextInput
-                    style={styles.accessorialInput}
-                    value={bulky}
-                    onChangeText={setBulky}
-                    placeholder="0"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-              </View>
-              <View style={styles.accessorialItem}>
-                <Text style={styles.accessorialLabel}>Packing</Text>
-                <View style={styles.currencyInputSmall}>
-                  <Text style={styles.currencyPrefixSmall}>$</Text>
-                  <TextInput
-                    style={styles.accessorialInput}
-                    value={packing}
-                    onChangeText={setPacking}
-                    placeholder="0"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-              </View>
-              <View style={styles.accessorialItem}>
-                <Text style={styles.accessorialLabel}>Other</Text>
-                <View style={styles.currencyInputSmall}>
-                  <Text style={styles.currencyPrefixSmall}>$</Text>
-                  <TextInput
-                    style={styles.accessorialInput}
-                    value={otherAccessorial}
-                    onChangeText={setOtherAccessorial}
-                    placeholder="0"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-              </View>
-              <TextInput
-                style={styles.textArea}
-                value={accessorialNotes}
-                onChangeText={setAccessorialNotes}
-                placeholder="Accessorial notes..."
-                placeholderTextColor={colors.textMuted}
-                multiline
-                numberOfLines={2}
-              />
-            </View>
-          )}
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Balance Due on Contract</Text>
-            <View style={styles.currencyInput}>
-              <Text style={styles.currencyPrefix}>$</Text>
-              <TextInput
-                style={styles.inputWithPrefix}
-                value={balanceDue}
-                onChangeText={setBalanceDue}
-                placeholder="0.00"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="decimal-pad"
-              />
-            </View>
-            <Text style={styles.helperText}>Amount customer owes (after deposit)</Text>
-          </View>
-        </View>
+        <ContractDetailsSection
+          actualCuft={actualCuft}
+          ratePerCuft={ratePerCuft}
+          onRateChange={setRatePerCuft}
+          linehaulOverride={linehaulOverride}
+          onLinehaulOverrideChange={setLinehaulOverride}
+          calculatedLinehaul={calculatedLinehaul}
+          accessorials={accessorials}
+          onAccessorialChange={handleAccessorialChange}
+          accessorialsTotal={accessorialsTotal}
+          balanceDue={balanceDue}
+          onBalanceDueChange={setBalanceDue}
+        />
 
         {/* Section 4: Payment at Pickup */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Payment at Pickup</Text>
-          <Text style={styles.sectionSubtitle}>Customer may pay partial or full balance now</Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Amount Collected</Text>
-            <View style={styles.currencyInput}>
-              <Text style={styles.currencyPrefix}>$</Text>
-              <TextInput
-                style={styles.inputWithPrefix}
-                value={amountCollected}
-                onChangeText={setAmountCollected}
-                placeholder="0.00"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="decimal-pad"
-              />
-            </View>
-          </View>
-
-          {collectedNum > 0 && (
-            <>
-              <Text style={styles.label}>Payment Method</Text>
-              <View style={styles.paymentGrid}>
-                {PAYMENT_METHODS.filter(m => m.value !== 'already_paid').map((method) => (
-                  <TouchableOpacity
-                    key={method.value}
-                    style={[
-                      styles.paymentOption,
-                      paymentMethod === method.value && styles.paymentOptionSelected,
-                    ]}
-                    onPress={() => {
-                      setPaymentMethod(method.value);
-                      if (method.value !== 'zelle') setZelleRecipient(null);
-                      if (!['cashier_check', 'money_order', 'personal_check'].includes(method.value)) {
-                        setPaymentPhotoFront(null);
-                        setPaymentPhotoBack(null);
-                      }
-                    }}
-                  >
-                    <Icon
-                      name={method.icon}
-                      size="lg"
-                      color={paymentMethod === method.value ? colors.primary : colors.textSecondary}
-                    />
-                    <Text
-                      style={[
-                        styles.paymentLabel,
-                        paymentMethod === method.value && styles.paymentLabelSelected,
-                      ]}
-                    >
-                      {method.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Zelle Recipient */}
-              {requiresZelleRecipient && (
-                <View style={styles.zelleSection}>
-                  <Text style={styles.label}>Who Received the Zelle?</Text>
-                  <View style={styles.zelleOptions}>
-                    {ZELLE_RECIPIENTS.map((recipient) => (
-                      <TouchableOpacity
-                        key={recipient.value}
-                        style={[
-                          styles.zelleOption,
-                          zelleRecipient === recipient.value && styles.zelleOptionSelected,
-                        ]}
-                        onPress={() => setZelleRecipient(recipient.value)}
-                      >
-                        <View style={styles.radioOuter}>
-                          {zelleRecipient === recipient.value && (
-                            <View style={styles.radioInner} />
-                          )}
-                        </View>
-                        <Text
-                          style={[
-                            styles.zelleLabel,
-                            zelleRecipient === recipient.value && styles.zelleLabelSelected,
-                          ]}
-                        >
-                          {recipient.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              {/* Payment Photos */}
-              {requiresPhotos && (
-                <View style={styles.photoSection}>
-                  <Text style={styles.label}>Payment Photo</Text>
-                  <View style={styles.photoRow}>
-                    <View style={styles.photoContainer}>
-                      <Text style={styles.photoLabel}>Front *</Text>
-                      <TouchableOpacity
-                        style={styles.photoButton}
-                        onPress={() => handleTakePaymentPhoto('front')}
-                        disabled={submitting || uploading}
-                      >
-                        {paymentPhotoFront ? (
-                          <Image source={{ uri: paymentPhotoFront }} style={styles.photoPreview} />
-                        ) : (
-                          <Text style={styles.photoButtonText}>Take Photo</Text>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                    <View style={styles.photoContainer}>
-                      <Text style={styles.photoLabel}>Back (optional)</Text>
-                      <TouchableOpacity
-                        style={styles.photoButton}
-                        onPress={() => handleTakePaymentPhoto('back')}
-                        disabled={submitting || uploading}
-                      >
-                        {paymentPhotoBack ? (
-                          <Image source={{ uri: paymentPhotoBack }} style={styles.photoPreview} />
-                        ) : (
-                          <Text style={styles.photoButtonText}>Take Photo</Text>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-              )}
-            </>
-          )}
-        </View>
+        <PaymentCollectionSection
+          amountCollected={amountCollected}
+          onAmountChange={setAmountCollected}
+          paymentMethod={paymentMethod}
+          onPaymentMethodChange={handlePaymentMethodChange}
+          zelleRecipient={zelleRecipient}
+          onZelleRecipientChange={setZelleRecipient}
+          paymentPhotoFront={paymentPhotoFront}
+          paymentPhotoBack={paymentPhotoBack}
+          onTakePaymentPhoto={handleTakePaymentPhoto}
+          disabled={submitting || uploading}
+        />
 
         {/* Section 5: Delivery Information */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Delivery Schedule</Text>
-          <Text style={styles.sectionSubtitle}>When is customer ready to receive?</Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>First Available Date (RFD) *</Text>
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={() => setShowRfdPicker(true)}
-            >
-              <Text style={[styles.dateButtonText, !rfdDate && styles.dateButtonPlaceholder]}>
-                {formatDate(rfdDate)}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {showRfdPicker && (
-            <DateTimePicker
-              value={rfdDate || new Date()}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              minimumDate={new Date()}
-              onChange={(event: DateTimePickerEvent, date?: Date) => {
-                setShowRfdPicker(Platform.OS === 'ios');
-                if (date) setRfdDate(date);
-              }}
-            />
-          )}
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Delivery Window End (optional)</Text>
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={() => setShowRfdEndPicker(true)}
-            >
-              <Text style={[styles.dateButtonText, !rfdDateEnd && styles.dateButtonPlaceholder]}>
-                {rfdDateEnd ? formatDate(rfdDateEnd) : 'Select end date'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {showRfdEndPicker && (
-            <DateTimePicker
-              value={rfdDateEnd || rfdDate || new Date()}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              minimumDate={rfdDate || new Date()}
-              onChange={(event: DateTimePickerEvent, date?: Date) => {
-                setShowRfdEndPicker(Platform.OS === 'ios');
-                if (date) setRfdDateEnd(date);
-              }}
-            />
-          )}
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Delivery Notes</Text>
-            <TextInput
-              style={styles.textArea}
-              value={deliveryNotes}
-              onChangeText={setDeliveryNotes}
-              placeholder="Special instructions, access issues, etc."
-              placeholderTextColor={colors.textMuted}
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-        </View>
+        <DeliveryScheduleSection
+          rfdDate={rfdDate}
+          onRfdDateChange={setRfdDate}
+          rfdDateEnd={rfdDateEnd}
+          onRfdDateEndChange={setRfdDateEnd}
+          deliveryNotes={deliveryNotes}
+          onDeliveryNotesChange={setDeliveryNotes}
+        />
 
         {/* Section 6: Documentation */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Paperwork</Text>
-
-          <TouchableOpacity
-            style={styles.documentButton}
-            onPress={handleTakeContractPhoto}
-            disabled={submitting || uploading}
-          >
-            {contractPhoto ? (
-              <View style={styles.documentCaptured}>
-                <Image source={{ uri: contractPhoto }} style={styles.documentThumbnail} />
-                <Text style={styles.documentCapturedText}>Contract/BOL captured</Text>
-              </View>
-            ) : (
-              <>
-                <Icon name="file-text" size="lg" color={colors.textSecondary} />
-                <Text style={styles.documentButtonText}>Scan Contract/BOL</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.documentButton}
-            onPress={handleTakeInventoryPhoto}
-            disabled={submitting || uploading}
-          >
-            {inventoryPhotos.length > 0 ? (
-              <View style={styles.documentCaptured}>
-                <View style={styles.inventoryThumbnails}>
-                  {inventoryPhotos.slice(0, 3).map((uri, index) => (
-                    <Image key={index} source={{ uri }} style={styles.inventoryThumb} />
-                  ))}
-                  {inventoryPhotos.length > 3 && (
-                    <View style={styles.moreIndicator}>
-                      <Text style={styles.moreText}>+{inventoryPhotos.length - 3}</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.documentCapturedText}>
-                  {inventoryPhotos.length} inventory photo(s)
-                </Text>
-              </View>
-            ) : (
-              <>
-                <Icon name="clipboard-list" size="lg" color={colors.textSecondary} />
-                <Text style={styles.documentButtonText}>Scan Inventory</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
+        <PaperworkSection
+          contractPhoto={contractPhoto}
+          onTakeContractPhoto={handleTakeContractPhoto}
+          inventoryPhotos={inventoryPhotos}
+          onTakeInventoryPhoto={handleTakeInventoryPhoto}
+          disabled={submitting || uploading}
+        />
 
         {/* Section 7: Summary Card */}
-        <View style={styles.totalCard}>
-          <Text style={styles.totalTitle}>Summary</Text>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Linehaul</Text>
-            <Text style={styles.totalValue}>{formatCurrency(linehaulTotal)}</Text>
-          </View>
-          {accessorialsTotal > 0 && (
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Accessorials</Text>
-              <Text style={styles.totalValue}>{formatCurrency(accessorialsTotal)}</Text>
-            </View>
-          )}
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total Contract</Text>
-            <Text style={styles.totalValue}>{formatCurrency(totalContract)}</Text>
-          </View>
-          {collectedNum > 0 && (
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Collected at Pickup</Text>
-              <Text style={[styles.totalValue, styles.negativeValue]}>
-                -{formatCurrency(collectedNum)}
-              </Text>
-            </View>
-          )}
-          <View style={[styles.totalRow, styles.totalRowHighlight]}>
-            <Text style={styles.totalLabelBold}>Balance Due at Delivery</Text>
-            <Text style={styles.totalValueLarge}>{formatCurrency(remainingBalance)}</Text>
-          </View>
-        </View>
+        <SummaryCard
+          linehaulTotal={linehaulTotal}
+          accessorialsTotal={accessorialsTotal}
+          totalContract={totalContract}
+          amountCollected={collectedNum}
+          remainingBalance={remainingBalance}
+        />
 
         {/* Submit Button */}
         <TouchableOpacity
@@ -836,10 +431,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.screenPadding,
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   header: {
     marginBottom: spacing.sectionGap,
@@ -903,350 +494,6 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: radius.sm,
     backgroundColor: colors.borderLight,
-  },
-  inputGroup: {
-    marginBottom: spacing.lg,
-  },
-  label: {
-    ...typography.bodySmall,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  currencyInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radius.sm,
-  },
-  currencyPrefix: {
-    ...typography.body,
-    color: colors.textSecondary,
-    paddingLeft: spacing.cardPadding,
-  },
-  inputWithPrefix: {
-    flex: 1,
-    padding: spacing.cardPadding,
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  calculatedRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radius.sm,
-    padding: spacing.cardPadding,
-    marginBottom: spacing.lg,
-  },
-  calculatedLabel: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  calculatedValue: {
-    ...typography.body,
-    color: colors.success,
-    fontWeight: '600',
-  },
-  collapsibleHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.cardPadding,
-    marginBottom: spacing.lg,
-    minHeight: 44,
-  },
-  collapsibleTitle: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontWeight: '500',
-  },
-  collapsibleSubtitle: {
-    ...typography.caption,
-    color: colors.success,
-    marginTop: 2,
-  },
-  collapseIcon: {
-    fontSize: 24,
-    color: colors.textSecondary,
-  },
-  accessorialGrid: {
-    gap: spacing.itemGap,
-    marginBottom: spacing.lg,
-  },
-  accessorialItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  accessorialLabel: {
-    ...typography.bodySmall,
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  currencyInputSmall: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radius.sm,
-    width: 120,
-  },
-  currencyPrefixSmall: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    paddingLeft: spacing.itemGap,
-  },
-  accessorialInput: {
-    flex: 1,
-    padding: spacing.sm,
-    ...typography.bodySmall,
-    color: colors.textPrimary,
-  },
-  textArea: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.sm,
-    padding: spacing.cardPadding,
-    ...typography.body,
-    color: colors.textPrimary,
-    minHeight: 60,
-    textAlignVertical: 'top',
-  },
-  helperText: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginTop: spacing.xs,
-  },
-  paymentGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  paymentOption: {
-    width: '31%',
-    backgroundColor: colors.surface,
-    borderRadius: spacing.sm,
-    padding: spacing.itemGap,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-    minHeight: 44,
-  },
-  paymentOptionSelected: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(0, 102, 204, 0.1)',
-  },
-  paymentIcon: {
-    fontSize: 24,
-    marginBottom: spacing.xs,
-  },
-  paymentLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  paymentLabelSelected: {
-    ...typography.caption,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  zelleSection: {
-    marginBottom: spacing.lg,
-  },
-  zelleOptions: {
-    gap: spacing.sm,
-  },
-  zelleOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: spacing.sm,
-    padding: spacing.cardPadding,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    minHeight: 44,
-  },
-  zelleOptionSelected: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(0, 102, 204, 0.1)',
-  },
-  radioOuter: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: colors.textMuted,
-    marginRight: spacing.itemGap,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.primary,
-  },
-  zelleLabel: {
-    ...typography.bodySmall,
-    color: colors.textPrimary,
-  },
-  zelleLabelSelected: {
-    ...typography.bodySmall,
-    color: colors.textPrimary,
-    fontWeight: '500',
-  },
-  photoSection: {
-    marginBottom: spacing.lg,
-  },
-  photoRow: {
-    flexDirection: 'row',
-    gap: spacing.itemGap,
-  },
-  photoContainer: {
-    flex: 1,
-  },
-  photoLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  photoButton: {
-    backgroundColor: colors.surface,
-    borderRadius: spacing.sm,
-    padding: spacing.cardPadding,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 80,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    borderStyle: 'dashed',
-  },
-  photoButtonText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  photoPreview: {
-    width: '100%',
-    height: 80,
-    borderRadius: radius.sm,
-  },
-  dateButton: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.sm,
-    padding: spacing.cardPadding,
-    minHeight: 44,
-  },
-  dateButtonText: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  dateButtonPlaceholder: {
-    ...typography.body,
-    color: colors.textMuted,
-  },
-  documentButton: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.cardPaddingLarge,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.itemGap,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    borderStyle: 'dashed',
-    minHeight: 44,
-  },
-  documentButtonIcon: {
-    fontSize: 24,
-    marginRight: spacing.itemGap,
-  },
-  documentButtonText: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  documentCaptured: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.itemGap,
-  },
-  documentThumbnail: {
-    width: 50,
-    height: 50,
-    borderRadius: radius.sm,
-  },
-  documentCapturedText: {
-    ...typography.bodySmall,
-    color: colors.success,
-    fontWeight: '500',
-  },
-  inventoryThumbnails: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  inventoryThumb: {
-    width: 40,
-    height: 40,
-    borderRadius: 6,
-  },
-  moreIndicator: {
-    width: 40,
-    height: 40,
-    borderRadius: 6,
-    backgroundColor: colors.borderLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  moreText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  totalCard: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.card,
-    padding: spacing.cardPaddingLarge,
-    marginBottom: spacing.sectionGap,
-  },
-  totalTitle: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontWeight: '600',
-    marginBottom: spacing.lg,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  totalRowHighlight: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.2)',
-    marginTop: spacing.itemGap,
-    paddingTop: spacing.lg,
-  },
-  totalLabel: {
-    ...typography.bodySmall,
-    color: 'rgba(255,255,255,0.8)',
-  },
-  totalLabelBold: {
-    ...typography.bodySmall,
-    color: colors.textPrimary,
-    fontWeight: '600',
-  },
-  totalValue: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontWeight: '500',
-  },
-  totalValueLarge: {
-    fontSize: 24,
-    color: colors.textPrimary,
-    fontWeight: '700',
-  },
-  negativeValue: {
-    color: '#ff6b6b',
   },
   submitButton: {
     backgroundColor: colors.success,
