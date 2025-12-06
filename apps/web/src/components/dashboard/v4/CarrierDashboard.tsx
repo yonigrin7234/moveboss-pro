@@ -1,3 +1,10 @@
+/**
+ * @deprecated This component is deprecated and no longer used.
+ * Carriers now use the unified Command Center in /dashboard/page.tsx
+ * which provides the same layout with role-based content visibility.
+ *
+ * This file is kept for reference but may be removed in a future cleanup.
+ */
 'use client';
 
 import Link from 'next/link';
