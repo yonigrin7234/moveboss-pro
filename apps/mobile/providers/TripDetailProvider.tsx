@@ -45,12 +45,18 @@ export function TripDetailProvider({
   const { user } = useAuth();
 
   // Refs for stable callback
-  const userIdRef = useRef(user?.id);
-  const tripIdRef = useRef(tripId);
+  const userIdRef = useRef<string | undefined>(user?.id);
+  const tripIdRef = useRef<string | null>(tripId);
   const isFetchingRef = useRef(false);
 
-  userIdRef.current = user?.id;
-  tripIdRef.current = tripId;
+  // Update refs when values change
+  useEffect(() => {
+    userIdRef.current = user?.id;
+  }, [user?.id]);
+
+  useEffect(() => {
+    tripIdRef.current = tripId;
+  }, [tripId]);
 
   const fetchTrip = useCallback(async () => {
     const userId = userIdRef.current;

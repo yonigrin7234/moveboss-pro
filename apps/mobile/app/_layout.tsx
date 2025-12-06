@@ -29,15 +29,17 @@ function RootLayoutNav() {
 
     const inAuthGroup = segments[0] === '(auth)';
     const isResetPassword = (segments as string[]).includes('reset-password');
+    const isAuthenticated = !!session;
 
-    if (!session && !inAuthGroup) {
+    if (!isAuthenticated && !inAuthGroup) {
       // Redirect to login if not authenticated
       router.replace('/(auth)/login');
-    } else if (session && inAuthGroup && !isResetPassword) {
+    } else if (isAuthenticated && inAuthGroup && !isResetPassword) {
       // Redirect to home if authenticated but on auth screen (except reset-password)
       router.replace('/(app)');
     }
-  }, [session, loading, segments]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id, loading, segments]);
 
   if (loading) {
     return (

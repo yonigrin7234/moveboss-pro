@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../providers/AuthProvider';
 
@@ -16,6 +16,7 @@ export function useDriverProfile() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const isFetchingRef = useRef(false);
 
   const fetchDriver = useCallback(async () => {
     if (!user?.id) {
@@ -24,7 +25,13 @@ export function useDriverProfile() {
       return;
     }
 
+    // Prevent concurrent fetches
+    if (isFetchingRef.current) {
+      return;
+    }
+
     try {
+      isFetchingRef.current = true;
       setLoading(true);
       setError(null);
 
@@ -40,10 +47,12 @@ export function useDriverProfile() {
 
       setDriver(data);
     } catch (err) {
+      console.error('[useDriverProfile] Error:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch driver profile');
       setDriver(null);
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   }, [user?.id]);
 

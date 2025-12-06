@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../providers/AuthProvider';
 import { Truck, Trailer, VehicleDocument, DocumentStatus, DocumentType } from '../types';
@@ -154,6 +154,7 @@ export function useVehicleDocuments(): UseVehicleDocumentsReturn {
   const [error, setError] = useState<string | null>(null);
   const [hasActiveTrip, setHasActiveTrip] = useState(false);
   const [tripNumber, setTripNumber] = useState<number | null>(null);
+  const isFetchingRef = useRef(false);
 
   const fetchVehicleDocuments = useCallback(async () => {
     if (!user?.id) {
@@ -166,7 +167,13 @@ export function useVehicleDocuments(): UseVehicleDocumentsReturn {
       return;
     }
 
+    // Prevent concurrent fetches
+    if (isFetchingRef.current) {
+      return;
+    }
+
     try {
+      isFetchingRef.current = true;
       setIsLoading(true);
       setError(null);
 
@@ -314,10 +321,11 @@ export function useVehicleDocuments(): UseVehicleDocumentsReturn {
         setTrailer(null);
       }
     } catch (err) {
-      console.error('Error fetching vehicle documents:', err);
+      console.error('[useVehicleDocuments] Error:', err);
       setError('Failed to load vehicle documents');
     } finally {
       setIsLoading(false);
+      isFetchingRef.current = false;
     }
   }, [user?.id]);
 

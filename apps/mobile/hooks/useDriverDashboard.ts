@@ -7,7 +7,7 @@
  * - Quick access to active trip
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { TripWithLoads } from '../types';
 import { useAuth } from '../providers/AuthProvider';
@@ -41,6 +41,7 @@ export function useDriverDashboard(): DashboardData {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const isFetchingRef = useRef(false);
 
   const fetchDashboardData = useCallback(async () => {
     if (!user?.id) {
@@ -49,7 +50,13 @@ export function useDriverDashboard(): DashboardData {
       return;
     }
 
+    // Prevent concurrent fetches
+    if (isFetchingRef.current) {
+      return;
+    }
+
     try {
+      isFetchingRef.current = true;
       setLoading(true);
       setError(null);
 
@@ -116,10 +123,12 @@ export function useDriverDashboard(): DashboardData {
 
       setTripsWithLoads(trips || []);
     } catch (err) {
+      console.error('[useDriverDashboard] Error:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
       setTripsWithLoads([]);
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   }, [user?.id]);
 
