@@ -41,6 +41,7 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
+  AlertTriangle,
   Navigation,
   Key,
   FileText,
@@ -297,6 +298,29 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
           <Badge className={status.color}>{status.label}</Badge>
         </div>
       </div>
+
+      {/* Warning: Load not on a trip - drivers can't see it on mobile */}
+      {!load.trip_id && load.load_status !== 'delivered' && (
+        <Card className="border-orange-500/50 bg-orange-500/10">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-orange-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-medium text-orange-700 dark:text-orange-400">
+                  Not assigned to a trip
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Drivers cannot see this load on the mobile app until it&apos;s added to a trip.
+                  Scroll down to assign this load to an existing trip or create a new one.
+                </p>
+              </div>
+              <a href="#trip-assignment" className="text-sm text-orange-600 hover:underline whitespace-nowrap">
+                Assign Trip →
+              </a>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Release Load Action - only show if load is accepted (not yet in progress) */}
       {carrierCompany && load.posting_status === 'assigned' && load.load_status === 'accepted' && (
@@ -608,7 +632,7 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
       </Card>
 
       {/* Trip Assignment */}
-      <Card>
+      <Card id="trip-assignment">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Route className="h-5 w-5" />

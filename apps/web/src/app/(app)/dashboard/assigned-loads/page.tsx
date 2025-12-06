@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/lib/supabase-server';
-import { getCarrierAssignedLoads } from '@/data/marketplace';
+import { getCarrierAssignedLoads, getLoadsNeedingTripAssignment } from '@/data/marketplace';
 import { getWorkspaceCompanyForUser } from '@/data/companies';
 import { giveLoadBack } from '@/data/cancellations';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,6 +19,7 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
+  AlertTriangle,
 } from 'lucide-react';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -42,9 +43,10 @@ export default async function AssignedLoadsPage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  const [loads, carrierCompany] = await Promise.all([
+  const [loads, carrierCompany, loadsNeedingTrip] = await Promise.all([
     getCarrierAssignedLoads(user.id),
     getWorkspaceCompanyForUser(user.id),
+    getLoadsNeedingTripAssignment(user.id),
   ]);
 
   const carrierId = carrierCompany?.id;
@@ -172,6 +174,95 @@ export default async function AssignedLoadsPage() {
                           <Clock className="h-3 w-3 mr-1" />
                           Confirm Now
                         </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Needs Trip Assignment - Loads confirmed but not on a trip */}
+      {loadsNeedingTrip.length > 0 && (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-500" />
+              Needs Trip Assignment ({loadsNeedingTrip.length})
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              These loads are confirmed but not on a trip. Drivers cannot see them on mobile until assigned to a trip.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            {loadsNeedingTrip.map((load) => {
+              const company = Array.isArray(load.company)
+                ? load.company[0]
+                : load.company;
+              const status =
+                statusConfig[load.load_status] || statusConfig.accepted;
+
+              return (
+                <Link
+                  key={load.id}
+                  href={`/dashboard/assigned-loads/${load.id}`}
+                >
+                  <Card className="hover:bg-muted/50 transition-colors cursor-pointer border-orange-500/30">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                            <Building2 className="h-4 w-4" />
+                            <span>{company?.name}</span>
+                            <span>-</span>
+                            <span>{load.load_number}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <p className="font-semibold">
+                              {load.origin_city}, {load.origin_state}
+                            </p>
+                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                            <p className="font-semibold">
+                              {load.destination_city}, {load.destination_state}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            {load.expected_load_date && (
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-4 w-4" />
+                                {new Date(
+                                  load.expected_load_date
+                                ).toLocaleDateString()}
+                              </span>
+                            )}
+                            {load.assigned_driver_name ? (
+                              <span className="flex items-center gap-1">
+                                <User className="h-4 w-4" />
+                                {load.assigned_driver_name}
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-yellow-500">
+                                <User className="h-4 w-4" />
+                                No driver
+                              </span>
+                            )}
+                            {load.carrier_rate && (
+                              <span className="text-green-500 font-medium">
+                                ${load.carrier_rate.toFixed(2)}/cf
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <Badge className={status.color}>{status.label}</Badge>
+                          <Badge variant="outline" className="text-orange-500 border-orange-500/50">
+                            <Truck className="h-3 w-3 mr-1" />
+                            Add to Trip
+                          </Badge>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>

@@ -372,36 +372,8 @@ export function LoadForm({
                       </SelectContent>
                     </SelectWithHiddenInput>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="assigned_truck_id" className="text-sm">Truck</Label>
-                    <SelectWithHiddenInput name="assigned_truck_id" defaultValue={initialData?.assigned_truck_id || ''}>
-                      <SelectTrigger id="assigned_truck_id" className="h-9">
-                        <SelectValue placeholder="None" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {trucks.map((truck) => (
-                          <SelectItem key={truck.id} value={truck.id}>
-                            {truck.unit_number}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </SelectWithHiddenInput>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="assigned_trailer_id" className="text-sm">Trailer</Label>
-                    <SelectWithHiddenInput name="assigned_trailer_id" defaultValue={initialData?.assigned_trailer_id || ''}>
-                      <SelectTrigger id="assigned_trailer_id" className="h-9">
-                        <SelectValue placeholder="None" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {trailers.map((trailer) => (
-                          <SelectItem key={trailer.id} value={trailer.id}>
-                            {trailer.unit_number}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </SelectWithHiddenInput>
-                  </div>
+                  {/* TODO: Truck/trailer assignment removed from load forms.
+                      Equipment is assigned via trips - see syncTripEquipmentToLoads() */}
                 </div>
               </CardContent>
             </Card>
@@ -937,8 +909,8 @@ export function LoadForm({
             </div>
             <div className="flex items-start justify-between">
               <span className="text-muted-foreground">Equipment</span>
-              <span className="font-medium text-right text-xs">
-                Truck: {getTruckLabel(snapshot.truckId)} · Trailer: {getTrailerLabel(snapshot.trailerId)}
+              <span className="font-medium text-right text-xs text-muted-foreground">
+                Assigned via Trip
               </span>
             </div>
             <div className="flex items-start justify-between">

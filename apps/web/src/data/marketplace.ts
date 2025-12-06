@@ -1147,6 +1147,103 @@ export async function getCarrierAssignedLoads(carrierOwnerId: string): Promise<
   });
 }
 
+// Get confirmed loads that are not yet assigned to a trip
+// These loads won't be visible to drivers on mobile until added to a trip
+export async function getLoadsNeedingTripAssignment(carrierOwnerId: string): Promise<
+  Array<{
+    id: string;
+    load_number: string;
+    origin_city: string;
+    origin_state: string;
+    destination_city: string;
+    destination_state: string;
+    expected_load_date: string | null;
+    load_status: string;
+    carrier_rate: number | null;
+    carrier_confirmed_at: string | null;
+    assigned_driver_name: string | null;
+    company: { id: string; name: string } | null;
+  }>
+> {
+  const supabase = await createClient();
+
+  // Get user's workspace company
+  const { data: carrier } = await supabase
+    .from('companies')
+    .select('id')
+    .eq('owner_id', carrierOwnerId)
+    .eq('is_workspace_company', true)
+    .maybeSingle();
+
+  if (!carrier) {
+    return [];
+  }
+
+  // Query confirmed loads without a trip assignment
+  const { data, error } = await supabase
+    .from('loads')
+    .select(
+      `
+      id, load_number, company_id,
+      pickup_city, pickup_state,
+      delivery_city, delivery_state,
+      expected_load_date, load_status,
+      carrier_rate, carrier_confirmed_at,
+      assigned_driver_name, source_company_name,
+      trip_id
+    `
+    )
+    .eq('assigned_carrier_id', carrier.id)
+    .not('carrier_confirmed_at', 'is', null) // Must be confirmed
+    .is('trip_id', null) // Not assigned to a trip
+    .not('load_status', 'in', '("delivered","cancelled")') // Active loads only
+    .order('expected_load_date', { ascending: true, nullsFirst: false });
+
+  if (error) {
+    console.error('Error fetching loads needing trip assignment:', error);
+    return [];
+  }
+
+  // Fetch company data separately to avoid RLS issues
+  const companyIds = [...new Set((data || []).map(l => l.company_id).filter(Boolean))] as string[];
+  const companyMap = new Map<string, { id: string; name: string }>();
+
+  if (companyIds.length > 0) {
+    const { data: companies } = await supabase
+      .from('companies')
+      .select('id, name')
+      .in('id', companyIds);
+
+    if (companies) {
+      for (const c of companies) {
+        companyMap.set(c.id, c);
+      }
+    }
+  }
+
+  return (data || []).map((load: any) => {
+    let company = companyMap.get(load.company_id) || null;
+    if (!company && load.source_company_name) {
+      company = { id: load.company_id, name: load.source_company_name };
+    }
+
+    return {
+      id: load.id,
+      load_number: load.load_number,
+      origin_city: load.pickup_city || '',
+      origin_state: load.pickup_state || '',
+      destination_city: load.delivery_city || '',
+      destination_state: load.delivery_state || '',
+      expected_load_date: load.expected_load_date,
+      load_status: load.load_status || 'pending',
+      carrier_rate: load.carrier_rate ? Number(load.carrier_rate) : null,
+      carrier_confirmed_at: load.carrier_confirmed_at,
+      assigned_driver_name: load.assigned_driver_name,
+      company: company,
+    };
+  });
+}
+
 // Get single assigned load with full details (for carrier)
 export async function getAssignedLoadDetails(
   loadId: string,

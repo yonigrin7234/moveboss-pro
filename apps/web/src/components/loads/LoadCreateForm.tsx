@@ -505,28 +505,8 @@ export function LoadCreateForm({
                 placeholder="Unassigned"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>Truck</Label>
-              <SelectWithHiddenInput
-                name="assigned_truck_id"
-                options={trucks.map((truck) => ({
-                  value: truck.id,
-                  label: truck.unit_number ?? truck.plate_number ?? 'Unassigned',
-                }))}
-                placeholder="Unassigned"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Trailer</Label>
-              <SelectWithHiddenInput
-                name="assigned_trailer_id"
-                options={trailers.map((trailer) => ({
-                  value: trailer.id,
-                  label: trailer.unit_number ?? 'Unassigned',
-                }))}
-                placeholder="Unassigned"
-              />
-            </div>
+            {/* TODO: Truck/trailer assignment removed from load forms.
+                Equipment is assigned via trips - see syncTripEquipmentToLoads() */}
           </div>
         </CardContent>
       </Card>

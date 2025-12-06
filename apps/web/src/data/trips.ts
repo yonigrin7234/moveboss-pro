@@ -931,6 +931,7 @@ export async function addLoadToTrip(
   }
 
   // If trip has driver, sync to this newly added load
+  // TODO: Also sync truck/trailer to load via syncTripEquipmentToLoads() when implemented
   if (trip?.driver_id) {
     const { data: driver } = await supabase
       .from('drivers')
@@ -994,6 +995,34 @@ export async function addLoadToTrip(
   }
 
   return data as TripLoad;
+}
+
+/**
+ * TODO: Sync truck/trailer from trip to all its loads.
+ *
+ * When a trip's truck_id or trailer_id is updated, this function should
+ * update the assigned_truck_id and assigned_trailer_id on all loads
+ * that are part of this trip (via trip_loads join table).
+ *
+ * This ensures equipment is managed through trips as the single source of truth,
+ * rather than being edited directly on individual loads.
+ *
+ * Call sites:
+ * - updateTrip() when truck_id or trailer_id changes
+ * - addLoadToTrip() after load is added (see TODO comment above)
+ *
+ * @param tripId - The trip whose equipment should be synced
+ * @param userId - The owner for permission checks
+ */
+export async function syncTripEquipmentToLoads(
+  _tripId: string,
+  _userId: string
+): Promise<void> {
+  // TODO: Implement equipment sync
+  // 1. Fetch trip with truck_id and trailer_id
+  // 2. Fetch all loads via trip_loads join
+  // 3. Update each load's assigned_truck_id and assigned_trailer_id
+  console.log('syncTripEquipmentToLoads: Not yet implemented');
 }
 
 export async function removeLoadFromTrip(tripId: string, loadId: string, userId: string): Promise<void> {
