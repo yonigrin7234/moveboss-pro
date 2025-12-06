@@ -22,8 +22,10 @@ const TripDetailContext = createContext<TripDetailContextType | undefined>(undef
 // Helper to add timeout to promises
 // Uses PromiseLike<T> to support Supabase query builders which are Promise-like but not Promise types
 function withTimeout<T>(promise: PromiseLike<T>, ms: number, message: string): Promise<T> {
+  // Convert to proper Promise first, then race with timeout
+  const promiseResolved = Promise.resolve(promise);
   return Promise.race([
-    Promise.resolve(promise),
+    promiseResolved,
     new Promise<T>((_, reject) =>
       setTimeout(() => reject(new Error(message)), ms)
     ),
@@ -85,6 +87,8 @@ export function TripDetailProvider({
 
       if (driverError || !driver) {
         setError('Driver profile not found');
+        setLoading(false);
+        isFetchingRef.current = false;
         return;
       }
 
@@ -142,6 +146,8 @@ export function TripDetailProvider({
       // Verify this trip belongs to the driver
       if (tripData && tripData.driver_id !== driver.id) {
         setError('Access denied');
+        setLoading(false);
+        isFetchingRef.current = false;
         return;
       }
 
@@ -161,7 +167,8 @@ export function TripDetailProvider({
     } else {
       setLoading(false);
     }
-  }, [user?.id, tripId, fetchTrip]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, tripId]);
 
   return (
     <TripDetailContext.Provider value={{ trip, loading, error, refetch: fetchTrip }}>

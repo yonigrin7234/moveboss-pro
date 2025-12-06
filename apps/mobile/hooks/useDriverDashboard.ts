@@ -43,7 +43,11 @@ export function useDriverDashboard(): DashboardData {
   const { user } = useAuth();
 
   const fetchDashboardData = useCallback(async () => {
-    if (!user) return;
+    if (!user?.id) {
+      setLoading(false);
+      setTripsWithLoads([]);
+      return;
+    }
 
     try {
       setLoading(true);
@@ -59,6 +63,7 @@ export function useDriverDashboard(): DashboardData {
       if (driverError || !driver) {
         setError('Driver profile not found');
         setTripsWithLoads([]);
+        setLoading(false);
         return;
       }
 
@@ -112,10 +117,11 @@ export function useDriverDashboard(): DashboardData {
       setTripsWithLoads(trips || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
+      setTripsWithLoads([]);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     fetchDashboardData();
