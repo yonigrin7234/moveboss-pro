@@ -8,7 +8,7 @@
  * - Navigates to first load on success
  */
 
-import React, { useCallback, useState, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { TripStartScreen } from '../../../../components/ui/TripStartScreen';
@@ -32,27 +32,32 @@ function withTimeout<T>(promise: PromiseLike<T>, ms: number, message: string): P
   ]);
 }
 
+// Module-level cache to persist across component mounts
+const tripStartCache: Map<string, { data: TripWithLoads; fetchedForUser: string }> = new Map();
+const tripStartFetching: Set<string> = new Set();
+
 export default function TripStartRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
 
-  // Local state for trip data - simple one-time fetch
-  const [trip, setTrip] = useState<TripWithLoads | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Check cache for initial state
+  const cacheKey = id || '';
+  const cachedData = tripStartCache.get(cacheKey);
+  const hasCachedData = cachedData && cachedData.fetchedForUser === user?.id;
+
+  // Local state for trip data - initialized from cache if available
+  const [trip, setTrip] = useState<TripWithLoads | null>(() =>
+    hasCachedData ? cachedData.data : null
+  );
+  const [loading, setLoading] = useState(() => !hasCachedData);
   const [error, setError] = useState<string | null>(null);
-  const hasFetchedRef = useRef(false);
 
   const { uploadOdometerPhoto } = useImageUpload();
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Simple one-time fetch on mount
+  // Simple one-time fetch on mount with module-level cache
   useEffect(() => {
-    // Prevent multiple fetches
-    if (hasFetchedRef.current) {
-      return;
-    }
-
     if (!user?.id || !id) {
       setLoading(false);
       if (!user?.id) {
@@ -63,11 +68,24 @@ export default function TripStartRoute() {
       return;
     }
 
-    hasFetchedRef.current = true;
+    // Check cache first
+    const cached = tripStartCache.get(id);
+    if (cached && cached.fetchedForUser === user.id) {
+      setTrip(cached.data);
+      setLoading(false);
+      return;
+    }
+
+    // Check if already fetching
+    if (tripStartFetching.has(id)) {
+      return;
+    }
+
+    tripStartFetching.add(id);
+    setLoading(true);
 
     const fetchTrip = async () => {
       try {
-        setLoading(true);
         setError(null);
 
         console.log('[TripStart] Fetching trip:', { tripId: id, userId: user.id });
@@ -88,7 +106,6 @@ export default function TripStartRoute() {
         if (driverError || !driver) {
           console.error('[TripStart] Driver error:', driverError);
           setError('Driver profile not found');
-          setLoading(false);
           return;
         }
 
@@ -122,29 +139,29 @@ export default function TripStartRoute() {
         if (!tripData) {
           console.error('[TripStart] Trip not found');
           setError('Trip not found');
-          setLoading(false);
           return;
         }
 
         if (tripData.driver_id !== driver.id) {
           console.error('[TripStart] Access denied - driver mismatch');
           setError('Access denied');
-          setLoading(false);
           return;
         }
 
         console.log('[TripStart] Trip loaded successfully:', tripData.id);
+        // Cache the result
+        tripStartCache.set(id, { data: tripData, fetchedForUser: user.id });
         setTrip(tripData);
       } catch (err) {
         console.error('[TripStart] Fetch error:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch trip');
       } finally {
         setLoading(false);
+        tripStartFetching.delete(id);
       }
     };
 
     fetchTrip();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, id]);
 
   // Create trip actions with a no-op refetch since we don't need to refresh
@@ -206,67 +223,14 @@ export default function TripStartRoute() {
   }, [router, id, findFirstLoad]);
 
   const handleRetry = useCallback(() => {
-    hasFetchedRef.current = false;
+    if (!id || !user?.id) return;
+    // Clear cache to allow refetch
+    tripStartCache.delete(id);
+    tripStartFetching.delete(id);
     setLoading(true);
     setError(null);
-
-    const fetchTrip = async () => {
-      hasFetchedRef.current = true;
-      try {
-        // Get driver record with timeout
-        const driverResult = await withTimeout(
-          supabase
-            .from('drivers')
-            .select('id, owner_id')
-            .eq('auth_user_id', user?.id)
-            .single(),
-          10000,
-          'Connection timeout - please check your network'
-        );
-
-        const { data: driver, error: driverError } = driverResult;
-
-        if (driverError || !driver) {
-          setError('Driver profile not found');
-          setLoading(false);
-          return;
-        }
-
-        // Fetch trip with loads with timeout
-        const tripResult = await withTimeout(
-          supabase
-            .from('trips')
-            .select(`
-              *,
-              trucks:truck_id (id, unit_number),
-              trip_loads (
-                id, trip_id, load_id, sequence_index, role,
-                loads (id)
-              )
-            `)
-            .eq('id', id)
-            .single(),
-          15000,
-          'Connection timeout - please check your network'
-        );
-
-        const { data: tripData, error: tripError } = tripResult;
-
-        if (tripError) throw tripError;
-        if (tripData && tripData.driver_id !== driver.id) {
-          setError('Access denied');
-          setLoading(false);
-          return;
-        }
-
-        setTrip(tripData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch trip');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchTrip();
+    setTrip(null);
+    // The useEffect will re-run since we cleared the cache
   }, [user?.id, id]);
 
   // Loading state

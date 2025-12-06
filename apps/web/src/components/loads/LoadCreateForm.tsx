@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Warehouse, X } from 'lucide-react'
+import { Plus, Warehouse, X, Building2, User } from 'lucide-react'
 
 import type { Company } from '@/data/companies'
 import type { Driver } from '@/data/drivers'
@@ -138,7 +138,7 @@ export function LoadCreateForm({
   const { toast } = useToast()
   const { markComplete } = useSetupProgress()
   const [state, formAction, pending] = useActionState(onSubmit, null)
-  const [loadSource, setLoadSource] = useState<'own_customer' | 'partner'>('own_customer')
+  const [loadSource, setLoadSource] = useState<'own_customer' | 'partner'>('partner')
   const [loadType, setLoadType] = useState<'company_load' | 'live_load'>('company_load')
   const [companyId, setCompanyId] = useState('')
   const [pickup, setPickup] = useState({ postalCode: '', city: '', state: '', address1: '', address2: '', contact: '', phone: '' })
@@ -179,11 +179,16 @@ export function LoadCreateForm({
 
   const selectedCompany = useMemo(() => companies.find((company) => company.id === companyId), [companies, companyId])
 
+  // Auto-select first company only for partner loads
   useEffect(() => {
-    if (!companyId && companies.length) {
+    if (loadSource === 'partner' && !companyId && companies.length) {
       setCompanyId(companies[0].id)
     }
-  }, [companyId, companies])
+    // Clear company selection when switching to own_customer
+    if (loadSource === 'own_customer' && companyId) {
+      setCompanyId('')
+    }
+  }, [loadSource, companyId, companies])
 
   useEffect(() => {
     const company = selectedCompany
@@ -369,41 +374,68 @@ export function LoadCreateForm({
       <input type="hidden" name="trip_id" value={selectedTripId} />
       <input type="hidden" name="load_order" value={loadOrder} />
 
-      {/* Load Source Toggle */}
-      <Card className="border-2 border-primary/20">
-        <CardHeader>
-          <CardTitle className="text-base font-semibold">Load Source</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="inline-flex rounded-md border border-border bg-muted/40 p-1 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-            <button
-              type="button"
-              className={cn(
-                'px-4 py-2 rounded-md transition',
-                loadSource === 'own_customer' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-              )}
-              onClick={() => setLoadSource('own_customer')}
-            >
-              My Customer
-            </button>
-            <button
-              type="button"
-              className={cn(
-                'px-4 py-2 rounded-md transition',
-                loadSource === 'partner' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-              )}
-              onClick={() => setLoadSource('partner')}
-            >
-              From Company
-            </button>
+      {/* Load Source Selection - Card Style */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Partner Load - First */}
+        <button
+          type="button"
+          onClick={() => setLoadSource('partner')}
+          className={cn(
+            'relative flex flex-col items-start p-5 rounded-xl border-2 text-left transition-all',
+            loadSource === 'partner'
+              ? 'border-primary bg-primary/5 shadow-sm'
+              : 'border-border hover:border-primary/50 hover:bg-muted/50'
+          )}
+        >
+          <div className={cn(
+            'flex items-center justify-center w-10 h-10 rounded-lg mb-3',
+            loadSource === 'partner' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+          )}>
+            <Building2 className="h-5 w-5" />
           </div>
-          <p className="text-xs text-muted-foreground">
-            {loadSource === 'own_customer'
-              ? "You have the customer's contact info and delivery address"
-              : 'Driver will enter contract details after loading'}
+          <h3 className="font-semibold text-foreground mb-1">Partner Load</h3>
+          <p className="text-sm text-muted-foreground">
+            Hauling for another company (contract work)
           </p>
-        </CardContent>
-      </Card>
+          {loadSource === 'partner' && (
+            <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+              <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          )}
+        </button>
+
+        {/* My Customer - Second */}
+        <button
+          type="button"
+          onClick={() => setLoadSource('own_customer')}
+          className={cn(
+            'relative flex flex-col items-start p-5 rounded-xl border-2 text-left transition-all',
+            loadSource === 'own_customer'
+              ? 'border-primary bg-primary/5 shadow-sm'
+              : 'border-border hover:border-primary/50 hover:bg-muted/50'
+          )}
+        >
+          <div className={cn(
+            'flex items-center justify-center w-10 h-10 rounded-lg mb-3',
+            loadSource === 'own_customer' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+          )}>
+            <User className="h-5 w-5" />
+          </div>
+          <h3 className="font-semibold text-foreground mb-1">My Customer</h3>
+          <p className="text-sm text-muted-foreground">
+            Direct customer job - you have their info
+          </p>
+          {loadSource === 'own_customer' && (
+            <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+              <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          )}
+        </button>
+      </div>
 
       {/* Load Type Toggle - only for partner loads */}
       {loadSource === 'partner' && (
@@ -454,7 +486,7 @@ export function LoadCreateForm({
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className={cn("grid gap-4", loadSource === 'partner' ? "md:grid-cols-2" : "md:grid-cols-1")}>
             <div className="space-y-1.5">
               <Label htmlFor="service_type">Service Type</Label>
               <SelectWithHiddenInput
@@ -467,33 +499,32 @@ export function LoadCreateForm({
                 <p className="text-xs text-destructive">{state.errors.service_type}</p>
               )}
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="company_id">
-                {loadSource === 'partner' ? 'Partner Company' : 'Company'}
-                {loadSource === 'partner' && <span className="text-destructive"> *</span>}
-              </Label>
-              <div>
-                <Select value={companyId || undefined} onValueChange={setCompanyId} required={loadSource === 'partner'}>
-                  <SelectTrigger id="company_id" className="h-9">
-                    <SelectValue placeholder={loadSource === 'partner' ? 'Select partner company' : 'Optional'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {loadSource === 'own_customer' && (
-                      <SelectItem value="none">No company</SelectItem>
-                    )}
-                    {companies.map((company) => (
-                      <SelectItem key={company.id} value={company.id}>
-                        {company.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <input type="hidden" name="company_id" value={companyId === 'none' ? '' : companyId} />
+            {/* Partner Company dropdown - only for partner loads */}
+            {loadSource === 'partner' && (
+              <div className="space-y-1.5">
+                <Label htmlFor="company_id">
+                  Partner Company <span className="text-destructive">*</span>
+                </Label>
+                <div>
+                  <Select value={companyId || undefined} onValueChange={setCompanyId} required>
+                    <SelectTrigger id="company_id" className="h-9">
+                      <SelectValue placeholder="Select partner company" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companies.map((company) => (
+                        <SelectItem key={company.id} value={company.id}>
+                          {company.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <input type="hidden" name="company_id" value={companyId} />
+                </div>
+                {state?.errors?.company_id && (
+                  <p className="text-xs text-destructive">{state.errors.company_id}</p>
+                )}
               </div>
-              {state?.errors?.company_id && (
-                <p className="text-xs text-destructive">{state.errors.company_id}</p>
-              )}
-            </div>
+            )}
           </div>
 
           {/* DRIVER ASSIGNMENT RULE UPDATE: Driver and equipment assignment removed from load forms.

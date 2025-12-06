@@ -3,17 +3,35 @@ import { supabase } from '../lib/supabase';
 import { Trip, TripWithLoads, TripExpense } from '../types';
 import { useAuth } from '../providers/AuthProvider';
 
+// Module-level cache to persist across component mounts
+const tripsCache: { data: Trip[] | null; fetchedForUser: string | null } = {
+  data: null,
+  fetchedForUser: null,
+};
+
 export function useDriverTrips() {
-  const [trips, setTrips] = useState<Trip[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Initialize from cache if available for current user
   const { user } = useAuth();
-  const hasFetched = useRef(false);
+  const [trips, setTrips] = useState<Trip[]>(() =>
+    tripsCache.fetchedForUser === user?.id ? (tripsCache.data || []) : []
+  );
+  const [loading, setLoading] = useState(() =>
+    tripsCache.fetchedForUser !== user?.id
+  );
+  const [error, setError] = useState<string | null>(null);
+  const isFetching = useRef(false);
 
   useEffect(() => {
-    if (!user?.id || hasFetched.current) return;
+    // Skip if already fetched for this user or currently fetching
+    if (!user?.id || isFetching.current || tripsCache.fetchedForUser === user.id) {
+      if (tripsCache.fetchedForUser === user?.id && tripsCache.data) {
+        setTrips(tripsCache.data);
+        setLoading(false);
+      }
+      return;
+    }
 
-    hasFetched.current = true;
+    isFetching.current = true;
     setLoading(true);
 
     const fetchData = async () => {
@@ -28,6 +46,8 @@ export function useDriverTrips() {
         if (driverError || !driver) {
           setError('Driver profile not found');
           setTrips([]);
+          tripsCache.data = [];
+          tripsCache.fetchedForUser = user.id;
           return;
         }
 
@@ -44,11 +64,15 @@ export function useDriverTrips() {
         }
 
         console.log('[useDriverTrips] Fetched trips:', tripsData?.length);
-        setTrips(tripsData || []);
+        const result = tripsData || [];
+        tripsCache.data = result;
+        tripsCache.fetchedForUser = user.id;
+        setTrips(result);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch trips');
       } finally {
         setLoading(false);
+        isFetching.current = false;
       }
     };
 
@@ -56,36 +80,52 @@ export function useDriverTrips() {
   }, [user?.id]);
 
   const refetch = useCallback(() => {
-    hasFetched.current = false;
+    if (!user?.id) return;
+    // Clear cache to allow refetch
+    tripsCache.fetchedForUser = null;
+    tripsCache.data = null;
+    isFetching.current = false;
     setLoading(true);
     setError(null);
-    setTrips([]);
-  }, []);
+    // The useEffect will re-run on next render since cache is cleared
+  }, [user?.id]);
 
   return { trips, loading, error, refetch };
 }
 
-// Helper to add timeout to promises
-function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(message)), ms)
-    ),
-  ]);
-}
+// Module-level cache for trip details to persist across component mounts
+const tripDetailCache: Map<string, { data: TripWithLoads; fetchedForUser: string }> = new Map();
+const tripDetailFetching: Set<string> = new Set();
 
 export function useDriverTripDetail(tripId: string | null) {
-  const [trip, setTrip] = useState<TripWithLoads | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
-  const hasFetched = useRef(false);
+  const cacheKey = tripId || '';
+
+  // Initialize from cache if available
+  const cachedData = tripDetailCache.get(cacheKey);
+  const hasCachedData = cachedData && cachedData.fetchedForUser === user?.id;
+
+  const [trip, setTrip] = useState<TripWithLoads | null>(() =>
+    hasCachedData ? cachedData.data : null
+  );
+  const [loading, setLoading] = useState(() => !hasCachedData);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.id || !tripId || hasFetched.current) return;
+    if (!user?.id || !tripId) return;
 
-    hasFetched.current = true;
+    // Check cache
+    const cached = tripDetailCache.get(tripId);
+    if (cached && cached.fetchedForUser === user.id) {
+      setTrip(cached.data);
+      setLoading(false);
+      return;
+    }
+
+    // Check if already fetching
+    if (tripDetailFetching.has(tripId)) return;
+
+    tripDetailFetching.add(tripId);
     setLoading(true);
 
     const fetchData = async () => {
@@ -126,11 +166,14 @@ export function useDriverTripDetail(tripId: string | null) {
           return;
         }
 
+        // Cache the result
+        tripDetailCache.set(tripId, { data: tripData, fetchedForUser: user.id });
         setTrip(tripData);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch trip');
       } finally {
         setLoading(false);
+        tripDetailFetching.delete(tripId);
       }
     };
 
@@ -138,19 +181,14 @@ export function useDriverTripDetail(tripId: string | null) {
   }, [user?.id, tripId]);
 
   const refetch = useCallback(() => {
-    hasFetched.current = false;
+    if (!tripId || !user?.id) return;
+    // Clear cache for this trip to allow refetch
+    tripDetailCache.delete(tripId);
+    tripDetailFetching.delete(tripId);
     setLoading(true);
     setError(null);
-    // Trigger re-fetch by forcing a state update
     setTrip(null);
-  }, []);
-
-  // Re-fetch when trip is set to null by refetch()
-  useEffect(() => {
-    if (trip === null && !loading && hasFetched.current) {
-      hasFetched.current = false;
-    }
-  }, [trip, loading]);
+  }, [tripId, user?.id]);
 
   return { trip, loading, error, refetch };
 }
