@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import {
   Package,
   Truck,
-  DollarSign,
   Search,
   ArrowRight,
   MapPin,
@@ -16,6 +15,9 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
+  Banknote,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 
 interface AssignedLoad {
@@ -51,16 +53,36 @@ interface AvailableLoad {
   estimated_cuft: number | null;
 }
 
+interface ScheduleEvent {
+  id: string;
+  type: 'pickup' | 'delivery';
+  load_number: string;
+  city: string;
+  state: string;
+  time: string;
+}
+
+interface Collection {
+  id: string;
+  load_number: string;
+  amount: number;
+  collected_at: string;
+  company_name: string;
+}
+
 interface CarrierDashboardProps {
   assignedLoads: AssignedLoad[];
   drivers: DriverStatus[];
   availableLoads: AvailableLoad[];
+  todaysSchedule: ScheduleEvent[];
+  collections: Collection[];
   metrics: {
     activeLoadsCount: number;
     driversOnRoad: number;
     totalDrivers: number;
-    earningsThisWeek: number;
-    earningsThisMonth: number;
+    moneyOwedToYou: number;
+    moneyYouOwe: number;
+    collectedToday: number;
     pendingRequestsCount: number;
   };
 }
@@ -84,11 +106,10 @@ export function CarrierDashboard({
   assignedLoads,
   drivers,
   availableLoads,
+  todaysSchedule,
+  collections,
   metrics,
 }: CarrierDashboardProps) {
-  const driversOnRoad = drivers.filter(d => d.status === 'on_trip');
-  const driversAvailable = drivers.filter(d => d.status === 'available');
-
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
@@ -189,56 +210,56 @@ export function CarrierDashboard({
             </Card>
           </Link>
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">This Week</p>
-                  <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.earningsThisWeek)}</p>
-                </div>
-                <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                  <DollarSign className="h-5 w-5 text-emerald-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">This Month</p>
-                  <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.earningsThisMonth)}</p>
-                </div>
-                <div className="h-10 w-10 rounded-full bg-blue-500/20 flex items-center justify-center">
-                  <DollarSign className="h-5 w-5 text-blue-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Link href="/dashboard/load-board">
+          <Link href="/dashboard/finance/receivables">
             <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Available</p>
-                    <p className="text-2xl font-bold text-foreground">{availableLoads.length}+</p>
-                    <p className="text-xs text-muted-foreground">loads</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Owed to You</p>
+                    <p className="text-2xl font-bold text-emerald-400">{formatCurrency(metrics.moneyOwedToYou)}</p>
                   </div>
-                  <div className="h-10 w-10 rounded-full bg-amber-500/20 flex items-center justify-center">
-                    <Search className="h-5 w-5 text-amber-400" />
+                  <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                    <TrendingUp className="h-5 w-5 text-emerald-400" />
                   </div>
                 </div>
               </CardContent>
             </Card>
           </Link>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">You Owe</p>
+                  <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.moneyYouOwe)}</p>
+                </div>
+                <div className="h-10 w-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                  <TrendingDown className="h-5 w-5 text-amber-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Collected Today</p>
+                  <p className="text-2xl font-bold text-blue-400">{formatCurrency(metrics.collectedToday)}</p>
+                </div>
+                <div className="h-10 w-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                  <Banknote className="h-5 w-5 text-blue-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* MAIN CONTENT */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* ACTIVE LOADS - 2/3 width */}
-          <div className="lg:col-span-2">
+          {/* LEFT COLUMN - 2/3 width */}
+          <div className="lg:col-span-2 space-y-5">
+            {/* ACTIVE LOADS */}
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -307,10 +328,8 @@ export function CarrierDashboard({
                 )}
               </CardContent>
             </Card>
-          </div>
 
-          {/* RIGHT COLUMN - Available Loads */}
-          <div>
+            {/* AVAILABLE LOADS */}
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -330,7 +349,7 @@ export function CarrierDashboard({
                     <p className="text-sm">No loads available</p>
                   </div>
                 ) : (
-                  availableLoads.slice(0, 5).map((load) => (
+                  availableLoads.slice(0, 4).map((load) => (
                     <Link
                       key={load.id}
                       href={`/dashboard/load-board/${load.id}`}
@@ -353,6 +372,92 @@ export function CarrierDashboard({
                         {new Date(load.pickup_date).toLocaleDateString()}
                       </div>
                     </Link>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* RIGHT COLUMN - 1/3 width */}
+          <div className="space-y-5">
+            {/* TODAY'S SCHEDULE */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-medium flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-blue-400" />
+                    Today's Schedule
+                  </CardTitle>
+                  <Link href="/dashboard/trips" className="text-xs text-primary hover:underline flex items-center gap-1">
+                    View all <ArrowRight className="h-3 w-3" />
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {todaysSchedule.length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No events scheduled</p>
+                  </div>
+                ) : (
+                  todaysSchedule.slice(0, 5).map((event) => (
+                    <div
+                      key={event.id}
+                      className="flex items-center gap-3 p-2 rounded-lg border"
+                    >
+                      <div className={`h-8 w-8 rounded-full flex items-center justify-center ${event.type === 'pickup' ? 'bg-blue-500/20' : 'bg-emerald-500/20'}`}>
+                        {event.type === 'pickup' ? (
+                          <Package className="h-4 w-4 text-blue-400" />
+                        ) : (
+                          <CheckCircle className="h-4 w-4 text-emerald-400" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{event.load_number}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {event.type === 'pickup' ? 'Pickup' : 'Delivery'} • {event.city}, {event.state}
+                        </p>
+                      </div>
+                      <span className="text-xs text-muted-foreground">{event.time}</span>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+
+            {/* TODAY'S COLLECTIONS */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-medium flex items-center gap-2">
+                    <Banknote className="h-4 w-4 text-emerald-400" />
+                    Collections Today
+                  </CardTitle>
+                  <span className="text-sm font-medium text-emerald-400">
+                    {formatCurrency(metrics.collectedToday)}
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {collections.length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <Banknote className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No collections today</p>
+                  </div>
+                ) : (
+                  collections.slice(0, 5).map((collection) => (
+                    <div
+                      key={collection.id}
+                      className="flex items-center justify-between p-2 rounded-lg border"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">{collection.load_number}</p>
+                        <p className="text-xs text-muted-foreground">{collection.company_name}</p>
+                      </div>
+                      <span className="text-sm font-medium text-emerald-400">
+                        ${collection.amount.toLocaleString()}
+                      </span>
+                    </div>
                   ))
                 )}
               </CardContent>

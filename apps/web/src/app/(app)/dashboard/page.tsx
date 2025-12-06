@@ -93,6 +93,8 @@ export default async function DashboardPage() {
         assignedLoads={data.assignedLoads}
         drivers={data.drivers}
         availableLoads={data.availableLoads}
+        todaysSchedule={data.todaysSchedule}
+        collections={data.collections}
         metrics={data.metrics}
       />
     );

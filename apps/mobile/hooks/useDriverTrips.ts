@@ -8,52 +8,61 @@ export function useDriverTrips() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
-
-  const fetchTrips = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      // First get the driver record for this auth user
-      const { data: driver, error: driverError } = await supabase
-        .from('drivers')
-        .select('id, owner_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (driverError || !driver) {
-        setError('Driver profile not found');
-        setTrips([]);
-        return;
-      }
-
-      // Fetch trips assigned to this driver
-      const { data: tripsData, error: tripsError } = await supabase
-        .from('trips')
-        .select('*')
-        .eq('driver_id', driver.id)
-        .eq('owner_id', driver.owner_id)
-        .order('start_date', { ascending: false });
-
-      if (tripsError) {
-        throw tripsError;
-      }
-
-      setTrips(tripsData || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch trips');
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+  const hasFetched = useRef(false);
 
   useEffect(() => {
-    fetchTrips();
-  }, [fetchTrips]);
+    if (!user?.id || hasFetched.current) return;
 
-  return { trips, loading, error, refetch: fetchTrips };
+    hasFetched.current = true;
+    setLoading(true);
+
+    const fetchData = async () => {
+      try {
+        // First get the driver record for this auth user
+        const { data: driver, error: driverError } = await supabase
+          .from('drivers')
+          .select('id, owner_id')
+          .eq('auth_user_id', user.id)
+          .single();
+
+        if (driverError || !driver) {
+          setError('Driver profile not found');
+          setTrips([]);
+          return;
+        }
+
+        // Fetch trips assigned to this driver
+        const { data: tripsData, error: tripsError } = await supabase
+          .from('trips')
+          .select('*')
+          .eq('driver_id', driver.id)
+          .eq('owner_id', driver.owner_id)
+          .order('start_date', { ascending: false });
+
+        if (tripsError) {
+          throw tripsError;
+        }
+
+        console.log('[useDriverTrips] Fetched trips:', tripsData?.length);
+        setTrips(tripsData || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch trips');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [user?.id]);
+
+  const refetch = useCallback(() => {
+    hasFetched.current = false;
+    setLoading(true);
+    setError(null);
+    setTrips([]);
+  }, []);
+
+  return { trips, loading, error, refetch };
 }
 
 // Helper to add timeout to promises

@@ -214,12 +214,28 @@ export interface CarrierDashboardData {
     pickup_date: string;
     estimated_cuft: number | null;
   }[];
+  todaysSchedule: {
+    id: string;
+    type: 'pickup' | 'delivery';
+    load_number: string;
+    city: string;
+    state: string;
+    time: string;
+  }[];
+  collections: {
+    id: string;
+    load_number: string;
+    amount: number;
+    collected_at: string;
+    company_name: string;
+  }[];
   metrics: {
     activeLoadsCount: number;
     driversOnRoad: number;
     totalDrivers: number;
-    earningsThisWeek: number;
-    earningsThisMonth: number;
+    moneyOwedToYou: number;
+    moneyYouOwe: number;
+    collectedToday: number;
     pendingRequestsCount: number;
   };
 }
@@ -233,16 +249,24 @@ export async function getCarrierDashboardData(userId: string): Promise<CarrierDa
       assignedLoads: [],
       drivers: [],
       availableLoads: [],
+      todaysSchedule: [],
+      collections: [],
       metrics: {
         activeLoadsCount: 0,
         driversOnRoad: 0,
         totalDrivers: 0,
-        earningsThisWeek: 0,
-        earningsThisMonth: 0,
+        moneyOwedToYou: 0,
+        moneyYouOwe: 0,
+        collectedToday: 0,
         pendingRequestsCount: 0,
       },
     };
   }
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd = new Date(todayStart);
+  todayEnd.setDate(todayEnd.getDate() + 1);
 
   // Get assigned loads
   const { data: assignedLoads } = await supabase
@@ -273,7 +297,7 @@ export async function getCarrierDashboardData(userId: string): Promise<CarrierDa
     .eq('is_active', true)
     .limit(10);
 
-  // Get available loads from marketplace (simplified - just get recent)
+  // Get available loads from marketplace
   const { data: availableLoads } = await supabase
     .from('loads')
     .select(`
@@ -293,6 +317,34 @@ export async function getCarrierDashboardData(userId: string): Promise<CarrierDa
     .order('pickup_date', { ascending: true })
     .limit(5);
 
+  // Get today's schedule (pickups and deliveries)
+  const { data: todayPickups } = await supabase
+    .from('loads')
+    .select('id, load_number, origin_city, origin_state, pickup_date')
+    .eq('assigned_carrier_id', company.id)
+    .gte('pickup_date', todayStart.toISOString().split('T')[0])
+    .lt('pickup_date', todayEnd.toISOString().split('T')[0])
+    .in('load_status', ['accepted', 'loading'])
+    .limit(5);
+
+  const { data: todayDeliveries } = await supabase
+    .from('loads')
+    .select('id, load_number, destination_city, destination_state, delivery_date')
+    .eq('assigned_carrier_id', company.id)
+    .gte('delivery_date', todayStart.toISOString().split('T')[0])
+    .lt('delivery_date', todayEnd.toISOString().split('T')[0])
+    .eq('load_status', 'in_transit')
+    .limit(5);
+
+  // Get today's collections (payments received today)
+  const { data: todayCollections } = await supabase
+    .from('payments')
+    .select('id, amount, created_at, load:load_id(load_number), company:company_id(name)')
+    .eq('carrier_id', company.id)
+    .gte('created_at', todayStart.toISOString())
+    .lt('created_at', todayEnd.toISOString())
+    .limit(5);
+
   // Count active loads
   const { count: activeCount } = await supabase
     .from('loads')
@@ -300,30 +352,25 @@ export async function getCarrierDashboardData(userId: string): Promise<CarrierDa
     .eq('assigned_carrier_id', company.id)
     .in('load_status', ['pending', 'accepted', 'loading', 'in_transit']);
 
-  // Calculate earnings (simplified - sum of carrier_rate for delivered loads)
-  const now = new Date();
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay());
-  startOfWeek.setHours(0, 0, 0, 0);
+  // Get receivables (money owed to carrier - simplified: look at company_ledger or calculate from loads)
+  // For now, we'll use a simplified approach based on delivered loads with outstanding balances
+  const { data: receivables } = await supabase
+    .from('company_ledger')
+    .select('balance')
+    .eq('company_id', company.id)
+    .gt('balance', 0);
 
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const { data: payables } = await supabase
+    .from('company_ledger')
+    .select('balance')
+    .eq('company_id', company.id)
+    .lt('balance', 0);
 
-  const { data: weekLoads } = await supabase
-    .from('loads')
-    .select('carrier_rate')
-    .eq('assigned_carrier_id', company.id)
-    .eq('load_status', 'delivered')
-    .gte('updated_at', startOfWeek.toISOString());
+  const moneyOwedToYou = (receivables || []).reduce((sum, r) => sum + (r.balance || 0), 0);
+  const moneyYouOwe = Math.abs((payables || []).reduce((sum, p) => sum + (p.balance || 0), 0));
 
-  const { data: monthLoads } = await supabase
-    .from('loads')
-    .select('carrier_rate')
-    .eq('assigned_carrier_id', company.id)
-    .eq('load_status', 'delivered')
-    .gte('updated_at', startOfMonth.toISOString());
-
-  const earningsThisWeek = (weekLoads || []).reduce((sum, l) => sum + (l.carrier_rate || 0), 0);
-  const earningsThisMonth = (monthLoads || []).reduce((sum, l) => sum + (l.carrier_rate || 0), 0);
+  // Sum today's collections
+  const collectedToday = (todayCollections || []).reduce((sum, c) => sum + (c.amount || 0), 0);
 
   // Count pending requests
   const { count: pendingRequests } = await supabase
@@ -333,6 +380,26 @@ export async function getCarrierDashboardData(userId: string): Promise<CarrierDa
     .eq('status', 'pending');
 
   const driversOnRoad = (drivers || []).filter(d => d.current_trip_id).length;
+
+  // Combine schedule events
+  const scheduleEvents: CarrierDashboardData['todaysSchedule'] = [
+    ...(todayPickups || []).map(p => ({
+      id: p.id,
+      type: 'pickup' as const,
+      load_number: p.load_number,
+      city: p.origin_city || '',
+      state: p.origin_state || '',
+      time: p.pickup_date ? new Date(p.pickup_date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : 'TBD',
+    })),
+    ...(todayDeliveries || []).map(d => ({
+      id: d.id,
+      type: 'delivery' as const,
+      load_number: d.load_number,
+      city: d.destination_city || '',
+      state: d.destination_state || '',
+      time: d.delivery_date ? new Date(d.delivery_date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : 'TBD',
+    })),
+  ];
 
   return {
     assignedLoads: (assignedLoads || []).map(l => ({
@@ -363,12 +430,21 @@ export async function getCarrierDashboardData(userId: string): Promise<CarrierDa
       pickup_date: l.pickup_date || '',
       estimated_cuft: l.estimated_cuft,
     })),
+    todaysSchedule: scheduleEvents,
+    collections: (todayCollections || []).map(c => ({
+      id: c.id,
+      load_number: (c.load as any)?.load_number || 'Unknown',
+      amount: c.amount || 0,
+      collected_at: c.created_at,
+      company_name: (c.company as any)?.name || 'Unknown',
+    })),
     metrics: {
       activeLoadsCount: activeCount || 0,
       driversOnRoad,
       totalDrivers: (drivers || []).length,
-      earningsThisWeek,
-      earningsThisMonth,
+      moneyOwedToYou,
+      moneyYouOwe,
+      collectedToday,
       pendingRequestsCount: pendingRequests || 0,
     },
   };
