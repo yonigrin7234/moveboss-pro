@@ -378,9 +378,8 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
 
     try {
       if (isUnassigning) {
-        // To unassign, we need to set driver_id to null directly in the database
-        // The updateTrip function expects undefined to trigger the clear logic
-        await updateTrip(id, { driver_id: undefined } as any, currentUser.id);
+        // To unassign, we set driver_id to null explicitly
+        await updateTrip(id, { driver_id: null }, currentUser.id);
       } else {
         await updateTrip(id, { driver_id: driverId as string }, currentUser.id);
       }
@@ -402,17 +401,17 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     const truckId = formData.get('truck_id');
     const trailerId = formData.get('trailer_id');
 
-    // Build update payload - empty string means unassign
-    const updatePayload: Record<string, string | undefined> = {};
+    // Build update payload - empty string means unassign (set to null)
+    const updatePayload: Record<string, string | null> = {};
     if (truckId !== null) {
-      updatePayload.truck_id = truckId === '' || truckId === 'unassigned' ? undefined : (truckId as string);
+      updatePayload.truck_id = truckId === '' || truckId === 'unassigned' ? null : (truckId as string);
     }
     if (trailerId !== null) {
-      updatePayload.trailer_id = trailerId === '' || trailerId === 'unassigned' ? undefined : (trailerId as string);
+      updatePayload.trailer_id = trailerId === '' || trailerId === 'unassigned' ? null : (trailerId as string);
     }
 
     try {
-      await updateTrip(id, updatePayload as any, currentUser.id);
+      await updateTrip(id, updatePayload, currentUser.id);
       revalidatePath(`/dashboard/trips/${id}`);
       revalidatePath('/dashboard/trips');
       // Also revalidate assigned-loads since equipment is inherited

@@ -1984,13 +1984,15 @@ export async function assignLoadToTrip(
 
   console.log('assignLoadToTrip: Starting', { loadId, tripId, userId: user.id });
 
-  // Get trip details for driver info and owner_id
+  // Get trip details for driver info, equipment, and owner_id
   const { data: trip, error: tripError } = await supabase
     .from('trips')
     .select(`
       id,
       owner_id,
       driver_id,
+      truck_id,
+      trailer_id,
       driver:drivers(id, first_name, last_name)
     `)
     .eq('id', tripId)
@@ -2075,7 +2077,7 @@ export async function assignLoadToTrip(
 
   console.log('assignLoadToTrip: Successfully inserted into trip_loads', { id: insertedTripLoad.id });
 
-  // Update the load with trip info and driver
+  // Update the load with trip info, driver, and equipment (equipment inheritance)
   const { data: updatedLoad, error: loadError } = await supabase
     .from('loads')
     .update({
@@ -2085,6 +2087,9 @@ export async function assignLoadToTrip(
       assigned_driver_id: driver?.id || null,
       assigned_driver_name: driverName,
       marketplace_driver_name: driverName,
+      // EQUIPMENT INHERITANCE: Sync equipment from trip (same as addLoadToTrip in trips.ts)
+      assigned_truck_id: trip?.truck_id || null,
+      assigned_trailer_id: trip?.trailer_id || null,
       operational_status: 'assigned_to_driver',
       last_status_update: new Date().toISOString(),
       updated_at: new Date().toISOString(),

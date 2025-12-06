@@ -683,9 +683,9 @@ export async function createLoad(input: NewLoadInput, userId: string): Promise<L
     customer_phone: isOwnCustomer ? nullable(input.customer_phone) : null,
     delivery_address_full: isOwnCustomer ? nullable(input.delivery_address_full) : null,
     balance_due: isOwnCustomer ? nullable(input.balance_due) : null,
-    assigned_driver_id: nullable(input.assigned_driver_id),
-    assigned_truck_id: nullable(input.assigned_truck_id),
-    assigned_trailer_id: nullable(input.assigned_trailer_id),
+    // EQUIPMENT INHERITANCE: Driver and equipment are NOT set at creation.
+    // They are inherited from the trip via addLoadToTrip() or syncTripEquipmentToLoads().
+    // assigned_driver_id, assigned_truck_id, assigned_trailer_id intentionally omitted.
     pickup_date: normalizeDate(input.pickup_date),
     pickup_window_start: normalizeDateTime(input.pickup_window_start),
     pickup_window_end: normalizeDateTime(input.pickup_window_end),

@@ -34,9 +34,9 @@ export const newTripInputSchema = z.object({
   trip_number: z.string().trim().max(100).optional(), // Auto-generated if not provided
   reference_number: z.string().trim().max(100).optional(), // Owner's custom reference
   status: tripStatusSchema.optional().default('planned'),
-  driver_id: z.string().uuid().optional(),
-  truck_id: z.string().uuid().optional(),
-  trailer_id: z.string().uuid().optional(),
+  driver_id: z.string().uuid().nullable().optional(),
+  truck_id: z.string().uuid().nullable().optional(),
+  trailer_id: z.string().uuid().nullable().optional(),
   origin_city: optionalTrimmedString(100),
   origin_state: optionalTrimmedString(50),
   origin_postal_code: optionalTrimmedString(20),
