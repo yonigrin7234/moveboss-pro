@@ -39,6 +39,9 @@ export default function TripsScreen() {
   const insets = useSafeAreaInsets();
   const sortedTrips = sortTrips(trips);
 
+  // DEBUG
+  console.log('[TripsScreen] loading:', loading, 'trips:', trips.length, 'error:', error);
+
   const renderItem = useCallback(({ item }: { item: Trip }) => (
     <MemoizedTripCard trip={item} />
   ), []);

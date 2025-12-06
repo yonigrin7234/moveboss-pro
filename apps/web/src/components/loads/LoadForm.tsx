@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/select';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DatePicker } from '@/components/ui/date-picker';
 
 // Helper component for Select with hidden input
 function SelectWithHiddenInput({
@@ -405,11 +406,10 @@ export function LoadForm({
                 <div className="grid grid-cols-3 gap-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="pickup_date" className="text-sm">Date</Label>
-                    <Input
-                      id="pickup_date"
+                    <DatePicker
                       name="pickup_date"
-                      type="date"
                       defaultValue={initialData?.pickup_date || ''}
+                      placeholder="Select date"
                       className="h-9"
                     />
                   </div>
@@ -565,11 +565,10 @@ export function LoadForm({
               <div className="grid grid-cols-3 gap-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="delivery_date" className="text-sm">Date</Label>
-                  <Input
-                    id="delivery_date"
+                  <DatePicker
                     name="delivery_date"
-                    type="date"
                     defaultValue={initialData?.delivery_date || ''}
+                    placeholder="Select date"
                     className="h-9"
                   />
                 </div>

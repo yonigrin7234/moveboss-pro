@@ -136,6 +136,10 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
       await updateLoad(id, validated, user.id);
       redirect(`/dashboard/loads/${id}`);
     } catch (error) {
+      // Allow Next.js redirects to bubble through
+      if (error && typeof error === 'object' && 'digest' in error && `${(error as any).digest}`.startsWith('NEXT_REDIRECT')) {
+        throw error;
+      }
       if (error && typeof error === 'object' && 'issues' in error) {
         const zodError = error as { issues: Array<{ path: (string | number)[]; message: string }> };
         const errors: Record<string, string> = {};
