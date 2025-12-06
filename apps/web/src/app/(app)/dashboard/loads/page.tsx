@@ -9,6 +9,7 @@ import {
   type LoadStatus,
 } from '@/data/loads';
 import { getCompaniesForUser, type Company } from '@/data/companies';
+import { getTripsForLoadAssignment, addLoadToTrip, addTripLoadInputSchema, type Trip } from '@/data/trips';
 import { LoadListFilters } from './load-list-filters';
 import { LoadsTableWithSharing } from './loads-table-with-sharing';
 import { Button } from '@/components/ui/button';
@@ -43,10 +44,39 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
 
   let loads: Load[] = [];
   let companies: Company[] = [];
+  let trips: Trip[] = [];
   let stats = { totalLoads: 0, pending: 0, inTransit: 0, delivered: 0 };
   let publicBoardUrl: string | null = null;
   let publicBoardSlug: string | null = null;
   let error: string | null = null;
+
+  // Server action to assign loads to a trip
+  async function assignLoadsToTripAction(
+    tripId: string,
+    loadIds: string[]
+  ): Promise<{ success: boolean; error?: string }> {
+    'use server';
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    try {
+      // Add each load to the trip
+      for (const loadId of loadIds) {
+        // Parse through schema to apply defaults (sequence_index, role)
+        const input = addTripLoadInputSchema.parse({ load_id: loadId });
+        await addLoadToTrip(tripId, input, currentUser.id);
+      }
+      return { success: true };
+    } catch (err) {
+      console.error('Error assigning loads to trip:', err);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Failed to assign loads',
+      };
+    }
+  }
 
   try {
     const supabase = await createClient();
@@ -67,14 +97,16 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
       }
     }
 
-    const [loadsResult, companiesResult, statsResult] = await Promise.all([
+    const [loadsResult, companiesResult, statsResult, tripsResult] = await Promise.all([
       getLoadsForUser(user.id, filters),
       getCompaniesForUser(user.id),
       getLoadStatsForUser(user.id),
+      getTripsForLoadAssignment(user.id),
     ]);
     loads = loadsResult;
     companies = companiesResult;
     stats = statsResult;
+    trips = tripsResult;
   } catch (err) {
     error = err instanceof Error ? err.message : 'Failed to load loads';
   }
@@ -146,6 +178,8 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
         loads={loads}
         publicBoardUrl={publicBoardUrl}
         publicBoardSlug={publicBoardSlug}
+        trips={trips}
+        onAssignToTrip={assignLoadsToTripAction}
       />
     </div>
   );

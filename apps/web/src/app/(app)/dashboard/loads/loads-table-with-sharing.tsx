@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import {
-  Share2,
   Copy,
   ExternalLink,
   Settings,
@@ -11,6 +10,7 @@ import {
   X,
   Globe,
   MessageCircle,
+  Truck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +25,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ShareLoadModal } from '@/components/sharing/ShareLoadModal';
+import { AssignToTripModal } from '@/components/loads/AssignToTripModal';
 
 interface Load {
   id: string;
@@ -51,10 +52,26 @@ interface Load {
   company?: { name: string } | { name: string }[] | null;
 }
 
+interface Trip {
+  id: string;
+  trip_number: string | null;
+  status: string;
+  start_date: string | null;
+  origin_city: string | null;
+  origin_state: string | null;
+  destination_city: string | null;
+  destination_state: string | null;
+  driver?: { id: string; first_name: string; last_name: string } | { id: string; first_name: string; last_name: string }[] | null;
+  truck?: { id: string; unit_number: string } | { id: string; unit_number: string }[] | null;
+  trailer?: { id: string; unit_number: string } | { id: string; unit_number: string }[] | null;
+}
+
 interface LoadsTableWithSharingProps {
   loads: Load[];
   publicBoardUrl: string | null;
   publicBoardSlug: string | null;
+  trips?: Trip[];
+  onAssignToTrip?: (tripId: string, loadIds: string[]) => Promise<{ success: boolean; error?: string }>;
 }
 
 function formatStatus(status: Load['status']): string {
@@ -117,11 +134,15 @@ export function LoadsTableWithSharing({
   loads,
   publicBoardUrl,
   publicBoardSlug,
+  trips = [],
+  onAssignToTrip,
 }: LoadsTableWithSharingProps) {
   const [selectedLoads, setSelectedLoads] = useState<Set<string>>(new Set());
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareLoadIds, setShareLoadIds] = useState<string[]>([]);
   const [copiedBoardUrl, setCopiedBoardUrl] = useState(false);
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [assignLoadIds, setAssignLoadIds] = useState<string[]>([]);
 
   // Filter only pending loads for selection (only open loads can be shared)
   const shareableLoads = loads.filter((l) => l.status === 'pending');
@@ -161,6 +182,19 @@ export function LoadsTableWithSharing({
       console.error('Failed to copy:', e);
     }
   };
+
+  const openAssignModal = (ids: string[]) => {
+    setAssignLoadIds(ids);
+    setAssignModalOpen(true);
+  };
+
+  // Normalize trips data (handle array vs single object for nested relations)
+  const normalizedTrips = trips.map((t) => ({
+    ...t,
+    driver: Array.isArray(t.driver) ? t.driver[0] : t.driver,
+    truck: Array.isArray(t.truck) ? t.truck[0] : t.truck,
+    trailer: Array.isArray(t.trailer) ? t.trailer[0] : t.trailer,
+  }));
 
   return (
     <>
@@ -403,6 +437,16 @@ export function LoadsTableWithSharing({
             <span className="text-sm font-medium px-3">
               {selectedLoads.size} selected
             </span>
+            {onAssignToTrip && (
+              <Button
+                size="sm"
+                onClick={() => openAssignModal(Array.from(selectedLoads))}
+                className="rounded-full bg-primary hover:bg-primary/90 text-white h-9 px-4 gap-2"
+              >
+                <Truck className="h-4 w-4" />
+                Assign to Trip
+              </Button>
+            )}
             <Button
               size="sm"
               onClick={() => openShareModal(Array.from(selectedLoads))}
@@ -430,6 +474,21 @@ export function LoadsTableWithSharing({
           setShareLoadIds([]);
         }}
       />
+
+      {/* Assign to Trip Modal */}
+      {onAssignToTrip && (
+        <AssignToTripModal
+          loadIds={assignLoadIds}
+          isOpen={assignModalOpen}
+          onClose={() => {
+            setAssignModalOpen(false);
+            setAssignLoadIds([]);
+            setSelectedLoads(new Set());
+          }}
+          onAssign={onAssignToTrip}
+          trips={normalizedTrips}
+        />
+      )}
     </>
   );
 }
