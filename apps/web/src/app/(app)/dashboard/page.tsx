@@ -108,6 +108,7 @@ export default async function DashboardPage() {
         currentLoad={data.currentLoad}
         upcomingLoads={data.upcomingLoads}
         availableLoads={data.availableLoads}
+        todaysSchedule={data.todaysSchedule}
         metrics={data.metrics}
       />
     );

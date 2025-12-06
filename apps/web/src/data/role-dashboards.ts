@@ -493,10 +493,21 @@ export interface OwnerOperatorDashboardData {
     pickup_date: string;
     estimated_cuft: number | null;
   }[];
+  todaysSchedule: {
+    id: string;
+    type: 'pickup' | 'delivery';
+    load_number: string;
+    city: string;
+    state: string;
+    time: string;
+  }[];
   metrics: {
     earningsThisWeek: number;
     earningsThisMonth: number;
     completedLoadsThisMonth: number;
+    moneyOwedToYou: number;
+    moneyYouOwe: number;
+    collectedToday: number;
     pendingRequestsCount: number;
   };
 }
@@ -510,10 +521,14 @@ export async function getOwnerOperatorDashboardData(userId: string): Promise<Own
       currentLoad: null,
       upcomingLoads: [],
       availableLoads: [],
+      todaysSchedule: [],
       metrics: {
         earningsThisWeek: 0,
         earningsThisMonth: 0,
         completedLoadsThisMonth: 0,
+        moneyOwedToYou: 0,
+        moneyYouOwe: 0,
+        collectedToday: 0,
         pendingRequestsCount: 0,
       },
     };
@@ -608,6 +623,75 @@ export async function getOwnerOperatorDashboardData(userId: string): Promise<Own
     .eq('carrier_id', company.id)
     .eq('status', 'pending');
 
+  // Today's schedule (pickups and deliveries)
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd = new Date(todayStart);
+  todayEnd.setDate(todayEnd.getDate() + 1);
+
+  const { data: todayPickups } = await supabase
+    .from('loads')
+    .select('id, load_number, origin_city, origin_state, pickup_date')
+    .eq('assigned_carrier_id', company.id)
+    .gte('pickup_date', todayStart.toISOString().split('T')[0])
+    .lt('pickup_date', todayEnd.toISOString().split('T')[0])
+    .in('load_status', ['accepted', 'loading'])
+    .limit(5);
+
+  const { data: todayDeliveries } = await supabase
+    .from('loads')
+    .select('id, load_number, destination_city, destination_state, delivery_date')
+    .eq('assigned_carrier_id', company.id)
+    .gte('delivery_date', todayStart.toISOString().split('T')[0])
+    .lt('delivery_date', todayEnd.toISOString().split('T')[0])
+    .eq('load_status', 'in_transit')
+    .limit(5);
+
+  // Combine schedule events
+  const scheduleEvents: OwnerOperatorDashboardData['todaysSchedule'] = [
+    ...(todayPickups || []).map(p => ({
+      id: p.id,
+      type: 'pickup' as const,
+      load_number: p.load_number,
+      city: p.origin_city || '',
+      state: p.origin_state || '',
+      time: p.pickup_date ? new Date(p.pickup_date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : 'TBD',
+    })),
+    ...(todayDeliveries || []).map(d => ({
+      id: d.id,
+      type: 'delivery' as const,
+      load_number: d.load_number,
+      city: d.destination_city || '',
+      state: d.destination_state || '',
+      time: d.delivery_date ? new Date(d.delivery_date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : 'TBD',
+    })),
+  ];
+
+  // Get receivables (money owed to owner-operator)
+  const { data: receivables } = await supabase
+    .from('company_ledger')
+    .select('balance')
+    .eq('company_id', company.id)
+    .gt('balance', 0);
+
+  const { data: payables } = await supabase
+    .from('company_ledger')
+    .select('balance')
+    .eq('company_id', company.id)
+    .lt('balance', 0);
+
+  const moneyOwedToYou = (receivables || []).reduce((sum, r) => sum + (r.balance || 0), 0);
+  const moneyYouOwe = Math.abs((payables || []).reduce((sum, p) => sum + (p.balance || 0), 0));
+
+  // Get today's collections
+  const { data: todayCollections } = await supabase
+    .from('payments')
+    .select('amount')
+    .eq('carrier_id', company.id)
+    .gte('created_at', todayStart.toISOString())
+    .lt('created_at', todayEnd.toISOString());
+
+  const collectedToday = (todayCollections || []).reduce((sum, c) => sum + (c.amount || 0), 0);
+
   const mapLoad = (l: any) => ({
     id: l.id,
     load_number: l.load_number,
@@ -636,10 +720,14 @@ export async function getOwnerOperatorDashboardData(userId: string): Promise<Own
       pickup_date: l.pickup_date || '',
       estimated_cuft: l.estimated_cuft,
     })),
+    todaysSchedule: scheduleEvents,
     metrics: {
       earningsThisWeek,
       earningsThisMonth,
       completedLoadsThisMonth: completedCount || 0,
+      moneyOwedToYou,
+      moneyYouOwe,
+      collectedToday,
       pendingRequestsCount: pendingRequests || 0,
     },
   };

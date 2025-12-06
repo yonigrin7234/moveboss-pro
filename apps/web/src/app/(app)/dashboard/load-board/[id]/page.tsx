@@ -574,10 +574,10 @@ export default async function LoadDetailPage({ params }: PageProps) {
                   )}
                 </div>
               )}
-              {load.rate_is_fixed ? (
-                <p className="text-sm text-muted-foreground pt-2">Fixed rate - no negotiation</p>
+              {!load.is_open_to_counter ? (
+                <p className="text-sm text-muted-foreground pt-2">Fixed rate - no counter offers</p>
               ) : (
-                <p className="text-sm text-muted-foreground pt-2">Open to offers</p>
+                <p className="text-sm text-muted-foreground pt-2">Open to counter offers</p>
               )}
             </CardContent>
           </Card>

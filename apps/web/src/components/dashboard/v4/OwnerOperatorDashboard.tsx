@@ -44,14 +44,27 @@ interface AvailableLoad {
   estimated_cuft: number | null;
 }
 
+interface ScheduleEvent {
+  id: string;
+  type: 'pickup' | 'delivery';
+  load_number: string;
+  city: string;
+  state: string;
+  time: string;
+}
+
 interface OwnerOperatorDashboardProps {
   currentLoad: CurrentLoad | null;
   upcomingLoads: CurrentLoad[];
   availableLoads: AvailableLoad[];
+  todaysSchedule: ScheduleEvent[];
   metrics: {
     earningsThisWeek: number;
     earningsThisMonth: number;
     completedLoadsThisMonth: number;
+    moneyOwedToYou: number;
+    moneyYouOwe: number;
+    collectedToday: number;
     pendingRequestsCount: number;
   };
 }
@@ -75,6 +88,7 @@ export function OwnerOperatorDashboard({
   currentLoad,
   upcomingLoads,
   availableLoads,
+  todaysSchedule,
   metrics,
 }: OwnerOperatorDashboardProps) {
   const status = currentLoad ? (statusConfig[currentLoad.load_status] || statusConfig.pending) : null;
@@ -175,8 +189,8 @@ export function OwnerOperatorDashboard({
           </Card>
         )}
 
-        {/* EARNINGS */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
+        {/* EARNINGS & FINANCIAL */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
           <Card>
             <CardContent className="p-4 text-center">
               <p className="text-xs text-muted-foreground uppercase tracking-wide">This Week</p>
@@ -197,6 +211,80 @@ export function OwnerOperatorDashboard({
             </CardContent>
           </Card>
         </div>
+
+        {/* FINANCIAL STATUS */}
+        {(metrics.moneyOwedToYou > 0 || metrics.moneyYouOwe > 0 || metrics.collectedToday > 0) && (
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            <Link href="/dashboard/finance/receivables">
+              <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+                <CardContent className="p-4 text-center">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Owed to You</p>
+                  <p className="text-lg font-bold text-emerald-400">{formatCurrency(metrics.moneyOwedToYou)}</p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/dashboard/finance/payables">
+              <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+                <CardContent className="p-4 text-center">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">You Owe</p>
+                  <p className="text-lg font-bold text-red-400">{formatCurrency(metrics.moneyYouOwe)}</p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/dashboard/finance/receivables">
+              <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+                <CardContent className="p-4 text-center">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Collected Today</p>
+                  <p className="text-lg font-bold text-blue-400">{formatCurrency(metrics.collectedToday)}</p>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
+        )}
+
+        {/* TODAY'S SCHEDULE */}
+        {todaysSchedule.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-medium flex items-center gap-2">
+                <Clock className="h-4 w-4 text-blue-400" />
+                Today's Schedule
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {todaysSchedule.map((event) => (
+                <Link
+                  key={event.id}
+                  href={`/dashboard/assigned-loads/${event.id}`}
+                  className="block p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
+                        event.type === 'pickup' ? 'bg-blue-500/20' : 'bg-emerald-500/20'
+                      }`}>
+                        {event.type === 'pickup' ? (
+                          <Package className="h-4 w-4 text-blue-400" />
+                        ) : (
+                          <CheckCircle className="h-4 w-4 text-emerald-400" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">
+                          {event.type === 'pickup' ? 'Pickup' : 'Delivery'} - {event.load_number}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {event.city}, {event.state}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{event.time}</span>
+                  </div>
+                </Link>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         {/* UPCOMING LOADS */}
         {upcomingLoads.length > 0 && (
