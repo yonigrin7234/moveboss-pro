@@ -29,6 +29,32 @@ function formatTruckStatus(status: Truck['status']): string {
   }
 }
 
+function formatTruckVehicleType(vehicleType: Truck['vehicle_type']): string {
+  if (!vehicleType) return '—';
+  switch (vehicleType) {
+    case 'tractor':
+      return 'Tractor';
+    case '26ft_box_truck':
+      return '26\' Box Truck';
+    case '22ft_box_truck':
+      return '22\' Box Truck';
+    case '20ft_box_truck':
+      return '20\' Box Truck';
+    case '16ft_box_truck':
+      return '16\' Box Truck';
+    case '12ft_box_truck':
+      return '12\' Box Truck';
+    case 'sprinter_van':
+      return 'Sprinter Van';
+    case 'cargo_van':
+      return 'Cargo Van';
+    case 'other':
+      return 'Other';
+    default:
+      return vehicleType;
+  }
+}
+
 function formatTrailerStatus(status: Trailer['status']): string {
   switch (status) {
     case 'active':
@@ -131,6 +157,7 @@ export default async function FleetPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Unit #</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>Year/Make/Model</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Assigned Driver</TableHead>
@@ -151,6 +178,7 @@ export default async function FleetPage() {
                           {truck.unit_number || truck.plate_number || '—'}
                         </Link>
                       </TableCell>
+                      <TableCell>{formatTruckVehicleType(truck.vehicle_type)}</TableCell>
                       <TableCell>
                         {[truck.year, truck.make, truck.model].filter(Boolean).join(' ') || '—'}
                       </TableCell>
