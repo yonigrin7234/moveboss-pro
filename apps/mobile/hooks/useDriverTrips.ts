@@ -8,6 +8,7 @@ import {
   clearCache,
   CACHE_KEYS,
 } from '../lib/offlineCache';
+import { useTripRealtimeSubscription } from './useRealtimeSubscription';
 
 // Module-level cache to persist across component mounts
 const tripsCache: { data: Trip[] | null; fetchedForUser: string | null } = {
@@ -148,6 +149,8 @@ export function useDriverTripDetail(tripId: string | null) {
   const [loading, setLoading] = useState(() => !hasCachedData);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [ownerId, setOwnerId] = useState<string | null>(null);
+  const isFetchingRef = useRef(false);
 
   // Load from persistent cache
   useEffect(() => {
@@ -203,6 +206,9 @@ export function useDriverTripDetail(tripId: string | null) {
           }
           return;
         }
+
+        // Save owner ID for realtime subscription
+        setOwnerId(driver.owner_id);
 
         const { data: tripData, error: tripError } = await supabase
           .from('trips')
@@ -260,6 +266,24 @@ export function useDriverTripDetail(tripId: string | null) {
     setError(null);
     setTrip(null);
   }, [tripId, user?.id]);
+
+  // Silent background refetch for realtime updates
+  const silentRefetch = useCallback(() => {
+    if (!tripId || !user?.id || isFetchingRef.current) return;
+    // Clear the fetching flag to allow a new fetch
+    tripDetailFetching.delete(tripId);
+    isFetchingRef.current = true;
+    // This will trigger the useEffect to re-run
+    setIsRefreshing(true);
+  }, [tripId, user?.id]);
+
+  // Subscribe to realtime updates for this trip
+  useTripRealtimeSubscription({
+    tripId,
+    ownerId,
+    onDataChange: silentRefetch,
+    enabled: !!tripId && !!ownerId,
+  });
 
   return { trip, loading, error, refetch, isRefreshing };
 }

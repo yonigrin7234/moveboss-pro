@@ -20,6 +20,7 @@ import {
   clearCache,
   CACHE_KEYS,
 } from '../lib/offlineCache';
+import { useDriverRealtimeSubscription } from './useRealtimeSubscription';
 
 interface DashboardStats {
   todayEarnings: number;
@@ -63,6 +64,7 @@ export function useDriverDashboard(): DashboardData {
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const isFetchingRef = useRef(false);
+  const [driverInfo, setDriverInfo] = useState<{ driverId: string; ownerId: string } | null>(null);
 
   // Load from persistent cache on first mount
   useEffect(() => {
@@ -121,6 +123,9 @@ export function useDriverDashboard(): DashboardData {
         }
         return;
       }
+
+      // Save driver info for realtime subscription
+      setDriverInfo({ driverId: driver.id, ownerId: driver.owner_id });
 
       const { data: trips, error: tripsError } = await supabase
         .from('trips')
@@ -204,6 +209,21 @@ export function useDriverDashboard(): DashboardData {
     setError(null);
     fetchDashboardData();
   }, [user?.id, fetchDashboardData]);
+
+  // Silent background refetch for realtime updates (doesn't clear cache or show loading)
+  const silentRefetch = useCallback(() => {
+    if (!user?.id || isFetchingRef.current) return;
+    // Just trigger a background fetch - will show as isRefreshing
+    fetchDashboardData();
+  }, [user?.id, fetchDashboardData]);
+
+  // Subscribe to realtime updates
+  useDriverRealtimeSubscription({
+    driverId: driverInfo?.driverId || null,
+    ownerId: driverInfo?.ownerId || null,
+    onDataChange: silentRefetch,
+    enabled: !!driverInfo,
+  });
 
   // Calculate derived data
   const activeTrip = useMemo(() => {
