@@ -258,7 +258,8 @@ export async function computeTripFinancialsWithDriverPay(
   let driver_pay_breakdown: DriverPayCalculation | null = null;
   let calculated_driver_pay = 0;
 
-  const driver = trip.driver;
+  // Normalize driver - Supabase can return joined relations as arrays or objects
+  const driver = Array.isArray(trip.driver) ? trip.driver[0] : trip.driver;
   const hasDriver = driver && typeof driver === 'object' && 'pay_mode' in driver;
 
   if (hasDriver) {
