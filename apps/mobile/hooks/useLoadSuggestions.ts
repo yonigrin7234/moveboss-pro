@@ -101,8 +101,7 @@ export function useLoadSuggestions(tripId?: string): UseLoadSuggestionsReturn {
       }
 
       setSuggestions((data as LoadSuggestion[]) || []);
-    } catch (e) {
-      console.error('Error fetching suggestions:', e);
+    } catch {
       setError('Failed to load suggestions');
     } finally {
       setIsLoading(false);
@@ -129,8 +128,8 @@ export function useLoadSuggestions(tripId?: string): UseLoadSuggestionsReturn {
           s.id === suggestionId ? { ...s, status: 'viewed' as const } : s
         )
       );
-    } catch (e) {
-      console.error('Error marking suggestion as viewed:', e);
+    } catch {
+      // Silently fail
     }
   }, []);
 
@@ -153,7 +152,6 @@ export function useLoadSuggestions(tripId?: string): UseLoadSuggestionsReturn {
 
       // TODO: Send push notification to owner/dispatcher
     } catch (e) {
-      console.error('Error notifying dispatcher:', e);
       throw e;
     }
   }, []);

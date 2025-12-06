@@ -152,10 +152,10 @@ export function usePushNotifications(): UsePushNotificationsResult {
         );
 
       if (upsertError) {
-        console.error('Error saving push token:', upsertError);
+        // Silently fail - non-critical
       }
-    } catch (err) {
-      console.error('Error saving push token:', err);
+    } catch {
+      // Silently fail - non-critical
     }
   };
 
@@ -197,10 +197,9 @@ export function usePushNotifications(): UsePushNotificationsResult {
 }
 
 // Handle notification tap - navigate to appropriate screen
-function handleNotificationResponse(data: NotificationData) {
+function handleNotificationResponse(_data: NotificationData) {
   // Navigation will be handled by the component that uses this hook
   // This is just a placeholder for custom logic
-  console.log('Notification tapped:', data);
 }
 
 // Helper to schedule a local notification (for testing)

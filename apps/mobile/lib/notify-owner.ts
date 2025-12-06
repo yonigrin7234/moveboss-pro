@@ -72,7 +72,6 @@ async function sendDriverAction(payload: DriverActionPayload): Promise<void> {
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session?.access_token) {
-      console.log('No session, skipping owner notification');
       return;
     }
 
@@ -86,12 +85,10 @@ async function sendDriverAction(payload: DriverActionPayload): Promise<void> {
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      console.error('Failed to send owner notification:', error);
+      // Notification failed - silently continue
     }
-  } catch (error) {
-    // Log but don't throw - notifications shouldn't block driver actions
-    console.error('Error sending owner notification:', error);
+  } catch {
+    // Notifications shouldn't block driver actions
   }
 }
 

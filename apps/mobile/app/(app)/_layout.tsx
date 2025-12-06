@@ -7,10 +7,12 @@
 
 import { Tabs } from 'expo-router';
 import { CustomTabBar } from '../../components/CustomTabBar';
+import { ErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { colors } from '../../lib/theme';
 
 export default function AppLayout() {
   return (
+    <ErrorBoundary>
     <Tabs
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
@@ -132,5 +134,6 @@ export default function AppLayout() {
         }}
       />
     </Tabs>
+    </ErrorBoundary>
   );
 }

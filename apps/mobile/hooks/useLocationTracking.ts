@@ -119,8 +119,7 @@ export function useLocationTracking(tripId?: string): UseLocationTrackingReturn 
         setIsTracking(active);
 
         setIsLoading(false);
-      } catch (e) {
-        console.error('Error fetching driver info:', e);
+      } catch {
         setError('Failed to load driver settings');
         setIsLoading(false);
       }
@@ -139,10 +138,7 @@ export function useLocationTracking(tripId?: string): UseLocationTrackingReturn 
         setIsTracking(success);
 
         // Sync any cached locations
-        const synced = await syncCachedLocations();
-        if (synced > 0) {
-          console.log(`Synced ${synced} cached locations`);
-        }
+        await syncCachedLocations();
       } else {
         await stopLocationTracking();
         setIsTracking(false);
@@ -204,8 +200,7 @@ export function useLocationTracking(tripId?: string): UseLocationTrackingReturn 
           })
           .eq('id', tripId);
       }
-    } catch (e) {
-      console.error('Error refreshing location:', e);
+    } catch {
       setError('Failed to refresh location');
     }
   }, [tripId]);
@@ -240,8 +235,7 @@ export function useLocationTracking(tripId?: string): UseLocationTrackingReturn 
           ownerId: context.ownerId!,
           locationSharingEnabled: enabled,
         });
-      } catch (e) {
-        console.error('Error toggling location sharing:', e);
+      } catch {
         setError('Failed to update settings');
       }
     },

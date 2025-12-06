@@ -85,7 +85,6 @@ export function useImageUpload() {
         url: urlData.publicUrl,
       };
     } catch (err) {
-      console.error('Upload error:', err);
       return {
         success: false,
         error: err instanceof Error ? err.message : 'Failed to upload image',

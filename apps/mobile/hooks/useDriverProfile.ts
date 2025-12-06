@@ -47,7 +47,6 @@ export function useDriverProfile() {
 
       setDriver(data);
     } catch (err) {
-      console.error('[useDriverProfile] Error:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch driver profile');
       setDriver(null);
     } finally {

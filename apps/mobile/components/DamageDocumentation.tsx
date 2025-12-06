@@ -122,10 +122,8 @@ export function DamageDocumentation({
         const uploadResult = await uploadLoadPhoto(photoUri, loadId, 'document');
         if (uploadResult.success && uploadResult.url) {
           finalPhotoUrl = uploadResult.url;
-        } else {
-          // Photo upload failed but not required - continue
-          console.log('Photo upload failed, continuing without photo');
         }
+        // Photo upload failed but not required - continue without it
       }
 
       if (editingItem) {

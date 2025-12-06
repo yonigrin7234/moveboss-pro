@@ -183,8 +183,7 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
         currentDeliveryIndex: currentIndex,
         thisLoadDeliveryOrder: thisLoad.delivery_order
       };
-    } catch (err) {
-      console.error('Error checking delivery order:', err);
+    } catch {
       // On error, allow delivery to not block the driver
       return { allowed: true, currentDeliveryIndex: null, thisLoadDeliveryOrder: null };
     }
@@ -227,8 +226,7 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
           .eq('id', tripLoad.trip_id)
           .eq('owner_id', driver.owner_id);
       }
-    } catch (err) {
-      console.error('Error incrementing delivery index:', err);
+    } catch {
       // Non-critical, don't throw
     }
   };

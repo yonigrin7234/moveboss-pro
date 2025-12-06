@@ -320,8 +320,7 @@ export function useVehicleDocuments(): UseVehicleDocumentsReturn {
       } else {
         setTrailer(null);
       }
-    } catch (err) {
-      console.error('[useVehicleDocuments] Error:', err);
+    } catch {
       setError('Failed to load vehicle documents');
     } finally {
       setIsLoading(false);

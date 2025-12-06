@@ -162,8 +162,7 @@ export default function ContractDetailsScreen() {
       } else {
         toast.warning(result.error || 'Could not extract data');
       }
-    } catch (err) {
-      console.error('OCR error:', err);
+    } catch {
       toast.error('Scan failed - enter manually');
     } finally {
       setScanningLoadingReport(false);
@@ -215,8 +214,7 @@ export default function ContractDetailsScreen() {
       } else {
         toast.warning(result.error || 'Could not extract data');
       }
-    } catch (err) {
-      console.error('OCR error:', err);
+    } catch {
       toast.error('Scan failed - enter manually');
     } finally {
       setScanningBol(false);

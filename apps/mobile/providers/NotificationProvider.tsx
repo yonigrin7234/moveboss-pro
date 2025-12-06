@@ -76,13 +76,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return () => subscription.remove();
   }, [router, segments]);
 
-  // Log when notification is received in foreground
-  useEffect(() => {
-    if (notification) {
-      console.log('Notification received in foreground:', notification.request.content);
-    }
-  }, [notification]);
-
   return (
     <NotificationContext.Provider
       value={{

@@ -88,8 +88,6 @@ export default function TripStartRoute() {
       try {
         setError(null);
 
-        console.log('[TripStart] Fetching trip:', { tripId: id, userId: user.id });
-
         // Get driver record with timeout
         const driverResult = await withTimeout(
           supabase
@@ -104,12 +102,9 @@ export default function TripStartRoute() {
         const { data: driver, error: driverError } = driverResult;
 
         if (driverError || !driver) {
-          console.error('[TripStart] Driver error:', driverError);
           setError('Driver profile not found');
           return;
         }
-
-        console.log('[TripStart] Driver found:', driver.id);
 
         // Fetch trip with loads with timeout
         const tripResult = await withTimeout(
@@ -132,28 +127,22 @@ export default function TripStartRoute() {
         const { data: tripData, error: tripError } = tripResult;
 
         if (tripError) {
-          console.error('[TripStart] Trip error:', tripError);
           throw tripError;
         }
 
         if (!tripData) {
-          console.error('[TripStart] Trip not found');
           setError('Trip not found');
           return;
         }
 
         if (tripData.driver_id !== driver.id) {
-          console.error('[TripStart] Access denied - driver mismatch');
           setError('Access denied');
           return;
         }
-
-        console.log('[TripStart] Trip loaded successfully:', tripData.id);
         // Cache the result
         tripStartCache.set(id, { data: tripData, fetchedForUser: user.id });
         setTrip(tripData);
       } catch (err) {
-        console.error('[TripStart] Fetch error:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch trip');
       } finally {
         setLoading(false);

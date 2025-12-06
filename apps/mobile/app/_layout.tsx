@@ -17,6 +17,7 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
 import { NotificationProvider } from '../providers/NotificationProvider';
 import { ToastProvider } from '../components/ui/Toast';
+import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 import { colors } from '../lib/theme';
 
 function RootLayoutNav() {
@@ -81,7 +82,9 @@ export default function RootLayout() {
           <NotificationProvider>
             <BottomSheetModalProvider>
               <ToastProvider>
-                <RootLayoutNav />
+                <ErrorBoundary>
+                  <RootLayoutNav />
+                </ErrorBoundary>
               </ToastProvider>
             </BottomSheetModalProvider>
           </NotificationProvider>

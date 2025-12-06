@@ -123,9 +123,8 @@ async function updateTripLocation(tripId: string, location: Location.LocationObj
         current_location_updated_at: new Date().toISOString(),
       })
       .eq('id', tripId);
-  } catch (e) {
+  } catch {
     // Silently fail - trip location update is nice-to-have
-    console.log('Could not update trip location:', e);
   }
 }
 
@@ -182,21 +181,18 @@ export async function startLocationTracking(): Promise<boolean> {
     // Request foreground permissions first
     const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
     if (foregroundStatus !== 'granted') {
-      console.log('Foreground location permission denied');
       return false;
     }
 
     // Request background permissions
     const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
     if (backgroundStatus !== 'granted') {
-      console.log('Background location permission denied');
       // We can still do foreground tracking
     }
 
     // Check if already running
     const isRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
     if (isRunning) {
-      console.log('Location tracking already running');
       return true;
     }
 
@@ -215,10 +211,8 @@ export async function startLocationTracking(): Promise<boolean> {
       },
     });
 
-    console.log('Location tracking started');
     return true;
-  } catch (e) {
-    console.error('Error starting location tracking:', e);
+  } catch {
     return false;
   }
 }
@@ -231,10 +225,9 @@ export async function stopLocationTracking(): Promise<void> {
     const isRunning = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
     if (isRunning) {
       await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
-      console.log('Location tracking stopped');
     }
-  } catch (e) {
-    console.error('Error stopping location tracking:', e);
+  } catch {
+    // Silently fail
   }
 }
 
@@ -262,8 +255,7 @@ export async function getCurrentLocation(): Promise<Location.LocationObject | nu
     });
 
     return location;
-  } catch (e) {
-    console.error('Error getting current location:', e);
+  } catch {
     return null;
   }
 }

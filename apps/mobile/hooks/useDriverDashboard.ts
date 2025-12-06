@@ -5,6 +5,8 @@
  * - Trips with loads (for smart action calculation)
  * - Today's stats (earnings, miles, loads)
  * - Quick access to active trip
+ *
+ * Features offline caching for instant load on app restart.
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -12,6 +14,12 @@ import { supabase } from '../lib/supabase';
 import { TripWithLoads } from '../types';
 import { useAuth } from '../providers/AuthProvider';
 import { getNextAction, getAllPendingActions, NextAction } from '../lib/getNextAction';
+import {
+  saveToCache,
+  loadFromCache,
+  clearCache,
+  CACHE_KEYS,
+} from '../lib/offlineCache';
 
 interface DashboardStats {
   todayEarnings: number;
@@ -33,15 +41,46 @@ interface DashboardData {
   // State
   loading: boolean;
   error: string | null;
+  isRefreshing: boolean;
   refetch: () => Promise<void>;
 }
 
+// Module-level cache
+const dashboardCache: { data: TripWithLoads[] | null; fetchedForUser: string | null } = {
+  data: null,
+  fetchedForUser: null,
+};
+let persistentCacheLoaded = false;
+
 export function useDriverDashboard(): DashboardData {
-  const [tripsWithLoads, setTripsWithLoads] = useState<TripWithLoads[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const [tripsWithLoads, setTripsWithLoads] = useState<TripWithLoads[]>(() =>
+    dashboardCache.fetchedForUser === user?.id ? (dashboardCache.data || []) : []
+  );
+  const [loading, setLoading] = useState(() =>
+    dashboardCache.fetchedForUser !== user?.id
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const isFetchingRef = useRef(false);
+
+  // Load from persistent cache on first mount
+  useEffect(() => {
+    if (!user?.id || persistentCacheLoaded) return;
+
+    const loadPersistentCache = async () => {
+      const cached = await loadFromCache<TripWithLoads[]>(CACHE_KEYS.DASHBOARD, user.id);
+      if (cached && cached.length > 0) {
+        dashboardCache.data = cached;
+        dashboardCache.fetchedForUser = user.id;
+        setTripsWithLoads(cached);
+        setLoading(false);
+      }
+      persistentCacheLoaded = true;
+    };
+
+    loadPersistentCache();
+  }, [user?.id]);
 
   const fetchDashboardData = useCallback(async () => {
     if (!user?.id) {
@@ -50,17 +89,25 @@ export function useDriverDashboard(): DashboardData {
       return;
     }
 
-    // Prevent concurrent fetches
     if (isFetchingRef.current) {
       return;
     }
 
+    const hasCachedData = dashboardCache.fetchedForUser === user.id && dashboardCache.data;
+    if (hasCachedData) {
+      setTripsWithLoads(dashboardCache.data!);
+      setLoading(false);
+    }
+
     try {
       isFetchingRef.current = true;
-      setLoading(true);
+      if (!hasCachedData) {
+        setLoading(true);
+      } else {
+        setIsRefreshing(true);
+      }
       setError(null);
 
-      // Get driver record
       const { data: driver, error: driverError } = await supabase
         .from('drivers')
         .select('id, owner_id')
@@ -68,13 +115,13 @@ export function useDriverDashboard(): DashboardData {
         .single();
 
       if (driverError || !driver) {
-        setError('Driver profile not found');
-        setTripsWithLoads([]);
-        setLoading(false);
+        if (!hasCachedData) {
+          setError('Driver profile not found');
+          setTripsWithLoads([]);
+        }
         return;
       }
 
-      // Fetch all non-settled/cancelled trips with their loads
       const { data: trips, error: tripsError } = await supabase
         .from('trips')
         .select(`
@@ -121,13 +168,22 @@ export function useDriverDashboard(): DashboardData {
         throw tripsError;
       }
 
-      setTripsWithLoads(trips || []);
+      const result = trips || [];
+      dashboardCache.data = result;
+      dashboardCache.fetchedForUser = user.id;
+      setTripsWithLoads(result);
+      setError(null);
+
+      // Save to persistent cache
+      saveToCache(CACHE_KEYS.DASHBOARD, result, user.id);
     } catch (err) {
-      console.error('[useDriverDashboard] Error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch data');
-      setTripsWithLoads([]);
+      if (!hasCachedData) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch data');
+        setTripsWithLoads([]);
+      }
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
       isFetchingRef.current = false;
     }
   }, [user?.id]);
@@ -135,6 +191,19 @@ export function useDriverDashboard(): DashboardData {
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
+
+  const refetch = useCallback(async () => {
+    if (!user?.id) return;
+
+    dashboardCache.fetchedForUser = null;
+    dashboardCache.data = null;
+    isFetchingRef.current = false;
+    await clearCache(CACHE_KEYS.DASHBOARD);
+
+    setLoading(true);
+    setError(null);
+    fetchDashboardData();
+  }, [user?.id, fetchDashboardData]);
 
   // Calculate derived data
   const activeTrip = useMemo(() => {
@@ -156,7 +225,6 @@ export function useDriverDashboard(): DashboardData {
   }, [tripsWithLoads]);
 
   const stats = useMemo((): DashboardStats => {
-    // Calculate today's stats from active trip
     let todayEarnings = 0;
     let todayMiles = 0;
     let loadsCompleted = 0;
@@ -164,17 +232,14 @@ export function useDriverDashboard(): DashboardData {
 
     for (const trip of tripsWithLoads) {
       if (trip.status === 'active' || trip.status === 'en_route') {
-        // Sum up loads
         for (const tl of trip.trip_loads) {
           loadsTotal++;
           if (tl.loads.load_status === 'delivered') {
             loadsCompleted++;
-            // Add revenue from delivered loads
             todayEarnings += tl.loads.amount_collected_on_delivery || 0;
           }
         }
 
-        // Calculate miles if both odometer readings available
         if (trip.odometer_start && trip.odometer_end) {
           todayMiles = trip.odometer_end - trip.odometer_start;
         } else if (trip.actual_miles) {
@@ -200,7 +265,8 @@ export function useDriverDashboard(): DashboardData {
     stats,
     loading,
     error,
-    refetch: fetchDashboardData,
+    isRefreshing,
+    refetch,
   };
 }
 

@@ -110,9 +110,7 @@ async function preloadSounds(): Promise<void> {
   // Mark sounds as available if at least one loaded
   soundsAvailable = loadedCount > 0;
 
-  if (!soundsAvailable) {
-    console.log('No sound files found - using haptics only. Add files to assets/sounds/');
-  }
+  // Sound files optional - falls back to haptics only
 }
 
 /**
