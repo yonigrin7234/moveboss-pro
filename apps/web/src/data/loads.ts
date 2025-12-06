@@ -281,45 +281,9 @@ export type LoadFlowType = z.infer<typeof loadFlowTypeSchema>;
 export type NewLoadInput = z.infer<typeof newLoadInputSchema>;
 export type UpdateLoadInput = z.infer<typeof updateLoadInputSchema>;
 
-/**
- * Wizard step identifiers for the load creation/edit wizard
- */
-export type WizardStepId = 'basics' | 'pickup' | 'delivery' | 'financials';
-
-/**
- * Determines which wizard steps should be visible based on load_flow_type.
- *
- * Behavior:
- * - null (legacy): show all steps (backward compatible)
- * - 'hhg_originated': show all steps (full HHG workflow)
- * - 'storage_out_rfd': hide Pickup step (origin is storage location)
- * - 'marketplace_purchase': hide Pickup step (pickup already done by posting company)
- * - 'carrier_intake': hide Pickup step (carrier intakes already-loaded goods)
- *
- * @param loadFlowType - The load_flow_type value from the load
- * @returns Array of visible step IDs in order
- */
-export function getVisibleWizardSteps(loadFlowType: LoadFlowType | null | undefined): WizardStepId[] {
-  // Legacy loads or HHG-originated loads show all steps
-  if (!loadFlowType || loadFlowType === 'hhg_originated') {
-    return ['basics', 'pickup', 'delivery', 'financials'];
-  }
-
-  // All other flow types skip the pickup step
-  // (storage_out_rfd, marketplace_purchase, carrier_intake)
-  return ['basics', 'delivery', 'financials'];
-}
-
-/**
- * Check if a specific wizard step should be visible
- */
-export function isWizardStepVisible(
-  stepId: WizardStepId,
-  loadFlowType: LoadFlowType | null | undefined
-): boolean {
-  const visibleSteps = getVisibleWizardSteps(loadFlowType);
-  return visibleSteps.includes(stepId);
-}
+// Re-export wizard step helpers from client-safe module
+// These are in a separate file to avoid pulling supabase-server into client components
+export { type WizardStepId, getVisibleWizardSteps, isWizardStepVisible } from '@/lib/wizard-steps';
 
 export interface Load {
   id: string;

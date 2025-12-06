@@ -2,14 +2,12 @@
 
 import { useActionState, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { type NewLoadInput, type LoadStatus, type ServiceType } from '@/data/loads';
 import {
-  type NewLoadInput,
-  type LoadStatus,
-  type ServiceType,
   type LoadFlowType,
   type WizardStepId,
   getVisibleWizardSteps,
-} from '@/data/loads';
+} from '@/lib/wizard-steps';
 import { type Company } from '@/data/companies';
 import { type Driver } from '@/data/drivers';
 import { type Truck, type Trailer } from '@/data/fleet';
