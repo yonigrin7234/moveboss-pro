@@ -987,6 +987,8 @@ export async function confirmLoadAssignment(
 }
 
 // Update driver on a load (carrier can assign driver later)
+// DRIVER ASSIGNMENT RULE UPDATE: Drivers can only be assigned to loads that are on a trip.
+// Direct load-level driver assignment is deprecated - drivers are inherited from trips.
 export async function updateLoadDriver(
   loadId: string,
   data: {
@@ -996,6 +998,25 @@ export async function updateLoadDriver(
   }
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
+
+  // DRIVER ASSIGNMENT RULE UPDATE: Check if load has a trip_id
+  const { data: loadCheck } = await supabase
+    .from('loads')
+    .select('trip_id')
+    .eq('id', loadId)
+    .single();
+
+  if (!loadCheck?.trip_id) {
+    // Log warning for deprecated pathway
+    console.warn(
+      `[DRIVER ASSIGNMENT RULE] Attempted to assign driver to load ${loadId} without trip_id. ` +
+      'Drivers should only be assigned via trips. Please assign load to a trip first.'
+    );
+    return {
+      success: false,
+      error: 'Cannot assign driver directly to a load. Please assign this load to a trip first, then assign a driver to the trip.'
+    };
+  }
 
   const { error } = await supabase
     .from('loads')

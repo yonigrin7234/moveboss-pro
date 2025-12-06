@@ -513,6 +513,8 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
       </Card>
 
       {/* Driver Assignment */}
+      {/* DRIVER ASSIGNMENT RULE UPDATE: Drivers are now inherited from trips.
+          Show read-only driver info if assigned, or prompt to assign trip first. */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
@@ -522,17 +524,23 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
           {hasDriver ? (
             <CardDescription className="flex items-center gap-1 text-green-500">
               <CheckCircle className="h-4 w-4" />
-              Driver assigned
+              Driver assigned {load.trip_id && '(via trip)'}
             </CardDescription>
-          ) : (
+          ) : load.trip_id ? (
             <CardDescription className="flex items-center gap-1 text-yellow-500">
               <AlertCircle className="h-4 w-4" />
-              No driver assigned yet
+              No driver on trip yet
+            </CardDescription>
+          ) : (
+            <CardDescription className="flex items-center gap-1 text-orange-500">
+              <AlertTriangle className="h-4 w-4" />
+              Assign to a trip to set driver
             </CardDescription>
           )}
         </CardHeader>
         <CardContent>
           {hasDriver ? (
+            /* DRIVER ASSIGNMENT RULE UPDATE: Driver info is read-only, inherited from trip */
             <div className="p-4 bg-muted/50 rounded-lg space-y-2">
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4 text-muted-foreground" />
@@ -547,86 +555,46 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
                   <span>{load.assigned_driver_phone}</span>
                 </a>
               )}
+              {load.trip_id && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Driver is inherited from the assigned trip. To change the driver, update the trip.
+                </p>
+              )}
+            </div>
+          ) : !load.trip_id ? (
+            /* DRIVER ASSIGNMENT RULE UPDATE: Show message when no trip assigned */
+            <div className="p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+              <p className="text-sm text-orange-700 dark:text-orange-400">
+                This load cannot have a driver until it is assigned to a trip.
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Drivers are assigned at the trip level and automatically inherited by all loads on that trip.
+                Scroll down to assign this load to a trip first.
+              </p>
+              <a
+                href="#trip-assignment"
+                className="inline-flex items-center gap-1 text-sm text-orange-600 hover:underline mt-3"
+              >
+                <Route className="h-4 w-4" />
+                Assign to Trip →
+              </a>
             </div>
           ) : (
-            <form action={updateDriverAction} className="space-y-4">
-              <RadioGroup
-                name="driver_type"
-                defaultValue="existing"
-                className="space-y-3"
-              >
-                {/* Select from existing drivers */}
-                {drivers.length > 0 && (
-                  <div className="flex items-start space-x-3 p-4 border rounded-lg">
-                    <RadioGroupItem
-                      value="existing"
-                      id="driver_existing"
-                      className="mt-1"
-                    />
-                    <div className="flex-1 space-y-3">
-                      <Label htmlFor="driver_existing">
-                        Select from my drivers
-                      </Label>
-                      <Select name="driver_id">
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose a driver" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No driver selected</SelectItem>
-                          {drivers.map((driver) => (
-                            <SelectItem key={driver.id} value={driver.id}>
-                              {driver.first_name} {driver.last_name}
-                              {driver.phone && ` - ${driver.phone}`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                )}
-
-                {/* Manual entry */}
-                <div className="flex items-start space-x-3 p-4 border rounded-lg">
-                  <RadioGroupItem
-                    value="manual"
-                    id="driver_manual"
-                    className="mt-1"
-                  />
-                  <div className="flex-1 space-y-3">
-                    <Label htmlFor="driver_manual">
-                      Enter driver info manually
-                    </Label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label htmlFor="driver_name" className="text-sm">
-                          Driver Name
-                        </Label>
-                        <Input
-                          id="driver_name"
-                          name="driver_name"
-                          placeholder="John Smith"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="driver_phone" className="text-sm">
-                          Driver Phone
-                        </Label>
-                        <Input
-                          id="driver_phone"
-                          name="driver_phone"
-                          placeholder="555-123-4567"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </RadioGroup>
-
-              <Button type="submit" className="w-full">
-                <User className="h-4 w-4 mr-2" />
-                Assign Driver
+            /* Load is on a trip but trip has no driver - show message */
+            <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+              <p className="text-sm text-yellow-700 dark:text-yellow-400">
+                This load is on a trip, but the trip has no driver assigned yet.
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Assign a driver to the trip to automatically set the driver for all loads.
+              </p>
+              <Button variant="outline" size="sm" className="mt-3" asChild>
+                <Link href={`/dashboard/trips/${load.trip_id}`}>
+                  <Route className="h-4 w-4 mr-2" />
+                  Go to Trip
+                </Link>
               </Button>
-            </form>
+            </div>
           )}
         </CardContent>
       </Card>

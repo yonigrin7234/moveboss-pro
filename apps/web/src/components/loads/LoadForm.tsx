@@ -351,29 +351,18 @@ export function LoadForm({
               </CardContent>
             </Card>
 
+            {/* DRIVER ASSIGNMENT RULE UPDATE: Driver and equipment assignment removed from load forms.
+                Drivers are assigned via trips - see syncTripDriverToLoads().
+                Equipment is assigned via trips - see syncTripEquipmentToLoads(). */}
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Assignment</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2.5">
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="assigned_driver_id" className="text-sm">Driver</Label>
-                    <SelectWithHiddenInput name="assigned_driver_id" defaultValue={initialData?.assigned_driver_id || ''}>
-                      <SelectTrigger id="assigned_driver_id" className="h-9">
-                        <SelectValue placeholder="None" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {drivers.map((driver) => (
-                          <SelectItem key={driver.id} value={driver.id}>
-                            {driver.first_name} {driver.last_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </SelectWithHiddenInput>
-                  </div>
-                  {/* TODO: Truck/trailer assignment removed from load forms.
-                      Equipment is assigned via trips - see syncTripEquipmentToLoads() */}
+              <CardContent>
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    Driver and equipment are assigned via trips.
+                  </p>
                 </div>
               </CardContent>
             </Card>

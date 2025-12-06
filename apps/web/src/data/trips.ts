@@ -1046,11 +1046,15 @@ export async function removeLoadFromTrip(tripId: string, loadId: string, userId:
     throw new Error(`Failed to remove load from trip: ${error.message}`);
   }
 
-  // Clear delivery_order on the removed load
+  // DRIVER ASSIGNMENT RULE UPDATE: Clear driver AND delivery_order when load is removed from trip
+  // Driver is now inherited from trip, so removing from trip means no driver
   await supabase
     .from('loads')
     .update({
       delivery_order: null,
+      assigned_driver_id: null,
+      assigned_driver_name: null,
+      assigned_driver_phone: null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', loadId)

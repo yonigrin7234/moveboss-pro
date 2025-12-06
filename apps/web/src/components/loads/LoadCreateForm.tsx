@@ -496,17 +496,14 @@ export function LoadCreateForm({
             </div>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label>Driver</Label>
-              <SelectWithHiddenInput
-                name="assigned_driver_id"
-                options={drivers.map((driver) => ({ value: driver.id, label: `${driver.first_name} ${driver.last_name}` }))}
-                placeholder="Unassigned"
-              />
-            </div>
-            {/* TODO: Truck/trailer assignment removed from load forms.
-                Equipment is assigned via trips - see syncTripEquipmentToLoads() */}
+          {/* DRIVER ASSIGNMENT RULE UPDATE: Driver and equipment assignment removed from load forms.
+              Drivers are assigned via trips - see syncTripDriverToLoads().
+              Equipment is assigned via trips - see syncTripEquipmentToLoads().
+              When creating a load, assign it to a trip to automatically inherit driver/equipment. */}
+          <div className="p-3 bg-muted/50 rounded-lg">
+            <p className="text-sm text-muted-foreground">
+              Driver and equipment will be assigned when you add this load to a trip.
+            </p>
           </div>
         </CardContent>
       </Card>
