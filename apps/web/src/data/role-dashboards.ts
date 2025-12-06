@@ -237,6 +237,7 @@ export interface CarrierDashboardData {
     moneyYouOwe: number;
     collectedToday: number;
     pendingRequestsCount: number;
+    loadsNeedingTripAssignment: number;
   };
 }
 
@@ -259,6 +260,7 @@ export async function getCarrierDashboardData(userId: string): Promise<CarrierDa
         moneyYouOwe: 0,
         collectedToday: 0,
         pendingRequestsCount: 0,
+        loadsNeedingTripAssignment: 0,
       },
     };
   }
@@ -379,6 +381,15 @@ export async function getCarrierDashboardData(userId: string): Promise<CarrierDa
     .eq('carrier_id', company.id)
     .eq('status', 'pending');
 
+  // Count loads needing trip assignment (confirmed loads without a trip)
+  // These are loads assigned to carrier but not yet on a trip - carrier's "awaiting dispatch"
+  const { count: loadsNeedingTrip } = await supabase
+    .from('loads')
+    .select('id', { count: 'exact', head: true })
+    .eq('assigned_carrier_id', company.id)
+    .is('trip_id', null)
+    .in('load_status', ['pending', 'accepted']); // Confirmed but not yet dispatched
+
   const driversOnRoad = (drivers || []).filter(d => d.current_trip_id).length;
 
   // Combine schedule events
@@ -446,6 +457,7 @@ export async function getCarrierDashboardData(userId: string): Promise<CarrierDa
       moneyYouOwe,
       collectedToday,
       pendingRequestsCount: pendingRequests || 0,
+      loadsNeedingTripAssignment: loadsNeedingTrip || 0,
     },
   };
 }

@@ -193,9 +193,9 @@ export default async function DashboardPage() {
         )}
 
         {/* PRIMARY METRICS - Role-based cards */}
+        {/* Carriers and Moving Companies get 4 cards, Pure Brokers get 3 */}
         <div className={`grid grid-cols-1 gap-3 mb-5 ${
-          pureCarrier ? 'sm:grid-cols-2 lg:grid-cols-4' :
-          pureBroker ? 'sm:grid-cols-3' :
+          isCarrier ? 'sm:grid-cols-2 lg:grid-cols-4' :
           'sm:grid-cols-3'
         }`}>
           {/* CARRIER METRICS */}
@@ -234,6 +234,19 @@ export default async function DashboardPage() {
             />
           )}
 
+          {/* CARRIER METRICS - Needs Trip Assignment (carrier's "awaiting dispatch") */}
+          {pureCarrier && (
+            <PrimaryMetricCard
+              title="Needs Trip"
+              value={(carrierData?.metrics.loadsNeedingTripAssignment ?? 0).toString()}
+              subtitle="Loads not on a trip"
+              accent={(carrierData?.metrics.loadsNeedingTripAssignment ?? 0) > 0 ? 'amber' : 'emerald'}
+              pulse={(carrierData?.metrics.loadsNeedingTripAssignment ?? 0) > 0}
+              icon={<AlertTriangle className="h-5 w-5" />}
+              href="/dashboard/assigned-loads?filter=unassigned"
+            />
+          )}
+
           {/* COLLECTED TODAY - All roles */}
           <PrimaryMetricCard
             title="Collected Today"
@@ -258,8 +271,8 @@ export default async function DashboardPage() {
             />
           )}
 
-          {/* CARRIER METRICS - You Owe (for pure carriers) */}
-          {pureCarrier && (
+          {/* CARRIER METRICS - You Owe (for all carriers including moving companies) */}
+          {isCarrier && (
             <PrimaryMetricCard
               title="You Owe"
               value={formatCurrency(carrierData?.metrics.moneyYouOwe ?? 0)}
