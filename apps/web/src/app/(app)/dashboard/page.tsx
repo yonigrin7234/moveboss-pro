@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase-server';
-import { DollarSign, Banknote, AlertTriangle, Package, TrendingUp, TrendingDown, Search, ArrowRight } from 'lucide-react';
+import { DollarSign, Banknote, AlertTriangle, Package, TrendingUp, TrendingDown, Search, ArrowRight, Shield } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,7 @@ import {
 import { getOnboardingState } from '@/data/onboarding';
 import { getWorkspaceCompanyForUser } from '@/data/companies';
 import { getCarrierDashboardData } from '@/data/role-dashboards';
+import { getComplianceAlertCounts, getComplianceAlertsForUser } from '@/data/compliance-alerts';
 
 // V4 Components
 import { CriticalBlock } from '@/components/dashboard/v4/CriticalBlock';
@@ -97,16 +98,25 @@ export default async function DashboardPage() {
   const pureBroker = isBrokerOnly(companyCapabilities);
 
   // Fetch data based on capabilities
-  // All roles get base metrics + schedule + collections
+  // All roles get base metrics + schedule + collections + compliance
   const [
     metrics,
     todaysSchedule,
     collections,
+    complianceAlertCounts,
+    complianceAlerts,
   ] = await Promise.all([
     getDashboardMetrics(user.id),
     getTodaysSchedule(user.id, 8),
     getTodaysCollections(user.id, 5),
+    getComplianceAlertCounts(user.id),
+    getComplianceAlertsForUser(user.id),
   ]);
+
+  // Calculate total critical compliance issues (expired + critical severity)
+  const criticalComplianceCount = complianceAlertCounts.expired + complianceAlertCounts.critical;
+  const totalComplianceIssues = complianceAlertCounts.expired + complianceAlertCounts.critical +
+    complianceAlertCounts.urgent + complianceAlertCounts.warning;
 
   // Broker-specific data (receivables, unassigned jobs)
   let unassignedJobs: Awaited<ReturnType<typeof getUnassignedJobs>> = [];
@@ -129,14 +139,25 @@ export default async function DashboardPage() {
   }
 
   const urgentJobsCount = unassignedJobs.filter(j => j.urgency === 'today' || j.urgency === 'tomorrow').length;
-  const hasCriticalAlert = (isBroker && (urgentJobsCount > 0 || metrics.overdueInvoices > 3)) ||
+  const hasCriticalAlert = criticalComplianceCount > 0 ||
+    (isBroker && (urgentJobsCount > 0 || metrics.overdueInvoices > 3)) ||
     (isCarrier && carrierData && carrierData.metrics.pendingRequestsCount > 0);
 
-  // Build critical alert message
+  // Build critical alert message - Compliance issues take priority (expired/critical items)
   let criticalMessage = '';
   let criticalHref = '';
   let criticalAction = '';
-  if (isBroker && urgentJobsCount > 0) {
+  if (complianceAlertCounts.expired > 0) {
+    // Expired items are most critical
+    criticalMessage = `${complianceAlertCounts.expired} expired compliance item${complianceAlertCounts.expired > 1 ? 's' : ''} - action required immediately`;
+    criticalHref = '/dashboard/compliance';
+    criticalAction = 'View Now';
+  } else if (complianceAlertCounts.critical > 0) {
+    // Items expiring within 7 days
+    criticalMessage = `${complianceAlertCounts.critical} compliance item${complianceAlertCounts.critical > 1 ? 's' : ''} expiring within 7 days`;
+    criticalHref = '/dashboard/compliance';
+    criticalAction = 'View Now';
+  } else if (isBroker && urgentJobsCount > 0) {
     criticalMessage = `${urgentJobsCount} load${urgentJobsCount > 1 ? 's' : ''} need drivers today/tomorrow`;
     criticalHref = '/dashboard/assigned-loads?filter=unassigned';
     criticalAction = 'Assign Now';
@@ -427,6 +448,85 @@ export default async function DashboardPage() {
           {/* RIGHT SIDEBAR */}
           <div className="space-y-5">
             <TodaysSchedule events={todaysSchedule} />
+
+            {/* COMPLIANCE SUMMARY */}
+            {totalComplianceIssues > 0 && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base font-medium flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-amber-400" />
+                      Compliance Alerts
+                    </CardTitle>
+                    <Link href="/dashboard/compliance" className="text-xs text-primary hover:underline flex items-center gap-1">
+                      View all <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {/* Expired - Most critical */}
+                  {complianceAlertCounts.expired > 0 && (
+                    <Link
+                      href="/dashboard/compliance?severity=expired"
+                      className="flex items-center justify-between p-2 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500/15 transition-colors"
+                    >
+                      <span className="text-sm font-medium text-red-600 dark:text-red-400">Expired</span>
+                      <Badge variant="destructive" className="text-xs">{complianceAlertCounts.expired}</Badge>
+                    </Link>
+                  )}
+                  {/* Critical - Expiring within 7 days */}
+                  {complianceAlertCounts.critical > 0 && (
+                    <Link
+                      href="/dashboard/compliance?severity=critical"
+                      className="flex items-center justify-between p-2 rounded-lg bg-orange-500/10 border border-orange-500/20 hover:bg-orange-500/15 transition-colors"
+                    >
+                      <span className="text-sm font-medium text-orange-600 dark:text-orange-400">Within 7 days</span>
+                      <Badge className="bg-orange-500 hover:bg-orange-600 text-xs">{complianceAlertCounts.critical}</Badge>
+                    </Link>
+                  )}
+                  {/* Urgent - Expiring within 14 days */}
+                  {complianceAlertCounts.urgent > 0 && (
+                    <Link
+                      href="/dashboard/compliance?severity=urgent"
+                      className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/15 transition-colors"
+                    >
+                      <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Within 14 days</span>
+                      <Badge className="bg-amber-500 hover:bg-amber-600 text-xs">{complianceAlertCounts.urgent}</Badge>
+                    </Link>
+                  )}
+                  {/* Warning - Expiring within 30 days */}
+                  {complianceAlertCounts.warning > 0 && (
+                    <Link
+                      href="/dashboard/compliance?severity=warning"
+                      className="flex items-center justify-between p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+                    >
+                      <span className="text-sm font-medium text-muted-foreground">Within 30 days</span>
+                      <Badge variant="secondary" className="text-xs">{complianceAlertCounts.warning}</Badge>
+                    </Link>
+                  )}
+
+                  {/* Show first few specific alerts */}
+                  {complianceAlerts.slice(0, 3).map((alert) => (
+                    <div key={alert.id} className="flex items-center justify-between py-1.5 border-t text-sm">
+                      <span className="text-muted-foreground truncate pr-2">{alert.item_name}</span>
+                      <span className={`text-xs font-medium ${
+                        alert.severity === 'expired' ? 'text-red-500' :
+                        alert.severity === 'critical' ? 'text-orange-500' :
+                        alert.severity === 'urgent' ? 'text-amber-500' :
+                        'text-muted-foreground'
+                      }`}>
+                        {alert.days_until_expiry !== null
+                          ? (alert.days_until_expiry <= 0
+                            ? `${Math.abs(alert.days_until_expiry)}d overdue`
+                            : `${alert.days_until_expiry}d left`)
+                          : 'Missing'}
+                      </span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
             <DriverCollectionsToday
               collections={collections}
               total={pureCarrier ? (carrierData?.metrics.collectedToday ?? 0) : metrics.collectedToday}
