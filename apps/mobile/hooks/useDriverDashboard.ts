@@ -17,10 +17,10 @@ import { getNextAction, getAllPendingActions, NextAction } from '../lib/getNextA
 import {
   saveToCache,
   loadFromCache,
-  clearCache,
   CACHE_KEYS,
 } from '../lib/offlineCache';
 import { useDriverRealtimeSubscription } from './useRealtimeSubscription';
+import { dataLogger } from '../lib/logger';
 
 interface DashboardStats {
   todayEarnings: number;
@@ -46,12 +46,13 @@ interface DashboardData {
   refetch: () => Promise<void>;
 }
 
-// Module-level cache
+// Module-level cache with per-user tracking
 const dashboardCache: { data: TripWithLoads[] | null; fetchedForUser: string | null } = {
   data: null,
   fetchedForUser: null,
 };
-let persistentCacheLoaded = false;
+// Track which user we last loaded persistent cache for (prevents re-loading on every mount)
+let lastPersistentCacheLoadedForUser: string | null = null;
 
 export function useDriverDashboard(): DashboardData {
   const { user } = useAuth();
@@ -66,19 +67,23 @@ export function useDriverDashboard(): DashboardData {
   const isFetchingRef = useRef(false);
   const [driverInfo, setDriverInfo] = useState<{ driverId: string; ownerId: string } | null>(null);
 
-  // Load from persistent cache on first mount
+  // Load from persistent cache on first mount (per-user)
   useEffect(() => {
-    if (!user?.id || persistentCacheLoaded) return;
+    if (!user?.id) return;
+    // Skip if we already loaded for this user
+    if (lastPersistentCacheLoadedForUser === user.id) return;
 
     const loadPersistentCache = async () => {
+      dataLogger.debug('Loading dashboard from persistent cache');
       const cached = await loadFromCache<TripWithLoads[]>(CACHE_KEYS.DASHBOARD, user.id);
       if (cached && cached.length > 0) {
         dashboardCache.data = cached;
         dashboardCache.fetchedForUser = user.id;
         setTripsWithLoads(cached);
         setLoading(false);
+        dataLogger.info(`Loaded ${cached.length} trips from cache`);
       }
-      persistentCacheLoaded = true;
+      lastPersistentCacheLoadedForUser = user.id;
     };
 
     loadPersistentCache();
@@ -181,11 +186,16 @@ export function useDriverDashboard(): DashboardData {
 
       // Save to persistent cache
       saveToCache(CACHE_KEYS.DASHBOARD, result, user.id);
+      dataLogger.info(`Fetched ${result.length} trips for dashboard`);
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
+      dataLogger.error('Dashboard fetch failed', err);
+      // Only show error UI if we don't have cached data to show
       if (!hasCachedData) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch data');
+        setError(errorMessage);
         setTripsWithLoads([]);
       }
+      // If we have cached data, silently fail - user still sees old data
     } finally {
       setLoading(false);
       setIsRefreshing(false);
@@ -200,12 +210,11 @@ export function useDriverDashboard(): DashboardData {
   const refetch = useCallback(async () => {
     if (!user?.id) return;
 
-    dashboardCache.fetchedForUser = null;
-    dashboardCache.data = null;
+    dataLogger.debug('Manual refetch triggered');
+    // Reset fetch flag to allow new fetch, but DON'T clear cached data
+    // The fetch will update cache on success; on failure, old data remains
     isFetchingRef.current = false;
-    await clearCache(CACHE_KEYS.DASHBOARD);
-
-    setLoading(true);
+    setIsRefreshing(true);
     setError(null);
     fetchDashboardData();
   }, [user?.id, fetchDashboardData]);

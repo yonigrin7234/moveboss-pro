@@ -13,6 +13,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { realtimeLogger } from '../lib/logger';
 
 interface UseRealtimeOptions {
   /** Driver ID to filter subscriptions */
@@ -63,6 +64,7 @@ export function useDriverRealtimeSubscription({
 
     // Create a unique channel name
     const channelName = `driver-updates-${driverId}`;
+    realtimeLogger.info(`Subscribing to ${channelName}`);
 
     // Subscribe to trips and loads changes
     const channel = supabase
@@ -111,6 +113,7 @@ export function useDriverRealtimeSubscription({
         clearTimeout(debounceTimerRef.current);
       }
       if (channelRef.current) {
+        realtimeLogger.debug(`Unsubscribing from ${channelName}`);
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
@@ -157,6 +160,7 @@ export function useTripRealtimeSubscription({
     }
 
     const channelName = `trip-updates-${tripId}`;
+    realtimeLogger.info(`Subscribing to ${channelName}`);
 
     const channel = supabase
       .channel(channelName)
@@ -213,6 +217,7 @@ export function useTripRealtimeSubscription({
         clearTimeout(debounceTimerRef.current);
       }
       if (channelRef.current) {
+        realtimeLogger.debug(`Unsubscribing from ${channelName}`);
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
