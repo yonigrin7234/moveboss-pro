@@ -49,7 +49,8 @@ interface Load {
   posting_status?: string | null;
   is_marketplace_visible?: boolean | null;
   posting_type?: string | null;
-  company?: { name: string } | { name: string }[] | null;
+  company_id?: string | null;
+  company?: { id?: string; name: string } | { id?: string; name: string }[] | null;
 }
 
 interface Trip {
@@ -70,6 +71,7 @@ interface LoadsTableWithSharingProps {
   loads: Load[];
   publicBoardUrl: string | null;
   publicBoardSlug: string | null;
+  userCompanyId: string | null;
   trips?: Trip[];
   onAssignToTrip?: (tripId: string, loadIds: string[]) => Promise<{ success: boolean; error?: string }>;
 }
@@ -134,6 +136,7 @@ export function LoadsTableWithSharing({
   loads,
   publicBoardUrl,
   publicBoardSlug,
+  userCompanyId,
   trips = [],
   onAssignToTrip,
 }: LoadsTableWithSharingProps) {
@@ -144,16 +147,31 @@ export function LoadsTableWithSharing({
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [assignLoadIds, setAssignLoadIds] = useState<string[]>([]);
 
-  // Filter only pending loads for selection (only open loads can be shared)
-  const shareableLoads = loads.filter((l) => l.status === 'pending');
-  const allShareableSelected =
-    shareableLoads.length > 0 && shareableLoads.every((l) => selectedLoads.has(l.id));
+  // Helper to determine if a load is from the user's own company
+  const isOwnCompanyLoad = (load: Load): boolean => {
+    if (!userCompanyId) return true; // If no company membership, treat all as own
+    const loadCompanyId = load.company_id || (Array.isArray(load.company) ? load.company[0]?.id : load.company?.id);
+    return loadCompanyId === userCompanyId;
+  };
+
+  // Pending loads can be selected (for trip assignment)
+  const selectableLoads = loads.filter((l) => l.status === 'pending');
+  // Only own company pending loads can be posted to marketplace
+  const shareableLoads = selectableLoads.filter((l) => isOwnCompanyLoad(l));
+
+  const allSelectableSelected =
+    selectableLoads.length > 0 && selectableLoads.every((l) => selectedLoads.has(l.id));
+
+  // Check if all selected loads can be shared (for floating bar button visibility)
+  const selectedLoadsList = loads.filter((l) => selectedLoads.has(l.id));
+  const canShareSelected = selectedLoadsList.length > 0 && selectedLoadsList.every((l) => isOwnCompanyLoad(l));
+  const hasExternalSelected = selectedLoadsList.some((l) => !isOwnCompanyLoad(l));
 
   const toggleSelectAll = () => {
-    if (allShareableSelected) {
+    if (allSelectableSelected) {
       setSelectedLoads(new Set());
     } else {
-      setSelectedLoads(new Set(shareableLoads.map((l) => l.id)));
+      setSelectedLoads(new Set(selectableLoads.map((l) => l.id)));
     }
   };
 
@@ -275,9 +293,9 @@ export function LoadsTableWithSharing({
                   <TableRow className="border-slate-200 dark:border-slate-800">
                     <TableHead className="w-10">
                       <Checkbox
-                        checked={allShareableSelected}
+                        checked={allSelectableSelected}
                         onCheckedChange={toggleSelectAll}
-                        aria-label="Select all shareable loads"
+                        aria-label="Select all pending loads"
                       />
                     </TableHead>
                     <TableHead>Load Number</TableHead>
@@ -299,7 +317,11 @@ export function LoadsTableWithSharing({
                     const ratePerCuft = load.rate_per_cuft;
                     const linehaulTotal = load.linehaul_amount || (cuft && ratePerCuft ? cuft * ratePerCuft : null);
                     const isPosted = load.is_marketplace_visible || load.posting_status === 'posted';
-                    const isShareable = load.status === 'pending';
+                    const isExternal = !isOwnCompanyLoad(load);
+                    // Pending loads can be selected (for trip assignment)
+                    const isSelectable = load.status === 'pending';
+                    // Only own company pending loads can be shared to marketplace
+                    const isShareable = isSelectable && !isExternal;
                     const isSelected = selectedLoads.has(load.id);
 
                     return (
@@ -311,7 +333,7 @@ export function LoadsTableWithSharing({
                           <Checkbox
                             checked={isSelected}
                             onCheckedChange={() => toggleSelect(load.id)}
-                            disabled={!isShareable}
+                            disabled={!isSelectable}
                             aria-label={`Select load ${load.load_number}`}
                           />
                         </TableCell>
@@ -329,7 +351,17 @@ export function LoadsTableWithSharing({
                           )}
                         </TableCell>
                         <TableCell className="text-muted-foreground text-sm">
-                          {company?.name || '—'}
+                          <div className="flex items-center gap-1.5">
+                            {company?.name || '—'}
+                            {isExternal && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] px-1.5 py-0 h-4 bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20"
+                              >
+                                External
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground text-sm">
                           {formatServiceType(load.service_type)}
@@ -436,6 +468,11 @@ export function LoadsTableWithSharing({
           <div className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xl rounded-full px-2 py-2 flex items-center gap-2">
             <span className="text-sm font-medium px-3">
               {selectedLoads.size} selected
+              {hasExternalSelected && (
+                <span className="text-orange-400 dark:text-orange-500 text-xs ml-1">
+                  (includes external)
+                </span>
+              )}
             </span>
             {onAssignToTrip && (
               <Button
@@ -447,14 +484,26 @@ export function LoadsTableWithSharing({
                 Assign to Trip
               </Button>
             )}
-            <Button
-              size="sm"
-              onClick={() => openShareModal(Array.from(selectedLoads))}
-              className="rounded-full bg-[#25D366] hover:bg-[#20BD5A] text-white h-9 px-4 gap-2"
-            >
-              <MessageCircle className="h-4 w-4" />
-              Share via WhatsApp
-            </Button>
+            {canShareSelected ? (
+              <Button
+                size="sm"
+                onClick={() => openShareModal(Array.from(selectedLoads))}
+                className="rounded-full bg-[#25D366] hover:bg-[#20BD5A] text-white h-9 px-4 gap-2"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Share via WhatsApp
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                disabled
+                className="rounded-full bg-slate-600 text-slate-400 h-9 px-4 gap-2 cursor-not-allowed"
+                title="Cannot share external company loads to marketplace"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Share via WhatsApp
+              </Button>
+            )}
             <button
               onClick={() => setSelectedLoads(new Set())}
               className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 dark:hover:bg-slate-900/10 transition-colors"

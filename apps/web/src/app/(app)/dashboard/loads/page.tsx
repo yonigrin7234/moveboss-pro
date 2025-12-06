@@ -48,6 +48,7 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
   let stats = { totalLoads: 0, pending: 0, inTransit: 0, delivered: 0 };
   let publicBoardUrl: string | null = null;
   let publicBoardSlug: string | null = null;
+  let userCompanyId: string | null = null;
   let error: string | null = null;
 
   // Server action to assign loads to a trip
@@ -88,7 +89,8 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
       .eq('user_id', user.id)
       .single();
 
-    if (membership?.companies) {
+    if (membership) {
+      userCompanyId = membership.company_id;
       const companyData = membership.companies as unknown as { public_board_slug: string | null; public_board_enabled: boolean } | null;
       if (companyData?.public_board_enabled && companyData?.public_board_slug) {
         publicBoardSlug = companyData.public_board_slug;
@@ -178,6 +180,7 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
         loads={loads}
         publicBoardUrl={publicBoardUrl}
         publicBoardSlug={publicBoardSlug}
+        userCompanyId={userCompanyId}
         trips={trips}
         onAssignToTrip={assignLoadsToTripAction}
       />
