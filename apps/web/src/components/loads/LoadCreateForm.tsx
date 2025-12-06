@@ -145,7 +145,7 @@ export function LoadCreateForm({
   const [dropoff, setDropoff] = useState({ postalCode: '', city: '', state: '', address1: '', address2: '' })
   const [loadingContact, setLoadingContact] = useState({ name: '', phone: '', email: '', address1: '', address2: '', city: '', state: '', postalCode: '' })
   const [pricing, setPricing] = useState({ cubicFeet: '', rate: '', balanceDue: '' })
-  const [customer, setCustomer] = useState({ name: '', phone: '', deliveryAddress: '' })
+  const [customer, setCustomer] = useState({ name: '', phone: '', deliveryZip: '', deliveryCity: '', deliveryState: '', deliveryAddress1: '', deliveryAddress2: '' })
   const [selectedTripId, setSelectedTripId] = useState('')
   const [loadOrder, setLoadOrder] = useState('1')
 
@@ -227,6 +227,12 @@ export function LoadCreateForm({
     if (!newLocation.zip) return
     const { city, state } = await lookupZip(newLocation.zip)
     setNewLocation((prev) => ({ ...prev, city: city || prev.city, state: state || prev.state }))
+  }
+
+  const handleDeliveryZip = async () => {
+    if (!customer.deliveryZip) return
+    const { city, state } = await lookupZip(customer.deliveryZip)
+    setCustomer((prev) => ({ ...prev, deliveryCity: city || prev.deliveryCity, deliveryState: state || prev.deliveryState }))
   }
 
   const handleCreateStorageLocation = async () => {
@@ -560,22 +566,72 @@ export function LoadCreateForm({
                 )}
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Delivery Address <span className="text-destructive">*</span></Label>
-              <Textarea
-                name="delivery_address_full"
-                value={customer.deliveryAddress}
-                onChange={(e) => setCustomer((prev) => ({ ...prev, deliveryAddress: e.target.value }))}
-                placeholder="123 Main St, Apt 4B, Chicago, IL 60601"
-                rows={2}
-                required={loadSource === 'own_customer'}
-              />
-              <p className="text-xs text-muted-foreground">
-                Full delivery address including apartment/unit if applicable
-              </p>
-              {state?.errors?.delivery_address_full && (
-                <p className="text-xs text-destructive">{state.errors.delivery_address_full}</p>
-              )}
+            <div className="grid gap-4 md:grid-cols-6">
+              <div className="md:col-span-2 space-y-1.5">
+                <Label>Delivery ZIP <span className="text-destructive">*</span></Label>
+                <Input
+                  name="delivery_postal_code"
+                  value={customer.deliveryZip}
+                  onChange={(e) => setCustomer((prev) => ({ ...prev, deliveryZip: e.target.value }))}
+                  onBlur={handleDeliveryZip}
+                  placeholder="60601"
+                  required={loadSource === 'own_customer'}
+                />
+                {state?.errors?.delivery_postal_code && (
+                  <p className="text-xs text-destructive">{state.errors.delivery_postal_code}</p>
+                )}
+              </div>
+              <div className="md:col-span-3 space-y-1.5">
+                <Label>City <span className="text-destructive">*</span></Label>
+                <Input
+                  name="delivery_city"
+                  value={customer.deliveryCity}
+                  onChange={(e) => setCustomer((prev) => ({ ...prev, deliveryCity: e.target.value }))}
+                  placeholder="Chicago"
+                  required={loadSource === 'own_customer'}
+                />
+                {state?.errors?.delivery_city && (
+                  <p className="text-xs text-destructive">{state.errors.delivery_city}</p>
+                )}
+              </div>
+              <div className="md:col-span-1 space-y-1.5">
+                <Label>State <span className="text-destructive">*</span></Label>
+                <Input
+                  name="delivery_state"
+                  value={customer.deliveryState}
+                  onChange={(e) => setCustomer((prev) => ({ ...prev, deliveryState: e.target.value }))}
+                  placeholder="IL"
+                  maxLength={2}
+                  required={loadSource === 'own_customer'}
+                />
+                {state?.errors?.delivery_state && (
+                  <p className="text-xs text-destructive">{state.errors.delivery_state}</p>
+                )}
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Address Line 1 <span className="text-destructive">*</span></Label>
+                <Input
+                  name="delivery_address_line1"
+                  value={customer.deliveryAddress1}
+                  onChange={(e) => setCustomer((prev) => ({ ...prev, deliveryAddress1: e.target.value }))}
+                  placeholder="123 Main Street"
+                  required={loadSource === 'own_customer'}
+                />
+                {state?.errors?.delivery_address_line1 && (
+                  <p className="text-xs text-destructive">{state.errors.delivery_address_line1}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label>Address Line 2</Label>
+                <Input
+                  name="delivery_address_line2"
+                  value={customer.deliveryAddress2}
+                  onChange={(e) => setCustomer((prev) => ({ ...prev, deliveryAddress2: e.target.value }))}
+                  placeholder="Apt 4B, Suite 100, etc."
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
