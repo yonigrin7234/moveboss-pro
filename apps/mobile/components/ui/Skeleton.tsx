@@ -513,6 +513,71 @@ export function ProfileSkeleton({ style }: { style?: ViewStyle }) {
   );
 }
 
+/**
+ * Trip Detail Screen Skeleton - Full trip detail loading state
+ */
+export function TripDetailSkeleton({ style }: { style?: ViewStyle }) {
+  return (
+    <View style={[styles.tripDetail, style]}>
+      {/* Header */}
+      <View style={styles.tripDetailHeader}>
+        <View>
+          <Skeleton width={140} height={28} style={{ marginBottom: spacing.sm }} />
+          <Skeleton width={200} height={18} />
+        </View>
+        <Skeleton width={80} height={28} borderRadius={radius.full} />
+      </View>
+
+      {/* Action Card */}
+      <View style={styles.tripDetailActionCard}>
+        <Skeleton width={140} height={24} style={{ marginBottom: spacing.sm }} />
+        <Skeleton width={180} height={16} style={{ marginBottom: spacing.lg }} />
+        <Skeleton width="100%" height={52} borderRadius={radius.md} />
+      </View>
+
+      {/* Equipment Card */}
+      <View style={styles.tripDetailEquipment}>
+        <View style={styles.tripDetailEquipmentItem}>
+          <Skeleton width={32} height={32} />
+          <View style={{ flex: 1, marginLeft: spacing.md }}>
+            <Skeleton width={50} height={12} style={{ marginBottom: spacing.xs }} />
+            <Skeleton width={80} height={18} />
+          </View>
+        </View>
+        <View style={styles.tripDetailEquipmentItem}>
+          <Skeleton width={32} height={32} />
+          <View style={{ flex: 1, marginLeft: spacing.md }}>
+            <Skeleton width={50} height={12} style={{ marginBottom: spacing.xs }} />
+            <Skeleton width={80} height={18} />
+          </View>
+        </View>
+      </View>
+
+      {/* Trip Info Card */}
+      <View style={styles.tripDetailCard}>
+        <Skeleton width={120} height={18} style={{ marginBottom: spacing.lg }} />
+        <View style={styles.tripDetailGrid}>
+          <View style={styles.tripDetailGridItem}>
+            <Skeleton width={70} height={12} style={{ marginBottom: spacing.xs }} />
+            <Skeleton width={100} height={18} />
+          </View>
+          <View style={styles.tripDetailGridItem}>
+            <Skeleton width={60} height={12} style={{ marginBottom: spacing.xs }} />
+            <Skeleton width={90} height={18} />
+          </View>
+        </View>
+      </View>
+
+      {/* Loads Section */}
+      <View style={styles.tripDetailSection}>
+        <Skeleton width={100} height={20} style={{ marginBottom: spacing.md }} />
+        <LoadCardSkeleton />
+        <LoadCardSkeleton />
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   skeleton: {
     backgroundColor: colors.surfaceElevated,
@@ -757,6 +822,52 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+
+  // Trip Detail
+  tripDetail: {
+    padding: spacing.screenPadding,
+  },
+  tripDetailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.lg,
+  },
+  tripDetailActionCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    padding: spacing.cardPaddingLarge,
+    marginBottom: spacing.lg,
+  },
+  tripDetailEquipment: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    padding: spacing.cardPadding,
+    marginBottom: spacing.lg,
+    flexDirection: 'row',
+    gap: spacing.lg,
+  },
+  tripDetailEquipmentItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tripDetailCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    padding: spacing.cardPaddingLarge,
+    marginBottom: spacing.lg,
+  },
+  tripDetailGrid: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+  },
+  tripDetailGridItem: {
+    flex: 1,
+  },
+  tripDetailSection: {
+    marginBottom: spacing.lg,
   },
 });
 

@@ -27,6 +27,9 @@ import {
   SwipeableActionCard,
   Icon,
   IconName,
+  NextActionSkeleton,
+  SkeletonStats,
+  Skeleton,
 } from '../../components/ui';
 import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
 import { TripWithLoads } from '../../types';
@@ -42,7 +45,11 @@ export default function HomeScreen() {
     loading,
     error,
     refetch,
+    isRefreshing,
   } = useDriverDashboard();
+
+  // Show skeleton on initial load (no cached data yet)
+  const showSkeleton = loading && !isRefreshing && nextAction.type === 'no_action' && upcomingTrips.length === 0;
   const { hasActiveTrip, truck, trailer, expiredCount } =
     useVehicleDocuments();
   const router = useRouter();
@@ -72,7 +79,7 @@ export default function HomeScreen() {
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl
-          refreshing={loading}
+          refreshing={isRefreshing}
           onRefresh={handleRefresh}
           tintColor={colors.primary}
         />
@@ -100,18 +107,26 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* THE ONE ACTION - Most prominent - NextActionCard has its own animation */}
-      <NextActionCard action={nextAction} />
+      {/* THE ONE ACTION - Most prominent */}
+      {showSkeleton ? (
+        <NextActionSkeleton style={{ marginBottom: spacing.lg }} />
+      ) : (
+        <NextActionCard action={nextAction} />
+      )}
 
       {/* Quick Stats Row */}
-      <View>
-        <QuickStats
-          earnings={stats.todayEarnings}
-          miles={stats.todayMiles}
-          loadsCompleted={stats.loadsCompleted}
-          loadsTotal={stats.loadsTotal > 0 ? stats.loadsTotal : undefined}
-        />
-      </View>
+      {showSkeleton ? (
+        <SkeletonStats style={{ marginBottom: spacing.lg }} />
+      ) : (
+        <View>
+          <QuickStats
+            earnings={stats.todayEarnings}
+            miles={stats.todayMiles}
+            loadsCompleted={stats.loadsCompleted}
+            loadsTotal={stats.loadsTotal > 0 ? stats.loadsTotal : undefined}
+          />
+        </View>
+      )}
 
       {/* Quick Actions Row */}
       <View style={styles.quickActions}>

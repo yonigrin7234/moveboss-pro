@@ -54,6 +54,7 @@ export {
   DocumentListSkeleton,
   ExpenseListSkeleton,
   ProfileSkeleton,
+  TripDetailSkeleton,
 } from './Skeleton';
 export { StatusGlow, useStatusGlow, SuccessGlow } from './StatusGlow';
 export type { StatusType } from './StatusGlow';

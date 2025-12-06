@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDriverTripDetail } from '../../../hooks/useDriverTrips';
 import { useTripActions } from '../../../hooks/useTripActions';
 import { StatusBadge } from '../../../components/StatusBadge';
-import { Icon } from '../../../components/ui';
+import { Icon, TripDetailSkeleton } from '../../../components/ui';
 import { TripLoad, TripStatus, LoadStatus } from '../../../types';
 import { colors, typography, spacing, radius, shadows } from '../../../lib/theme';
 
@@ -45,10 +45,13 @@ const findNextActionableLoad = (loads: TripLoad[]): { load: TripLoad; action: st
 
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { trip, loading, error, refetch } = useDriverTripDetail(id);
+  const { trip, loading, error, refetch, isRefreshing } = useDriverTripDetail(id);
   const tripActions = useTripActions(id || '', refetch);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  // Show skeleton on initial load (no cached data yet)
+  const showSkeleton = loading && !isRefreshing && !trip;
 
   const formatRoute = () => {
     if (!trip) return '';
@@ -110,6 +113,24 @@ export default function TripDetailScreen() {
     );
   }
 
+  // Show skeleton while loading initial data
+  if (showSkeleton) {
+    return (
+      <>
+        <Stack.Screen
+          options={{
+            title: 'Trip Details',
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.textPrimary,
+          }}
+        />
+        <ScrollView style={styles.container}>
+          <TripDetailSkeleton />
+        </ScrollView>
+      </>
+    );
+  }
+
   return (
     <>
       <Stack.Screen
@@ -123,7 +144,7 @@ export default function TripDetailScreen() {
         style={styles.container}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.sectionGap }]}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />
+          <RefreshControl refreshing={isRefreshing} onRefresh={refetch} tintColor={colors.primary} />
         }
       >
         {trip && (
