@@ -20,9 +20,10 @@ import { TripWithLoads, TripLoad } from '../../../../types';
 import { colors, typography, spacing } from '../../../../lib/theme';
 
 // Helper to add timeout to promises
-function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+// Uses PromiseLike<T> to support Supabase query builders which are Promise-like but not Promise types
+function withTimeout<T>(promise: PromiseLike<T>, ms: number, message: string): Promise<T> {
   return Promise.race([
-    promise,
+    Promise.resolve(promise),
     new Promise<T>((_, reject) =>
       setTimeout(() => reject(new Error(message)), ms)
     ),
