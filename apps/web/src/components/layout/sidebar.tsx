@@ -215,7 +215,7 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
           children: [
             { label: "Trucks", href: "/dashboard/fleet/trucks", icon: Truck },
             { label: "Trailers", href: "/dashboard/fleet/trailers", icon: Boxes },
-            { label: "Live Fleet", href: "/dashboard/fleet/live", icon: MapPin },
+            { label: "Live Fleet", href: "/dashboard/live-fleet", icon: MapPin },
           ],
         })
       }
