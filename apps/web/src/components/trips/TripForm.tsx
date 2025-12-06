@@ -354,9 +354,11 @@ export function TripForm({
                       <SelectValue placeholder="Unassigned" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="">Unassigned</SelectItem>
                       {trucks.map((truck) => (
                         <SelectItem key={truck.id} value={truck.id}>
                           {truck.unit_number}
+                          {truck.vehicle_type && ` (${truck.vehicle_type.replace(/_/g, ' ')})`}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -369,9 +371,11 @@ export function TripForm({
                       <SelectValue placeholder="Unassigned" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="">Unassigned</SelectItem>
                       {trailers.map((trailer) => (
                         <SelectItem key={trailer.id} value={trailer.id}>
                           {trailer.unit_number}
+                          {trailer.type && ` (${trailer.type.replace(/_/g, ' ')})`}
                         </SelectItem>
                       ))}
                     </SelectContent>

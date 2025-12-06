@@ -59,6 +59,18 @@ interface DriverOption {
   last_name: string;
 }
 
+interface TruckOption {
+  id: string;
+  unit_number: string | null;
+  vehicle_type: string | null;
+}
+
+interface TrailerOption {
+  id: string;
+  unit_number: string;
+  type: string;
+}
+
 interface LoadTripAssignment {
   tripId: string;
   tripNumber: string;
@@ -70,6 +82,8 @@ interface TripDetailClientProps {
   trip: TripWithDetails;
   availableLoads: Load[];
   availableDrivers: DriverOption[];
+  availableTrucks: TruckOption[];
+  availableTrailers: TrailerOption[];
   loadTripAssignments: Record<string, LoadTripAssignment>;
   settlementSnapshot: {
     settlements: any[];
@@ -90,6 +104,7 @@ interface TripDetailClientProps {
     reorderLoads: (items: { load_id: string; sequence_index: number }[]) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
     confirmDeliveryOrder: () => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
     reassignDriver: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
+    reassignEquipment: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
   };
 }
 
@@ -218,7 +233,7 @@ function SortableLoadCard({
   );
 }
 
-export function TripDetailClient({ trip, availableLoads, availableDrivers, loadTripAssignments, settlementSnapshot, actions }: TripDetailClientProps) {
+export function TripDetailClient({ trip, availableLoads, availableDrivers, availableTrucks, availableTrailers, loadTripAssignments, settlementSnapshot, actions }: TripDetailClientProps) {
   const { toast } = useToast();
   const [editingLoadId, setEditingLoadId] = useState<string | null>(null);
   const [addExpenseOpen, setAddExpenseOpen] = useState(false);
@@ -236,6 +251,15 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, loadT
     trip.driver_id || 'unassigned'
   );
   const [isReassigning, setIsReassigning] = useState(false);
+
+  // Equipment selection state
+  const [selectedTruckId, setSelectedTruckId] = useState<string>(
+    trip.truck_id || 'unassigned'
+  );
+  const [selectedTrailerId, setSelectedTrailerId] = useState<string>(
+    trip.trailer_id || 'unassigned'
+  );
+  const [isUpdatingEquipment, setIsUpdatingEquipment] = useState(false);
 
   // Drag and drop for load reordering
   const [orderedLoads, setOrderedLoads] = useState(() =>
@@ -494,13 +518,81 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, loadT
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-sm text-muted-foreground">Truck</Label>
-                      <p className="font-medium">{truckNumber}</p>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={selectedTruckId}
+                          onValueChange={setSelectedTruckId}
+                        >
+                          <SelectTrigger className="h-9 flex-1">
+                            <SelectValue placeholder="Select truck" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unassigned">Unassigned</SelectItem>
+                            {availableTrucks.map((truck) => (
+                              <SelectItem key={truck.id} value={truck.id}>
+                                {truck.unit_number || 'No unit #'}
+                                {truck.vehicle_type && ` (${truck.vehicle_type.replace(/_/g, ' ')})`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-sm text-muted-foreground">Trailer</Label>
-                      <p className="font-medium">{trailerNumber}</p>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={selectedTrailerId}
+                          onValueChange={setSelectedTrailerId}
+                        >
+                          <SelectTrigger className="h-9 flex-1">
+                            <SelectValue placeholder="Select trailer" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unassigned">Unassigned</SelectItem>
+                            {availableTrailers.map((trailer) => (
+                              <SelectItem key={trailer.id} value={trailer.id}>
+                                {trailer.unit_number}
+                                {trailer.type && ` (${trailer.type.replace(/_/g, ' ')})`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
+                  {/* Save Equipment Button - shows when equipment has changed */}
+                  {(selectedTruckId !== (trip.truck_id || 'unassigned') ||
+                    selectedTrailerId !== (trip.trailer_id || 'unassigned')) && (
+                    <div className="pt-3 border-t border-border">
+                      <Button
+                        size="sm"
+                        disabled={isUpdatingEquipment}
+                        onClick={async () => {
+                          setIsUpdatingEquipment(true);
+                          const formData = new FormData();
+                          formData.append('truck_id', selectedTruckId === 'unassigned' ? '' : selectedTruckId);
+                          formData.append('trailer_id', selectedTrailerId === 'unassigned' ? '' : selectedTrailerId);
+                          const result = await actions.reassignEquipment(formData);
+                          if (result?.success) {
+                            toast({
+                              title: 'Equipment updated',
+                              description: 'Truck and trailer assignment saved. All loads on this trip will inherit these changes.',
+                            });
+                          } else if (result?.errors?._form) {
+                            toast({
+                              title: 'Failed to update equipment',
+                              description: result.errors._form,
+                              variant: 'destructive',
+                            });
+                          }
+                          setIsUpdatingEquipment(false);
+                        }}
+                      >
+                        {isUpdatingEquipment ? 'Saving...' : 'Save Equipment'}
+                      </Button>
+                    </div>
+                  )}
                   {selectedDriverId !== 'unassigned' && (
                     <div className="pt-3 border-t border-border">
                       <div className="flex items-center gap-2">

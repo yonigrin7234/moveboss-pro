@@ -21,6 +21,7 @@ import {
 } from '@/data/trips';
 import { getLoadsForUser } from '@/data/loads';
 import { getDriversForUser } from '@/data/drivers';
+import { getTrucksForUser, getTrailersForUser } from '@/data/fleet';
 import { createTripSettlement, recalculateTripSettlement } from '@/data/settlements';
 import { updateLoad, updateLoadInputSchema } from '@/data/loads';
 import { getSettlementSnapshot } from '@/data/settlements';
@@ -71,9 +72,11 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     );
   }
 
-  const [loads, drivers, loadTripAssignmentsMap] = await Promise.all([
+  const [loads, drivers, trucks, trailers, loadTripAssignmentsMap] = await Promise.all([
     getLoadsForUser(user.id),
     getDriversForUser(user.id),
+    getTrucksForUser(user.id),
+    getTrailersForUser(user.id),
     getLoadTripAssignments(user.id),
   ]);
   const settlementSnapshot = await getSettlementSnapshot(id, user.id);
@@ -389,11 +392,48 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     }
   }
 
+  async function reassignEquipmentAction(
+    formData: FormData
+  ): Promise<{ errors?: Record<string, string>; success?: boolean } | null> {
+    'use server';
+    const currentUser = await getCurrentUser();
+    if (!currentUser) return { errors: { _form: 'Not authenticated' } };
+
+    const truckId = formData.get('truck_id');
+    const trailerId = formData.get('trailer_id');
+
+    // Build update payload - empty string means unassign
+    const updatePayload: Record<string, string | undefined> = {};
+    if (truckId !== null) {
+      updatePayload.truck_id = truckId === '' || truckId === 'unassigned' ? undefined : (truckId as string);
+    }
+    if (trailerId !== null) {
+      updatePayload.trailer_id = trailerId === '' || trailerId === 'unassigned' ? undefined : (trailerId as string);
+    }
+
+    try {
+      await updateTrip(id, updatePayload as any, currentUser.id);
+      revalidatePath(`/dashboard/trips/${id}`);
+      revalidatePath('/dashboard/trips');
+      // Also revalidate assigned-loads since equipment is inherited
+      revalidatePath('/dashboard/assigned-loads');
+      return { success: true };
+    } catch (error) {
+      return { errors: { _form: error instanceof Error ? error.message : 'Failed to update equipment' } };
+    }
+  }
+
+  // Filter to active trucks and trailers
+  const activeTrucks = trucks.filter((t) => t.status === 'active');
+  const activeTrailers = trailers.filter((t) => t.status === 'active');
+
   return (
     <TripDetailClient
       trip={trip}
       availableLoads={availableLoads}
       availableDrivers={activeDrivers}
+      availableTrucks={activeTrucks}
+      availableTrailers={activeTrailers}
       loadTripAssignments={loadTripAssignments}
       settlementSnapshot={settlementSnapshot}
       actions={{
@@ -410,6 +450,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
         reorderLoads: reorderLoadsAction,
         confirmDeliveryOrder: confirmDeliveryOrderAction,
         reassignDriver: reassignDriverAction,
+        reassignEquipment: reassignEquipmentAction,
       }}
     />
   );
