@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { DatePicker } from '@/components/ui/date-picker';
 
 // Helper component for Select with hidden input
+// Note: Radix Select doesn't allow empty string values, so we use "unassigned" as a sentinel
 function SelectWithHiddenInput({
   name,
   defaultValue,
@@ -38,12 +39,14 @@ function SelectWithHiddenInput({
   defaultValue?: string;
   children: React.ReactNode;
 }) {
-  const [value, setValue] = useState(defaultValue || '');
+  // Convert empty string to "unassigned" for Radix Select compatibility
+  const [value, setValue] = useState(defaultValue || 'unassigned');
   const hiddenInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (hiddenInputRef.current) {
-      hiddenInputRef.current.value = value;
+      // Convert "unassigned" back to empty string for form submission
+      hiddenInputRef.current.value = value === 'unassigned' ? '' : value;
     }
   }, [value]);
 
@@ -52,7 +55,7 @@ function SelectWithHiddenInput({
       <Select value={value || undefined} onValueChange={setValue}>
         {children}
       </Select>
-      <input type="hidden" name={name} ref={hiddenInputRef} value={value} />
+      <input type="hidden" name={name} ref={hiddenInputRef} value={value === 'unassigned' ? '' : value} />
     </>
   );
 }
@@ -360,7 +363,7 @@ export function TripForm({
                       <SelectValue placeholder="Unassigned" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Unassigned</SelectItem>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
                       {trucks.map((truck) => (
                         <SelectItem key={truck.id} value={truck.id}>
                           {truck.unit_number}
@@ -384,7 +387,7 @@ export function TripForm({
                       </SelectTrigger>
                       <SelectContent>
                         {(!selectedTruck || selectedTruckType !== 'tractor') && (
-                          <SelectItem value="">Unassigned</SelectItem>
+                          <SelectItem value="unassigned">Unassigned</SelectItem>
                         )}
                         {trailers.map((trailer) => (
                           <SelectItem key={trailer.id} value={trailer.id}>
