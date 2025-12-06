@@ -74,6 +74,9 @@ export const newDriverInputSchema = z
     leased_to_company_id: z.string().uuid().optional().nullable(),
     assigned_truck_id: z.string().uuid().optional().nullable(),
     assigned_trailer_id: z.string().uuid().optional().nullable(),
+    // Default equipment for auto-populating trips
+    default_truck_id: z.string().uuid().optional().nullable(),
+    default_trailer_id: z.string().uuid().optional().nullable(),
     pay_mode: driverPayModeSchema,
     rate_per_mile: z
       .union([z.string(), z.number()])

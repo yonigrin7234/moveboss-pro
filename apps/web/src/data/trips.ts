@@ -619,6 +619,29 @@ export async function createTrip(input: NewTripInput, userId: string): Promise<T
     assertOwnership(supabase, 'trailers', input.trailer_id, userId, 'Trailer'),
   ]);
 
+  // TRUCK/TRAILER COMPATIBILITY: Enforce rules based on vehicle type
+  let finalTruckId = input.truck_id;
+  let finalTrailerId = input.trailer_id;
+
+  if (finalTruckId) {
+    // Fetch the truck's vehicle_type
+    const { data: truckData } = await supabase
+      .from('trucks')
+      .select('vehicle_type')
+      .eq('id', finalTruckId)
+      .single();
+
+    const vehicleType = truckData?.vehicle_type;
+
+    if (vehicleType && vehicleType !== 'tractor') {
+      // Non-tractor (box truck): force trailer_id to null
+      finalTrailerId = undefined;
+    } else if (vehicleType === 'tractor' && !finalTrailerId) {
+      // Tractor requires a trailer
+      throw new Error('Tractors require a trailer. Please select a trailer for this trip.');
+    }
+  }
+
   // Auto-generate trip number if not provided
   const tripNumber = input.trip_number?.trim() || await generateNextTripNumber(supabase, userId);
 
@@ -628,8 +651,8 @@ export async function createTrip(input: NewTripInput, userId: string): Promise<T
     reference_number: nullable(input.reference_number),
     status: input.status ?? 'planned',
     driver_id: nullable(input.driver_id),
-    truck_id: nullable(input.truck_id),
-    trailer_id: nullable(input.trailer_id),
+    truck_id: nullable(finalTruckId),
+    trailer_id: nullable(finalTrailerId),
     origin_city: nullable(input.origin_city),
     origin_state: nullable(input.origin_state),
     origin_postal_code: nullable(input.origin_postal_code),
@@ -692,6 +715,76 @@ export async function updateTrip(
     assertOwnership(supabase, 'trucks', input.truck_id, userId, 'Truck'),
     assertOwnership(supabase, 'trailers', input.trailer_id, userId, 'Trailer'),
   ]);
+
+  // AUTO-POPULATE EQUIPMENT FROM DRIVER DEFAULTS
+  // When a driver is assigned to a trip with no equipment, inherit their defaults
+  const isDriverChanging = 'driver_id' in input && input.driver_id && input.driver_id !== (currentTrip as any).driver_id;
+  const tripHasNoEquipment = !(currentTrip as any).truck_id && !(currentTrip as any).trailer_id;
+  const inputHasNoEquipment = !('truck_id' in input) && !('trailer_id' in input);
+
+  if (isDriverChanging && tripHasNoEquipment && inputHasNoEquipment) {
+    // Fetch driver's default equipment
+    const { data: driverData } = await supabase
+      .from('drivers')
+      .select('default_truck_id, default_trailer_id')
+      .eq('id', input.driver_id!)
+      .single();
+
+    if (driverData?.default_truck_id) {
+      // Verify ownership of default truck
+      const { data: truckOwnerCheck } = await supabase
+        .from('trucks')
+        .select('id, vehicle_type')
+        .eq('id', driverData.default_truck_id)
+        .eq('owner_id', userId)
+        .single();
+
+      if (truckOwnerCheck) {
+        (input as any).truck_id = driverData.default_truck_id;
+
+        // Only inherit trailer if the truck is a tractor and trailer exists
+        if (truckOwnerCheck.vehicle_type === 'tractor' && driverData.default_trailer_id) {
+          // Verify ownership of default trailer
+          const { data: trailerOwnerCheck } = await supabase
+            .from('trailers')
+            .select('id')
+            .eq('id', driverData.default_trailer_id)
+            .eq('owner_id', userId)
+            .single();
+
+          if (trailerOwnerCheck) {
+            (input as any).trailer_id = driverData.default_trailer_id;
+          }
+        }
+      }
+    }
+  }
+
+  // TRUCK/TRAILER COMPATIBILITY: Enforce rules based on vehicle type
+  // Determine the final truck_id and trailer_id that will be saved
+  const nextTruckId = 'truck_id' in input ? (input.truck_id ?? null) : (currentTrip as any).truck_id;
+  let nextTrailerId = 'trailer_id' in input ? (input.trailer_id ?? null) : (currentTrip as any).trailer_id;
+
+  if (nextTruckId) {
+    // Fetch the truck's vehicle_type
+    const { data: truckData } = await supabase
+      .from('trucks')
+      .select('vehicle_type')
+      .eq('id', nextTruckId)
+      .single();
+
+    const vehicleType = truckData?.vehicle_type;
+
+    if (vehicleType && vehicleType !== 'tractor') {
+      // Non-tractor (box truck): force trailer_id to null
+      nextTrailerId = null;
+      // Override in input so payload uses the correct value
+      (input as any).trailer_id = null;
+    } else if (vehicleType === 'tractor' && !nextTrailerId) {
+      // Tractor requires a trailer
+      throw new Error('Tractors require a trailer. Please select a trailer for this trip.');
+    }
+  }
 
   const payload: Record<string, string | number | boolean | null> = {};
 

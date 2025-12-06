@@ -261,6 +261,19 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
   );
   const [isUpdatingEquipment, setIsUpdatingEquipment] = useState(false);
 
+  // Truck/trailer compatibility logic
+  const selectedTruck = availableTrucks.find((t) => t.id === selectedTruckId);
+  const selectedTruckType = selectedTruck?.vehicle_type;
+  // Show trailer only when: no truck selected OR truck is a tractor
+  const canHaveTrailer = !selectedTruck || selectedTruckType === 'tractor';
+
+  // Clear trailer when switching from tractor to non-tractor
+  useEffect(() => {
+    if (selectedTruck && selectedTruckType !== 'tractor') {
+      setSelectedTrailerId('unassigned');
+    }
+  }, [selectedTruckId, selectedTruck, selectedTruckType]);
+
   // Drag and drop for load reordering
   const [orderedLoads, setOrderedLoads] = useState(() =>
     [...trip.loads].sort((a, b) => a.sequence_index - b.sequence_index)
@@ -538,28 +551,47 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
                         </Select>
                       </div>
                     </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-sm text-muted-foreground">Trailer</Label>
-                      <div className="flex items-center gap-2">
-                        <Select
-                          value={selectedTrailerId}
-                          onValueChange={setSelectedTrailerId}
-                        >
-                          <SelectTrigger className="h-9 flex-1">
-                            <SelectValue placeholder="Select trailer" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="unassigned">Unassigned</SelectItem>
-                            {availableTrailers.map((trailer) => (
-                              <SelectItem key={trailer.id} value={trailer.id}>
-                                {trailer.unit_number}
-                                {trailer.type && ` (${trailer.type.replace(/_/g, ' ')})`}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                    {canHaveTrailer ? (
+                      <div className="space-y-1.5">
+                        <Label className="text-sm text-muted-foreground">
+                          Trailer
+                          {selectedTruck && selectedTruckType === 'tractor' && (
+                            <span className="text-destructive ml-1">*</span>
+                          )}
+                        </Label>
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={selectedTrailerId}
+                            onValueChange={setSelectedTrailerId}
+                          >
+                            <SelectTrigger className="h-9 flex-1">
+                              <SelectValue placeholder={selectedTruck && selectedTruckType === 'tractor' ? 'Select trailer (required)' : 'Select trailer'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(!selectedTruck || selectedTruckType !== 'tractor') && (
+                                <SelectItem value="unassigned">Unassigned</SelectItem>
+                              )}
+                              {availableTrailers.map((trailer) => (
+                                <SelectItem key={trailer.id} value={trailer.id}>
+                                  {trailer.unit_number}
+                                  {trailer.type && ` (${trailer.type.replace(/_/g, ' ')})`}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {selectedTruck && selectedTruckType === 'tractor' && (
+                          <p className="text-xs text-muted-foreground">Tractor requires a trailer</p>
+                        )}
                       </div>
-                    </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <Label className="text-sm text-muted-foreground">Trailer</Label>
+                        <div className="rounded-lg border border-border/70 bg-muted/40 px-3 py-2 text-sm text-muted-foreground h-9 flex items-center">
+                          Not applicable (box truck)
+                        </div>
+                      </div>
+                    )}
                   </div>
                   {/* Save Equipment Button - shows when equipment has changed */}
                   {(selectedTruckId !== (trip.truck_id || 'unassigned') ||
@@ -567,8 +599,17 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
                     <div className="pt-3 border-t border-border">
                       <Button
                         size="sm"
-                        disabled={isUpdatingEquipment}
+                        disabled={isUpdatingEquipment || (selectedTruck && selectedTruckType === 'tractor' && selectedTrailerId === 'unassigned')}
                         onClick={async () => {
+                          // Validate: tractor requires trailer
+                          if (selectedTruck && selectedTruckType === 'tractor' && selectedTrailerId === 'unassigned') {
+                            toast({
+                              title: 'Trailer required',
+                              description: 'Tractors require a trailer. Please select a trailer.',
+                              variant: 'destructive',
+                            });
+                            return;
+                          }
                           setIsUpdatingEquipment(true);
                           const formData = new FormData();
                           formData.append('truck_id', selectedTruckId === 'unassigned' ? '' : selectedTruckId);

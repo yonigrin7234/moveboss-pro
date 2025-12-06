@@ -86,9 +86,12 @@ const STEPS = [
 ];
 
 interface DriverFormProps {
-  initialData?: Partial<NewDriverInput>;
-  trucks?: Array<{ id: string; unit_number: string | null; plate_number: string | null; assigned_driver_id?: string | null }>;
-  trailers?: Array<{ id: string; unit_number: string; assigned_driver_id?: string | null }>;
+  initialData?: Partial<NewDriverInput> & {
+    default_truck_id?: string | null;
+    default_trailer_id?: string | null;
+  };
+  trucks?: Array<{ id: string; unit_number: string | null; plate_number: string | null; vehicle_type?: string | null; assigned_driver_id?: string | null }>;
+  trailers?: Array<{ id: string; unit_number: string; type?: string | null; assigned_driver_id?: string | null }>;
   driverLookup?: Record<string, string>; // Maps driver ID to driver name
   currentDriverId?: string; // For edit mode - the driver being edited
   onSubmit: (
@@ -149,6 +152,8 @@ export function DriverForm({
     payMode: ((initialData?.pay_mode as DriverPayMode) || 'per_mile') as DriverPayMode,
     assignedTruckId: initialData?.assigned_truck_id || '',
     assignedTrailerId: initialData?.assigned_trailer_id || '',
+    defaultTruckId: initialData?.default_truck_id || '',
+    defaultTrailerId: initialData?.default_trailer_id || '',
     hasLogin: initialData?.has_login || false,
     licenseNumber: initialData?.license_number || '',
     licenseExpiry: initialData?.license_expiry || '',
@@ -218,6 +223,8 @@ export function DriverForm({
     status: 3,
     assigned_truck_id: 3,
     assigned_trailer_id: 3,
+    default_truck_id: 3,
+    default_trailer_id: 3,
     // Step 4 - Compensation
     pay_mode: 4,
     rate_per_mile: 4,
@@ -342,6 +349,11 @@ export function DriverForm({
   const selectedTruck = trucks.find((truckItem) => truckItem.id === snapshot.assignedTruckId);
   const selectedTruckType = (selectedTruck as any)?.vehicle_type;
   const canAssignTrailer = !selectedTruck || selectedTruckType === 'tractor';
+
+  // Default equipment logic
+  const selectedDefaultTruck = trucks.find((truckItem) => truckItem.id === snapshot.defaultTruckId);
+  const selectedDefaultTruckType = selectedDefaultTruck?.vehicle_type;
+  const canAssignDefaultTrailer = selectedDefaultTruck && selectedDefaultTruckType === 'tractor';
   const parseDateSafe = (value?: string | null) => {
     if (!value) return null;
     const d = new Date(value);
@@ -389,6 +401,8 @@ export function DriverForm({
       const phoneValue = (formData.get('phone') as string) || '';
       const truckId = (formData.get('assigned_truck_id') as string) || '';
       const trailerId = (formData.get('assigned_trailer_id') as string) || '';
+      const defaultTruckIdValue = (formData.get('default_truck_id') as string) || '';
+      const defaultTrailerIdValue = (formData.get('default_trailer_id') as string) || '';
       const statusValue = ((formData.get('status') as string) || 'active') as 'active' | 'inactive' | 'suspended';
       const modeValue = ((formData.get('pay_mode') as DriverPayMode) || payMode) as DriverPayMode;
       const hasLoginValue = (formData.get('has_login') as string) === 'true';
@@ -405,6 +419,8 @@ export function DriverForm({
         payMode: modeValue,
         assignedTruckId: truckId,
         assignedTrailerId: trailerId,
+        defaultTruckId: defaultTruckIdValue,
+        defaultTrailerId: defaultTrailerIdValue,
         hasLogin: hasLoginValue,
         licenseNumber,
         licenseExpiry,
@@ -1138,6 +1154,88 @@ export function DriverForm({
                         Not applicable for this truck type
                       </div>
                       <input type="hidden" name="assigned_trailer_id" value="unassigned" />
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Default Equipment - for auto-populating trips */}
+            <Card className="border-emerald-200/60 bg-emerald-50/60 shadow-sm dark:bg-emerald-950/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Default Equipment</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  When assigning this driver to a trip, auto-fill the trip&apos;s truck and trailer from these defaults.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-2.5">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="default_truck_id" className="text-sm">Default Truck</Label>
+                    <SelectWithHiddenInput
+                      key={`default_truck_id-${savedFormData.default_truck_id ?? 'init'}`}
+                      name="default_truck_id"
+                      defaultValue={getFieldValue('default_truck_id', initialData?.default_truck_id ?? undefined)}
+                      onValueChange={(value) => {
+                        setSnapshot((prev) => ({ ...prev, defaultTruckId: value }));
+                      }}
+                    >
+                      <SelectTrigger id="default_truck_id" className="h-9">
+                        <SelectValue placeholder="None" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {trucks.map((truck) => {
+                          const truckLabel = truck.unit_number || truck.plate_number || `Truck ${truck.id.slice(0, 8)}`;
+                          const vehicleTypeLabel = truck.vehicle_type ? ` (${truck.vehicle_type.replace(/_/g, ' ')})` : '';
+                          return (
+                            <SelectItem key={truck.id} value={truck.id}>
+                              {truckLabel}{vehicleTypeLabel}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </SelectWithHiddenInput>
+                  </div>
+                  {canAssignDefaultTrailer ? (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="default_trailer_id" className="text-sm">Default Trailer</Label>
+                      <SelectWithHiddenInput
+                        key={`default_trailer_id-${savedFormData.default_trailer_id ?? 'init'}`}
+                        name="default_trailer_id"
+                        defaultValue={getFieldValue('default_trailer_id', initialData?.default_trailer_id ?? undefined)}
+                      >
+                        <SelectTrigger id="default_trailer_id" className="h-9">
+                          <SelectValue placeholder="None" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {trailers.map((trailer) => {
+                            const trailerTypeLabel = trailer.type ? ` (${trailer.type.replace(/_/g, ' ')})` : '';
+                            return (
+                              <SelectItem key={trailer.id} value={trailer.id}>
+                                {trailer.unit_number}{trailerTypeLabel}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </SelectWithHiddenInput>
+                    </div>
+                  ) : snapshot.defaultTruckId && snapshot.defaultTruckId !== 'none' ? (
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">Default Trailer</Label>
+                      <div className="rounded-lg border border-border/70 bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                        Not applicable (truck is not a tractor)
+                      </div>
+                      <input type="hidden" name="default_trailer_id" value="none" />
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">Default Trailer</Label>
+                      <div className="rounded-lg border border-border/70 bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                        Select a default truck first
+                      </div>
+                      <input type="hidden" name="default_trailer_id" value="none" />
                     </div>
                   )}
                 </div>

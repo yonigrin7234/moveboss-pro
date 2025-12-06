@@ -133,6 +133,9 @@ export interface Driver {
   leased_to_company_id: string | null;
   assigned_truck_id: string | null;
   assigned_trailer_id: string | null;
+  // Default equipment (for auto-populating trips)
+  default_truck_id: string | null;
+  default_trailer_id: string | null;
   // Compensation fields
   pay_mode: DriverPayMode;
   rate_per_mile: number | null;
@@ -360,6 +363,38 @@ export async function createDriver(
   const loginMethod = options?.login_method ?? input.login_method ?? 'email';
   let authUserId: string | null = null;
 
+  // DRIVER DEFAULT EQUIPMENT VALIDATION
+  // Validate truck/trailer compatibility for default equipment
+  let finalDefaultTruckId = input.default_truck_id;
+  let finalDefaultTrailerId = input.default_trailer_id;
+
+  if (finalDefaultTruckId) {
+    // Fetch the default truck's vehicle_type
+    const { data: truckData } = await dbClient
+      .from('trucks')
+      .select('vehicle_type')
+      .eq('id', finalDefaultTruckId)
+      .eq('owner_id', userId)
+      .single();
+
+    if (!truckData) {
+      throw new Error('Default truck not found or you do not own it.');
+    }
+
+    const vehicleType = truckData.vehicle_type;
+
+    if (vehicleType && vehicleType !== 'tractor') {
+      // Non-tractor (box truck): force default_trailer_id to null
+      finalDefaultTrailerId = null;
+    } else if (vehicleType === 'tractor' && !finalDefaultTrailerId) {
+      // Tractor requires a default trailer
+      throw new Error('Tractor defaults require a trailer. Please select a default trailer.');
+    }
+  } else {
+    // No default truck means no default trailer either
+    finalDefaultTrailerId = null;
+  }
+
   // Insert driver first with has_login from input (which should already be validated)
   const insertPayload = {
     ...input,
@@ -370,6 +405,9 @@ export async function createDriver(
     login_method: loginMethod,
     has_login: input.has_login, // Use input.has_login directly (already validated)
     auth_user_id: null, // Will be set after auth user creation
+    // Use validated default equipment values
+    default_truck_id: finalDefaultTruckId ?? null,
+    default_trailer_id: finalDefaultTrailerId ?? null,
   };
 
   const { data, error } = await dbClient
@@ -498,11 +536,46 @@ export async function updateDriver(
   const existingHasLogin = (existing as any).has_login;
   const existingAuthUserId = (existing as any).auth_user_id as string | null;
 
+  // DRIVER DEFAULT EQUIPMENT VALIDATION
+  // Validate truck/trailer compatibility for default equipment
+  let finalDefaultTruckId = 'default_truck_id' in input ? (input.default_truck_id ?? null) : (existing as any).default_truck_id;
+  let finalDefaultTrailerId = 'default_trailer_id' in input ? (input.default_trailer_id ?? null) : (existing as any).default_trailer_id;
+
+  if (finalDefaultTruckId) {
+    // Fetch the default truck's vehicle_type
+    const { data: truckData } = await supabase
+      .from('trucks')
+      .select('vehicle_type')
+      .eq('id', finalDefaultTruckId)
+      .eq('owner_id', userId)
+      .single();
+
+    if (!truckData) {
+      throw new Error('Default truck not found or you do not own it.');
+    }
+
+    const vehicleType = truckData.vehicle_type;
+
+    if (vehicleType && vehicleType !== 'tractor') {
+      // Non-tractor (box truck): force default_trailer_id to null
+      finalDefaultTrailerId = null;
+    } else if (vehicleType === 'tractor' && !finalDefaultTrailerId) {
+      // Tractor requires a default trailer
+      throw new Error('Tractor defaults require a trailer. Please select a default trailer.');
+    }
+  } else {
+    // No default truck means no default trailer either
+    finalDefaultTrailerId = null;
+  }
+
   // Build update payload
   const updatePayload: Record<string, any> = {
     ...input,
     login_method: loginMethod,
     has_login: input.has_login, // Use input.has_login directly (already validated)
+    // Use validated default equipment values
+    default_truck_id: finalDefaultTruckId,
+    default_trailer_id: finalDefaultTrailerId,
   };
 
   // Handle auth user creation/updates

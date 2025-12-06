@@ -60,7 +60,7 @@ function SelectWithHiddenInput({
 interface TripFormProps {
   initialData?: Partial<NewTripInput> & { share_driver_with_companies?: boolean; reference_number?: string | null };
   drivers: Driver[];
-  trucks: Truck[];
+  trucks: (Truck & { vehicle_type?: string | null })[];
   trailers: Trailer[];
   onSubmit: (
     prevState: { errors?: Record<string, string>; success?: boolean; tripId?: string } | null,
@@ -198,6 +198,12 @@ export function TripForm({
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
+
+  // Truck/trailer compatibility logic
+  const selectedTruck = trucks.find((t) => t.id === snapshot.truckId);
+  const selectedTruckType = selectedTruck?.vehicle_type;
+  // Show trailer only when: no truck selected OR truck is a tractor
+  const canHaveTrailer = !selectedTruck || selectedTruckType === 'tractor';
 
   return (
     <form ref={formRef} action={formAction} className="space-y-6">
@@ -364,23 +370,43 @@ export function TripForm({
                     </SelectContent>
                   </SelectWithHiddenInput>
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="trailer_id" className="text-sm">Trailer</Label>
-                  <SelectWithHiddenInput name="trailer_id" defaultValue={initialData?.trailer_id || ''}>
-                    <SelectTrigger id="trailer_id" className="h-9">
-                      <SelectValue placeholder="Unassigned" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">Unassigned</SelectItem>
-                      {trailers.map((trailer) => (
-                        <SelectItem key={trailer.id} value={trailer.id}>
-                          {trailer.unit_number}
-                          {trailer.type && ` (${trailer.type.replace(/_/g, ' ')})`}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </SelectWithHiddenInput>
-                </div>
+                {canHaveTrailer ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="trailer_id" className="text-sm">
+                      Trailer
+                      {selectedTruck && selectedTruckType === 'tractor' && (
+                        <span className="text-destructive ml-1">*</span>
+                      )}
+                    </Label>
+                    <SelectWithHiddenInput name="trailer_id" defaultValue={initialData?.trailer_id || ''}>
+                      <SelectTrigger id="trailer_id" className="h-9">
+                        <SelectValue placeholder={selectedTruck && selectedTruckType === 'tractor' ? 'Select trailer (required)' : 'Unassigned'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(!selectedTruck || selectedTruckType !== 'tractor') && (
+                          <SelectItem value="">Unassigned</SelectItem>
+                        )}
+                        {trailers.map((trailer) => (
+                          <SelectItem key={trailer.id} value={trailer.id}>
+                            {trailer.unit_number}
+                            {trailer.type && ` (${trailer.type.replace(/_/g, ' ')})`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </SelectWithHiddenInput>
+                    {selectedTruck && selectedTruckType === 'tractor' && (
+                      <p className="text-xs text-muted-foreground">Tractor requires a trailer</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">Trailer</Label>
+                    <div className="rounded-lg border border-border/70 bg-muted/40 px-3 py-2 text-sm text-muted-foreground h-9 flex items-center">
+                      Not applicable (box truck)
+                    </div>
+                    <input type="hidden" name="trailer_id" value="" />
+                  </div>
+                )}
               </div>
               {snapshot.driverId && (
                 <div className="flex items-center gap-2 pt-2 border-t border-border/50">

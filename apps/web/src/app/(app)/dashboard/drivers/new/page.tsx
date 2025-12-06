@@ -42,6 +42,8 @@ export async function createDriverAction(
   const mvr_date = formData.get('mvr_date') as string | null;
   const assigned_truck_id = formData.get('assigned_truck_id') as string | null;
   const assigned_trailer_id = formData.get('assigned_trailer_id') as string | null;
+  const default_truck_id = formData.get('default_truck_id') as string | null;
+  const default_trailer_id = formData.get('default_trailer_id') as string | null;
   const rate_per_mile_raw = formData.get('rate_per_mile') as string | null;
   const rate_per_cuft_raw = formData.get('rate_per_cuft') as string | null;
   const percent_of_revenue_raw = formData.get('percent_of_revenue') as string | null;
@@ -116,6 +118,13 @@ export async function createDriverAction(
   }
   if (assigned_trailer_id && assigned_trailer_id !== '' && assigned_trailer_id !== 'unassigned') {
     insertPayload.assigned_trailer_id = assigned_trailer_id;
+  }
+  // Handle default equipment fields
+  if (default_truck_id && default_truck_id !== '' && default_truck_id !== 'none') {
+    insertPayload.default_truck_id = default_truck_id;
+  }
+  if (default_trailer_id && default_trailer_id !== '' && default_trailer_id !== 'none') {
+    insertPayload.default_trailer_id = default_trailer_id;
   }
 
   // Compensation numbers based on pay mode

@@ -103,6 +103,8 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
       'status',
       'assigned_truck_id',
       'assigned_trailer_id',
+      'default_truck_id',
+      'default_trailer_id',
       'pay_mode',
       'rate_per_mile',
       'rate_per_cuft',
@@ -125,11 +127,18 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
     if (cleanedData.login_method === 'sms') cleanedData.login_method = 'phone';
 
     // Handle empty assigned_truck_id and assigned_trailer_id
-    if (cleanedData.assigned_truck_id === '') {
+    if (cleanedData.assigned_truck_id === '' || cleanedData.assigned_truck_id === 'unassigned') {
       cleanedData.assigned_truck_id = null;
     }
-    if (cleanedData.assigned_trailer_id === '') {
+    if (cleanedData.assigned_trailer_id === '' || cleanedData.assigned_trailer_id === 'unassigned') {
       cleanedData.assigned_trailer_id = null;
+    }
+    // Handle empty default_truck_id and default_trailer_id
+    if (cleanedData.default_truck_id === '' || cleanedData.default_truck_id === 'none') {
+      cleanedData.default_truck_id = null;
+    }
+    if (cleanedData.default_trailer_id === '' || cleanedData.default_trailer_id === 'none') {
+      cleanedData.default_trailer_id = null;
     }
 
     // Clear unused compensation fields based on pay_mode
@@ -261,6 +270,8 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
     status: driver.status,
     assigned_truck_id: driver.assigned_truck_id ?? undefined,
     assigned_trailer_id: driver.assigned_trailer_id ?? undefined,
+    default_truck_id: driver.default_truck_id ?? undefined,
+    default_trailer_id: driver.default_trailer_id ?? undefined,
     pay_mode: driver.pay_mode,
     rate_per_mile: driver.rate_per_mile ?? undefined,
     rate_per_cuft: driver.rate_per_cuft ?? undefined,
