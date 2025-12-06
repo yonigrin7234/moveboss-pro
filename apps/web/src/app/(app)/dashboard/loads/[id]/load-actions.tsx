@@ -46,6 +46,8 @@ interface LoadActionsProps {
   postingStatus: string | null;
   trips: Trip[];
   initialCubicFeet?: number | null;
+  /** Only brokers/moving companies can post to marketplace. If false, the button is hidden. */
+  canPostToMarketplace?: boolean;
   onPostToMarketplace: (data: MarketplacePostingData) => Promise<{ success: boolean; error?: string }>;
   onAssignToTrip: (tripId: string) => Promise<{ success: boolean; error?: string }>;
 }
@@ -66,6 +68,7 @@ export function LoadActions({
   postingStatus,
   trips,
   initialCubicFeet,
+  canPostToMarketplace = true,
   onPostToMarketplace,
   onAssignToTrip,
 }: LoadActionsProps) {
@@ -176,8 +179,8 @@ export function LoadActions({
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      {/* Post to Marketplace - only show for draft loads */}
-      {isDraft && (
+      {/* Post to Marketplace - only show for draft loads AND if user is a broker */}
+      {isDraft && canPostToMarketplace && (
         <Button
           variant="default"
           size="sm"

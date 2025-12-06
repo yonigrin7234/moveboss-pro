@@ -8,6 +8,10 @@ type WorkspaceCompany = {
   dba_name?: string | null;
   status?: string | null;
   owner_id?: string;
+  /** Company can post loads/pickups to marketplace */
+  is_broker?: boolean;
+  /** Company can haul loads */
+  is_carrier?: boolean;
 };
 
 type Membership = {

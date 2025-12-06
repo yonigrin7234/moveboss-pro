@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser, createClient } from '@/lib/supabase-server';
 import { getLoadById, updateLoad, type Load } from '@/data/loads';
-import { getCompaniesForUser } from '@/data/companies';
+import { getCompaniesForUser, getWorkspaceCompanyForUser } from '@/data/companies';
 import { getDriversForUser } from '@/data/drivers';
 import { getTrucksForUser, getTrailersForUser } from '@/data/fleet';
 import { getTripsForLoadAssignment, addLoadToTrip } from '@/data/trips';
@@ -59,13 +59,17 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
   }
 
   // Fetch related entities for dropdowns
-  const [companies, drivers, trucks, trailers, trips] = await Promise.all([
+  const [companies, drivers, trucks, trailers, trips, workspaceCompany] = await Promise.all([
     getCompaniesForUser(user.id),
     getDriversForUser(user.id),
     getTrucksForUser(user.id),
     getTrailersForUser(user.id),
     getTripsForLoadAssignment(user.id),
+    getWorkspaceCompanyForUser(user.id),
   ]);
+
+  // Only brokers/moving companies can post to marketplace
+  const canPostToMarketplace = workspaceCompany?.is_broker === true;
 
   // Filter out trips that already have this load assigned
   const availableTrips = trips.filter((trip) => trip.id !== load.trip_id);
@@ -161,13 +165,18 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
     try {
       const supabase = await createClient();
 
-      // Get user's workspace company for posted_by_company_id
-      const { data: workspaceCompany } = await supabase
+      // Get user's workspace company for posted_by_company_id and broker check
+      const { data: workspaceCompanyData } = await supabase
         .from('companies')
-        .select('id')
+        .select('id, is_broker')
         .eq('owner_id', currentUser.id)
         .eq('is_workspace_company', true)
         .maybeSingle();
+
+      // Only brokers/moving companies can post to marketplace
+      if (!workspaceCompanyData?.is_broker) {
+        return { success: false, error: 'Only brokers and moving companies can post to marketplace' };
+      }
 
       // Update the load with posting status and marketplace-specific fields
       const { error } = await supabase
@@ -176,7 +185,7 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
           posting_status: 'posted',
           posted_at: new Date().toISOString(),
           posting_type: 'load',
-          posted_by_company_id: workspaceCompany?.id || null,
+          posted_by_company_id: workspaceCompanyData?.id || null,
           // Marketplace visibility - required for load to appear on load board
           is_marketplace_visible: true,
           posted_to_marketplace_at: new Date().toISOString(),
@@ -330,6 +339,7 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
           loadId={id}
           postingStatus={load.posting_status ?? null}
           initialCubicFeet={load.cubic_feet_estimate ?? load.cubic_feet ?? null}
+          canPostToMarketplace={canPostToMarketplace}
           trips={availableTrips.map((t) => ({
             id: t.id,
             trip_number: t.trip_number,

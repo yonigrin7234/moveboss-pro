@@ -68,6 +68,8 @@ export default async function DashboardLayout({
               dba_name: workspaceCompany.dba_name,
               status: workspaceCompany.status,
               owner_id: workspaceCompany.owner_id,
+              is_broker: workspaceCompany.is_broker ?? false,
+              is_carrier: workspaceCompany.is_carrier ?? false,
             }
           : null,
         memberships,

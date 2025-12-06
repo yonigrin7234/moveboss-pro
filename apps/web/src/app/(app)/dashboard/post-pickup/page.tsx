@@ -16,9 +16,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Upload, ArrowLeft } from 'lucide-react';
+import { Loader2, Upload, ArrowLeft, Ban } from 'lucide-react';
 import { DatePicker } from '@/components/ui/date-picker';
 import { useZipLookup } from '@/hooks/useZipLookup';
+import { useWorkspace } from '@/components/layout/WorkspaceContext';
 import Link from 'next/link';
 
 const SERVICE_TYPES = [
@@ -33,9 +34,45 @@ const SERVICE_TYPES = [
 
 export default function PostPickupPage() {
   const router = useRouter();
+  const { workspaceCompany } = useWorkspace();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { lookup } = useZipLookup();
+
+  // Only brokers/moving companies can post to marketplace
+  const canPostToMarketplace = workspaceCompany?.is_broker === true;
+
+  // Show access denied for pure carriers
+  if (!canPostToMarketplace) {
+    return (
+      <div className="max-w-2xl mx-auto px-6 pt-8">
+        <Card className="border-destructive/50">
+          <CardHeader className="text-center pb-4">
+            <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-3">
+              <Ban className="h-6 w-6 text-destructive" />
+            </div>
+            <CardTitle className="text-xl">Access Restricted</CardTitle>
+            <CardDescription className="text-base">
+              Only brokers and moving companies can post pickups to the marketplace.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center pb-6">
+            <p className="text-sm text-muted-foreground mb-4">
+              As a carrier, you can browse and request loads from the Load Board, but you cannot post jobs.
+            </p>
+            <div className="flex justify-center gap-3">
+              <Button variant="outline" asChild>
+                <Link href="/dashboard">Go to Dashboard</Link>
+              </Button>
+              <Button asChild>
+                <Link href="/dashboard/load-board">Browse Load Board</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const [formData, setFormData] = useState({
     // Reference

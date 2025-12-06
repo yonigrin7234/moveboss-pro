@@ -22,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, PackagePlus, ArrowLeft, Truck, Warehouse, Plus, AlertTriangle, Ban, Building2 } from 'lucide-react';
 import { DatePicker } from '@/components/ui/date-picker';
+import { useWorkspace } from '@/components/layout/WorkspaceContext';
 import Link from 'next/link';
 
 interface StorageOption {
@@ -55,9 +56,15 @@ type TruckRequirement = 'any' | 'semi_only' | 'box_truck_only';
 
 export default function PostLoadPage() {
   const router = useRouter();
+  const { workspaceCompany } = useWorkspace();
   const [loadType, setLoadType] = useState<LoadType>('rfd');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Only brokers/moving companies can post to marketplace
+  const canPostToMarketplace = workspaceCompany?.is_broker === true;
+
+  // Show access denied for pure carriers (rendered below after hooks)
   const [storageOptions, setStorageOptions] = useState<StorageOption[]>([]);
   const [loadingStorage, setLoadingStorage] = useState(true);
   const [selectedStorage, setSelectedStorage] = useState<StorageOption | null>(null);
@@ -450,6 +457,38 @@ export default function PostLoadPage() {
       setIsSubmitting(false);
     }
   };
+
+  // Show access denied for pure carriers
+  if (!canPostToMarketplace) {
+    return (
+      <div className="max-w-2xl mx-auto px-6 pt-8">
+        <Card className="border-destructive/50">
+          <CardHeader className="text-center pb-4">
+            <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-3">
+              <Ban className="h-6 w-6 text-destructive" />
+            </div>
+            <CardTitle className="text-xl">Access Restricted</CardTitle>
+            <CardDescription className="text-base">
+              Only brokers and moving companies can post loads to the marketplace.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center pb-6">
+            <p className="text-sm text-muted-foreground mb-4">
+              As a carrier, you can browse and request loads from the Load Board, but you cannot post jobs.
+            </p>
+            <div className="flex justify-center gap-3">
+              <Button variant="outline" asChild>
+                <Link href="/dashboard">Go to Dashboard</Link>
+              </Button>
+              <Button asChild>
+                <Link href="/dashboard/load-board">Browse Load Board</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-6 pt-4 space-y-4">
