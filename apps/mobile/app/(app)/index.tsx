@@ -202,8 +202,8 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Empty State */}
-      {!loading && upcomingTrips.length === 0 && nextAction.type === 'no_action' && (
+      {/* Empty State - Only show when NOT loading and truly empty */}
+      {!loading && !error && upcomingTrips.length === 0 && nextAction.type === 'no_action' && (
         <View style={styles.emptyState}>
           <Icon name="truck" size={48} color={colors.textMuted} />
           <Text style={styles.emptyTitle}>No Active Trips</Text>

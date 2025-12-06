@@ -48,8 +48,18 @@ export default function TripStartRoute() {
 
   // Simple one-time fetch on mount
   useEffect(() => {
-    if (hasFetchedRef.current || !user?.id || !id) {
-      if (!user?.id || !id) setLoading(false);
+    // Prevent multiple fetches
+    if (hasFetchedRef.current) {
+      return;
+    }
+
+    if (!user?.id || !id) {
+      setLoading(false);
+      if (!user?.id) {
+        setError('Not authenticated');
+      } else if (!id) {
+        setError('Trip ID missing');
+      }
       return;
     }
 
@@ -57,6 +67,11 @@ export default function TripStartRoute() {
 
     const fetchTrip = async () => {
       try {
+        setLoading(true);
+        setError(null);
+
+        console.log('[TripStart] Fetching trip:', { tripId: id, userId: user.id });
+
         // Get driver record with timeout
         const driverResult = await withTimeout(
           supabase
@@ -71,10 +86,13 @@ export default function TripStartRoute() {
         const { data: driver, error: driverError } = driverResult;
 
         if (driverError || !driver) {
+          console.error('[TripStart] Driver error:', driverError);
           setError('Driver profile not found');
           setLoading(false);
           return;
         }
+
+        console.log('[TripStart] Driver found:', driver.id);
 
         // Fetch trip with loads with timeout
         const tripResult = await withTimeout(
@@ -97,17 +115,28 @@ export default function TripStartRoute() {
         const { data: tripData, error: tripError } = tripResult;
 
         if (tripError) {
+          console.error('[TripStart] Trip error:', tripError);
           throw tripError;
         }
 
-        if (tripData && tripData.driver_id !== driver.id) {
+        if (!tripData) {
+          console.error('[TripStart] Trip not found');
+          setError('Trip not found');
+          setLoading(false);
+          return;
+        }
+
+        if (tripData.driver_id !== driver.id) {
+          console.error('[TripStart] Access denied - driver mismatch');
           setError('Access denied');
           setLoading(false);
           return;
         }
 
+        console.log('[TripStart] Trip loaded successfully:', tripData.id);
         setTrip(tripData);
       } catch (err) {
+        console.error('[TripStart] Fetch error:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch trip');
       } finally {
         setLoading(false);
@@ -115,6 +144,7 @@ export default function TripStartRoute() {
     };
 
     fetchTrip();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, id]);
 
   // Create trip actions with a no-op refetch since we don't need to refresh
