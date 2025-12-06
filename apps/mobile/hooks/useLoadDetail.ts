@@ -11,8 +11,9 @@ export function useLoadDetail(loadId: string | null) {
   const tripIdRef = useRef<string | null>(null);
 
   const fetchLoad = useCallback(async () => {
-    if (!user || !loadId) {
+    if (!user?.id || !loadId) {
       setLoading(false);
+      setLoad(null);
       return;
     }
 
@@ -29,6 +30,8 @@ export function useLoadDetail(loadId: string | null) {
 
       if (driverError || !driver) {
         setError('Driver profile not found');
+        setLoad(null);
+        setLoading(false);
         return;
       }
 
@@ -67,10 +70,11 @@ export function useLoadDetail(loadId: string | null) {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch load');
+      setLoad(null);
     } finally {
       setLoading(false);
     }
-  }, [user, loadId]);
+  }, [user?.id, loadId]);
 
   useEffect(() => {
     fetchLoad();
@@ -78,7 +82,7 @@ export function useLoadDetail(loadId: string | null) {
 
   // Real-time subscription for delivery order changes
   useEffect(() => {
-    if (!loadId) return;
+    if (!loadId || !user?.id) return;
 
     // Subscribe to changes on this load (delivery_order changes)
     const loadChannel = supabase
@@ -133,7 +137,8 @@ export function useLoadDetail(loadId: string | null) {
         tripChannel.unsubscribe();
       }
     };
-  }, [loadId, fetchLoad]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadId, user?.id]);
 
   return { load, loading, error, refetch: fetchLoad };
 }

@@ -156,8 +156,13 @@ export function useVehicleDocuments(): UseVehicleDocumentsReturn {
   const [tripNumber, setTripNumber] = useState<number | null>(null);
 
   const fetchVehicleDocuments = useCallback(async () => {
-    if (!user) {
+    if (!user?.id) {
       setIsLoading(false);
+      setHasActiveTrip(false);
+      setDriver(null);
+      setCompany(null);
+      setTruck(null);
+      setTrailer(null);
       return;
     }
 
@@ -314,7 +319,7 @@ export function useVehicleDocuments(): UseVehicleDocumentsReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     fetchVehicleDocuments();

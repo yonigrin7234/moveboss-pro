@@ -18,8 +18,9 @@ export function useDriverProfile() {
   const { user } = useAuth();
 
   const fetchDriver = useCallback(async () => {
-    if (!user) {
+    if (!user?.id) {
       setLoading(false);
+      setDriver(null);
       return;
     }
 
@@ -40,10 +41,11 @@ export function useDriverProfile() {
       setDriver(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch driver profile');
+      setDriver(null);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     fetchDriver();
