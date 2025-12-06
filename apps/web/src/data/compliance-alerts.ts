@@ -331,21 +331,210 @@ export async function getComplianceAlertsForUser(userId: string): Promise<Compli
 
   if (error) {
     console.error('Error fetching compliance alerts:', error);
-    return [];
   }
 
-  return data || [];
+  // If we have alerts, return them
+  if (data && data.length > 0) {
+    return data;
+  }
+
+  // Otherwise, calculate directly from source tables
+  return getComplianceAlertsDirect(userId);
+}
+
+// Get compliance alerts directly from drivers and vehicles (real-time)
+export async function getComplianceAlertsDirect(userId: string): Promise<ComplianceAlert[]> {
+  const supabase = await createClient();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const alerts: ComplianceAlert[] = [];
+
+  // Helper to calculate days and severity
+  const getDaysAndSeverity = (expiryDate: string | null): { days: number | null; severity: AlertSeverity } | null => {
+    if (!expiryDate) return null;
+    const expiry = new Date(expiryDate);
+    expiry.setHours(0, 0, 0, 0);
+    const days = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (days <= 0) return { days, severity: 'expired' };
+    if (days <= 7) return { days, severity: 'critical' };
+    if (days <= 14) return { days, severity: 'urgent' };
+    if (days <= 30) return { days, severity: 'warning' };
+    return null;
+  };
+
+  // Check drivers
+  const { data: drivers } = await supabase
+    .from('drivers')
+    .select('id, first_name, last_name, license_expiry, medical_card_expiry, twic_card_expiry')
+    .eq('owner_id', userId);
+
+  for (const driver of drivers || []) {
+    const driverName = `${driver.first_name} ${driver.last_name}`;
+
+    // License
+    const license = getDaysAndSeverity(driver.license_expiry);
+    if (license) {
+      alerts.push({
+        id: `driver-license-${driver.id}`,
+        company_id: '',
+        owner_id: userId,
+        alert_type: 'driver_license',
+        vehicle_id: null,
+        driver_id: driver.id,
+        partnership_id: null,
+        storage_location_id: null,
+        item_name: `${driverName} - License`,
+        expiry_date: driver.license_expiry,
+        days_until_expiry: license.days,
+        severity: license.severity,
+        is_resolved: false,
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    // Medical card
+    const medical = getDaysAndSeverity(driver.medical_card_expiry);
+    if (medical) {
+      alerts.push({
+        id: `driver-medical-${driver.id}`,
+        company_id: '',
+        owner_id: userId,
+        alert_type: 'driver_medical_card',
+        vehicle_id: null,
+        driver_id: driver.id,
+        partnership_id: null,
+        storage_location_id: null,
+        item_name: `${driverName} - Medical Card`,
+        expiry_date: driver.medical_card_expiry,
+        days_until_expiry: medical.days,
+        severity: medical.severity,
+        is_resolved: false,
+        created_at: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Check trucks
+  const { data: trucks } = await supabase
+    .from('trucks')
+    .select('id, unit_number, plate_number, vehicle_type, registration_expiry, inspection_expiry, insurance_expiry')
+    .eq('owner_id', userId);
+
+  for (const truck of trucks || []) {
+    const truckName = truck.unit_number || truck.plate_number || 'Truck';
+
+    // Registration
+    const reg = getDaysAndSeverity(truck.registration_expiry);
+    if (reg) {
+      alerts.push({
+        id: `truck-reg-${truck.id}`,
+        company_id: '',
+        owner_id: userId,
+        alert_type: 'vehicle_registration',
+        vehicle_id: truck.id,
+        driver_id: null,
+        partnership_id: null,
+        storage_location_id: null,
+        item_name: `${truckName} - Registration`,
+        expiry_date: truck.registration_expiry,
+        days_until_expiry: reg.days,
+        severity: reg.severity,
+        is_resolved: false,
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    // Inspection
+    const insp = getDaysAndSeverity(truck.inspection_expiry);
+    if (insp) {
+      alerts.push({
+        id: `truck-insp-${truck.id}`,
+        company_id: '',
+        owner_id: userId,
+        alert_type: 'vehicle_inspection',
+        vehicle_id: truck.id,
+        driver_id: null,
+        partnership_id: null,
+        storage_location_id: null,
+        item_name: `${truckName} - Inspection`,
+        expiry_date: truck.inspection_expiry,
+        days_until_expiry: insp.days,
+        severity: insp.severity,
+        is_resolved: false,
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    // Insurance
+    const ins = getDaysAndSeverity(truck.insurance_expiry);
+    if (ins) {
+      alerts.push({
+        id: `truck-ins-${truck.id}`,
+        company_id: '',
+        owner_id: userId,
+        alert_type: 'vehicle_insurance',
+        vehicle_id: truck.id,
+        driver_id: null,
+        partnership_id: null,
+        storage_location_id: null,
+        item_name: `${truckName} - Insurance`,
+        expiry_date: truck.insurance_expiry,
+        days_until_expiry: ins.days,
+        severity: ins.severity,
+        is_resolved: false,
+        created_at: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Sort by severity (expired first) then by days
+  const severityOrder: Record<AlertSeverity, number> = { expired: 0, critical: 1, urgent: 2, warning: 3 };
+  alerts.sort((a, b) => {
+    const sevDiff = severityOrder[a.severity] - severityOrder[b.severity];
+    if (sevDiff !== 0) return sevDiff;
+    return (a.days_until_expiry ?? -999) - (b.days_until_expiry ?? -999);
+  });
+
+  return alerts;
 }
 
 // Get compliance alert counts by severity for a user
 export async function getComplianceAlertCounts(userId: string): Promise<Record<AlertSeverity, number>> {
   const supabase = await createClient();
 
+  // First try to get from alerts table
   const { data } = await supabase
     .from('compliance_alerts')
     .select('severity')
     .eq('owner_id', userId)
     .eq('is_resolved', false);
+
+  // If we have alerts, use them
+  if (data && data.length > 0) {
+    const counts: Record<AlertSeverity, number> = {
+      warning: 0,
+      urgent: 0,
+      critical: 0,
+      expired: 0,
+    };
+
+    data.forEach(alert => {
+      counts[alert.severity as AlertSeverity]++;
+    });
+
+    return counts;
+  }
+
+  // Otherwise, calculate directly from source tables (real-time check)
+  return getComplianceCountsDirect(userId);
+}
+
+// Calculate compliance counts directly from drivers and vehicles (real-time)
+export async function getComplianceCountsDirect(userId: string): Promise<Record<AlertSeverity, number>> {
+  const supabase = await createClient();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   const counts: Record<AlertSeverity, number> = {
     warning: 0,
@@ -354,9 +543,77 @@ export async function getComplianceAlertCounts(userId: string): Promise<Record<A
     expired: 0,
   };
 
-  data?.forEach(alert => {
-    counts[alert.severity as AlertSeverity]++;
-  });
+  // Helper to categorize by days until expiry
+  const categorize = (expiryDate: string | null) => {
+    if (!expiryDate) return null;
+    const expiry = new Date(expiryDate);
+    expiry.setHours(0, 0, 0, 0);
+    const daysUntil = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysUntil <= 0) return 'expired';
+    if (daysUntil <= 7) return 'critical';
+    if (daysUntil <= 14) return 'urgent';
+    if (daysUntil <= 30) return 'warning';
+    return null; // Not expiring soon
+  };
+
+  // Check drivers
+  const { data: drivers } = await supabase
+    .from('drivers')
+    .select('license_expiry, medical_card_expiry, twic_card_expiry')
+    .eq('owner_id', userId);
+
+  for (const driver of drivers || []) {
+    // License
+    const licenseSeverity = categorize(driver.license_expiry);
+    if (licenseSeverity) counts[licenseSeverity]++;
+
+    // Medical card
+    const medicalSeverity = categorize(driver.medical_card_expiry);
+    if (medicalSeverity) counts[medicalSeverity]++;
+
+    // TWIC card
+    const twicSeverity = categorize(driver.twic_card_expiry);
+    if (twicSeverity) counts[twicSeverity]++;
+  }
+
+  // Check trucks
+  const { data: trucks } = await supabase
+    .from('trucks')
+    .select('registration_expiry, inspection_expiry, insurance_expiry, permit_expiry')
+    .eq('owner_id', userId);
+
+  for (const truck of trucks || []) {
+    // Registration
+    const regSeverity = categorize(truck.registration_expiry);
+    if (regSeverity) counts[regSeverity]++;
+
+    // Inspection
+    const inspSeverity = categorize(truck.inspection_expiry);
+    if (inspSeverity) counts[inspSeverity]++;
+
+    // Insurance
+    const insSeverity = categorize(truck.insurance_expiry);
+    if (insSeverity) counts[insSeverity]++;
+
+    // Permit
+    const permitSeverity = categorize(truck.permit_expiry);
+    if (permitSeverity) counts[permitSeverity]++;
+  }
+
+  // Check trailers too
+  const { data: trailers } = await supabase
+    .from('trailers')
+    .select('registration_expiry, inspection_expiry')
+    .eq('owner_id', userId);
+
+  for (const trailer of trailers || []) {
+    const regSeverity = categorize(trailer.registration_expiry);
+    if (regSeverity) counts[regSeverity]++;
+
+    const inspSeverity = categorize(trailer.inspection_expiry);
+    if (inspSeverity) counts[inspSeverity]++;
+  }
 
   return counts;
 }
