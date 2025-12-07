@@ -124,6 +124,10 @@ export const newDriverInputSchema = z
       }),
     pay_notes: z.string().trim().max(1000).optional(),
     notes: z.string().trim().max(5000).optional(),
+    // Location & capacity settings
+    location_sharing_enabled: z.boolean().optional().default(false),
+    auto_post_capacity: z.boolean().optional().default(false),
+    capacity_visibility: z.enum(['private', 'network', 'public']).optional().default('private'),
   })
   .refine(
     (data) => {

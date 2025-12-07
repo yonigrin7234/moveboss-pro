@@ -144,6 +144,10 @@ export interface Driver {
   flat_daily_rate: number | null;
   pay_notes: string | null;
   notes: string | null;
+  // Location & capacity settings
+  location_sharing_enabled: boolean;
+  auto_post_capacity: boolean;
+  capacity_visibility: 'private' | 'network' | 'public';
 }
 
 // Filter interface
