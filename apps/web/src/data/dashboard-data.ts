@@ -132,20 +132,20 @@ export async function getDashboardMetrics(userId: string): Promise<DashboardMetr
       .eq('status', 'open')
       .lt('created_at', lastWeekIso),
 
-    // Payments collected today
+    // Payments collected today (from load_payments table)
     supabase
-      .from('payments')
+      .from('load_payments')
       .select('amount')
       .eq('owner_id', userId)
-      .gte('created_at', todayIso),
+      .gte('collected_at', todayIso),
 
     // Payments collected yesterday (for % change)
     supabase
-      .from('payments')
+      .from('load_payments')
       .select('amount')
       .eq('owner_id', userId)
-      .gte('created_at', yesterdayIso)
-      .lt('created_at', todayIso),
+      .gte('collected_at', yesterdayIso)
+      .lt('collected_at', todayIso),
 
     // Unassigned loads (no driver, not assigned to external carrier, status pending/available)
     supabase
@@ -454,19 +454,22 @@ export async function getTodaysCollections(userId: string, limit = 10): Promise<
   today.setHours(0, 0, 0, 0);
 
   const { data, error } = await supabase
-    .from('payments')
+    .from('load_payments')
     .select(`
       id,
       amount,
-      payment_method,
-      created_at,
+      method,
+      collected_at,
       load_id,
-      driver_id,
-      driver:drivers!payments_driver_id_fkey(first_name, last_name)
+      collected_by,
+      load:loads(
+        assigned_driver_id,
+        driver:drivers(first_name, last_name)
+      )
     `)
     .eq('owner_id', userId)
-    .gte('created_at', today.toISOString())
-    .order('created_at', { ascending: false })
+    .gte('collected_at', today.toISOString())
+    .order('collected_at', { ascending: false })
     .limit(limit);
 
   if (error) {
@@ -476,12 +479,12 @@ export async function getTodaysCollections(userId: string, limit = 10): Promise<
 
   return (data || []).map((p: any) => ({
     id: p.id,
-    driverName: p.driver
-      ? `${p.driver.first_name} ${p.driver.last_name}`
-      : 'Unknown',
+    driverName: p.load?.driver
+      ? `${p.load.driver.first_name} ${p.load.driver.last_name}`
+      : (p.collected_by === 'office' ? 'Office' : 'Unknown'),
     amount: Number(p.amount) || 0,
-    paymentMethod: p.payment_method,
-    time: new Date(p.created_at).toLocaleTimeString('en-US', {
+    paymentMethod: p.method,
+    time: new Date(p.collected_at).toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true

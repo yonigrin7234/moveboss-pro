@@ -338,13 +338,14 @@ export async function getCarrierDashboardData(userId: string): Promise<CarrierDa
     .eq('load_status', 'in_transit')
     .limit(5);
 
-  // Get today's collections (payments received today)
+  // Get today's collections (payments received today from load_payments)
+  // For carriers, we get payments on loads where they are the assigned carrier
   const { data: todayCollections } = await supabase
-    .from('payments')
-    .select('id, amount, created_at, load:load_id(load_number), company:company_id(name)')
-    .eq('carrier_id', company.id)
-    .gte('created_at', todayStart.toISOString())
-    .lt('created_at', todayEnd.toISOString())
+    .from('load_payments')
+    .select('id, amount, collected_at, load:loads!inner(load_number, assigned_carrier_id, company:companies(name))')
+    .eq('load.assigned_carrier_id', company.id)
+    .gte('collected_at', todayStart.toISOString())
+    .lt('collected_at', todayEnd.toISOString())
     .limit(5);
 
   // Count active loads
@@ -354,22 +355,22 @@ export async function getCarrierDashboardData(userId: string): Promise<CarrierDa
     .eq('assigned_carrier_id', company.id)
     .in('load_status', ['pending', 'accepted', 'loading', 'in_transit']);
 
-  // Get receivables (money owed to carrier - simplified: look at company_ledger or calculate from loads)
-  // For now, we'll use a simplified approach based on delivered loads with outstanding balances
+  // Get receivables (money owed TO the carrier - open receivables)
   const { data: receivables } = await supabase
-    .from('company_ledger')
-    .select('balance')
-    .eq('company_id', company.id)
-    .gt('balance', 0);
+    .from('receivables')
+    .select('amount')
+    .eq('owner_id', userId)
+    .eq('status', 'open');
 
+  // Get payables (money the carrier OWES - to drivers, vendors)
   const { data: payables } = await supabase
-    .from('company_ledger')
-    .select('balance')
-    .eq('company_id', company.id)
-    .lt('balance', 0);
+    .from('payables')
+    .select('amount')
+    .eq('owner_id', userId)
+    .eq('status', 'open');
 
-  const moneyOwedToYou = (receivables || []).reduce((sum, r) => sum + (r.balance || 0), 0);
-  const moneyYouOwe = Math.abs((payables || []).reduce((sum, p) => sum + (p.balance || 0), 0));
+  const moneyOwedToYou = (receivables || []).reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+  const moneyYouOwe = (payables || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
   // Sum today's collections
   const collectedToday = (todayCollections || []).reduce((sum, c) => sum + (c.amount || 0), 0);
@@ -442,12 +443,12 @@ export async function getCarrierDashboardData(userId: string): Promise<CarrierDa
       estimated_cuft: l.estimated_cuft,
     })),
     todaysSchedule: scheduleEvents,
-    collections: (todayCollections || []).map(c => ({
+    collections: (todayCollections || []).map((c: any) => ({
       id: c.id,
-      load_number: (c.load as any)?.load_number || 'Unknown',
+      load_number: c.load?.load_number || 'Unknown',
       amount: c.amount || 0,
-      collected_at: c.created_at,
-      company_name: (c.company as any)?.name || 'Unknown',
+      collected_at: c.collected_at,
+      company_name: c.load?.company?.name || 'Unknown',
     })),
     metrics: {
       activeLoadsCount: activeCount || 0,
@@ -678,31 +679,32 @@ export async function getOwnerOperatorDashboardData(userId: string): Promise<Own
     })),
   ];
 
-  // Get receivables (money owed to owner-operator)
+  // Get receivables (money owed TO the owner-operator - open receivables)
   const { data: receivables } = await supabase
-    .from('company_ledger')
-    .select('balance')
-    .eq('company_id', company.id)
-    .gt('balance', 0);
-
-  const { data: payables } = await supabase
-    .from('company_ledger')
-    .select('balance')
-    .eq('company_id', company.id)
-    .lt('balance', 0);
-
-  const moneyOwedToYou = (receivables || []).reduce((sum, r) => sum + (r.balance || 0), 0);
-  const moneyYouOwe = Math.abs((payables || []).reduce((sum, p) => sum + (p.balance || 0), 0));
-
-  // Get today's collections
-  const { data: todayCollections } = await supabase
-    .from('payments')
+    .from('receivables')
     .select('amount')
-    .eq('carrier_id', company.id)
-    .gte('created_at', todayStart.toISOString())
-    .lt('created_at', todayEnd.toISOString());
+    .eq('owner_id', userId)
+    .eq('status', 'open');
 
-  const collectedToday = (todayCollections || []).reduce((sum, c) => sum + (c.amount || 0), 0);
+  // Get payables (money the owner-operator OWES)
+  const { data: payables } = await supabase
+    .from('payables')
+    .select('amount')
+    .eq('owner_id', userId)
+    .eq('status', 'open');
+
+  const moneyOwedToYou = (receivables || []).reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+  const moneyYouOwe = (payables || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+  // Get today's collections (from load_payments)
+  const { data: todayCollections } = await supabase
+    .from('load_payments')
+    .select('amount')
+    .eq('owner_id', userId)
+    .gte('collected_at', todayStart.toISOString())
+    .lt('collected_at', todayEnd.toISOString());
+
+  const collectedToday = (todayCollections || []).reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
 
   const mapLoad = (l: any) => ({
     id: l.id,

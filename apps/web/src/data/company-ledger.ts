@@ -109,18 +109,26 @@ export async function getCompanyLedgerSummary(
   }
 
   // Get last payment received from this company
-  const { data: lastPayment, error: lastPaymentError } = await supabase
-    .from('payments')
-    .select('amount, payment_date')
+  // Note: Currently using receivables marked as paid - a proper payments tracking table
+  // could be added later for more detailed payment history
+  const { data: lastPaidReceivable, error: lastPaymentError } = await supabase
+    .from('receivables')
+    .select('amount, created_at')
     .eq('company_id', companyId)
     .eq('owner_id', userId)
-    .order('payment_date', { ascending: false })
+    .eq('status', 'paid')
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (lastPaymentError) {
     console.error('Last payment query failed:', lastPaymentError.message);
   }
+
+  const lastPayment = lastPaidReceivable ? {
+    amount: lastPaidReceivable.amount,
+    payment_date: lastPaidReceivable.created_at,
+  } : null;
 
   // Calculate totals
   const loadsFromCount = loadsFrom?.length || 0;
@@ -323,6 +331,8 @@ export async function getLoadsToCompany(
 
 /**
  * Get payment history with a company
+ * Note: This uses receivables that have been marked as paid, since we don't have
+ * a dedicated payments tracking table for inter-company payments yet.
  */
 export async function getCompanyPayments(
   companyId: string,
@@ -335,25 +345,23 @@ export async function getCompanyPayments(
 ): Promise<CompanyPayment[]> {
   const supabase = await createClient();
 
-  // Try to get payments from the payments table
-  // Note: This table might not exist yet or might have different structure
+  // Get paid receivables from this company as payment history
+  // A proper payments table could be added later for more detailed tracking
   let query = supabase
-    .from('payments')
+    .from('receivables')
     .select(`
       id,
       amount,
-      payment_date,
-      payment_method,
-      reference_number,
-      notes,
-      status,
       created_at,
-      load_id,
-      load:loads(load_number)
+      status,
+      reference,
+      trip_id,
+      trip:trips(trip_number)
     `)
     .eq('company_id', companyId)
     .eq('owner_id', userId)
-    .order('payment_date', { ascending: false });
+    .eq('status', 'paid')
+    .order('created_at', { ascending: false });
 
   if (options?.limit) {
     query = query.limit(options.limit);
@@ -366,22 +374,21 @@ export async function getCompanyPayments(
   const { data, error } = await query;
 
   if (error) {
-    // Payments table might not exist - return empty array
-    console.error('Payments query failed:', error.message);
+    console.error('Company payments query failed:', error.message);
     return [];
   }
 
-  return (data || []).map((payment: any) => ({
-    id: payment.id,
-    amount: Number(payment.amount) || 0,
-    payment_date: payment.payment_date,
-    payment_method: payment.payment_method,
-    reference_number: payment.reference_number,
-    notes: payment.notes,
-    status: payment.status,
-    created_at: payment.created_at,
-    load_id: payment.load_id,
-    load_number: payment.load?.load_number || null,
+  return (data || []).map((receivable: any) => ({
+    id: receivable.id,
+    amount: Number(receivable.amount) || 0,
+    payment_date: receivable.created_at, // Using created_at as proxy for payment date
+    payment_method: null, // Not tracked in receivables
+    reference_number: receivable.reference,
+    notes: null,
+    status: receivable.status,
+    created_at: receivable.created_at,
+    load_id: null,
+    load_number: receivable.trip?.trip_number || null,
   }));
 }
 
