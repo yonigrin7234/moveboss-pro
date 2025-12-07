@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../providers/AuthProvider';
@@ -17,12 +17,16 @@ export function useImageUpload() {
   const [progress, setProgress] = useState(0);
   const { user } = useAuth();
 
-  const uploadImage = async (
+  // Use ref for user to avoid recreating callbacks when auth refreshes
+  const userRef = useRef(user);
+  userRef.current = user;
+
+  const uploadImage = useCallback(async (
     localUri: string,
     bucket: UploadBucket,
     folder?: string
   ): Promise<UploadResult> => {
-    if (!user) {
+    if (!userRef.current) {
       return { success: false, error: 'Not authenticated' };
     }
 
@@ -93,13 +97,13 @@ export function useImageUpload() {
       setUploading(false);
       setProgress(0);
     }
-  };
+  }, []); // Empty deps - uses ref for user
 
-  const uploadReceiptPhoto = async (localUri: string, tripId: string) => {
+  const uploadReceiptPhoto = useCallback(async (localUri: string, tripId: string) => {
     return uploadImage(localUri, 'receipts', `trips/${tripId}`);
-  };
+  }, [uploadImage]);
 
-  const uploadLoadPhoto = async (
+  const uploadLoadPhoto = useCallback(async (
     localUri: string,
     loadId: string,
     type: 'loading-start' | 'loading-end' | 'delivery' | 'document'
@@ -112,22 +116,24 @@ export function useImageUpload() {
     }
 
     return result;
-  };
+  }, [uploadImage]);
 
-  const uploadOdometerPhoto = async (
+  const uploadOdometerPhoto = useCallback(async (
     localUri: string,
     tripId: string,
     type: 'start' | 'end'
   ) => {
     return uploadImage(localUri, 'load-photos', `trips/${tripId}/odometer-${type}`);
-  };
+  }, [uploadImage]);
 
-  return {
+  // Memoize return value - only changes when uploading/progress state changes
+  // The functions themselves are stable
+  return useMemo(() => ({
     uploading,
     progress,
     uploadImage,
     uploadReceiptPhoto,
     uploadLoadPhoto,
     uploadOdometerPhoto,
-  };
+  }), [uploading, progress, uploadImage, uploadReceiptPhoto, uploadLoadPhoto, uploadOdometerPhoto]);
 }

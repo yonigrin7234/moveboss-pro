@@ -290,7 +290,8 @@ export function useDriverDashboard(): DashboardData {
     };
   }, [tripsWithLoads]);
 
-  return {
+  // Memoize return value to prevent unnecessary re-renders in consumers
+  return useMemo(() => ({
     nextAction,
     pendingActions,
     activeTrip,
@@ -301,7 +302,7 @@ export function useDriverDashboard(): DashboardData {
     error,
     isRefreshing,
     refetch,
-  };
+  }), [nextAction, pendingActions, activeTrip, upcomingTrips, tripsWithLoads, stats, loading, error, isRefreshing, refetch]);
 }
 
 export default useDriverDashboard;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { Trip, TripWithLoads } from '../types';
 import { useAuth } from '../providers/AuthProvider';
@@ -142,7 +142,10 @@ export function useDriverTrips() {
     fetchTrips();
   }, [user?.id, fetchTrips]);
 
-  return { trips, loading, error, refetch, isRefreshing };
+  // Memoize return value to prevent unnecessary re-renders in consumers
+  return useMemo(() => ({
+    trips, loading, error, refetch, isRefreshing
+  }), [trips, loading, error, refetch, isRefreshing]);
 }
 
 // Module-level cache for trip details
@@ -311,19 +314,31 @@ export function useDriverTripDetail(tripId: string | null) {
     enabled: !!tripId && !!ownerId,
   });
 
-  return { trip, loading, error, refetch, isRefreshing };
+  // Memoize return value to prevent unnecessary re-renders in consumers
+  return useMemo(() => ({
+    trip, loading, error, refetch, isRefreshing
+  }), [trip, loading, error, refetch, isRefreshing]);
 }
 
 export function useActiveTrip() {
   const { trips, loading, error, refetch, isRefreshing } = useDriverTrips();
 
-  const activeTrip = trips.find(t => t.status === 'active' || t.status === 'en_route') || null;
-  const upcomingTrips = trips.filter(t => t.status === 'planned');
-  const recentTrips = trips
-    .filter(t => t.status === 'completed' || t.status === 'settled')
-    .slice(0, 5);
+  // Memoize derived values to prevent recalculation on every render
+  const activeTrip = useMemo(
+    () => trips.find(t => t.status === 'active' || t.status === 'en_route') || null,
+    [trips]
+  );
+  const upcomingTrips = useMemo(
+    () => trips.filter(t => t.status === 'planned'),
+    [trips]
+  );
+  const recentTrips = useMemo(
+    () => trips.filter(t => t.status === 'completed' || t.status === 'settled').slice(0, 5),
+    [trips]
+  );
 
-  return {
+  // Memoize return value to prevent unnecessary re-renders in consumers
+  return useMemo(() => ({
     activeTrip,
     upcomingTrips,
     recentTrips,
@@ -332,5 +347,5 @@ export function useActiveTrip() {
     error,
     refetch,
     isRefreshing,
-  };
+  }), [activeTrip, upcomingTrips, recentTrips, trips, loading, error, refetch, isRefreshing]);
 }
