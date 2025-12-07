@@ -95,6 +95,7 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
+      _version: 'v3-with-debug',
       success: true,
       user_id: user.id,
       document_types: {
