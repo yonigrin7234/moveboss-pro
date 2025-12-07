@@ -67,6 +67,27 @@ export async function GET(request: Request) {
       });
     }
 
+    // Check if user owns company_a
+    let companyAOwner = null;
+    if (partnership) {
+      const { data: companyA } = await supabase
+        .from('companies')
+        .select('id, name, owner_id')
+        .eq('id', partnership.company_a_id)
+        .single();
+      companyAOwner = companyA;
+    }
+
+    // Direct query to see ALL compliance requests for this partnership (bypassing function)
+    let directRequests = null;
+    if (partnership) {
+      const { data: direct, error: directError } = await supabase
+        .from('compliance_requests')
+        .select('id, partnership_id, requesting_company_id, carrier_id, status')
+        .eq('partnership_id', partnership.id);
+      directRequests = { data: direct, error: directError?.message };
+    }
+
     // Fetch existing compliance requests for this partnership
     let existingRequests: unknown[] = [];
     if (partnership) {
