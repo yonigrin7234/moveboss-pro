@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient, getCurrentUser } from '@/lib/supabase-server';
+import { createServiceRoleClient } from '@/lib/supabase-admin';
 import { createComplianceRequestsForPartnership, getComplianceRequestsForPartnership } from '@/data/compliance';
 
 export async function GET(request: Request) {
@@ -89,6 +90,23 @@ export async function GET(request: Request) {
       directRequests = { data: direct, error: directError?.message };
     }
 
+    // ADMIN QUERY: Bypass RLS to see what's actually in the database
+    let adminQuery = null;
+    try {
+      const adminClient = createServiceRoleClient();
+      const { data: adminData, error: adminError } = await adminClient
+        .from('compliance_requests')
+        .select('id, partnership_id, requesting_company_id, carrier_id, status')
+        .eq('partnership_id', partnership?.id || '');
+      adminQuery = {
+        data: adminData,
+        error: adminError?.message,
+        note: 'This bypasses RLS - if data shows here but not in directRequests, RLS is blocking'
+      };
+    } catch (e) {
+      adminQuery = { error: 'Service role client not available', detail: String(e) };
+    }
+
     // Fetch existing compliance requests for this partnership
     let existingRequests: unknown[] = [];
     if (partnership) {
@@ -96,7 +114,7 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
-      _version: 'v3-with-debug',
+      _version: 'v4-admin-bypass',
       success: true,
       user_id: user.id,
       document_types: {
@@ -109,6 +127,7 @@ export async function GET(request: Request) {
       partnership_error: partnershipError?.message || null,
       company_a_info: companyAOwner,
       direct_requests_query: directRequests,
+      admin_bypass_rls_query: adminQuery,
       existing_requests_for_partnership: existingRequests,
       hint: 'Add ?action=create to actually create compliance requests',
     });
