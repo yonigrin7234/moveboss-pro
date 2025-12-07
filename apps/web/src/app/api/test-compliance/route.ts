@@ -117,7 +117,7 @@ export async function GET(request: Request) {
     const serviceRoleAvailable = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     return NextResponse.json({
-      _version: 'v5-service-role-check',
+      _version: 'v6-no-joins',
       service_role_key_available: serviceRoleAvailable,
       success: true,
       user_id: user.id,
