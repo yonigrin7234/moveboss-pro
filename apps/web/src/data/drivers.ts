@@ -582,6 +582,16 @@ export async function updateDriver(
     default_trailer_id: finalDefaultTrailerId,
   };
 
+  // Debug: Log location settings in update payload
+  console.log('UPDATE_DRIVER_PAYLOAD_DEBUG', {
+    input_location_sharing: input.location_sharing_enabled,
+    input_auto_post: input.auto_post_capacity,
+    input_capacity_visibility: input.capacity_visibility,
+    payload_location_sharing: updatePayload.location_sharing_enabled,
+    payload_auto_post: updatePayload.auto_post_capacity,
+    payload_capacity_visibility: updatePayload.capacity_visibility,
+  });
+
   // Handle auth user creation/updates
   if (effectiveHasLogin && !existingAuthUserId) {
     // Creating new auth user
@@ -657,6 +667,12 @@ export async function updateDriver(
     .single();
 
   if (error) {
+    console.error('UPDATE_DRIVER_ERROR', {
+      error_message: error.message,
+      error_code: error.code,
+      error_details: error.details,
+      error_hint: error.hint,
+    });
     if (error.code === 'PGRST116') {
       throw new Error('Driver not found or you do not have permission to update it');
     }
@@ -664,6 +680,13 @@ export async function updateDriver(
   }
 
   const updated = data as Driver;
+
+  // Debug: Log what was returned after update
+  console.log('UPDATE_DRIVER_RESULT', {
+    updated_location_sharing: (updated as any).location_sharing_enabled,
+    updated_auto_post: (updated as any).auto_post_capacity,
+    updated_capacity_visibility: (updated as any).capacity_visibility,
+  });
 
   // Clear previous truck/trailer assignments if changed
   if (existing?.assigned_truck_id && existing.assigned_truck_id !== updated.assigned_truck_id) {
