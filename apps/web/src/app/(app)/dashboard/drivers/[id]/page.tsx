@@ -124,6 +124,19 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
       booleanFields: ['has_login', 'location_sharing_enabled', 'auto_post_capacity'],
     });
     const cleanedData = cleanFormValues(rawData);
+
+    // Debug logging for location settings
+    console.log('DRIVER_LOCATION_SETTINGS_DEBUG', {
+      form_location_sharing: formData.get('location_sharing_enabled'),
+      form_auto_post: formData.get('auto_post_capacity'),
+      form_capacity_visibility: formData.get('capacity_visibility'),
+      raw_location_sharing: rawData.location_sharing_enabled,
+      raw_auto_post: rawData.auto_post_capacity,
+      cleaned_location_sharing: cleanedData.location_sharing_enabled,
+      cleaned_auto_post: cleanedData.auto_post_capacity,
+      cleaned_capacity_visibility: cleanedData.capacity_visibility,
+    });
+
     if (cleanedData.login_method === 'sms') cleanedData.login_method = 'phone';
 
     // Handle empty assigned_truck_id and assigned_trailer_id
@@ -221,6 +234,10 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
         login_method: loginMethod,
         email,
         phone,
+        // Location settings after validation
+        validated_location_sharing: validated.location_sharing_enabled,
+        validated_auto_post: validated.auto_post_capacity,
+        validated_capacity_visibility: validated.capacity_visibility,
       });
 
       await updateDriver(id, validated, user.id, companyId, {

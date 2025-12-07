@@ -1,0 +1,1288 @@
+import { z } from 'zod';
+import { createClient } from '@/lib/supabase-server';
+import type {
+  Conversation,
+  ConversationParticipant,
+  ConversationWithDetails,
+  ConversationListItem,
+  ConversationType,
+  DriverVisibilityLevel,
+  ConversationParticipantRole,
+  LoadCommunicationSettings,
+  PartnerCommunicationSettings,
+  MessageWithSender,
+  Message,
+  MessageType,
+  MessageAttachment,
+  MessageMetadata,
+  LoadCommunicationPermissions,
+} from '@/lib/communication-types';
+
+// ============================================================================
+// SCHEMAS
+// ============================================================================
+
+export const conversationTypeSchema = z.enum([
+  'load_shared',
+  'load_internal',
+  'trip_internal',
+  'company_to_company',
+  'general',
+]);
+
+export const driverVisibilitySchema = z.enum(['none', 'read_only', 'full']);
+
+export const participantRoleSchema = z.enum([
+  'owner',
+  'dispatcher',
+  'driver',
+  'helper',
+  'partner_rep',
+  'broker',
+  'ai_agent',
+]);
+
+export const messageTypeSchema = z.enum([
+  'text',
+  'system',
+  'ai_response',
+  'document',
+  'image',
+  'voice',
+  'location',
+  'balance_request',
+  'status_update',
+]);
+
+export const createConversationSchema = z.object({
+  type: conversationTypeSchema,
+  load_id: z.string().uuid().optional(),
+  trip_id: z.string().uuid().optional(),
+  partner_company_id: z.string().uuid().optional(),
+  title: z.string().max(200).optional(),
+});
+
+export const sendMessageSchema = z.object({
+  conversation_id: z.string().uuid(),
+  body: z.string().min(1).max(10000),
+  message_type: messageTypeSchema.optional().default('text'),
+  attachments: z.array(z.object({
+    type: z.enum(['image', 'document', 'voice']),
+    url: z.string().url(),
+    name: z.string(),
+    size: z.number().optional(),
+    mime_type: z.string().optional(),
+  })).optional().default([]),
+  metadata: z.record(z.unknown()).optional().default({}),
+  reply_to_message_id: z.string().uuid().optional(),
+});
+
+export const updateDriverVisibilitySchema = z.object({
+  load_id: z.string().uuid(),
+  driver_visibility: driverVisibilitySchema,
+  driver_id: z.string().uuid().optional(),
+});
+
+export const addParticipantSchema = z.object({
+  conversation_id: z.string().uuid(),
+  user_id: z.string().uuid().optional(),
+  driver_id: z.string().uuid().optional(),
+  role: participantRoleSchema,
+  can_read: z.boolean().optional().default(true),
+  can_write: z.boolean().optional().default(true),
+});
+
+// ============================================================================
+// CONVERSATION QUERIES
+// ============================================================================
+
+/**
+ * Get all conversations for a user (filtered by participant access)
+ */
+export async function getUserConversations(
+  userId: string,
+  companyId: string,
+  options?: {
+    type?: ConversationType;
+    load_id?: string;
+    trip_id?: string;
+    include_archived?: boolean;
+    limit?: number;
+    offset?: number;
+  }
+): Promise<ConversationListItem[]> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from('conversations')
+    .select(`
+      id,
+      type,
+      owner_company_id,
+      load_id,
+      trip_id,
+      carrier_company_id,
+      partner_company_id,
+      title,
+      is_archived,
+      is_muted,
+      last_message_at,
+      last_message_preview,
+      message_count,
+      created_at,
+      loads:load_id (
+        id,
+        load_number,
+        status,
+        pickup_city,
+        delivery_city
+      ),
+      trips:trip_id (
+        id,
+        trip_number,
+        status
+      ),
+      carrier_company:carrier_company_id (
+        id,
+        name
+      ),
+      partner_company:partner_company_id (
+        id,
+        name
+      ),
+      conversation_participants!inner (
+        id,
+        user_id,
+        driver_id,
+        can_read,
+        can_write,
+        unread_count,
+        is_muted
+      )
+    `)
+    .eq('conversation_participants.user_id', userId)
+    .eq('conversation_participants.can_read', true)
+    .order('last_message_at', { ascending: false, nullsFirst: false });
+
+  if (options?.type) {
+    query = query.eq('type', options.type);
+  }
+
+  if (options?.load_id) {
+    query = query.eq('load_id', options.load_id);
+  }
+
+  if (options?.trip_id) {
+    query = query.eq('trip_id', options.trip_id);
+  }
+
+  if (!options?.include_archived) {
+    query = query.eq('is_archived', false);
+  }
+
+  if (options?.limit) {
+    query = query.limit(options.limit);
+  }
+
+  if (options?.offset) {
+    query = query.range(options.offset, options.offset + (options?.limit ?? 50) - 1);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(`Failed to fetch conversations: ${error.message}`);
+  }
+
+  // Transform to ConversationListItem format
+  return (data ?? []).map((conv) => {
+    const participant = Array.isArray(conv.conversation_participants)
+      ? conv.conversation_participants[0]
+      : conv.conversation_participants;
+
+    // Compute display title
+    let title = conv.title ?? '';
+    let subtitle = '';
+
+    const load = Array.isArray(conv.loads) ? conv.loads[0] : conv.loads;
+    const trip = Array.isArray(conv.trips) ? conv.trips[0] : conv.trips;
+    const partnerCompany = Array.isArray(conv.partner_company) ? conv.partner_company[0] : conv.partner_company;
+
+    switch (conv.type as ConversationType) {
+      case 'load_shared':
+        title = title || `Shared Chat - ${load?.load_number ?? 'Load'}`;
+        subtitle = partnerCompany?.name ?? '';
+        break;
+      case 'load_internal':
+        title = title || `Internal - ${load?.load_number ?? 'Load'}`;
+        subtitle = load ? `${load.pickup_city ?? ''} → ${load.delivery_city ?? ''}` : '';
+        break;
+      case 'trip_internal':
+        title = title || `Trip ${trip?.trip_number ?? ''}`;
+        subtitle = trip?.status ?? '';
+        break;
+      case 'company_to_company':
+        title = title || partnerCompany?.name ?? 'Partner Chat';
+        subtitle = 'Company thread';
+        break;
+      case 'general':
+        title = title || 'General Chat';
+        subtitle = '';
+        break;
+    }
+
+    return {
+      id: conv.id,
+      type: conv.type as ConversationType,
+      title,
+      subtitle,
+      last_message_preview: conv.last_message_preview,
+      last_message_at: conv.last_message_at,
+      unread_count: participant?.unread_count ?? 0,
+      is_muted: conv.is_muted || participant?.is_muted || false,
+      participants_preview: [], // Could be populated with additional query
+      context: {
+        load_id: load?.id,
+        load_number: load?.load_number,
+        trip_id: trip?.id,
+        trip_number: trip?.trip_number,
+        partner_name: partnerCompany?.name,
+      },
+    };
+  });
+}
+
+/**
+ * Get a single conversation with full details
+ */
+export async function getConversation(
+  conversationId: string,
+  userId: string
+): Promise<ConversationWithDetails | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('conversations')
+    .select(`
+      *,
+      loads:load_id (
+        id,
+        load_number,
+        status,
+        pickup_city,
+        delivery_city
+      ),
+      trips:trip_id (
+        id,
+        trip_number,
+        status
+      ),
+      carrier_company:carrier_company_id (
+        id,
+        name
+      ),
+      partner_company:partner_company_id (
+        id,
+        name
+      ),
+      conversation_participants (
+        *,
+        profile:user_id (
+          id,
+          full_name,
+          email
+        ),
+        driver:driver_id (
+          id,
+          first_name,
+          last_name
+        )
+      )
+    `)
+    .eq('id', conversationId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    throw new Error(`Failed to fetch conversation: ${error.message}`);
+  }
+
+  // Verify user has access
+  const userParticipant = data.conversation_participants?.find(
+    (p: ConversationParticipant) => p.user_id === userId && p.can_read
+  );
+
+  if (!userParticipant) {
+    return null; // User doesn't have access
+  }
+
+  // Transform relations
+  const load = Array.isArray(data.loads) ? data.loads[0] : data.loads;
+  const trip = Array.isArray(data.trips) ? data.trips[0] : data.trips;
+  const carrierCompany = Array.isArray(data.carrier_company) ? data.carrier_company[0] : data.carrier_company;
+  const partnerCompany = Array.isArray(data.partner_company) ? data.partner_company[0] : data.partner_company;
+
+  return {
+    ...data,
+    participants: data.conversation_participants ?? [],
+    load: load ?? undefined,
+    trip: trip ?? undefined,
+    carrier_company: carrierCompany ?? undefined,
+    partner_company: partnerCompany ?? undefined,
+  };
+}
+
+/**
+ * Get or create a conversation for a load (internal or shared)
+ */
+export async function getOrCreateLoadConversation(
+  loadId: string,
+  type: 'load_internal' | 'load_shared',
+  ownerCompanyId: string,
+  partnerCompanyId?: string,
+  createdByUserId?: string
+): Promise<Conversation> {
+  const supabase = await createClient();
+
+  // Check for existing conversation
+  let query = supabase
+    .from('conversations')
+    .select('*')
+    .eq('load_id', loadId)
+    .eq('type', type)
+    .eq('owner_company_id', ownerCompanyId);
+
+  if (type === 'load_shared' && partnerCompanyId) {
+    query = query.eq('partner_company_id', partnerCompanyId);
+  }
+
+  const { data: existing } = await query.maybeSingle();
+
+  if (existing) {
+    return existing as Conversation;
+  }
+
+  // Create new conversation
+  const { data: newConv, error } = await supabase
+    .from('conversations')
+    .insert({
+      type,
+      owner_company_id: ownerCompanyId,
+      load_id: loadId,
+      carrier_company_id: type === 'load_shared' ? ownerCompanyId : null,
+      partner_company_id: type === 'load_shared' ? partnerCompanyId : null,
+      created_by_user_id: createdByUserId,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to create conversation: ${error.message}`);
+  }
+
+  return newConv as Conversation;
+}
+
+/**
+ * Get or create a conversation for a trip
+ */
+export async function getOrCreateTripConversation(
+  tripId: string,
+  ownerCompanyId: string,
+  createdByUserId?: string
+): Promise<Conversation> {
+  const supabase = await createClient();
+
+  // Check for existing conversation
+  const { data: existing } = await supabase
+    .from('conversations')
+    .select('*')
+    .eq('trip_id', tripId)
+    .eq('type', 'trip_internal')
+    .eq('owner_company_id', ownerCompanyId)
+    .maybeSingle();
+
+  if (existing) {
+    return existing as Conversation;
+  }
+
+  // Create new conversation
+  const { data: newConv, error } = await supabase
+    .from('conversations')
+    .insert({
+      type: 'trip_internal',
+      owner_company_id: ownerCompanyId,
+      trip_id: tripId,
+      created_by_user_id: createdByUserId,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to create conversation: ${error.message}`);
+  }
+
+  return newConv as Conversation;
+}
+
+/**
+ * Get or create a company-to-company conversation
+ */
+export async function getOrCreateCompanyConversation(
+  carrierCompanyId: string,
+  partnerCompanyId: string,
+  createdByUserId?: string
+): Promise<Conversation> {
+  const supabase = await createClient();
+
+  // Check for existing conversation
+  const { data: existing } = await supabase
+    .from('conversations')
+    .select('*')
+    .eq('type', 'company_to_company')
+    .eq('carrier_company_id', carrierCompanyId)
+    .eq('partner_company_id', partnerCompanyId)
+    .maybeSingle();
+
+  if (existing) {
+    return existing as Conversation;
+  }
+
+  // Create new conversation
+  const { data: newConv, error } = await supabase
+    .from('conversations')
+    .insert({
+      type: 'company_to_company',
+      owner_company_id: carrierCompanyId,
+      carrier_company_id: carrierCompanyId,
+      partner_company_id: partnerCompanyId,
+      created_by_user_id: createdByUserId,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to create conversation: ${error.message}`);
+  }
+
+  return newConv as Conversation;
+}
+
+// ============================================================================
+// MESSAGE QUERIES
+// ============================================================================
+
+/**
+ * Get messages for a conversation with pagination
+ */
+export async function getConversationMessages(
+  conversationId: string,
+  userId: string,
+  options?: {
+    limit?: number;
+    before?: string; // Message ID for cursor-based pagination
+    after?: string;
+  }
+): Promise<{ messages: MessageWithSender[]; hasMore: boolean }> {
+  const supabase = await createClient();
+  const limit = options?.limit ?? 50;
+
+  // Verify user has read access
+  const { data: participant } = await supabase
+    .from('conversation_participants')
+    .select('can_read')
+    .eq('conversation_id', conversationId)
+    .eq('user_id', userId)
+    .single();
+
+  if (!participant?.can_read) {
+    throw new Error('Access denied');
+  }
+
+  let query = supabase
+    .from('messages')
+    .select(`
+      *,
+      sender_profile:sender_user_id (
+        id,
+        full_name
+      ),
+      sender_driver:sender_driver_id (
+        id,
+        first_name,
+        last_name
+      ),
+      reply_to:reply_to_message_id (
+        id,
+        body,
+        sender_user_id,
+        sender_driver_id,
+        created_at
+      )
+    `)
+    .eq('conversation_id', conversationId)
+    .eq('is_deleted', false)
+    .order('created_at', { ascending: false })
+    .limit(limit + 1); // Fetch one extra to check if there's more
+
+  if (options?.before) {
+    // Get the timestamp of the cursor message
+    const { data: cursorMsg } = await supabase
+      .from('messages')
+      .select('created_at')
+      .eq('id', options.before)
+      .single();
+
+    if (cursorMsg) {
+      query = query.lt('created_at', cursorMsg.created_at);
+    }
+  }
+
+  if (options?.after) {
+    const { data: cursorMsg } = await supabase
+      .from('messages')
+      .select('created_at')
+      .eq('id', options.after)
+      .single();
+
+    if (cursorMsg) {
+      query = query.gt('created_at', cursorMsg.created_at);
+    }
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(`Failed to fetch messages: ${error.message}`);
+  }
+
+  const hasMore = (data?.length ?? 0) > limit;
+  const messages = (data ?? []).slice(0, limit).map((msg) => {
+    const senderProfile = Array.isArray(msg.sender_profile) ? msg.sender_profile[0] : msg.sender_profile;
+    const senderDriver = Array.isArray(msg.sender_driver) ? msg.sender_driver[0] : msg.sender_driver;
+    const replyTo = Array.isArray(msg.reply_to) ? msg.reply_to[0] : msg.reply_to;
+
+    return {
+      ...msg,
+      sender_profile: senderProfile ?? undefined,
+      sender_driver: senderDriver ?? undefined,
+      reply_to: replyTo ?? undefined,
+    };
+  });
+
+  return { messages: messages.reverse(), hasMore }; // Reverse to get oldest first
+}
+
+/**
+ * Send a message to a conversation
+ */
+export async function sendMessage(
+  conversationId: string,
+  senderId: string,
+  body: string,
+  options?: {
+    message_type?: MessageType;
+    attachments?: MessageAttachment[];
+    metadata?: MessageMetadata;
+    reply_to_message_id?: string;
+    sender_company_id?: string;
+  }
+): Promise<Message> {
+  const supabase = await createClient();
+
+  // Verify user has write access
+  const { data: participant } = await supabase
+    .from('conversation_participants')
+    .select('can_write, company_id')
+    .eq('conversation_id', conversationId)
+    .eq('user_id', senderId)
+    .single();
+
+  if (!participant?.can_write) {
+    throw new Error('You do not have permission to send messages in this conversation');
+  }
+
+  const { data: message, error } = await supabase
+    .from('messages')
+    .insert({
+      conversation_id: conversationId,
+      sender_user_id: senderId,
+      sender_company_id: options?.sender_company_id ?? participant.company_id,
+      body,
+      message_type: options?.message_type ?? 'text',
+      attachments: options?.attachments ?? [],
+      metadata: options?.metadata ?? {},
+      reply_to_message_id: options?.reply_to_message_id,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to send message: ${error.message}`);
+  }
+
+  return message as Message;
+}
+
+/**
+ * Send a message as a driver
+ */
+export async function sendDriverMessage(
+  conversationId: string,
+  driverId: string,
+  body: string,
+  options?: {
+    message_type?: MessageType;
+    attachments?: MessageAttachment[];
+    metadata?: MessageMetadata;
+    reply_to_message_id?: string;
+  }
+): Promise<Message> {
+  const supabase = await createClient();
+
+  // Verify driver has write access
+  const { data: participant } = await supabase
+    .from('conversation_participants')
+    .select('can_write, company_id')
+    .eq('conversation_id', conversationId)
+    .eq('driver_id', driverId)
+    .single();
+
+  if (!participant?.can_write) {
+    throw new Error('You do not have permission to send messages in this conversation');
+  }
+
+  const { data: message, error } = await supabase
+    .from('messages')
+    .insert({
+      conversation_id: conversationId,
+      sender_driver_id: driverId,
+      sender_company_id: participant.company_id,
+      body,
+      message_type: options?.message_type ?? 'text',
+      attachments: options?.attachments ?? [],
+      metadata: options?.metadata ?? {},
+      reply_to_message_id: options?.reply_to_message_id,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to send message: ${error.message}`);
+  }
+
+  return message as Message;
+}
+
+// ============================================================================
+// PARTICIPANT MANAGEMENT
+// ============================================================================
+
+/**
+ * Add a participant to a conversation
+ */
+export async function addParticipant(
+  conversationId: string,
+  addedByUserId: string,
+  participantData: {
+    user_id?: string;
+    driver_id?: string;
+    company_id?: string;
+    role: ConversationParticipantRole;
+    can_read?: boolean;
+    can_write?: boolean;
+  }
+): Promise<ConversationParticipant> {
+  const supabase = await createClient();
+
+  // Verify the adder has permission to add participants
+  const { data: adderConv } = await supabase
+    .from('conversations')
+    .select('owner_company_id')
+    .eq('id', conversationId)
+    .single();
+
+  const { data: adderMembership } = await supabase
+    .from('company_memberships')
+    .select('role')
+    .eq('user_id', addedByUserId)
+    .eq('company_id', adderConv?.owner_company_id)
+    .single();
+
+  if (!adderMembership || !['owner', 'dispatcher', 'admin'].includes(adderMembership.role)) {
+    throw new Error('You do not have permission to add participants');
+  }
+
+  const isDriver = participantData.driver_id !== undefined || participantData.role === 'driver';
+
+  const { data, error } = await supabase
+    .from('conversation_participants')
+    .upsert(
+      {
+        conversation_id: conversationId,
+        user_id: participantData.user_id,
+        driver_id: participantData.driver_id,
+        company_id: participantData.company_id,
+        role: participantData.role,
+        can_read: participantData.can_read ?? true,
+        can_write: participantData.can_write ?? true,
+        is_driver: isDriver,
+        added_by_user_id: addedByUserId,
+      },
+      {
+        onConflict: participantData.user_id ? 'conversation_id,user_id' : 'conversation_id,driver_id',
+      }
+    )
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to add participant: ${error.message}`);
+  }
+
+  // Log the activity
+  await supabase.from('conversation_activity_log').insert({
+    conversation_id: conversationId,
+    actor_user_id: addedByUserId,
+    action: 'participant_added',
+    details: {
+      participant_user_id: participantData.user_id,
+      participant_driver_id: participantData.driver_id,
+      role: participantData.role,
+      can_read: participantData.can_read ?? true,
+      can_write: participantData.can_write ?? true,
+    },
+  });
+
+  return data as ConversationParticipant;
+}
+
+/**
+ * Remove a participant from a conversation
+ */
+export async function removeParticipant(
+  conversationId: string,
+  removedByUserId: string,
+  targetUserId?: string,
+  targetDriverId?: string
+): Promise<void> {
+  const supabase = await createClient();
+
+  // Verify the remover has permission
+  const { data: removerConv } = await supabase
+    .from('conversations')
+    .select('owner_company_id')
+    .eq('id', conversationId)
+    .single();
+
+  const { data: removerMembership } = await supabase
+    .from('company_memberships')
+    .select('role')
+    .eq('user_id', removedByUserId)
+    .eq('company_id', removerConv?.owner_company_id)
+    .single();
+
+  if (!removerMembership || !['owner', 'dispatcher', 'admin'].includes(removerMembership.role)) {
+    throw new Error('You do not have permission to remove participants');
+  }
+
+  let query = supabase
+    .from('conversation_participants')
+    .delete()
+    .eq('conversation_id', conversationId);
+
+  if (targetUserId) {
+    query = query.eq('user_id', targetUserId);
+  } else if (targetDriverId) {
+    query = query.eq('driver_id', targetDriverId);
+  } else {
+    throw new Error('Must specify either user_id or driver_id');
+  }
+
+  const { error } = await query;
+
+  if (error) {
+    throw new Error(`Failed to remove participant: ${error.message}`);
+  }
+
+  // Log the activity
+  await supabase.from('conversation_activity_log').insert({
+    conversation_id: conversationId,
+    actor_user_id: removedByUserId,
+    action: 'participant_removed',
+    details: {
+      removed_user_id: targetUserId,
+      removed_driver_id: targetDriverId,
+    },
+  });
+}
+
+/**
+ * Mark a conversation as read for a user
+ */
+export async function markConversationRead(
+  conversationId: string,
+  userId: string
+): Promise<void> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('conversation_participants')
+    .update({
+      unread_count: 0,
+      last_read_at: new Date().toISOString(),
+    })
+    .eq('conversation_id', conversationId)
+    .eq('user_id', userId);
+
+  if (error) {
+    throw new Error(`Failed to mark conversation read: ${error.message}`);
+  }
+}
+
+// ============================================================================
+// DRIVER VISIBILITY MANAGEMENT
+// ============================================================================
+
+/**
+ * Get load communication settings
+ */
+export async function getLoadCommunicationSettings(
+  loadId: string
+): Promise<LoadCommunicationSettings | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('load_communication_settings')
+    .select('*')
+    .eq('load_id', loadId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to fetch load communication settings: ${error.message}`);
+  }
+
+  return data as LoadCommunicationSettings | null;
+}
+
+/**
+ * Update driver visibility for a load's shared conversation
+ */
+export async function updateDriverVisibility(
+  loadId: string,
+  driverVisibility: DriverVisibilityLevel,
+  updatedByUserId: string,
+  driverId?: string
+): Promise<LoadCommunicationSettings> {
+  const supabase = await createClient();
+
+  // Get the load to find the company and check permissions
+  const { data: load } = await supabase
+    .from('loads')
+    .select('company_id, assigned_driver_id')
+    .eq('id', loadId)
+    .single();
+
+  if (!load) {
+    throw new Error('Load not found');
+  }
+
+  // Check if there's a partner lock
+  const { data: partnerSettings } = await supabase
+    .from('partner_communication_settings')
+    .select('lock_driver_visibility, default_driver_visibility')
+    .eq('carrier_company_id', load.company_id)
+    .maybeSingle();
+
+  if (partnerSettings?.lock_driver_visibility) {
+    throw new Error('Driver visibility is locked by partner settings');
+  }
+
+  const targetDriverId = driverId ?? load.assigned_driver_id;
+
+  // Upsert the settings
+  const { data: settings, error } = await supabase
+    .from('load_communication_settings')
+    .upsert(
+      {
+        load_id: loadId,
+        driver_visibility: driverVisibility,
+        driver_id: targetDriverId,
+        set_by_user_id: updatedByUserId,
+      },
+      { onConflict: 'load_id' }
+    )
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to update driver visibility: ${error.message}`);
+  }
+
+  // Apply visibility to the shared conversation if it exists
+  const { data: sharedConv } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('load_id', loadId)
+    .eq('type', 'load_shared')
+    .maybeSingle();
+
+  if (sharedConv && targetDriverId) {
+    // Apply the visibility level to the driver's participation
+    if (driverVisibility === 'none') {
+      // Remove driver from conversation
+      await supabase
+        .from('conversation_participants')
+        .delete()
+        .eq('conversation_id', sharedConv.id)
+        .eq('driver_id', targetDriverId);
+    } else {
+      // Add/update driver with appropriate permissions
+      await supabase
+        .from('conversation_participants')
+        .upsert(
+          {
+            conversation_id: sharedConv.id,
+            driver_id: targetDriverId,
+            company_id: load.company_id,
+            role: 'driver',
+            can_read: true,
+            can_write: driverVisibility === 'full',
+            is_driver: true,
+            added_by_user_id: updatedByUserId,
+          },
+          { onConflict: 'conversation_id,driver_id' }
+        );
+    }
+
+    // Log the visibility change
+    await supabase.from('conversation_activity_log').insert({
+      conversation_id: sharedConv.id,
+      actor_user_id: updatedByUserId,
+      action: 'visibility_changed',
+      details: {
+        driver_id: targetDriverId,
+        new_visibility: driverVisibility,
+      },
+    });
+  }
+
+  return settings as LoadCommunicationSettings;
+}
+
+/**
+ * Get partner communication settings
+ */
+export async function getPartnerCommunicationSettings(
+  carrierCompanyId: string,
+  partnerCompanyId: string
+): Promise<PartnerCommunicationSettings | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('partner_communication_settings')
+    .select('*')
+    .eq('carrier_company_id', carrierCompanyId)
+    .eq('partner_company_id', partnerCompanyId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to fetch partner communication settings: ${error.message}`);
+  }
+
+  return data as PartnerCommunicationSettings | null;
+}
+
+/**
+ * Update partner communication settings
+ */
+export async function updatePartnerCommunicationSettings(
+  carrierCompanyId: string,
+  partnerCompanyId: string,
+  settings: Partial<Omit<PartnerCommunicationSettings, 'id' | 'carrier_company_id' | 'partner_company_id' | 'created_at' | 'updated_at'>>,
+  updatedByUserId: string
+): Promise<PartnerCommunicationSettings> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('partner_communication_settings')
+    .upsert(
+      {
+        carrier_company_id: carrierCompanyId,
+        partner_company_id: partnerCompanyId,
+        ...settings,
+        set_by_user_id: updatedByUserId,
+      },
+      { onConflict: 'carrier_company_id,partner_company_id' }
+    )
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to update partner communication settings: ${error.message}`);
+  }
+
+  return data as PartnerCommunicationSettings;
+}
+
+// ============================================================================
+// PERMISSION CHECKS
+// ============================================================================
+
+/**
+ * Get communication permissions for a load
+ */
+export async function getLoadCommunicationPermissions(
+  loadId: string,
+  userId: string
+): Promise<LoadCommunicationPermissions> {
+  const supabase = await createClient();
+
+  // Get load details
+  const { data: load } = await supabase
+    .from('loads')
+    .select('company_id, assigned_driver_id')
+    .eq('id', loadId)
+    .single();
+
+  if (!load) {
+    return {
+      can_view_internal: false,
+      can_view_shared: false,
+      can_write_internal: false,
+      can_write_shared: false,
+      can_change_driver_visibility: false,
+      driver_visibility: 'none',
+      is_visibility_locked: false,
+    };
+  }
+
+  // Check user's membership in the load's company
+  const { data: membership } = await supabase
+    .from('company_memberships')
+    .select('role')
+    .eq('user_id', userId)
+    .eq('company_id', load.company_id)
+    .single();
+
+  // Get load communication settings
+  const { data: commSettings } = await supabase
+    .from('load_communication_settings')
+    .select('driver_visibility')
+    .eq('load_id', loadId)
+    .maybeSingle();
+
+  // Check partner lock
+  const { data: partnerSettings } = await supabase
+    .from('partner_communication_settings')
+    .select('lock_driver_visibility')
+    .eq('carrier_company_id', load.company_id)
+    .maybeSingle();
+
+  const isCompanyMember = !!membership;
+  const isDispatcher = membership && ['owner', 'dispatcher', 'admin'].includes(membership.role);
+
+  return {
+    can_view_internal: isCompanyMember,
+    can_view_shared: isCompanyMember, // Shared visibility depends on participant status
+    can_write_internal: isCompanyMember,
+    can_write_shared: isCompanyMember,
+    can_change_driver_visibility: isDispatcher && !partnerSettings?.lock_driver_visibility,
+    driver_visibility: (commSettings?.driver_visibility as DriverVisibilityLevel) ?? 'none',
+    is_visibility_locked: partnerSettings?.lock_driver_visibility ?? false,
+  };
+}
+
+// ============================================================================
+// DRIVER-SPECIFIC QUERIES
+// ============================================================================
+
+/**
+ * Get conversations for a driver
+ */
+export async function getDriverConversations(
+  driverId: string,
+  options?: {
+    type?: ConversationType;
+    include_archived?: boolean;
+    limit?: number;
+  }
+): Promise<ConversationListItem[]> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from('conversations')
+    .select(`
+      id,
+      type,
+      owner_company_id,
+      load_id,
+      trip_id,
+      title,
+      is_archived,
+      is_muted,
+      last_message_at,
+      last_message_preview,
+      message_count,
+      loads:load_id (
+        id,
+        load_number,
+        status,
+        pickup_city,
+        delivery_city
+      ),
+      trips:trip_id (
+        id,
+        trip_number,
+        status
+      ),
+      conversation_participants!inner (
+        id,
+        driver_id,
+        can_read,
+        can_write,
+        unread_count,
+        is_muted
+      )
+    `)
+    .eq('conversation_participants.driver_id', driverId)
+    .eq('conversation_participants.can_read', true)
+    .order('last_message_at', { ascending: false, nullsFirst: false });
+
+  if (options?.type) {
+    query = query.eq('type', options.type);
+  }
+
+  if (!options?.include_archived) {
+    query = query.eq('is_archived', false);
+  }
+
+  if (options?.limit) {
+    query = query.limit(options.limit);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(`Failed to fetch driver conversations: ${error.message}`);
+  }
+
+  // Transform to ConversationListItem format
+  return (data ?? []).map((conv) => {
+    const participant = Array.isArray(conv.conversation_participants)
+      ? conv.conversation_participants[0]
+      : conv.conversation_participants;
+
+    const load = Array.isArray(conv.loads) ? conv.loads[0] : conv.loads;
+    const trip = Array.isArray(conv.trips) ? conv.trips[0] : conv.trips;
+
+    let title = conv.title ?? '';
+    let subtitle = '';
+
+    switch (conv.type as ConversationType) {
+      case 'load_shared':
+        title = title || `Shared - ${load?.load_number ?? 'Load'}`;
+        subtitle = load ? `${load.pickup_city ?? ''} → ${load.delivery_city ?? ''}` : '';
+        break;
+      case 'load_internal':
+        title = title || `${load?.load_number ?? 'Load'}`;
+        subtitle = 'Team Chat';
+        break;
+      case 'trip_internal':
+        title = title || `Trip ${trip?.trip_number ?? ''}`;
+        subtitle = 'Team Chat';
+        break;
+      default:
+        title = title || 'Chat';
+    }
+
+    return {
+      id: conv.id,
+      type: conv.type as ConversationType,
+      title,
+      subtitle,
+      last_message_preview: conv.last_message_preview,
+      last_message_at: conv.last_message_at,
+      unread_count: participant?.unread_count ?? 0,
+      is_muted: conv.is_muted || participant?.is_muted || false,
+      participants_preview: [],
+      context: {
+        load_id: load?.id,
+        load_number: load?.load_number,
+        trip_id: trip?.id,
+        trip_number: trip?.trip_number,
+      },
+    };
+  });
+}
+
+/**
+ * Check if driver has write access to a conversation
+ * If not, find the appropriate internal conversation to route to
+ */
+export async function getDriverMessageTarget(
+  driverId: string,
+  conversationId: string
+): Promise<{
+  targetConversationId: string;
+  canWrite: boolean;
+  isRouted: boolean;
+  routeReason?: string;
+}> {
+  const supabase = await createClient();
+
+  // Get the conversation and driver's participation
+  const { data: conv } = await supabase
+    .from('conversations')
+    .select(`
+      id,
+      type,
+      load_id,
+      trip_id,
+      owner_company_id,
+      conversation_participants!inner (
+        can_write,
+        driver_id
+      )
+    `)
+    .eq('id', conversationId)
+    .eq('conversation_participants.driver_id', driverId)
+    .single();
+
+  if (!conv) {
+    throw new Error('Conversation not found or driver has no access');
+  }
+
+  const participant = Array.isArray(conv.conversation_participants)
+    ? conv.conversation_participants[0]
+    : conv.conversation_participants;
+
+  // If driver can write, return the same conversation
+  if (participant?.can_write) {
+    return {
+      targetConversationId: conversationId,
+      canWrite: true,
+      isRouted: false,
+    };
+  }
+
+  // Driver is read-only on this conversation
+  // Route to the internal conversation instead
+  if (conv.type === 'load_shared' && conv.load_id) {
+    // Find or create the internal load conversation
+    const internalConv = await getOrCreateLoadConversation(
+      conv.load_id,
+      'load_internal',
+      conv.owner_company_id
+    );
+
+    return {
+      targetConversationId: internalConv.id,
+      canWrite: false,
+      isRouted: true,
+      routeReason: 'You have read-only access to the shared conversation. Your message will be sent to the internal team chat.',
+    };
+  }
+
+  throw new Error('Cannot determine message target for driver');
+}
