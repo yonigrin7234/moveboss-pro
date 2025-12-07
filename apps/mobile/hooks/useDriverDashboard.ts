@@ -231,13 +231,14 @@ export function useDriverDashboard(): DashboardData {
     fetchDashboardData();
   }, [user?.id, fetchDashboardData]);
 
-  // Subscribe to realtime updates
-  useDriverRealtimeSubscription({
-    driverId: driverInfo?.driverId || null,
-    ownerId: driverInfo?.ownerId || null,
-    onDataChange: silentRefetch,
-    enabled: !!driverInfo,
-  });
+  // TEMPORARILY DISABLED - causing infinite re-render loops
+  // TODO: Fix realtime subscription stability before re-enabling
+  // useDriverRealtimeSubscription({
+  //   driverId: driverInfo?.driverId || null,
+  //   ownerId: driverInfo?.ownerId || null,
+  //   onDataChange: silentRefetch,
+  //   enabled: !!driverInfo,
+  // });
 
   // Calculate derived data
   const activeTrip = useMemo(() => {
