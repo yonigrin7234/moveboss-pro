@@ -243,6 +243,76 @@ export async function getComplianceRequestsForCarrier(carrierId: string): Promis
   >;
 }
 
+// Get compliance requests for a user (across ALL their companies)
+// This is needed because compliance requests may be linked to non-workspace companies
+export async function getComplianceRequestsForUser(userId: string): Promise<
+  Array<
+    ComplianceRequest & {
+      requesting_company: { id: string; name: string } | null;
+    }
+  >
+> {
+  const supabase = getComplianceClient();
+
+  // First get all companies owned by this user
+  const { data: userCompanies, error: companiesError } = await supabase
+    .from('companies')
+    .select('id')
+    .eq('owner_id', userId);
+
+  if (companiesError || !userCompanies || userCompanies.length === 0) {
+    console.error('Error fetching user companies:', companiesError);
+    return [];
+  }
+
+  const companyIds = userCompanies.map(c => c.id);
+
+  // Get compliance requests for ANY of the user's companies
+  const { data: requests, error } = await supabase
+    .from('compliance_requests')
+    .select('*')
+    .in('carrier_id', companyIds)
+    .in('status', ['pending', 'rejected'])
+    .order('due_date');
+
+  if (error || !requests) {
+    console.error('Error fetching user compliance requests:', error);
+    return [];
+  }
+
+  if (requests.length === 0) {
+    return [];
+  }
+
+  // Get related data separately
+  const docTypeIds = [...new Set(requests.map(r => r.document_type_id))];
+  const docIds = requests.map(r => r.document_id).filter(Boolean);
+  const requestingCompanyIds = [...new Set(requests.map(r => r.requesting_company_id))];
+
+  const [docTypesResult, docsResult, companiesResult] = await Promise.all([
+    supabase.from('compliance_document_types').select('*').in('id', docTypeIds),
+    docIds.length > 0
+      ? supabase.from('compliance_documents').select('id, file_url, file_name').in('id', docIds)
+      : Promise.resolve({ data: [] }),
+    supabase.from('companies').select('id, name').in('id', requestingCompanyIds),
+  ]);
+
+  const docTypesMap = new Map((docTypesResult.data || []).map(dt => [dt.id, dt]));
+  const docsMap = new Map((docsResult.data || []).map(d => [d.id, d]));
+  const companiesMap = new Map((companiesResult.data || []).map(c => [c.id, c]));
+
+  return requests.map((r) => ({
+    ...r,
+    document_type: docTypesMap.get(r.document_type_id) || null,
+    document: r.document_id ? docsMap.get(r.document_id) || null : null,
+    requesting_company: companiesMap.get(r.requesting_company_id) || null,
+  })) as Array<
+    ComplianceRequest & {
+      requesting_company: { id: string; name: string } | null;
+    }
+  >;
+}
+
 // Get pending compliance count for carrier
 export async function getPendingComplianceCount(carrierId: string): Promise<number> {
   const supabase = getComplianceClient();

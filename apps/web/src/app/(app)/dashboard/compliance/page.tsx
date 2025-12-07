@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/supabase-server';
-import { getWorkspaceCompanyForUser } from '@/data/companies';
 import {
   getComplianceAlerts,
   getAllComplianceItems,
@@ -11,7 +10,7 @@ import {
   DOCUMENT_STATUS_CONFIG,
   DOCUMENT_TYPES,
 } from '@/data/compliance-documents';
-import { getComplianceRequestsForCarrier } from '@/data/compliance';
+import { getComplianceRequestsForUser } from '@/data/compliance';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -131,14 +130,13 @@ export default async function CompliancePage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  // Get user's carrier company for partner compliance requests
-  const carrierCompany = await getWorkspaceCompanyForUser(user.id);
-
+  // Get partner compliance requests for ALL companies owned by this user
+  // (not just workspace company, as compliance requests may be linked to other companies)
   const [alerts, allItems, documents, partnerRequests] = await Promise.all([
     getComplianceAlerts(user.id),
     getAllComplianceItems(user.id),
     getComplianceDocuments(user.id),
-    carrierCompany ? getComplianceRequestsForCarrier(carrierCompany.id) : Promise.resolve([]),
+    getComplianceRequestsForUser(user.id),
   ]);
 
   const pendingDocuments = documents.filter((d) => d.status === 'pending_review');
