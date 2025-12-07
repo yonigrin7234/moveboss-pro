@@ -113,6 +113,12 @@ export async function GET(request: Request) {
       existingRequests = await getComplianceRequestsForPartnership(partnership.id);
     }
 
+    // Get ALL companies owned by the user (to see if there are duplicates)
+    const { data: allUserCompanies } = await supabase
+      .from('companies')
+      .select('id, name, is_workspace_company')
+      .eq('owner_id', user.id);
+
     // Get user's workspace company (for carrier view)
     const { data: workspaceCompany } = await supabase
       .from('companies')
@@ -159,10 +165,11 @@ export async function GET(request: Request) {
     const serviceRoleAvailable = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     return NextResponse.json({
-      _version: 'v9-carrier-id-debug',
+      _version: 'v10-all-companies-debug',
       service_role_key_available: serviceRoleAvailable,
       success: true,
       user_id: user.id,
+      all_user_companies: allUserCompanies,
       workspace_company: workspaceCompany,
       carrier_company_debug: carrierCompanyDebug,
       carrier_compliance_requests: carrierRequests,
