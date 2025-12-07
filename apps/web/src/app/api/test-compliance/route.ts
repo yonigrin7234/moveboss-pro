@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient, getCurrentUser } from '@/lib/supabase-server';
-import { createComplianceRequestsForPartnership } from '@/data/compliance';
+import { createComplianceRequestsForPartnership, getComplianceRequestsForPartnership } from '@/data/compliance';
 
 export async function GET(request: Request) {
   try {
@@ -67,6 +67,12 @@ export async function GET(request: Request) {
       });
     }
 
+    // Fetch existing compliance requests for this partnership
+    let existingRequests: unknown[] = [];
+    if (partnership) {
+      existingRequests = await getComplianceRequestsForPartnership(partnership.id);
+    }
+
     return NextResponse.json({
       success: true,
       user_id: user.id,
@@ -80,6 +86,7 @@ export async function GET(request: Request) {
       },
       partnership: partnership || null,
       partnership_error: partnershipError?.message || null,
+      existing_requests_for_partnership: existingRequests,
       hint: 'Add ?action=create to actually create compliance requests',
     });
   } catch (error) {
