@@ -107,6 +107,8 @@ export async function GET(request: Request) {
       },
       partnership: partnership || null,
       partnership_error: partnershipError?.message || null,
+      company_a_info: companyAOwner,
+      direct_requests_query: directRequests,
       existing_requests_for_partnership: existingRequests,
       hint: 'Add ?action=create to actually create compliance requests',
     });
