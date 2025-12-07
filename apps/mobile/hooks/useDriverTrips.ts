@@ -303,14 +303,13 @@ export function useDriverTripDetail(tripId: string | null) {
     fetchTripDetail();
   }, [tripId, user?.id, fetchTripDetail]);
 
-  // TEMPORARILY DISABLED - causing infinite re-render loops
-  // TODO: Fix realtime subscription stability before re-enabling
-  // useTripRealtimeSubscription({
-  //   tripId,
-  //   ownerId,
-  //   onDataChange: silentRefetch,
-  //   enabled: !!tripId && !!ownerId,
-  // });
+  // Subscribe to realtime updates for this trip
+  useTripRealtimeSubscription({
+    tripId,
+    ownerId,
+    onDataChange: silentRefetch,
+    enabled: !!tripId && !!ownerId,
+  });
 
   return { trip, loading, error, refetch, isRefreshing };
 }

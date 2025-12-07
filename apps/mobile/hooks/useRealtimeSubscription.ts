@@ -8,9 +8,10 @@
  * - Automatic subscription management
  * - Debounced refetch to avoid rapid updates
  * - Clean unsubscribe on unmount
+ * - Stable subscriptions that don't recreate unnecessarily
  */
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { realtimeLogger } from '../lib/logger';
@@ -39,23 +40,13 @@ export function useDriverRealtimeSubscription({
   debounceMs = 500,
 }: UseRealtimeOptions) {
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onDataChangeRef = useRef(onDataChange);
+  const debounceRef = useRef(debounceMs);
 
-  // Keep callback ref updated
-  useEffect(() => {
-    onDataChangeRef.current = onDataChange;
-  }, [onDataChange]);
-
-  // Debounced change handler
-  const handleChange = useCallback(() => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-    debounceTimerRef.current = setTimeout(() => {
-      onDataChangeRef.current();
-    }, debounceMs);
-  }, [debounceMs]);
+  // Keep refs updated without causing re-renders or effect re-runs
+  onDataChangeRef.current = onDataChange;
+  debounceRef.current = debounceMs;
 
   useEffect(() => {
     if (!enabled || !driverId || !ownerId) {
@@ -65,6 +56,17 @@ export function useDriverRealtimeSubscription({
     // Create a unique channel name
     const channelName = `driver-updates-${driverId}`;
     realtimeLogger.info(`Subscribing to ${channelName}`);
+
+    // Stable handler that reads from refs
+    const handleChange = () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      debounceTimerRef.current = setTimeout(() => {
+        realtimeLogger.debug(`Realtime change detected, triggering refetch`);
+        onDataChangeRef.current();
+      }, debounceRef.current);
+    };
 
     // Subscribe to trips and loads changes
     const channel = supabase
@@ -118,7 +120,7 @@ export function useDriverRealtimeSubscription({
         channelRef.current = null;
       }
     };
-  }, [enabled, driverId, ownerId, handleChange]);
+  }, [enabled, driverId, ownerId]); // Removed handleChange - now defined inside effect
 }
 
 /**
@@ -138,21 +140,13 @@ export function useTripRealtimeSubscription({
   debounceMs?: number;
 }) {
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onDataChangeRef = useRef(onDataChange);
+  const debounceRef = useRef(debounceMs);
 
-  useEffect(() => {
-    onDataChangeRef.current = onDataChange;
-  }, [onDataChange]);
-
-  const handleChange = useCallback(() => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-    debounceTimerRef.current = setTimeout(() => {
-      onDataChangeRef.current();
-    }, debounceMs);
-  }, [debounceMs]);
+  // Keep refs updated without causing re-renders or effect re-runs
+  onDataChangeRef.current = onDataChange;
+  debounceRef.current = debounceMs;
 
   useEffect(() => {
     if (!enabled || !tripId || !ownerId) {
@@ -161,6 +155,17 @@ export function useTripRealtimeSubscription({
 
     const channelName = `trip-updates-${tripId}`;
     realtimeLogger.info(`Subscribing to ${channelName}`);
+
+    // Stable handler that reads from refs
+    const handleChange = () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      debounceTimerRef.current = setTimeout(() => {
+        realtimeLogger.debug(`Realtime change detected for trip ${tripId}, triggering refetch`);
+        onDataChangeRef.current();
+      }, debounceRef.current);
+    };
 
     const channel = supabase
       .channel(channelName)
@@ -222,7 +227,7 @@ export function useTripRealtimeSubscription({
         channelRef.current = null;
       }
     };
-  }, [enabled, tripId, ownerId, handleChange]);
+  }, [enabled, tripId, ownerId]); // Removed handleChange - now defined inside effect
 }
 
 export default useDriverRealtimeSubscription;
