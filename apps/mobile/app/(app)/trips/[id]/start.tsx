@@ -165,7 +165,10 @@ export default function TripStartRoute() {
 
   const handleStart = useCallback(
     async (data: { odometer: number; photoUri: string }) => {
+      console.log('[TripStart] handleStart called', { id, isProcessing, odometer: data.odometer });
+
       if (!id || isProcessing) {
+        console.log('[TripStart] Invalid state - returning early', { id, isProcessing });
         return { success: false, error: 'Invalid state' };
       }
 
@@ -173,19 +176,26 @@ export default function TripStartRoute() {
 
       try {
         // Upload odometer photo
+        console.log('[TripStart] Uploading photo...');
         const uploadResult = await uploadOdometerPhoto(data.photoUri, id, 'start');
+        console.log('[TripStart] Upload result:', JSON.stringify(uploadResult));
+
         if (!uploadResult.success) {
+          console.log('[TripStart] Upload failed:', uploadResult.error);
           return { success: false, error: uploadResult.error || 'Failed to upload photo' };
         }
 
         // Start trip with odometer data
+        console.log('[TripStart] Starting trip with odometer:', data.odometer);
         const result = await tripActions.startTrip({
           odometerStart: data.odometer,
           odometerStartPhotoUrl: uploadResult.url!,
         });
 
+        console.log('[TripStart] Trip start result:', JSON.stringify(result));
         return result;
-      } catch (error) {
+      } catch (err) {
+        console.error('[TripStart] Caught error:', err);
         return { success: false, error: 'Failed to start trip' };
       } finally {
         setIsProcessing(false);

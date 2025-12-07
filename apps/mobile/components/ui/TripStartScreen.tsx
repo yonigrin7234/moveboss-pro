@@ -5,7 +5,7 @@
  * animated styles. Screens now render immediately without jank.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -59,6 +59,14 @@ export function TripStartScreen({
   const buttonScale = useSharedValue(1);
   const shakeX = useSharedValue(0);
 
+  // Debug: Track component mount/unmount
+  useEffect(() => {
+    console.log('[TripStartScreen] MOUNTED', { tripNumber, odometer, photoUri: !!photoUri });
+    return () => {
+      console.log('[TripStartScreen] UNMOUNTED');
+    };
+  }, []);
+
   const takePhoto = useCallback(async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
@@ -91,15 +99,18 @@ export function TripStartScreen({
   }, []);
 
   const handleStart = useCallback(async () => {
+    console.log('[TripStartScreen] handleStart called', { odometer, photoUri: !!photoUri });
     const odometerValue = parseFloat(odometer);
 
     if (!odometer || isNaN(odometerValue) || odometerValue <= 0) {
+      console.log('[TripStartScreen] Validation failed: odometer');
       setError('Enter odometer reading');
       shake();
       return;
     }
 
     if (!photoUri) {
+      console.log('[TripStartScreen] Validation failed: no photo');
       setError('Take odometer photo');
       shake();
       return;
@@ -115,19 +126,25 @@ export function TripStartScreen({
     );
 
     try {
+      console.log('[TripStartScreen] Calling onStart...');
       const result = await onStart({ odometer: odometerValue, photoUri });
+      console.log('[TripStartScreen] onStart result:', JSON.stringify(result));
 
       if (result.success) {
+        console.log('[TripStartScreen] Success! Showing celebration');
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setShowSuccess(true);
       } else {
+        console.log('[TripStartScreen] Failed:', result.error);
         setError(result.error || 'Failed to start trip');
         shake();
       }
     } catch (err) {
+      console.error('[TripStartScreen] Caught error:', err);
       setError('Something went wrong');
       shake();
     } finally {
+      console.log('[TripStartScreen] handleStart finished');
       setSubmitting(false);
     }
   }, [odometer, photoUri, onStart, shake]);

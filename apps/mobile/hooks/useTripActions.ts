@@ -23,10 +23,12 @@ export function useTripActions(tripId: string, onSuccess?: () => void) {
   const [error, setError] = useState<string | null>(null);
 
   const startTrip = async (data: StartTripData): Promise<ActionResult> => {
+    console.log('[useTripActions] startTrip called', { tripId, odometerStart: data.odometerStart });
     setLoading(true);
     setError(null);
 
     try {
+      console.log('[useTripActions] Updating trip in database...');
       const { error: updateError } = await supabase
         .from('trips')
         .update({
@@ -38,16 +40,21 @@ export function useTripActions(tripId: string, onSuccess?: () => void) {
         .eq('id', tripId);
 
       if (updateError) {
+        console.error('[useTripActions] Database update failed:', updateError);
         throw updateError;
       }
+
+      console.log('[useTripActions] Database update successful');
 
       // Notify owner that trip started (fire-and-forget)
       notifyOwnerTripStarted(tripId, data.odometerStart);
 
       onSuccess?.();
+      console.log('[useTripActions] Returning success');
       return { success: true };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to start trip';
+      console.error('[useTripActions] Caught error:', message);
       setError(message);
       return { success: false, error: message };
     } finally {
