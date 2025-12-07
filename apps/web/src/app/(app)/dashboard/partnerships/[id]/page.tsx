@@ -13,10 +13,20 @@ import {
   PlayCircle,
   PauseCircle,
   XCircle,
+  CheckCircle,
+  Clock,
+  ExternalLink,
+  Upload,
 } from 'lucide-react';
 
 import { getCurrentUser, createClient } from '@/lib/supabase-server';
 import { getPartnershipById, updatePartnershipStatus, updatePartnershipTerms } from '@/data/partnerships';
+import {
+  getComplianceRequestsForPartnership,
+  createComplianceRequestsForPartnership,
+  approveComplianceDocument,
+  rejectComplianceDocument,
+} from '@/data/compliance';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -66,6 +76,9 @@ export default async function PartnershipDetailPage({
     .order('created_at', { ascending: false })
     .limit(5);
 
+  // Get compliance requests for this partnership
+  const complianceRequests = await getComplianceRequestsForPartnership(id);
+
   async function activateAction() {
     'use server';
     const user = await getCurrentUser();
@@ -105,6 +118,44 @@ export default async function PartnershipDetailPage({
       payment_terms: formData.get('payment_terms') as string,
       internal_notes: (formData.get('internal_notes') as string) || undefined,
     });
+    revalidatePath(`/dashboard/partnerships/${id}`);
+  }
+
+  async function requestDocumentsAction() {
+    'use server';
+    const user = await getCurrentUser();
+    if (!user) redirect('/login');
+    const { id } = await params;
+    const partnershipData = await getPartnershipById(id, user.id);
+    if (!partnershipData?.company_b?.id) return;
+
+    await createComplianceRequestsForPartnership(
+      id,
+      partnershipData.company_a_id,
+      user.id,
+      partnershipData.company_b.id
+    );
+    revalidatePath(`/dashboard/partnerships/${id}`);
+  }
+
+  async function approveDocAction(formData: FormData) {
+    'use server';
+    const user = await getCurrentUser();
+    if (!user) redirect('/login');
+    const { id } = await params;
+    const requestId = formData.get('request_id') as string;
+    await approveComplianceDocument(requestId, user.id);
+    revalidatePath(`/dashboard/partnerships/${id}`);
+  }
+
+  async function rejectDocAction(formData: FormData) {
+    'use server';
+    const user = await getCurrentUser();
+    if (!user) redirect('/login');
+    const { id } = await params;
+    const requestId = formData.get('request_id') as string;
+    const reason = formData.get('reason') as string;
+    await rejectComplianceDocument(requestId, user.id, reason || 'Document rejected');
     revalidatePath(`/dashboard/partnerships/${id}`);
   }
 
@@ -257,6 +308,106 @@ export default async function PartnershipDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      {/* Compliance Documents */}
+      <Card className={complianceRequests.some(r => r.status !== 'approved') ? 'border-orange-500/30' : ''}>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Compliance Documents
+            </span>
+            {complianceRequests.length === 0 && (
+              <form action={requestDocumentsAction}>
+                <Button type="submit" size="sm" variant="outline">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Request Documents
+                </Button>
+              </form>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {complianceRequests.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No compliance documents requested yet. Request W-9, Insurance Certificate, and Hauling Agreement from this partner.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {complianceRequests.map((request) => {
+                const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
+                  pending: { label: 'Waiting', color: 'bg-yellow-500/20 text-yellow-600', icon: Clock },
+                  uploaded: { label: 'Needs Review', color: 'bg-blue-500/20 text-blue-600', icon: FileText },
+                  approved: { label: 'Approved', color: 'bg-green-500/20 text-green-600', icon: CheckCircle },
+                  rejected: { label: 'Rejected', color: 'bg-red-500/20 text-red-600', icon: XCircle },
+                };
+                const docStatus = statusConfig[request.status] || statusConfig.pending;
+                const StatusIcon = docStatus.icon;
+
+                return (
+                  <div key={request.id} className="border rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{request.document_type?.name || 'Document'}</span>
+                      </div>
+                      <Badge className={docStatus.color}>
+                        <StatusIcon className="h-3 w-3 mr-1" />
+                        {docStatus.label}
+                      </Badge>
+                    </div>
+
+                    {request.status === 'pending' && (
+                      <p className="text-sm text-muted-foreground">Waiting for partner to upload</p>
+                    )}
+
+                    {request.status === 'uploaded' && request.document && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between p-2 bg-muted rounded">
+                          <span className="text-sm">{request.document.file_name}</span>
+                          <Button variant="ghost" size="sm" asChild>
+                            <a href={request.document.file_url} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          </Button>
+                        </div>
+                        <div className="flex gap-2">
+                          <form action={approveDocAction} className="flex-1">
+                            <input type="hidden" name="request_id" value={request.id} />
+                            <Button type="submit" size="sm" className="w-full">
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Approve
+                            </Button>
+                          </form>
+                          <form action={rejectDocAction} className="flex-1 flex gap-1">
+                            <input type="hidden" name="request_id" value={request.id} />
+                            <Input name="reason" placeholder="Reason" className="h-8 text-sm" />
+                            <Button type="submit" size="sm" variant="outline" className="text-red-600 shrink-0">
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </form>
+                        </div>
+                      </div>
+                    )}
+
+                    {request.status === 'approved' && (
+                      <p className="text-sm text-green-600">
+                        Approved {request.reviewed_at && new Date(request.reviewed_at).toLocaleDateString()}
+                      </p>
+                    )}
+
+                    {request.status === 'rejected' && (
+                      <p className="text-sm text-red-600">
+                        Rejected: {request.rejection_reason} - Waiting for new upload
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Recent Loads */}
       <Card>
