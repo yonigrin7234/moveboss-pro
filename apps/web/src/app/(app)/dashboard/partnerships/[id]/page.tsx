@@ -127,14 +127,28 @@ export default async function PartnershipDetailPage({
     if (!user) redirect('/login');
     const { id } = await params;
     const partnershipData = await getPartnershipById(id, user.id);
-    if (!partnershipData?.company_b?.id) return;
 
-    await createComplianceRequestsForPartnership(
+    // Handle company_b being an array (Supabase join can return array)
+    const companyB = Array.isArray(partnershipData?.company_b)
+      ? partnershipData.company_b[0]
+      : partnershipData?.company_b;
+
+    if (!companyB?.id) {
+      console.error('No company_b found for partnership');
+      return;
+    }
+
+    const result = await createComplianceRequestsForPartnership(
       id,
-      partnershipData.company_a_id,
+      partnershipData!.company_a_id,
       user.id,
-      partnershipData.company_b.id
+      companyB.id
     );
+
+    if (!result.success) {
+      console.error('Failed to create compliance requests:', result.error);
+    }
+
     revalidatePath(`/dashboard/partnerships/${id}`);
   }
 

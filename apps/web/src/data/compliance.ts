@@ -36,15 +36,23 @@ export async function createComplianceRequestsForPartnership(
   const supabase = await createClient();
 
   // Get required document types
-  const { data: docTypes } = await supabase
+  const { data: docTypes, error: docTypesError } = await supabase
     .from('compliance_document_types')
     .select('id, name')
     .eq('is_required', true)
     .order('sort_order');
 
-  if (!docTypes || docTypes.length === 0) {
-    return { success: true }; // No required docs
+  if (docTypesError) {
+    console.error('Error fetching document types:', docTypesError);
+    return { success: false, error: `Failed to fetch document types: ${docTypesError.message}` };
   }
+
+  if (!docTypes || docTypes.length === 0) {
+    console.error('No required document types found in compliance_document_types table');
+    return { success: false, error: 'No required document types configured' };
+  }
+
+  console.log(`Creating ${docTypes.length} compliance requests for partnership ${partnershipId}`);
 
   // Calculate due date (14 days from now)
   const dueDate = new Date();
