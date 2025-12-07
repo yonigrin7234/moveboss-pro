@@ -166,6 +166,25 @@ export default async function NotificationsPage() {
                       linkHref = '/dashboard/carrier-requests';
                     } else if (notification.type === 'partner_load_posted' && notification.load_id) {
                       linkHref = '/dashboard/load-board';
+                    } else if (
+                      notification.type === 'load_confirmed' ||
+                      notification.type === 'driver_assigned' ||
+                      notification.type === 'load_given_back' ||
+                      notification.type === 'request_withdrawn'
+                    ) {
+                      // Company perspective: loads they gave to carriers
+                      linkHref = '/dashboard/loads-given-out';
+                    } else if (
+                      notification.type === 'request_accepted' ||
+                      notification.type === 'request_declined' ||
+                      notification.type === 'carrier_canceled'
+                    ) {
+                      // Carrier perspective: loads assigned to them or their requests
+                      if (notification.load_id) {
+                        linkHref = `/dashboard/assigned-loads/${notification.load_id}`;
+                      } else {
+                        linkHref = '/dashboard/my-requests';
+                      }
                     } else if (notification.load_id) {
                       linkHref = `/dashboard/loads/${notification.load_id}`;
                     } else if (notification.request_id) {
