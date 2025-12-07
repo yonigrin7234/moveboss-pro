@@ -27,11 +27,10 @@ export async function GET(request: Request) {
       });
     }
 
-    // Test 2: Check if compliance_requests table exists
-    const { data: requests, error: requestsError } = await supabase
+    // Test 2: Get ALL compliance_requests the user can see (with RLS)
+    const { data: allVisibleRequests, error: requestsError } = await supabase
       .from('compliance_requests')
-      .select('id')
-      .limit(1);
+      .select('id, partnership_id, status');
 
     if (requestsError) {
       return NextResponse.json({
@@ -41,13 +40,15 @@ export async function GET(request: Request) {
       });
     }
 
-    // Test 3: Get a partnership to test with
-    const { data: partnership, error: partnershipError } = await supabase
+    // Test 3: Get ALL partnerships the user owns
+    const { data: allPartnerships, error: allPartnershipsError } = await supabase
       .from('company_partnerships')
       .select('id, company_a_id, company_b_id')
-      .eq('owner_id', user.id)
-      .limit(1)
-      .single();
+      .eq('owner_id', user.id);
+
+    // Get the first partnership for detailed testing
+    const partnership = allPartnerships?.[0] || null;
+    const partnershipError = allPartnershipsError;
 
     // If action=create, actually try to create the compliance requests
     if (action === 'create' && partnership) {
@@ -102,11 +103,9 @@ export async function GET(request: Request) {
         count: docTypes?.length || 0,
         data: docTypes,
       },
-      compliance_requests: {
-        table_exists: !requestsError,
-        sample_count: requests?.length || 0,
-      },
-      partnership: partnership || null,
+      all_visible_compliance_requests: allVisibleRequests || [],
+      all_user_partnerships: allPartnerships || [],
+      first_partnership: partnership || null,
       partnership_error: partnershipError?.message || null,
       company_a_info: companyAOwner,
       direct_requests_query: directRequests,
