@@ -339,15 +339,10 @@ export async function uploadComplianceDocument(
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = getComplianceClient();
 
-  // Get request details
+  // Get request details (without JOIN)
   const { data: request } = await supabase
     .from('compliance_requests')
-    .select(
-      `
-      *,
-      requesting_company:companies!compliance_requests_requesting_company_id_fkey(id, name, owner_id)
-    `
-    )
+    .select('*')
     .eq('id', requestId)
     .eq('carrier_id', carrierId)
     .single();
@@ -395,16 +390,14 @@ export async function uploadComplianceDocument(
     return { success: false, error: updateError.message };
   }
 
-  // Notify company
-  const { data: carrier } = await supabase
-    .from('companies')
-    .select('name')
-    .eq('id', carrierId)
-    .single();
+  // Get company data separately for notifications
+  const [carrierResult, requestingCompanyResult] = await Promise.all([
+    supabase.from('companies').select('name').eq('id', carrierId).single(),
+    supabase.from('companies').select('id, name, owner_id').eq('id', request.requesting_company_id).single(),
+  ]);
 
-  const requestingCompany = Array.isArray(request.requesting_company)
-    ? request.requesting_company[0]
-    : request.requesting_company;
+  const carrier = carrierResult.data;
+  const requestingCompany = requestingCompanyResult.data;
 
   if (requestingCompany?.owner_id) {
     await createNotification({
@@ -427,15 +420,10 @@ export async function approveComplianceDocument(
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = getComplianceClient();
 
-  // Get request details
+  // Get request details (without JOIN)
   const { data: request } = await supabase
     .from('compliance_requests')
-    .select(
-      `
-      *,
-      carrier:companies!compliance_requests_carrier_id_fkey(id, name, owner_id)
-    `
-    )
+    .select('*')
     .eq('id', requestId)
     .single();
 
@@ -485,8 +473,12 @@ export async function approveComplianceDocument(
     })
     .eq('id', request.partnership_id);
 
-  // Notify carrier
-  const carrier = Array.isArray(request.carrier) ? request.carrier[0] : request.carrier;
+  // Get carrier data separately for notification
+  const { data: carrier } = await supabase
+    .from('companies')
+    .select('id, name, owner_id')
+    .eq('id', request.carrier_id)
+    .single();
 
   if (carrier?.owner_id) {
     await createNotification({
@@ -512,15 +504,10 @@ export async function rejectComplianceDocument(
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = getComplianceClient();
 
-  // Get request details
+  // Get request details (without JOIN)
   const { data: request } = await supabase
     .from('compliance_requests')
-    .select(
-      `
-      *,
-      carrier:companies!compliance_requests_carrier_id_fkey(id, name, owner_id)
-    `
-    )
+    .select('*')
     .eq('id', requestId)
     .single();
 
@@ -546,8 +533,12 @@ export async function rejectComplianceDocument(
     return { success: false, error: error.message };
   }
 
-  // Notify carrier
-  const carrier = Array.isArray(request.carrier) ? request.carrier[0] : request.carrier;
+  // Get carrier data separately for notification
+  const { data: carrier } = await supabase
+    .from('companies')
+    .select('id, name, owner_id')
+    .eq('id', request.carrier_id)
+    .single();
 
   if (carrier?.owner_id) {
     await createNotification({
@@ -573,32 +564,50 @@ export async function getComplianceRequestById(requestId: string): Promise<
 > {
   const supabase = getComplianceClient();
 
-  const { data, error } = await supabase
+  // Get base request data
+  const { data: request, error } = await supabase
     .from('compliance_requests')
-    .select(
-      `
-      *,
-      document_type:compliance_document_types(*),
-      document:compliance_documents(id, file_url, file_name),
-      requesting_company:companies!compliance_requests_requesting_company_id_fkey(id, name),
-      carrier:companies!compliance_requests_carrier_id_fkey(id, name, owner_id)
-    `
-    )
+    .select('*')
     .eq('id', requestId)
     .single();
 
-  if (error || !data) {
+  if (error || !request) {
+    console.error('[getComplianceRequestById] Error fetching request:', error);
     return null;
   }
 
+  // Get related data separately (avoiding JOINs which don't work reliably with service role)
+  const [docTypeResult, docResult, requestingCompanyResult, carrierResult] = await Promise.all([
+    supabase
+      .from('compliance_document_types')
+      .select('*')
+      .eq('id', request.document_type_id)
+      .single(),
+    request.document_id
+      ? supabase
+          .from('compliance_documents')
+          .select('id, file_url, file_name')
+          .eq('id', request.document_id)
+          .single()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from('companies')
+      .select('id, name')
+      .eq('id', request.requesting_company_id)
+      .single(),
+    supabase
+      .from('companies')
+      .select('id, name, owner_id')
+      .eq('id', request.carrier_id)
+      .single(),
+  ]);
+
   return {
-    ...data,
-    document_type: Array.isArray(data.document_type) ? data.document_type[0] : data.document_type,
-    document: Array.isArray(data.document) ? data.document[0] : data.document,
-    requesting_company: Array.isArray(data.requesting_company)
-      ? data.requesting_company[0]
-      : data.requesting_company,
-    carrier: Array.isArray(data.carrier) ? data.carrier[0] : data.carrier,
+    ...request,
+    document_type: docTypeResult.data || null,
+    document: docResult.data || null,
+    requesting_company: requestingCompanyResult.data || null,
+    carrier: carrierResult.data || null,
   } as ComplianceRequest & {
     requesting_company: { id: string; name: string } | null;
     carrier: { id: string; name: string; owner_id: string } | null;
