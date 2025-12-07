@@ -123,8 +123,9 @@ export async function GET(request: Request) {
 
     // Get carrier compliance requests using service role directly
     let carrierRequests = null;
+    const adminClient = createServiceRoleClient();
+
     if (workspaceCompany) {
-      const adminClient = createServiceRoleClient();
       const { data: carrierData, error: carrierError } = await adminClient
         .from('compliance_requests')
         .select('id, partnership_id, requesting_company_id, carrier_id, document_type_id, status')
@@ -138,15 +139,32 @@ export async function GET(request: Request) {
       };
     }
 
+    // Debug: Look up the actual carrier company from the compliance requests
+    let carrierCompanyDebug = null;
+    if (adminQuery?.data && adminQuery.data.length > 0) {
+      const carrierId = adminQuery.data[0].carrier_id;
+      const { data: carrierCompany } = await adminClient
+        .from('companies')
+        .select('id, name, owner_id, is_workspace_company')
+        .eq('id', carrierId)
+        .single();
+      carrierCompanyDebug = {
+        carrier_id_in_requests: carrierId,
+        carrier_company: carrierCompany,
+        matches_workspace: carrierId === workspaceCompany?.id,
+      };
+    }
+
     // Test if service role key is available
     const serviceRoleAvailable = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     return NextResponse.json({
-      _version: 'v8-carrier-debug',
+      _version: 'v9-carrier-id-debug',
       service_role_key_available: serviceRoleAvailable,
       success: true,
       user_id: user.id,
       workspace_company: workspaceCompany,
+      carrier_company_debug: carrierCompanyDebug,
       carrier_compliance_requests: carrierRequests,
       document_types: {
         count: docTypes?.length || 0,
