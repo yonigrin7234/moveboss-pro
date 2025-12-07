@@ -121,17 +121,28 @@ export default async function PartnershipDetailPage({
     revalidatePath(`/dashboard/partnerships/${id}`);
   }
 
-  async function requestDocumentsAction() {
+  async function requestDocumentsAction(formData: FormData) {
     'use server';
     const user = await getCurrentUser();
     if (!user) redirect('/login');
-    const { id } = await params;
-    const partnershipData = await getPartnershipById(id, user.id);
+    const partnershipId = formData.get('partnership_id') as string;
+    
+    if (!partnershipId) {
+      console.error('No partnership_id provided');
+      return;
+    }
+
+    const partnershipData = await getPartnershipById(partnershipId, user.id);
+
+    if (!partnershipData) {
+      console.error('Partnership not found');
+      return;
+    }
 
     // Handle company_b being an array (Supabase join can return array)
-    const companyB = Array.isArray(partnershipData?.company_b)
+    const companyB = Array.isArray(partnershipData.company_b)
       ? partnershipData.company_b[0]
-      : partnershipData?.company_b;
+      : partnershipData.company_b;
 
     if (!companyB?.id) {
       console.error('No company_b found for partnership');
@@ -139,17 +150,18 @@ export default async function PartnershipDetailPage({
     }
 
     const result = await createComplianceRequestsForPartnership(
-      id,
-      partnershipData!.company_a_id,
+      partnershipId,
+      partnershipData.company_a_id,
       user.id,
       companyB.id
     );
 
     if (!result.success) {
       console.error('Failed to create compliance requests:', result.error);
+      // TODO: Show error toast to user
     }
 
-    revalidatePath(`/dashboard/partnerships/${id}`);
+    revalidatePath(`/dashboard/partnerships/${partnershipId}`);
   }
 
   async function approveDocAction(formData: FormData) {
@@ -333,6 +345,7 @@ export default async function PartnershipDetailPage({
             </span>
             {complianceRequests.length === 0 && (
               <form action={requestDocumentsAction}>
+                <input type="hidden" name="partnership_id" value={id} />
                 <Button type="submit" size="sm" variant="outline">
                   <Upload className="h-4 w-4 mr-2" />
                   Request Documents
