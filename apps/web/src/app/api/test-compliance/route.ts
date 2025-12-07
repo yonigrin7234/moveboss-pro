@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server';
 import { createClient, getCurrentUser } from '@/lib/supabase-server';
+import { createComplianceRequestsForPartnership } from '@/data/compliance';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
+
+    const url = new URL(request.url);
+    const action = url.searchParams.get('action');
 
     const supabase = await createClient();
 
@@ -45,6 +49,24 @@ export async function GET() {
       .limit(1)
       .single();
 
+    // If action=create, actually try to create the compliance requests
+    if (action === 'create' && partnership) {
+      const result = await createComplianceRequestsForPartnership(
+        partnership.id,
+        partnership.company_a_id,
+        user.id,
+        partnership.company_b_id
+      );
+
+      return NextResponse.json({
+        action: 'create',
+        result,
+        partnership_id: partnership.id,
+        company_a_id: partnership.company_a_id,
+        company_b_id: partnership.company_b_id,
+      });
+    }
+
     return NextResponse.json({
       success: true,
       user_id: user.id,
@@ -58,10 +80,12 @@ export async function GET() {
       },
       partnership: partnership || null,
       partnership_error: partnershipError?.message || null,
+      hint: 'Add ?action=create to actually create compliance requests',
     });
   } catch (error) {
     return NextResponse.json({
       error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
     }, { status: 500 });
   }
 }
