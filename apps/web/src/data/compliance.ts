@@ -197,32 +197,45 @@ export async function getComplianceRequestsForCarrier(carrierId: string): Promis
 > {
   const supabase = getComplianceClient();
 
-  const { data, error } = await supabase
+  // First get base compliance requests for this carrier
+  const { data: requests, error } = await supabase
     .from('compliance_requests')
-    .select(
-      `
-      *,
-      document_type:compliance_document_types(*),
-      document:compliance_documents(id, file_url, file_name),
-      requesting_company:companies!compliance_requests_requesting_company_id_fkey(id, name)
-    `
-    )
+    .select('*')
     .eq('carrier_id', carrierId)
     .in('status', ['pending', 'rejected'])
     .order('due_date');
 
-  if (error) {
+  if (error || !requests) {
     console.error('Error fetching carrier compliance requests:', error);
     return [];
   }
 
-  return (data || []).map((r) => ({
+  if (requests.length === 0) {
+    return [];
+  }
+
+  // Get related data separately
+  const docTypeIds = [...new Set(requests.map(r => r.document_type_id))];
+  const docIds = requests.map(r => r.document_id).filter(Boolean);
+  const companyIds = [...new Set(requests.map(r => r.requesting_company_id))];
+
+  const [docTypesResult, docsResult, companiesResult] = await Promise.all([
+    supabase.from('compliance_document_types').select('*').in('id', docTypeIds),
+    docIds.length > 0
+      ? supabase.from('compliance_documents').select('id, file_url, file_name').in('id', docIds)
+      : Promise.resolve({ data: [] }),
+    supabase.from('companies').select('id, name').in('id', companyIds),
+  ]);
+
+  const docTypesMap = new Map((docTypesResult.data || []).map(dt => [dt.id, dt]));
+  const docsMap = new Map((docsResult.data || []).map(d => [d.id, d]));
+  const companiesMap = new Map((companiesResult.data || []).map(c => [c.id, c]));
+
+  return requests.map((r) => ({
     ...r,
-    document_type: Array.isArray(r.document_type) ? r.document_type[0] : r.document_type,
-    document: Array.isArray(r.document) ? r.document[0] : r.document,
-    requesting_company: Array.isArray(r.requesting_company)
-      ? r.requesting_company[0]
-      : r.requesting_company,
+    document_type: docTypesMap.get(r.document_type_id) || null,
+    document: r.document_id ? docsMap.get(r.document_id) || null : null,
+    requesting_company: companiesMap.get(r.requesting_company_id) || null,
   })) as Array<
     ComplianceRequest & {
       requesting_company: { id: string; name: string } | null;
