@@ -8,7 +8,7 @@
  * - Navigates to first load on success
  */
 
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { TripStartScreen } from '../../../../components/ui/TripStartScreen';
@@ -54,7 +54,11 @@ export default function TripStartRoute() {
   const [error, setError] = useState<string | null>(null);
 
   const { uploadOdometerPhoto } = useImageUpload();
-  const [isProcessing, setIsProcessing] = useState(false);
+  // Use ref to avoid re-renders during processing
+  const isProcessingRef = useRef(false);
+
+  // Stable no-op callback for useTripActions
+  const noopCallback = useMemo(() => () => Promise.resolve(), []);
 
   // Simple one-time fetch on mount with module-level cache
   useEffect(() => {
@@ -153,8 +157,8 @@ export default function TripStartRoute() {
     fetchTrip();
   }, [user?.id, id]);
 
-  // Create trip actions with a no-op refetch since we don't need to refresh
-  const tripActions = useTripActions(id || '', () => Promise.resolve());
+  // Create trip actions with stable callback
+  const tripActions = useTripActions(id || '', noopCallback);
 
   // Find the first actionable load
   const findFirstLoad = useCallback((): TripLoad | null => {
@@ -165,14 +169,14 @@ export default function TripStartRoute() {
 
   const handleStart = useCallback(
     async (data: { odometer: number; photoUri: string }) => {
-      console.log('[TripStart] handleStart called', { id, isProcessing, odometer: data.odometer });
+      console.log('[TripStart] handleStart called', { id, isProcessing: isProcessingRef.current, odometer: data.odometer });
 
-      if (!id || isProcessing) {
-        console.log('[TripStart] Invalid state - returning early', { id, isProcessing });
+      if (!id || isProcessingRef.current) {
+        console.log('[TripStart] Invalid state - returning early', { id, isProcessing: isProcessingRef.current });
         return { success: false, error: 'Invalid state' };
       }
 
-      setIsProcessing(true);
+      isProcessingRef.current = true;
 
       try {
         // Upload odometer photo
@@ -198,10 +202,10 @@ export default function TripStartRoute() {
         console.error('[TripStart] Caught error:', err);
         return { success: false, error: 'Failed to start trip' };
       } finally {
-        setIsProcessing(false);
+        isProcessingRef.current = false;
       }
     },
-    [id, tripActions, uploadOdometerPhoto, isProcessing]
+    [id, tripActions, uploadOdometerPhoto]
   );
 
   const handleCancel = useCallback(() => {

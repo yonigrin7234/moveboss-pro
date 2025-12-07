@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { TripStatus } from '../types';
 import {
@@ -22,8 +22,14 @@ export function useTripActions(tripId: string, onSuccess?: () => void) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const startTrip = async (data: StartTripData): Promise<ActionResult> => {
-    console.log('[useTripActions] startTrip called', { tripId, odometerStart: data.odometerStart });
+  // Use refs for values that shouldn't trigger re-renders when accessed in callbacks
+  const tripIdRef = useRef(tripId);
+  const onSuccessRef = useRef(onSuccess);
+  tripIdRef.current = tripId;
+  onSuccessRef.current = onSuccess;
+
+  const startTrip = useCallback(async (data: StartTripData): Promise<ActionResult> => {
+    console.log('[useTripActions] startTrip called', { tripId: tripIdRef.current, odometerStart: data.odometerStart });
     setLoading(true);
     setError(null);
 
@@ -37,7 +43,7 @@ export function useTripActions(tripId: string, onSuccess?: () => void) {
           odometer_start: data.odometerStart,
           odometer_start_photo_url: data.odometerStartPhotoUrl,
         })
-        .eq('id', tripId);
+        .eq('id', tripIdRef.current);
 
       if (updateError) {
         console.error('[useTripActions] Database update failed:', updateError);
@@ -47,9 +53,9 @@ export function useTripActions(tripId: string, onSuccess?: () => void) {
       console.log('[useTripActions] Database update successful');
 
       // Notify owner that trip started (fire-and-forget)
-      notifyOwnerTripStarted(tripId, data.odometerStart);
+      notifyOwnerTripStarted(tripIdRef.current, data.odometerStart);
 
-      onSuccess?.();
+      onSuccessRef.current?.();
       console.log('[useTripActions] Returning success');
       return { success: true };
     } catch (err) {
@@ -60,9 +66,9 @@ export function useTripActions(tripId: string, onSuccess?: () => void) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const completeTrip = async (data?: CompleteTripData): Promise<ActionResult> => {
+  const completeTrip = useCallback(async (data?: CompleteTripData): Promise<ActionResult> => {
     setLoading(true);
     setError(null);
 
@@ -81,16 +87,16 @@ export function useTripActions(tripId: string, onSuccess?: () => void) {
       const { error: updateError } = await supabase
         .from('trips')
         .update(updatePayload)
-        .eq('id', tripId);
+        .eq('id', tripIdRef.current);
 
       if (updateError) {
         throw updateError;
       }
 
       // Notify owner that trip completed (fire-and-forget)
-      notifyOwnerTripCompleted(tripId, data?.odometerEnd);
+      notifyOwnerTripCompleted(tripIdRef.current, data?.odometerEnd);
 
-      onSuccess?.();
+      onSuccessRef.current?.();
       return { success: true };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to complete trip';
@@ -99,12 +105,13 @@ export function useTripActions(tripId: string, onSuccess?: () => void) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  return {
+  // Return stable object reference
+  return useMemo(() => ({
     loading,
     error,
     startTrip,
     completeTrip,
-  };
+  }), [loading, error, startTrip, completeTrip]);
 }
