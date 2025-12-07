@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/supabase-server';
-import { getCompanyById, updateCompany, deleteCompany, updateCompanyInputSchema, type Company } from '@/data/companies';
+import { getCompanyById, updateCompany, updateCompanyInputSchema, type Company } from '@/data/companies';
 import {
   Card,
   CardContent,
@@ -11,7 +11,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CompanyForm } from '@/components/companies/CompanyForm';
-import { DeleteCompanyButton } from './delete-company-button';
 import { cleanFormValues, extractFormValues } from '@/lib/form-data';
 import { Receipt } from 'lucide-react';
 
@@ -156,16 +155,6 @@ export default async function CompanyDetailPage({ params }: CompanyDetailPagePro
     }
   }
 
-  async function deleteCompanyAction(): Promise<void> {
-    'use server';
-    const user = await getCurrentUser();
-    if (!user) {
-      throw new Error('Not authenticated');
-    }
-    await deleteCompany(id, user.id);
-    redirect('/dashboard/companies');
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -197,7 +186,6 @@ export default async function CompanyDetailPage({ params }: CompanyDetailPagePro
           <Button variant="outline" asChild>
             <Link href="/dashboard/companies">Back to Companies</Link>
           </Button>
-          <DeleteCompanyButton deleteAction={deleteCompanyAction} />
         </div>
       </div>
 
