@@ -357,6 +357,7 @@ export async function uploadComplianceDocument(
     .insert({
       company_id: carrierId,
       document_type: request.document_type_id,
+      document_name: fileName,
       file_url: fileUrl,
       file_name: fileName,
       file_size: fileSize,
