@@ -54,6 +54,9 @@ const dashboardCache: { data: TripWithLoads[] | null; fetchedForUser: string | n
 // Track which user we last loaded persistent cache for (prevents re-loading on every mount)
 let lastPersistentCacheLoadedForUser: string | null = null;
 
+// Minimum time between fetches to prevent flickering (in ms)
+const FETCH_COOLDOWN_MS = 2000;
+
 export function useDriverDashboard(): DashboardData {
   const { user } = useAuth();
   const [tripsWithLoads, setTripsWithLoads] = useState<TripWithLoads[]>(() =>
@@ -65,6 +68,7 @@ export function useDriverDashboard(): DashboardData {
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef<number>(0);
   const [driverInfo, setDriverInfo] = useState<{ driverId: string; ownerId: string } | null>(null);
 
   // Load from persistent cache on first mount (per-user)
@@ -205,6 +209,7 @@ export function useDriverDashboard(): DashboardData {
       setLoading(false);
       setIsRefreshing(false);
       isFetchingRef.current = false;
+      lastFetchTimeRef.current = Date.now();
     }
   }, [user?.id]);
 
@@ -227,7 +232,14 @@ export function useDriverDashboard(): DashboardData {
   // Silent background refetch for realtime updates (doesn't clear cache or show loading)
   const silentRefetch = useCallback(() => {
     if (!user?.id || isFetchingRef.current) return;
-    // Just trigger a background fetch - will show as isRefreshing
+
+    // Enforce cooldown to prevent rapid refetches causing flickering
+    const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
+    if (timeSinceLastFetch < FETCH_COOLDOWN_MS) {
+      dataLogger.debug(`Skipping refetch - cooldown active (${timeSinceLastFetch}ms < ${FETCH_COOLDOWN_MS}ms)`);
+      return;
+    }
+
     fetchDashboardData();
   }, [user?.id, fetchDashboardData]);
 

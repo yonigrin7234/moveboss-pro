@@ -61,14 +61,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // but user data hasn't actually changed
   const user = useMemo(() => session?.user ?? null, [session?.user?.id]);
 
+  // Memoize session reference to only change when user actually changes
+  // This prevents re-renders when token refreshes but user is the same
+  const stableSession = useMemo(() => session, [session?.user?.id]);
+
   // Memoize the entire context value to prevent unnecessary re-renders
   const value = useMemo<AuthContextType>(() => ({
-    session,
+    session: stableSession,
     user,
     loading,
     signIn,
     signOut,
-  }), [session, user, loading, signIn, signOut]);
+  }), [stableSession, user, loading, signIn, signOut]);
 
   return (
     <AuthContext.Provider value={value}>

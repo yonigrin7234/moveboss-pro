@@ -19,6 +19,9 @@ const tripsCache: { data: Trip[] | null; fetchedForUser: string | null } = {
 // Track which user we last loaded persistent cache for (per-user tracking)
 let lastTripsListCacheLoadedForUser: string | null = null;
 
+// Minimum time between fetches to prevent flickering (in ms)
+const FETCH_COOLDOWN_MS = 2000;
+
 export function useDriverTrips() {
   const { user } = useAuth();
   const [trips, setTrips] = useState<Trip[]>(() =>
@@ -169,6 +172,7 @@ export function useDriverTripDetail(tripId: string | null) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef<number>(0);
 
   // Load from persistent cache (per-user)
   useEffect(() => {
@@ -278,6 +282,7 @@ export function useDriverTripDetail(tripId: string | null) {
       setIsRefreshing(false);
       tripDetailFetching.delete(tripId);
       isFetchingRef.current = false;
+      lastFetchTimeRef.current = Date.now();
     }
   }, [user?.id, tripId]);
 
@@ -299,10 +304,17 @@ export function useDriverTripDetail(tripId: string | null) {
   // Silent background refetch for realtime updates
   const silentRefetch = useCallback(() => {
     if (!tripId || !user?.id || isFetchingRef.current) return;
+
+    // Enforce cooldown to prevent rapid refetches causing flickering
+    const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
+    if (timeSinceLastFetch < FETCH_COOLDOWN_MS) {
+      dataLogger.debug(`Skipping trip ${tripId} refetch - cooldown active (${timeSinceLastFetch}ms < ${FETCH_COOLDOWN_MS}ms)`);
+      return;
+    }
+
     dataLogger.debug(`Silent refetch for trip ${tripId}`);
     // Clear the fetching flag to allow a new fetch
     tripDetailFetching.delete(tripId);
-    isFetchingRef.current = true;
     fetchTripDetail();
   }, [tripId, user?.id, fetchTripDetail]);
 

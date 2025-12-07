@@ -36,6 +36,9 @@ function withTimeout<T>(promise: PromiseLike<T>, ms: number, message: string): P
 const tripStartCache: Map<string, { data: TripWithLoads; fetchedForUser: string }> = new Map();
 const tripStartFetching: Set<string> = new Set();
 
+// Module-level cache for form state - survives component re-mounts during async operations
+const formStateCache: Map<string, { odometer: string; photoUri: string | null }> = new Map();
+
 export default function TripStartRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -57,9 +60,27 @@ export default function TripStartRoute() {
   // Use ref to avoid re-renders during processing
   const isProcessingRef = useRef(false);
 
-  // Lifted form state - survives child component re-mounts
-  const [formOdometer, setFormOdometer] = useState('');
-  const [formPhotoUri, setFormPhotoUri] = useState<string | null>(null);
+  // Lifted form state - initialized from module-level cache to survive even parent re-mounts
+  const cachedFormState = formStateCache.get(id || '');
+  const [formOdometer, setFormOdometerState] = useState(() => cachedFormState?.odometer || '');
+  const [formPhotoUri, setFormPhotoUriState] = useState<string | null>(() => cachedFormState?.photoUri || null);
+
+  // Wrapped setters that also update module-level cache
+  const setFormOdometer = useCallback((value: string) => {
+    setFormOdometerState(value);
+    if (id) {
+      const current = formStateCache.get(id) || { odometer: '', photoUri: null };
+      formStateCache.set(id, { ...current, odometer: value });
+    }
+  }, [id]);
+
+  const setFormPhotoUri = useCallback((value: string | null) => {
+    setFormPhotoUriState(value);
+    if (id) {
+      const current = formStateCache.get(id) || { odometer: '', photoUri: null };
+      formStateCache.set(id, { ...current, photoUri: value });
+    }
+  }, [id]);
 
   // Stable no-op callback for useTripActions
   const noopCallback = useMemo(() => () => Promise.resolve(), []);
@@ -208,6 +229,12 @@ export default function TripStartRoute() {
   }, [router]);
 
   const handleSuccess = useCallback(() => {
+    // Clear form cache since trip started successfully
+    if (id) {
+      formStateCache.delete(id);
+      tripStartCache.delete(id);
+    }
+
     // Navigate to first load or back to trip detail
     const firstLoad = findFirstLoad();
 
