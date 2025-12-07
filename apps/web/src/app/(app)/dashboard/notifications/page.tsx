@@ -36,6 +36,7 @@ const notificationIcons: Record<string, { icon: React.ElementType; color: string
   partner_load_posted: { icon: Star, color: 'text-yellow-500' },
   rating_received: { icon: Star, color: 'text-yellow-500' },
   compliance_docs_requested: { icon: Package, color: 'text-orange-500' },
+  compliance_doc_uploaded: { icon: Package, color: 'text-blue-500' },
   compliance_doc_approved: { icon: CheckCircle, color: 'text-green-500' },
   compliance_doc_rejected: { icon: X, color: 'text-red-500' },
 };
@@ -184,6 +185,22 @@ export default async function NotificationsPage() {
                         linkHref = `/dashboard/assigned-loads/${notification.load_id}`;
                       } else {
                         linkHref = '/dashboard/my-requests';
+                      }
+                    } else if (
+                      notification.type === 'compliance_docs_requested' ||
+                      notification.type === 'compliance_doc_rejected'
+                    ) {
+                      // Carrier needs to upload/re-upload documents
+                      linkHref = '/dashboard/compliance';
+                    } else if (
+                      notification.type === 'compliance_doc_uploaded' ||
+                      notification.type === 'compliance_doc_approved'
+                    ) {
+                      // Go to partnership page to view/review docs
+                      if (notification.partnership_id) {
+                        linkHref = `/dashboard/partnerships/${notification.partnership_id}`;
+                      } else {
+                        linkHref = '/dashboard/partnerships';
                       }
                     } else if (notification.load_id) {
                       linkHref = `/dashboard/loads/${notification.load_id}`;
