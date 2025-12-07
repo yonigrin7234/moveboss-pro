@@ -36,7 +36,7 @@ export async function createComplianceRequestsForPartnership(
   const supabase = await createClient();
 
   // Get required document types
-  const { data: docTypes, error: docTypesError } = await supabase
+  let { data: docTypes, error: docTypesError } = await supabase
     .from('compliance_document_types')
     .select('id, name')
     .eq('is_required', true)
@@ -47,8 +47,36 @@ export async function createComplianceRequestsForPartnership(
     return { success: false, error: `Failed to fetch document types: ${docTypesError.message}` };
   }
 
+  // If no document types exist, seed the default ones
   if (!docTypes || docTypes.length === 0) {
-    console.error('No required document types found in compliance_document_types table');
+    console.log('No document types found, seeding defaults...');
+    const defaultTypes = [
+      { id: 'w9', name: 'W-9 Form', description: 'IRS tax form for independent contractors', is_required: true, expiration_days: null, sort_order: 1 },
+      { id: 'insurance_certificate', name: 'Certificate of Insurance', description: 'Proof of cargo and liability insurance', is_required: true, expiration_days: 365, sort_order: 2 },
+      { id: 'hauling_agreement', name: 'Hauling Agreement', description: 'Carrier agreement and terms', is_required: true, expiration_days: null, sort_order: 3 },
+    ];
+
+    const { error: seedError } = await supabase
+      .from('compliance_document_types')
+      .upsert(defaultTypes, { onConflict: 'id' });
+
+    if (seedError) {
+      console.error('Error seeding document types:', seedError);
+      return { success: false, error: `Failed to seed document types: ${seedError.message}` };
+    }
+
+    // Refetch after seeding
+    const refetch = await supabase
+      .from('compliance_document_types')
+      .select('id, name')
+      .eq('is_required', true)
+      .order('sort_order');
+
+    docTypes = refetch.data;
+  }
+
+  if (!docTypes || docTypes.length === 0) {
+    console.error('Still no document types after seeding');
     return { success: false, error: 'No required document types configured' };
   }
 
