@@ -152,41 +152,38 @@ export async function createComplianceRequestsForPartnership(
 export async function getComplianceRequestsForPartnership(
   partnershipId: string
 ): Promise<ComplianceRequest[]> {
-  console.log('[Compliance] Getting requests for partnership:', partnershipId);
+  const supabase = getComplianceClient();
 
-  let supabase;
-  try {
-    supabase = getComplianceClient();
-    console.log('[Compliance] Service role client created successfully');
-  } catch (err) {
-    console.error('[Compliance] Failed to create service role client:', err);
-    return [];
-  }
-
-  const { data, error } = await supabase
+  // First get the base compliance requests
+  const { data: requests, error } = await supabase
     .from('compliance_requests')
-    .select(
-      `
-      *,
-      document_type:compliance_document_types(*),
-      document:compliance_documents(id, file_url, file_name)
-    `
-    )
+    .select('*')
     .eq('partnership_id', partnershipId)
     .order('document_type_id');
 
-  console.log('[Compliance] Query result:', { dataCount: data?.length || 0, error: error?.message });
-
-  if (error) {
-    console.error('[Compliance] Error fetching compliance requests:', error);
+  if (error || !requests) {
+    console.error('[Compliance] Error fetching requests:', error);
     return [];
   }
 
-  console.log('[Compliance] Returning', data?.length || 0, 'compliance requests');
-  return (data || []).map((r) => ({
+  // Then get document types and documents separately
+  const docTypeIds = [...new Set(requests.map(r => r.document_type_id))];
+  const docIds = requests.map(r => r.document_id).filter(Boolean);
+
+  const [docTypesResult, docsResult] = await Promise.all([
+    supabase.from('compliance_document_types').select('*').in('id', docTypeIds),
+    docIds.length > 0
+      ? supabase.from('compliance_documents').select('id, file_url, file_name').in('id', docIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const docTypesMap = new Map((docTypesResult.data || []).map(dt => [dt.id, dt]));
+  const docsMap = new Map((docsResult.data || []).map(d => [d.id, d]));
+
+  return requests.map((r) => ({
     ...r,
-    document_type: Array.isArray(r.document_type) ? r.document_type[0] : r.document_type,
-    document: Array.isArray(r.document) ? r.document[0] : r.document,
+    document_type: docTypesMap.get(r.document_type_id) || null,
+    document: r.document_id ? docsMap.get(r.document_id) || null : null,
   })) as ComplianceRequest[];
 }
 
