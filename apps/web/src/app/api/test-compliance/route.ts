@@ -113,14 +113,41 @@ export async function GET(request: Request) {
       existingRequests = await getComplianceRequestsForPartnership(partnership.id);
     }
 
+    // Get user's workspace company (for carrier view)
+    const { data: workspaceCompany } = await supabase
+      .from('companies')
+      .select('id, name, is_workspace_company')
+      .eq('owner_id', user.id)
+      .eq('is_workspace_company', true)
+      .maybeSingle();
+
+    // Get carrier compliance requests using service role directly
+    let carrierRequests = null;
+    if (workspaceCompany) {
+      const adminClient = createServiceRoleClient();
+      const { data: carrierData, error: carrierError } = await adminClient
+        .from('compliance_requests')
+        .select('id, partnership_id, requesting_company_id, carrier_id, document_type_id, status')
+        .eq('carrier_id', workspaceCompany.id)
+        .in('status', ['pending', 'rejected']);
+      carrierRequests = {
+        company_id: workspaceCompany.id,
+        company_name: workspaceCompany.name,
+        requests: carrierData,
+        error: carrierError?.message,
+      };
+    }
+
     // Test if service role key is available
     const serviceRoleAvailable = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     return NextResponse.json({
-      _version: 'v7-carrier-fix',
+      _version: 'v8-carrier-debug',
       service_role_key_available: serviceRoleAvailable,
       success: true,
       user_id: user.id,
+      workspace_company: workspaceCompany,
+      carrier_compliance_requests: carrierRequests,
       document_types: {
         count: docTypes?.length || 0,
         data: docTypes,
