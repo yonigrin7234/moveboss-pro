@@ -69,6 +69,9 @@ export function useDriverRealtimeSubscription({
     };
 
     // Subscribe to trips and loads changes
+    // NOTE: We only subscribe to trips (filtered by driver) and loads (filtered by owner)
+    // We removed the unfiltered trip_loads subscription which was receiving ALL changes
+    // across the entire database, causing excessive refetches and flickering
     const channel = supabase
       .channel(channelName)
       // Listen to trip changes for this driver
@@ -82,9 +85,7 @@ export function useDriverRealtimeSubscription({
         },
         handleChange
       )
-      // Listen to load status changes
-      // We can't filter by driver directly, so we listen to all load changes
-      // and let the refetch query filter appropriately
+      // Listen to load status changes for this owner
       .on(
         'postgres_changes',
         {
@@ -92,16 +93,6 @@ export function useDriverRealtimeSubscription({
           schema: 'public',
           table: 'loads',
           filter: `owner_id=eq.${ownerId}`,
-        },
-        handleChange
-      )
-      // Listen to trip_loads changes (load assignments)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'trip_loads',
         },
         handleChange
       )
