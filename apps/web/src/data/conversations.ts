@@ -222,7 +222,7 @@ export async function getUserConversations(
         subtitle = trip?.status ?? '';
         break;
       case 'company_to_company':
-        title = title || partnerCompany?.name ?? 'Partner Chat';
+        title = title || (partnerCompany?.name ?? 'Partner Chat');
         subtitle = 'Company thread';
         break;
       case 'general':
