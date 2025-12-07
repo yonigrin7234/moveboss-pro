@@ -129,8 +129,13 @@ export function useDriverDashboard(): DashboardData {
         return;
       }
 
-      // Save driver info for realtime subscription
-      setDriverInfo({ driverId: driver.id, ownerId: driver.owner_id });
+      // Save driver info for realtime subscription (only if changed)
+      setDriverInfo(prev => {
+        if (prev?.driverId === driver.id && prev?.ownerId === driver.owner_id) {
+          return prev; // No change, return same reference
+        }
+        return { driverId: driver.id, ownerId: driver.owner_id };
+      });
 
       const { data: trips, error: tripsError } = await supabase
         .from('trips')

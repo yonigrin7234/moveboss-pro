@@ -229,8 +229,8 @@ export function useDriverTripDetail(tripId: string | null) {
         return;
       }
 
-      // Save owner ID for realtime subscription
-      setOwnerId(driver.owner_id);
+      // Save owner ID for realtime subscription (only if changed)
+      setOwnerId(prev => prev === driver.owner_id ? prev : driver.owner_id);
 
       const { data: tripData, error: tripError } = await supabase
         .from('trips')
