@@ -73,7 +73,7 @@ export const sendMessageSchema = z.object({
     size: z.number().optional(),
     mime_type: z.string().optional(),
   })).optional().default([]),
-  metadata: z.record(z.unknown()).optional().default({}),
+  metadata: z.record(z.string(), z.unknown()).optional().default({}),
   reply_to_message_id: z.string().uuid().optional(),
 });
 
@@ -1080,14 +1080,14 @@ export async function getLoadCommunicationPermissions(
     .maybeSingle();
 
   const isCompanyMember = !!membership;
-  const isDispatcher = membership && ['owner', 'dispatcher', 'admin'].includes(membership.role);
+  const isDispatcher = !!membership && ['owner', 'dispatcher', 'admin'].includes(membership.role);
 
   return {
     can_view_internal: isCompanyMember,
     can_view_shared: isCompanyMember, // Shared visibility depends on participant status
     can_write_internal: isCompanyMember,
     can_write_shared: isCompanyMember,
-    can_change_driver_visibility: isDispatcher && !partnerSettings?.lock_driver_visibility,
+    can_change_driver_visibility: isDispatcher && !(partnerSettings?.lock_driver_visibility ?? false),
     driver_visibility: (commSettings?.driver_visibility as DriverVisibilityLevel) ?? 'none',
     is_visibility_locked: partnerSettings?.lock_driver_visibility ?? false,
   };
