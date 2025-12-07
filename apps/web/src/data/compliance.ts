@@ -152,7 +152,16 @@ export async function createComplianceRequestsForPartnership(
 export async function getComplianceRequestsForPartnership(
   partnershipId: string
 ): Promise<ComplianceRequest[]> {
-  const supabase = getComplianceClient();
+  console.log('[Compliance] Getting requests for partnership:', partnershipId);
+
+  let supabase;
+  try {
+    supabase = getComplianceClient();
+    console.log('[Compliance] Service role client created successfully');
+  } catch (err) {
+    console.error('[Compliance] Failed to create service role client:', err);
+    return [];
+  }
 
   const { data, error } = await supabase
     .from('compliance_requests')
@@ -166,11 +175,14 @@ export async function getComplianceRequestsForPartnership(
     .eq('partnership_id', partnershipId)
     .order('document_type_id');
 
+  console.log('[Compliance] Query result:', { dataCount: data?.length || 0, error: error?.message });
+
   if (error) {
-    console.error('Error fetching compliance requests:', error);
+    console.error('[Compliance] Error fetching compliance requests:', error);
     return [];
   }
 
+  console.log('[Compliance] Returning', data?.length || 0, 'compliance requests');
   return (data || []).map((r) => ({
     ...r,
     document_type: Array.isArray(r.document_type) ? r.document_type[0] : r.document_type,
