@@ -46,7 +46,7 @@ export default function CompleteDeliveryRoute() {
 
     return {
       id: nextLoad.loads.id,
-      number: nextLoad.loads.job_number || nextLoad.loads.load_number || `${nextLoad.sequence_index + 1}`,
+      number: nextLoad.loads.load_number || `${nextLoad.sequence_index + 1}`,
     };
   }, [trip, loadId]);
 

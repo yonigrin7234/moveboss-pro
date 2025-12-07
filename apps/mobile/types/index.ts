@@ -93,6 +93,7 @@ export interface Load {
   owner_id: string;
   job_number: string | null;
   load_number: string | null;
+  internal_reference: string | null;
   load_type: 'pickup' | 'live_load' | 'company_load' | 'rfd' | 'local' | 'long_distance' | 'intrastate' | 'interstate';
   load_source: LoadSource | null;
   posting_type: PostingType | null;

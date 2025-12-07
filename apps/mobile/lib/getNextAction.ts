@@ -362,7 +362,7 @@ function createAcceptLoadAction(
     type: 'accept_load',
     priority: PRIORITY.ACCEPT_LOAD,
     title: 'Accept Load',
-    subtitle: `${load.job_number || load.load_number || 'New Load'}`,
+    subtitle: `${load.load_number || 'New Load'}`,
     description: `Review and accept ${load.companies?.name || 'load'} assignment`,
     trip,
     load,

@@ -16,7 +16,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions,
+  ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -46,6 +48,7 @@ export function TripStartScreen({
   onCancel,
   onSuccess,
 }: TripStartScreenProps) {
+  const insets = useSafeAreaInsets();
   const [odometer, setOdometer] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -163,14 +166,19 @@ export function TripStartScreen({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
           <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
             <Text style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Content */}
-        <View style={styles.content}>
+        {/* Scrollable Content */}
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Title */}
           <View>
             <Text style={styles.title}>Start Trip</Text>
@@ -221,28 +229,28 @@ export function TripStartScreen({
               <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
-        </View>
 
-        {/* Start Button */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={handleStart}
-            disabled={submitting}
-          >
-            <Animated.View
-              style={[
-                styles.startButton,
-                !isReady && styles.startButtonDisabled,
-                buttonAnimatedStyle,
-              ]}
+          {/* Start Button */}
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) + 100 }]}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={handleStart}
+              disabled={submitting}
             >
-              <Text style={styles.startButtonText}>
-                {submitting ? 'Starting...' : "Let's Go!"}
-              </Text>
-            </Animated.View>
-          </TouchableOpacity>
-        </View>
+              <Animated.View
+                style={[
+                  styles.startButton,
+                  !isReady && styles.startButtonDisabled,
+                  buttonAnimatedStyle,
+                ]}
+              >
+                <Text style={styles.startButtonText}>
+                  {submitting ? 'Starting...' : "Let's Go!"}
+                </Text>
+              </Animated.View>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </View>
   );
@@ -260,8 +268,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-start',
     paddingHorizontal: spacing.screenPadding,
-    paddingTop: 60,
     paddingBottom: spacing.lg,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: spacing.screenPadding,
+    paddingTop: spacing.xl,
   },
   cancelButton: {
     padding: spacing.sm,
@@ -269,11 +283,6 @@ const styles = StyleSheet.create({
   cancelText: {
     ...typography.button,
     color: colors.textSecondary,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: spacing.screenPadding,
-    paddingTop: spacing.xl,
   },
   title: {
     ...typography.hero,
@@ -352,7 +361,7 @@ const styles = StyleSheet.create({
   },
   photoPreview: {
     width: '100%',
-    height: 180,
+    aspectRatio: 4 / 3,
     borderRadius: radius.lg,
   },
   retakeOverlay: {

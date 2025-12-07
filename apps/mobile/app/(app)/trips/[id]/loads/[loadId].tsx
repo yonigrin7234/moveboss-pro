@@ -104,7 +104,7 @@ export default function LoadDetailScreen() {
     <>
       <Stack.Screen
         options={{
-          title: load?.job_number || load?.load_number || 'Load Details',
+          title: load?.load_number || 'Load Details',
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.textPrimary,
         }}
@@ -121,19 +121,20 @@ export default function LoadDetailScreen() {
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.headerInfo}>
-                {load.job_number && (
-                  <View style={styles.jobNumberRow}>
-                    <Text style={styles.jobNumberLabel}>Job #</Text>
-                    <Text style={styles.jobNumber}>{load.job_number}</Text>
-                  </View>
-                )}
                 {load.load_number && (
                   <View style={styles.loadNumberRow}>
                     <Text style={styles.loadNumberLabel}>Load #</Text>
                     <Text style={styles.loadNumberValue}>{load.load_number}</Text>
                   </View>
                 )}
-                {!load.job_number && !load.load_number && (
+                {/* Show internal_reference if user provided one */}
+                {load.internal_reference && (
+                  <View style={styles.jobNumberRow}>
+                    <Text style={styles.jobNumberLabel}>Ref #</Text>
+                    <Text style={styles.jobNumber}>{load.internal_reference}</Text>
+                  </View>
+                )}
+                {!load.load_number && (
                   <Text style={styles.jobNumber}>Load</Text>
                 )}
                 {load.companies?.name && (

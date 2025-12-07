@@ -67,10 +67,7 @@ export function TripActionCard({
     // If there's a next step, show guidance to the next load
     if (nextStep) {
       const loadLabel = nextStep.load.loads.load_type === 'pickup' ? 'Pickup' : 'Load';
-      const loadNumber =
-        nextStep.load.loads.job_number ||
-        nextStep.load.loads.load_number ||
-        `${nextStep.load.sequence_index + 1}`;
+      const loadNumber = nextStep.load.loads.load_number || `${nextStep.load.sequence_index + 1}`;
 
       return (
         <View style={styles.nextStepCard}>

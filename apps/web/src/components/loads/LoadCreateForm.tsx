@@ -641,6 +641,21 @@ export function LoadCreateForm({
                 />
               </div>
             </div>
+            {/* Hidden field for delivery_address_full - combines address fields for validation */}
+            <input
+              type="hidden"
+              name="delivery_address_full"
+              value={[
+                customer.deliveryAddress1,
+                customer.deliveryAddress2,
+                customer.deliveryCity,
+                customer.deliveryState,
+                customer.deliveryZip
+              ].filter(Boolean).join(', ')}
+            />
+            {state?.errors?.delivery_address_full && (
+              <p className="text-xs text-destructive">{state.errors.delivery_address_full}</p>
+            )}
           </CardContent>
         </Card>
       )}

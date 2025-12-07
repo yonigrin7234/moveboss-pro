@@ -49,9 +49,9 @@ export function LoadCard({ tripLoad, tripId }: LoadCardProps) {
   };
 
   const getDisplayTitle = () => {
-    const number = load.job_number || load.load_number;
-    if (number) {
-      return `${loadLabel} #${number}`;
+    // Use load_number as primary identifier
+    if (load.load_number) {
+      return `${loadLabel} #${load.load_number}`;
     }
     return `${loadLabel} ${tripLoad.sequence_index + 1}`;
   };
