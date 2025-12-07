@@ -113,8 +113,12 @@ export async function GET(request: Request) {
       existingRequests = await getComplianceRequestsForPartnership(partnership.id);
     }
 
+    // Test if service role key is available
+    const serviceRoleAvailable = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+
     return NextResponse.json({
-      _version: 'v4-admin-bypass',
+      _version: 'v5-service-role-check',
+      service_role_key_available: serviceRoleAvailable,
       success: true,
       user_id: user.id,
       document_types: {
