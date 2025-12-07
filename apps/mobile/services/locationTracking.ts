@@ -19,18 +19,20 @@ const STORAGE_KEYS = {
   LOCATION_SHARING_ENABLED: 'location_sharing_enabled',
 } as const;
 
+// Interface matching the driver_locations table schema
 interface CachedLocation {
   driver_id: string;
-  trip_id: string | null;
   owner_id: string;
   latitude: number;
   longitude: number;
-  accuracy_meters: number | null;
-  speed_mph: number | null;
-  heading: number | null;
-  altitude_meters: number | null;
-  device_timestamp: string;
-  recorded_at: string;
+  speed_kph: number | null;
+  heading_deg: number | null;
+  is_available_for_loads: boolean;
+}
+
+// Extended interface for internal tracking (includes trip_id for trip updates)
+interface LocationUpdateContext {
+  tripId: string | null;
 }
 
 /**
@@ -66,18 +68,18 @@ async function processLocationUpdate(location: Location.LocationObject) {
       return; // Don't track if not enabled or no driver
     }
 
+    // Convert speed from m/s to km/h (multiply by 3.6)
+    const speedKph = location.coords.speed ? location.coords.speed * 3.6 : null;
+
+    // Build location data matching the driver_locations table schema
     const locationData: CachedLocation = {
       driver_id: driverId,
-      trip_id: tripId,
       owner_id: ownerId,
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,
-      accuracy_meters: location.coords.accuracy,
-      speed_mph: location.coords.speed ? location.coords.speed * 2.237 : null, // m/s to mph
-      heading: location.coords.heading,
-      altitude_meters: location.coords.altitude,
-      device_timestamp: new Date(location.timestamp).toISOString(),
-      recorded_at: new Date().toISOString(),
+      speed_kph: speedKph,
+      heading_deg: location.coords.heading,
+      is_available_for_loads: true, // Default to available
     };
 
     // Try to send to server
@@ -89,6 +91,7 @@ async function processLocationUpdate(location: Location.LocationObject) {
       });
 
     if (insertError) {
+      console.error('Error inserting location:', insertError);
       // Cache for later if offline
       await cacheLocationForLater(locationData);
     } else {
