@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { ReceivableActions } from './receivable-actions';
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -199,6 +200,7 @@ export default async function ReceivablesPage() {
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead className="text-right">Due Date</TableHead>
                     <TableHead className="text-right">Created</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -236,6 +238,14 @@ export default async function ReceivablesPage() {
                         </TableCell>
                         <TableCell className="text-right text-muted-foreground">
                           {formatDate(receivable.created_at)}
+                        </TableCell>
+                        <TableCell>
+                          <ReceivableActions
+                            receivableId={receivable.id}
+                            status={receivable.status}
+                            amount={receivable.amount}
+                            companyName={receivable.company_name}
+                          />
                         </TableCell>
                       </TableRow>
                     );

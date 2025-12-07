@@ -707,3 +707,25 @@ export async function recalculateTripSettlement(tripId: string, userId: string):
   // Create fresh settlement with updated amounts
   return createTripSettlement(tripId, userId);
 }
+
+/**
+ * Mark a receivable as paid
+ */
+export async function markReceivablePaid(
+  receivableId: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('receivables')
+    .update({ status: 'paid' })
+    .eq('id', receivableId)
+    .eq('owner_id', userId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}

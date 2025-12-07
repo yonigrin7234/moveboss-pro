@@ -440,6 +440,7 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
 
       const driver = await getDriverInfo();
 
+      // Update load status and payment info
       const { error } = await supabase
         .from('loads')
         .update({
@@ -456,6 +457,32 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
         .eq('owner_id', driver.owner_id);
 
       if (error) throw error;
+
+      // Also record in load_payments table for dashboard tracking
+      // (Only if payment was actually collected, not "already_paid")
+      if (data.amountCollected > 0 && data.paymentMethod !== 'already_paid') {
+        // Map payment method to load_payments format
+        const methodMap: Record<string, string> = {
+          cash: 'cash',
+          zelle: 'zelle',
+          cashier_check: 'check',
+          money_order: 'money_order',
+          personal_check: 'check',
+          venmo: 'venmo',
+        };
+
+        await supabase.from('load_payments').insert({
+          load_id: loadId,
+          owner_id: driver.owner_id,
+          payment_type: 'cod',
+          amount: data.amountCollected,
+          method: methodMap[data.paymentMethod] || 'other',
+          collected_by: 'driver',
+          collected_at: new Date().toISOString(),
+          notes: data.paymentNotes || (data.zelleRecipient ? `Zelle to ${data.zelleRecipient}` : null),
+        });
+        // Don't throw on load_payments error - the main update succeeded
+      }
 
       // Notify owner (fire-and-forget)
       notifyOwnerDeliveryStarted(loadId);
@@ -683,6 +710,31 @@ export function useLoadActions(loadId: string, onSuccess?: () => void) {
         .eq('owner_id', driver.owner_id);
 
       if (error) throw error;
+
+      // Also record payment in load_payments table for dashboard tracking
+      // (Only if payment was actually collected)
+      if (data.amountCollectedAtPickup > 0 && data.paymentMethod && data.paymentMethod !== 'already_paid') {
+        const methodMap: Record<string, string> = {
+          cash: 'cash',
+          zelle: 'zelle',
+          cashier_check: 'check',
+          money_order: 'money_order',
+          personal_check: 'check',
+          venmo: 'venmo',
+        };
+
+        await supabase.from('load_payments').insert({
+          load_id: loadId,
+          owner_id: driver.owner_id,
+          payment_type: 'customer_balance',
+          amount: data.amountCollectedAtPickup,
+          method: methodMap[data.paymentMethod] || 'other',
+          collected_by: 'driver',
+          collected_at: new Date().toISOString(),
+          notes: data.zelleRecipient ? `Zelle to ${data.zelleRecipient}` : 'Collected at pickup',
+        });
+        // Don't throw on load_payments error - the main update succeeded
+      }
 
       // Notify owner (fire-and-forget)
       notifyOwnerPickupCompleted(loadId, data.contractActualCuft);
