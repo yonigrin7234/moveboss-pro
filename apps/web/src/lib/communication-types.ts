@@ -111,6 +111,8 @@ export interface MessageAttachment {
 export interface MessageMetadata {
   // AI message metadata
   ai_model?: string;
+  ai_agent?: boolean;
+  ai_context?: string;
   intent?: string;
   confidence?: number;
   context_used?: string[];
@@ -127,6 +129,11 @@ export interface MessageMetadata {
   latitude?: number;
   longitude?: number;
   address?: string;
+
+  // Stop/routing metadata
+  stop_type?: string;
+  routed_from_conversation?: string;
+  route_reason?: string;
 }
 
 export interface LoadCommunicationSettings {
