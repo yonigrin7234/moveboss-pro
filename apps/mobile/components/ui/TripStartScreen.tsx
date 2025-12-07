@@ -39,6 +39,11 @@ interface TripStartScreenProps {
   onStart: (data: { odometer: number; photoUri: string }) => Promise<{ success: boolean; error?: string }>;
   onCancel: () => void;
   onSuccess: () => void;
+  // Controlled state - lifted up to parent to survive re-mounts
+  odometer: string;
+  onOdometerChange: (value: string) => void;
+  photoUri: string | null;
+  onPhotoUriChange: (value: string | null) => void;
 }
 
 export function TripStartScreen({
@@ -47,10 +52,12 @@ export function TripStartScreen({
   onStart,
   onCancel,
   onSuccess,
+  odometer,
+  onOdometerChange,
+  photoUri,
+  onPhotoUriChange,
 }: TripStartScreenProps) {
   const insets = useSafeAreaInsets();
-  const [odometer, setOdometer] = useState('');
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,11 +89,11 @@ export function TripStartScreen({
     });
 
     if (!result.canceled && result.assets[0]) {
-      setPhotoUri(result.assets[0].uri);
+      onPhotoUriChange(result.assets[0].uri);
       setError(null);
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-  }, []);
+  }, [onPhotoUriChange]);
 
   const shake = useCallback(() => {
     shakeX.value = withSequence(
@@ -210,7 +217,7 @@ export function TripStartScreen({
               style={styles.odometerInput}
               value={odometer}
               onChangeText={(text) => {
-                setOdometer(text);
+                onOdometerChange(text);
                 setError(null);
               }}
               placeholder="00000"

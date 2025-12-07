@@ -57,6 +57,10 @@ export default function TripStartRoute() {
   // Use ref to avoid re-renders during processing
   const isProcessingRef = useRef(false);
 
+  // Lifted form state - survives child component re-mounts
+  const [formOdometer, setFormOdometer] = useState('');
+  const [formPhotoUri, setFormPhotoUri] = useState<string | null>(null);
+
   // Stable no-op callback for useTripActions
   const noopCallback = useMemo(() => () => Promise.resolve(), []);
 
@@ -297,6 +301,10 @@ export default function TripStartRoute() {
         onStart={handleStart}
         onCancel={handleCancel}
         onSuccess={handleSuccess}
+        odometer={formOdometer}
+        onOdometerChange={setFormOdometer}
+        photoUri={formPhotoUri}
+        onPhotoUriChange={setFormPhotoUri}
       />
     </>
   );
