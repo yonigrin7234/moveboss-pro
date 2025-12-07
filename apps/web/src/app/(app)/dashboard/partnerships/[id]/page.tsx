@@ -41,6 +41,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { RequestDocumentsButton } from '@/components/partnerships/RequestDocumentsButton';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   active: { label: 'Active', color: 'bg-green-500/20 text-green-600 dark:text-green-400' },
@@ -121,22 +122,23 @@ export default async function PartnershipDetailPage({
     revalidatePath(`/dashboard/partnerships/${id}`);
   }
 
-  async function requestDocumentsAction(formData: FormData) {
+  async function requestDocumentsAction(formData: FormData): Promise<{ success: boolean; error?: string }> {
     'use server';
     const user = await getCurrentUser();
-    if (!user) redirect('/login');
+    if (!user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+    
     const partnershipId = formData.get('partnership_id') as string;
     
     if (!partnershipId) {
-      console.error('No partnership_id provided');
-      return;
+      return { success: false, error: 'No partnership ID provided' };
     }
 
     const partnershipData = await getPartnershipById(partnershipId, user.id);
 
     if (!partnershipData) {
-      console.error('Partnership not found');
-      return;
+      return { success: false, error: 'Partnership not found' };
     }
 
     // Handle company_b being an array (Supabase join can return array)
@@ -145,8 +147,7 @@ export default async function PartnershipDetailPage({
       : partnershipData.company_b;
 
     if (!companyB?.id) {
-      console.error('No company_b found for partnership');
-      return;
+      return { success: false, error: 'Partner company not found' };
     }
 
     const result = await createComplianceRequestsForPartnership(
@@ -157,11 +158,11 @@ export default async function PartnershipDetailPage({
     );
 
     if (!result.success) {
-      console.error('Failed to create compliance requests:', result.error);
-      // TODO: Show error toast to user
+      return { success: false, error: result.error || 'Failed to create compliance requests' };
     }
 
     revalidatePath(`/dashboard/partnerships/${partnershipId}`);
+    return { success: true };
   }
 
   async function approveDocAction(formData: FormData) {
@@ -344,13 +345,7 @@ export default async function PartnershipDetailPage({
               Compliance Documents
             </span>
             {complianceRequests.length === 0 && (
-              <form action={requestDocumentsAction}>
-                <input type="hidden" name="partnership_id" value={id} />
-                <Button type="submit" size="sm" variant="outline">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Request Documents
-                </Button>
-              </form>
+              <RequestDocumentsButton partnershipId={id} action={requestDocumentsAction} />
             )}
           </CardTitle>
         </CardHeader>
