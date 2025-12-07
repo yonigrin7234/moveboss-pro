@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase-server';
+import { createServiceRoleClient } from '@/lib/supabase-admin';
 import {
   notifyLoadRequested,
   notifyRequestAccepted,
@@ -808,18 +809,84 @@ export async function acceptLoadRequest(
 
   // If new partnership, create it and request compliance docs
   if (!request.is_partner) {
-    const { data: newPartnership } = await supabase
+    console.log('Creating new partnership - broker accepts carrier request');
+    console.log('Broker owner_id:', loadData.owner_id);
+    console.log('Broker company_id:', loadData.company_id);
+    console.log('Carrier company_id:', request.carrier_id);
+    console.log('Carrier owner_id:', request.carrier_owner_id);
+
+    // Use service role client to bypass RLS for partnership creation
+    // (needed because we're creating partnerships for both parties)
+    const adminClient = createServiceRoleClient();
+
+    // Check if broker partnership already exists
+    const { data: existingBrokerPartnership } = await adminClient
       .from('company_partnerships')
-      .insert({
-        owner_id: loadData.owner_id as string,
-        company_a_id: loadData.company_id as string,
-        company_b_id: request.carrier_id,
-        relationship_type: 'gives_loads',
-        status: 'active',
-        payment_terms: 'net_30',
-      })
       .select('id')
+      .eq('owner_id', loadData.owner_id as string)
+      .eq('company_a_id', loadData.company_id as string)
+      .eq('company_b_id', request.carrier_id)
       .single();
+
+    let newPartnership = existingBrokerPartnership;
+
+    if (!existingBrokerPartnership) {
+      // Create partnership for the broker (load owner)
+      const { data: createdPartnership, error: partnershipError } = await adminClient
+        .from('company_partnerships')
+        .insert({
+          owner_id: loadData.owner_id as string,
+          company_a_id: loadData.company_id as string,
+          company_b_id: request.carrier_id,
+          relationship_type: 'gives_loads',
+          status: 'active',
+          payment_terms: 'net_30',
+        })
+        .select('id')
+        .single();
+
+      if (partnershipError) {
+        console.error('Error creating broker partnership:', partnershipError);
+      } else {
+        console.log('Broker partnership created:', createdPartnership?.id);
+        newPartnership = createdPartnership;
+      }
+    } else {
+      console.log('Broker partnership already exists:', existingBrokerPartnership.id);
+    }
+
+    // Check if carrier partnership already exists
+    const { data: existingCarrierPartnership } = await adminClient
+      .from('company_partnerships')
+      .select('id')
+      .eq('owner_id', request.carrier_owner_id)
+      .eq('company_a_id', request.carrier_id)
+      .eq('company_b_id', loadData.company_id as string)
+      .single();
+
+    if (!existingCarrierPartnership) {
+      // Create partnership for the carrier (so they see this in their partnerships)
+      const { data: carrierPartnership, error: carrierPartnershipError } = await adminClient
+        .from('company_partnerships')
+        .insert({
+          owner_id: request.carrier_owner_id,
+          company_a_id: request.carrier_id,
+          company_b_id: loadData.company_id as string,
+          relationship_type: 'receives_loads',
+          status: 'active',
+          payment_terms: 'net_30',
+        })
+        .select('id')
+        .single();
+
+      if (carrierPartnershipError) {
+        console.error('Error creating carrier partnership:', carrierPartnershipError);
+      } else {
+        console.log('Carrier partnership created:', carrierPartnership?.id);
+      }
+    } else {
+      console.log('Carrier partnership already exists:', existingCarrierPartnership.id);
+    }
 
     // Create compliance document requests for new partnership
     if (newPartnership) {
