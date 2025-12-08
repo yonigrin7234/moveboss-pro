@@ -94,7 +94,7 @@ export function LoadDetailClient({
         model={model}
         backHref="/dashboard/loads"
         backLabel="Back to Loads"
-        useSidebarLayout={false}
+        useSidebarLayout={true}
         actionsSlot={
           <div className="flex flex-wrap items-center gap-3">
             {/* Edit Button */}

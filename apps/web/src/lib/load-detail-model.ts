@@ -296,9 +296,9 @@ export function normalizeOwnLoad(
     },
 
     destination: {
-      city: (load.destination_city as string) || (load.dropoff_city as string) || '',
-      state: (load.destination_state as string) || (load.dropoff_state as string) || '',
-      zip: (load.destination_zip as string) || (load.dropoff_postal_code as string),
+      city: (load.destination_city as string) || (load.delivery_city as string) || (load.dropoff_city as string) || '',
+      state: (load.destination_state as string) || (load.delivery_state as string) || (load.dropoff_state as string) || '',
+      zip: (load.destination_zip as string) || (load.delivery_postal_code as string) || (load.dropoff_postal_code as string),
       address: (load.destination_address as string) || (load.delivery_address_line1 as string),
       address2: (load.destination_address2 as string) || (load.delivery_address_line2 as string),
       contactName: load.destination_contact_name as string | undefined,
@@ -308,27 +308,27 @@ export function normalizeOwnLoad(
     },
 
     dates: {
-      loadDateStart: load.proposed_load_date_start as string | undefined,
-      loadDateEnd: load.proposed_load_date_end as string | undefined,
-      deliveryDateStart: load.proposed_delivery_date_start as string | undefined,
-      deliveryDateEnd: load.proposed_delivery_date_end as string | undefined,
+      loadDateStart: (load.proposed_load_date_start as string) || (load.pickup_date as string) || undefined,
+      loadDateEnd: (load.proposed_load_date_end as string) || (load.pickup_window_end as string) || undefined,
+      deliveryDateStart: (load.proposed_delivery_date_start as string) || (load.delivery_date as string) || undefined,
+      deliveryDateEnd: (load.proposed_delivery_date_end as string) || (load.delivery_window_end as string) || undefined,
       availableDate: load.available_date as string | undefined,
       firstAvailableDate: load.first_available_date as string | undefined,
     },
 
     size: {
-      estimatedCuft: load.estimated_cuft as number | undefined,
+      estimatedCuft: (load.estimated_cuft as number) || (load.cubic_feet_estimate as number) || undefined,
       actualCuft: load.actual_cuft_loaded as number | undefined,
-      estimatedWeight: load.estimated_weight_lbs as number | undefined,
+      estimatedWeight: (load.estimated_weight_lbs as number) || (load.weight_lbs_estimate as number) || undefined,
       piecesCount: load.pieces_count as number | undefined,
     },
 
     pricing: {
-      rate: load.company_rate as number | undefined,
+      rate: (load.company_rate as number) || (load.total_rate as number) || undefined,
       rateType: load.company_rate_type as LoadDetailPricing['rateType'],
       ratePerCuft: load.rate_per_cuft as number | undefined,
-      linehaul: load.linehaul_amount as number | undefined,
-      totalRevenue: load.total_revenue as number | undefined,
+      linehaul: (load.linehaul_amount as number) || (load.linehaul_rate as number) || undefined,
+      totalRevenue: (load.total_revenue as number) || (load.total_rate as number) || undefined,
       balanceDue: load.balance_due as number | undefined,
     },
 

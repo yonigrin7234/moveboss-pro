@@ -136,6 +136,42 @@ export function LoadDetailSizing({ model }: LoadDetailSizingProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* Revenue Card - for owner views */}
+      {model.context === 'owner' && hasPricing && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              Revenue
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {model.pricing.totalRevenue && (
+              <div>
+                <p className="text-sm text-muted-foreground">Total Rate</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  {formatCurrency(model.pricing.totalRevenue)}
+                </p>
+              </div>
+            )}
+            {model.pricing.linehaul && (
+              <div className="pt-2 border-t">
+                <p className="text-sm text-muted-foreground">Linehaul</p>
+                <p className="font-medium">{formatCurrency(model.pricing.linehaul)}</p>
+              </div>
+            )}
+            {model.pricing.rate && !model.pricing.totalRevenue && (
+              <div>
+                <p className="text-sm text-muted-foreground">Rate</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  {formatCurrency(model.pricing.rate)}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
