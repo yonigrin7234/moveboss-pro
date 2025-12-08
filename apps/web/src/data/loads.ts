@@ -453,6 +453,7 @@ export interface Load {
   posting_type?: 'live_load' | 'rfd' | 'pickup' | null;
   // Trip assignment
   trip_id?: string | null;
+  trip?: { id: string; trip_number: string } | null;
   // Load flow type - how the load was created (controls wizard step visibility)
   load_flow_type?: LoadFlowType | null;
 }
@@ -581,7 +582,8 @@ export async function getLoadById(id: string, userId: string): Promise<Load | nu
       company:companies!loads_company_id_fkey(id, name),
       assigned_driver:drivers!loads_assigned_driver_id_fkey(id, first_name, last_name),
       assigned_truck:trucks!loads_assigned_truck_id_fkey(id, unit_number),
-      assigned_trailer:trailers!loads_assigned_trailer_id_fkey(id, unit_number)
+      assigned_trailer:trailers!loads_assigned_trailer_id_fkey(id, unit_number),
+      trip_loads(trip_id, trips(id, trip_number))
     `
     )
     .eq('id', id)
@@ -595,7 +597,15 @@ export async function getLoadById(id: string, userId: string): Promise<Load | nu
     throw new Error(`Failed to fetch load: ${error.message}`);
   }
 
-  return data as Load;
+  // Extract trip_id from trip_loads (source of truth) if not set on load directly
+  const loadData = data as unknown as Record<string, unknown>;
+  const tripLoads = loadData.trip_loads as Array<{ trip_id: string; trips: { id: string; trip_number: string } }> | null;
+  if (tripLoads && tripLoads.length > 0 && !loadData.trip_id) {
+    loadData.trip_id = tripLoads[0].trip_id;
+    loadData.trip = tripLoads[0].trips;
+  }
+
+  return loadData as unknown as Load;
 }
 
 export async function createLoad(input: NewLoadInput, userId: string): Promise<Load> {
