@@ -9,25 +9,20 @@ interface ActivityFeedProps {
 }
 
 /**
- * Format a timestamp to a human-readable relative time or date
+ * Format a timestamp to show date and time
  */
 function formatTimestamp(isoString: string): string {
   const date = new Date(isoString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-
+  // Format: "Dec 8, 2024 at 3:45 PM"
   return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
-    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+    year: 'numeric',
+  }) + ' at ' + date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
   });
 }
 
@@ -261,13 +256,24 @@ function getActionIcon(action: string): React.ReactNode {
  * Get the performer's display name
  */
 function getPerformerName(log: AuditLogEntry): string {
+  // First try the joined performer data
   if (log.performer_name) return log.performer_name;
-  if (log.performer_email) {
+
+  // Then try metadata (stored at log time)
+  const metadata = log.metadata || {};
+  if (metadata.performer_name && typeof metadata.performer_name === 'string') {
+    return metadata.performer_name;
+  }
+
+  // Try email from performer or metadata
+  const email = log.performer_email || (typeof metadata.performer_email === 'string' ? metadata.performer_email : null);
+  if (email) {
     // Extract name from email (before @)
-    const name = log.performer_email.split('@')[0];
+    const name = email.split('@')[0];
     return name.charAt(0).toUpperCase() + name.slice(1);
   }
-  return 'Someone';
+
+  return 'Unknown User';
 }
 
 export function ActivityFeed({ logs, emptyMessage = 'No activity yet' }: ActivityFeedProps) {
