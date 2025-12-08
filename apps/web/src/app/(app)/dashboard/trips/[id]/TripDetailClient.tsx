@@ -1066,7 +1066,19 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
                       }
 
                       // No conflict, submit directly
-                      await actions.addTripLoad(formData);
+                      const result = await actions.addTripLoad(formData);
+                      if (result?.success) {
+                        toast({
+                          title: 'Load added',
+                          description: 'The load has been added to this trip.',
+                        });
+                      } else if (result?.errors?._form) {
+                        toast({
+                          title: 'Failed to add load',
+                          description: result.errors._form,
+                          variant: 'destructive',
+                        });
+                      }
                     }}
                     className="space-y-3"
                   >
@@ -1139,7 +1151,19 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
                   formData.append('load_id', loadId);
                   formData.append('role', 'backhaul');
                   formData.append('sequence_index', String(orderedLoads.length));
-                  await actions.addTripLoad(formData);
+                  const result = await actions.addTripLoad(formData);
+                  if (result?.success) {
+                    toast({
+                      title: 'Load claimed',
+                      description: 'The load has been added to this trip as a backhaul.',
+                    });
+                  } else if (result?.errors?._form) {
+                    toast({
+                      title: 'Failed to claim load',
+                      description: result.errors._form,
+                      variant: 'destructive',
+                    });
+                  }
                 }}
               />
             </div>
@@ -1626,7 +1650,19 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
                 formData.append('load_id', pendingLoadReassign.loadId);
                 formData.append('role', pendingLoadReassign.role);
                 formData.append('sequence_index', '0');
-                await actions.addTripLoad(formData);
+                const result = await actions.addTripLoad(formData);
+                if (result?.success) {
+                  toast({
+                    title: 'Load reassigned',
+                    description: `Load ${pendingLoadReassign.loadNumber} has been moved to this trip.`,
+                  });
+                } else if (result?.errors?._form) {
+                  toast({
+                    title: 'Failed to reassign load',
+                    description: result.errors._form,
+                    variant: 'destructive',
+                  });
+                }
                 setPendingLoadReassign(null);
                 setIsSubmitting(false);
               }}

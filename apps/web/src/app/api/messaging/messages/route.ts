@@ -31,12 +31,21 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'conversation_id is required' }, { status: 400 });
     }
 
+    console.log('[Messages API] Fetching messages for:', { conversationId, userId: user.id });
+
     // Fetch messages first (RLS will enforce access)
-    const messagesResult = await getConversationMessages(conversationId, user.id, {
-      limit,
-      before,
-      after,
-    });
+    let messagesResult;
+    try {
+      messagesResult = await getConversationMessages(conversationId, user.id, {
+        limit,
+        before,
+        after,
+      });
+      console.log('[Messages API] Messages fetched:', messagesResult.messages.length);
+    } catch (msgError) {
+      console.error('[Messages API] Failed to fetch messages:', msgError);
+      throw msgError;
+    }
 
     // Try to get conversation details, but don't fail if RLS blocks it
     let conversation = null;

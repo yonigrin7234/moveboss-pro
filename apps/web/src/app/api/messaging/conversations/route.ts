@@ -42,6 +42,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'No company membership found' }, { status: 400 });
     }
 
+    console.log('[Conversations API] Fetching for user:', user.id, 'company:', membership.company_id);
+
     const conversations = await getUserConversations(user.id, membership.company_id, {
       type: type ?? undefined,
       load_id: loadId ?? undefined,
@@ -50,6 +52,8 @@ export async function GET(request: Request) {
       limit,
       offset,
     });
+
+    console.log('[Conversations API] Found:', conversations.length, 'conversations');
 
     return NextResponse.json({ conversations });
   } catch (error) {
