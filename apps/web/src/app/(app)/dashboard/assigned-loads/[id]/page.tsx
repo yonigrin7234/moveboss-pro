@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 import { MarketplaceActions } from '@/components/marketplace/marketplace-actions';
 import { TripAssignmentForm } from '@/components/trip-assignment-form';
+import { LoadConversationPanel } from '@/components/messaging/LoadConversationPanel';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -961,6 +962,23 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Messages Section */}
+      {carrierCompany && (
+        <div>
+          <h2 className="text-lg font-semibold text-foreground mb-4">Messages</h2>
+          <LoadConversationPanel
+            loadId={id}
+            loadNumber={load.load_number || id}
+            companyId={carrierCompany.id}
+            userId={user.id}
+            partnerCompanyId={company?.id}
+            partnerCompanyName={company?.name}
+            driverId={load.assigned_driver_id ?? undefined}
+            driverName={load.assigned_driver_name ?? undefined}
+          />
+        </div>
       )}
 
       {/* Company Contact */}
