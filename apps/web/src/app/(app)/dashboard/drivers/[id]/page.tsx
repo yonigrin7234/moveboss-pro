@@ -259,7 +259,7 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
           validated_default_truck: validated.default_truck_id,
           validated_default_trailer: validated.default_trailer_id,
         }
-      };
+      } as { errors?: Record<string, string>; success?: boolean; _debug?: Record<string, unknown> };
     } catch (error) {
       if (error && typeof error === 'object' && 'issues' in error) {
         const zodError = error as { issues: Array<{ path: (string | number)[]; message: string }> };

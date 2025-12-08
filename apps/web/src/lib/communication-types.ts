@@ -113,6 +113,7 @@ export interface MessageMetadata {
   ai_model?: string;
   ai_agent?: boolean;
   ai_context?: string;
+  ai_generated?: boolean;
   intent?: string;
   confidence?: number;
   context_used?: string[];
