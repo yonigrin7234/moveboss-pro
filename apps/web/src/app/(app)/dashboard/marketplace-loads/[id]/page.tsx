@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/lib/supabase-server';
 import { getCarrierMarketplaceLoadDetail, assignLoadToTrip, updateLoadOperationalStatus } from '@/data/marketplace';
 import { getTripsForLoadAssignment } from '@/data/trips';
+import { getWorkspaceCompanyForUser } from '@/data/companies';
+import { LoadConversationPanel } from '@/components/messaging/LoadConversationPanel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -99,9 +101,10 @@ export default async function MarketplaceLoadDetailPage({ params }: PageProps) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  const [load, availableTrips] = await Promise.all([
+  const [load, availableTrips, workspaceCompany] = await Promise.all([
     getCarrierMarketplaceLoadDetail(id, user.id),
     getTripsForLoadAssignment(user.id),
+    getWorkspaceCompanyForUser(user.id),
   ]);
 
   if (!load) {
@@ -415,6 +418,23 @@ export default async function MarketplaceLoadDetailPage({ params }: PageProps) {
               )}
             </CardContent>
           </Card>
+
+          {/* Messages Section */}
+          {workspaceCompany && (
+            <div>
+              <h2 className="text-lg font-semibold text-foreground mb-4">Messages</h2>
+              <LoadConversationPanel
+                loadId={id}
+                loadNumber={load.load_number || id}
+                companyId={workspaceCompany.id}
+                userId={user.id}
+                partnerCompanyId={load.source_company?.id}
+                partnerCompanyName={load.source_company_name}
+                driverId={load.assigned_driver_id ?? undefined}
+                driverName={load.assigned_driver_name ?? undefined}
+              />
+            </div>
+          )}
         </div>
 
         {/* Sidebar */}
