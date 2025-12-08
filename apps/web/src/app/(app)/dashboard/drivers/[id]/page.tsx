@@ -300,6 +300,16 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
 
   const driverDisplayName = `${driver.first_name} ${driver.last_name}`;
 
+  // DEBUG: Log what we're reading from the database
+  console.log('DRIVER_DETAIL_PAGE_DEBUG', {
+    driver_id: driver.id,
+    driver_first_name: driver.first_name,
+    driver_location_sharing: (driver as any).location_sharing_enabled,
+    driver_auto_post: (driver as any).auto_post_capacity,
+    driver_capacity_visibility: (driver as any).capacity_visibility,
+    driver_raw: JSON.stringify(driver),
+  });
+
   const initialData = {
     first_name: driver.first_name,
     last_name: driver.last_name,

@@ -20,7 +20,8 @@ import {
 } from 'lucide-react';
 
 import { getCurrentUser, createClient } from '@/lib/supabase-server';
-import { getPartnershipById, updatePartnershipStatus, updatePartnershipTerms } from '@/data/partnerships';
+import { getPartnershipById, updatePartnershipStatus, updatePartnershipTerms, isMoveBossMemberCompany } from '@/data/partnerships';
+import { getWorkspaceCompanyForUser } from '@/data/companies';
 import {
   getComplianceRequestsForPartnership,
   createComplianceRequestsForPartnership,
@@ -42,6 +43,7 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { RequestDocumentsButton } from '@/components/partnerships/RequestDocumentsButton';
+import { CompanyConversationPanel } from '@/components/messaging/CompanyConversationPanel';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   active: { label: 'Active', color: 'bg-green-500/20 text-green-600 dark:text-green-400' },
@@ -67,6 +69,12 @@ export default async function PartnershipDetailPage({
 
   const partner = partnership.company_b;
   const status = statusConfig[partnership.status] || statusConfig.pending;
+
+  // Get user's company for messaging
+  const myCompany = await getWorkspaceCompanyForUser(user.id);
+
+  // Check if partner is a MoveBoss member (has their own workspace)
+  const partnerIsMoveBossMember = isMoveBossMemberCompany(partner);
 
   // Get recent loads with this partner
   const supabase = await createClient();
@@ -463,6 +471,24 @@ export default async function PartnershipDetailPage({
           )}
         </CardContent>
       </Card>
+
+      {/* Messages */}
+      {partner && myCompany && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Messages</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <CompanyConversationPanel
+              myCompanyId={myCompany.id}
+              partnerCompanyId={partner.id}
+              partnerCompanyName={partner.name}
+              isPartnerMoveBossMember={partnerIsMoveBossMember}
+              userId={user.id}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Status Actions */}
       <Card>

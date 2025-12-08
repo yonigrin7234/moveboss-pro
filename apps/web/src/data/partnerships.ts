@@ -7,11 +7,20 @@ export interface PartnerCompany {
   is_broker: boolean;
   is_agent: boolean;
   is_carrier: boolean;
+  is_workspace_company: boolean;
   mc_number: string | null;
   dot_number: string | null;
   compliance_status: string;
   city: string | null;
   state: string | null;
+}
+
+/**
+ * Check if a company is a real MoveBoss member (has their own workspace)
+ * vs. a manually-added external company record.
+ */
+export function isMoveBossMemberCompany(company: PartnerCompany | null | undefined): boolean {
+  return company?.is_workspace_company === true;
 }
 
 export interface Partnership {
@@ -71,10 +80,10 @@ export async function getPartnerships(ownerId: string): Promise<Partnership[]> {
     .select(`
       *,
       company_a:companies!company_partnerships_company_a_id_fkey(
-        id, name, is_broker, is_agent, is_carrier, mc_number, dot_number, compliance_status, city, state
+        id, name, is_broker, is_agent, is_carrier, is_workspace_company, mc_number, dot_number, compliance_status, city, state
       ),
       company_b:companies!company_partnerships_company_b_id_fkey(
-        id, name, is_broker, is_agent, is_carrier, mc_number, dot_number, compliance_status, city, state
+        id, name, is_broker, is_agent, is_carrier, is_workspace_company, mc_number, dot_number, compliance_status, city, state
       )
     `)
     .eq('owner_id', ownerId)
@@ -100,10 +109,10 @@ export async function getPartnershipsByStatus(
     .select(`
       *,
       company_a:companies!company_partnerships_company_a_id_fkey(
-        id, name, is_broker, is_agent, is_carrier, mc_number, dot_number, compliance_status, city, state
+        id, name, is_broker, is_agent, is_carrier, is_workspace_company, mc_number, dot_number, compliance_status, city, state
       ),
       company_b:companies!company_partnerships_company_b_id_fkey(
-        id, name, is_broker, is_agent, is_carrier, mc_number, dot_number, compliance_status, city, state
+        id, name, is_broker, is_agent, is_carrier, is_workspace_company, mc_number, dot_number, compliance_status, city, state
       )
     `)
     .eq('owner_id', ownerId)
