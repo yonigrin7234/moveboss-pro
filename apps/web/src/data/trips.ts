@@ -1168,6 +1168,21 @@ export async function addLoadToTrip(
     });
   }
 
+  // AUDIT LOGGING: Log load added to trip
+  const loadInfo = data.load as Load | null;
+  logAuditEvent(supabase, {
+    entityType: 'trip',
+    entityId: tripId,
+    action: 'load_added',
+    performedByUserId: userId,
+    newValue: { load_id: input.load_id },
+    metadata: {
+      load_id: input.load_id,
+      load_number: loadInfo?.load_number || loadInfo?.job_number || null,
+      role: input.role ?? 'primary',
+    },
+  });
+
   return data as TripLoad;
 }
 
@@ -1293,6 +1308,19 @@ export async function removeLoadFromTrip(tripId: string, loadId: string, userId:
       console.error('Failed to send load removed notification:', err);
     });
   }
+
+  // AUDIT LOGGING: Log load removed from trip
+  logAuditEvent(supabase, {
+    entityType: 'trip',
+    entityId: tripId,
+    action: 'load_removed',
+    performedByUserId: userId,
+    previousValue: { load_id: loadId },
+    metadata: {
+      load_id: loadId,
+      load_number: loadData?.load_number || loadData?.job_number || null,
+    },
+  });
 }
 
 export async function reorderTripLoads(
