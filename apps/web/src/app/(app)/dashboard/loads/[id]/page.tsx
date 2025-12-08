@@ -1,34 +1,16 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser, createClient } from '@/lib/supabase-server';
-import { getLoadById, updateLoad, type Load } from '@/data/loads';
+import { getLoadById, updateLoad } from '@/data/loads';
 import { getCompaniesForUser, getWorkspaceCompanyForUser } from '@/data/companies';
 import { getDriversForUser } from '@/data/drivers';
 import { getTrucksForUser, getTrailersForUser } from '@/data/fleet';
 import { getTripsForLoadAssignment, addLoadToTrip } from '@/data/trips';
-import { LoadForm } from '@/components/loads/LoadForm';
-import { LoadPhotos } from '@/components/loads/LoadPhotos';
-import { LoadDetailMessaging } from '@/components/load-detail';
 import { normalizeOwnLoad } from '@/lib/load-detail-model';
-import { LoadActions, type MarketplacePostingData } from './load-actions';
+import { type MarketplacePostingData } from './load-actions';
+import { LoadDetailClient } from './LoadDetailClient';
 import { cleanFormValues, extractFormValues } from '@/lib/form-data';
-
-function formatStatus(status: Load['status']): string {
-  switch (status) {
-    case 'pending':
-      return 'Pending';
-    case 'assigned':
-      return 'Assigned';
-    case 'in_transit':
-      return 'In Transit';
-    case 'delivered':
-      return 'Delivered';
-    case 'canceled':
-      return 'Canceled';
-    default:
-      return status;
-  }
-}
+import { logAuditEvent, createMarketplacePostingMetadata, getAuditLogsForEntity } from '@/lib/audit';
 
 interface LoadDetailPageProps {
   params: Promise<{ id: string }>;
@@ -61,13 +43,14 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
   }
 
   // Fetch related entities for dropdowns
-  const [companies, drivers, trucks, trailers, trips, workspaceCompany] = await Promise.all([
+  const [companies, drivers, trucks, trailers, trips, workspaceCompany, auditLogs] = await Promise.all([
     getCompaniesForUser(user.id),
     getDriversForUser(user.id),
     getTrucksForUser(user.id),
     getTrailersForUser(user.id),
     getTripsForLoadAssignment(user.id),
     getWorkspaceCompanyForUser(user.id),
+    getAuditLogsForEntity('load', id, { limit: 50 }),
   ]);
 
   // Only brokers/moving companies can post to marketplace
@@ -216,6 +199,25 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
         .eq('owner_id', currentUser.id);
 
       if (error) throw error;
+
+      // AUDIT LOGGING: Log marketplace posting
+      logAuditEvent(supabase, {
+        entityType: 'load',
+        entityId: id,
+        action: 'posted_to_marketplace',
+        performedByUserId: currentUser.id,
+        performedByCompanyId: workspaceCompanyData?.id,
+        previousValue: { posting_status: 'draft' },
+        newValue: { posting_status: 'posted' },
+        metadata: createMarketplacePostingMetadata({
+          cubicFeet: data.cubic_feet,
+          ratePerCuft: data.rate_per_cuft,
+          linehaulAmount: data.linehaul_amount,
+          truckRequirement: data.truck_requirement,
+          isOpenToCounter: data.is_open_to_counter,
+        }),
+      });
+
       return { success: true };
     } catch (error) {
       return {
@@ -249,7 +251,7 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
     }
   }
 
-  const initialData = {
+  const initialFormData = {
     load_number: load.load_number ?? undefined,
     service_type: load.service_type,
     company_id: load.company_id,
@@ -299,110 +301,48 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
     internal_reference: load.internal_reference ?? undefined,
   };
 
-  return (
-    <div>
-      <div className="flex justify-between items-start mb-8">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold text-foreground">
-            {load.load_number || 'New Load'}
-          </h1>
-          <div className="flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground">
-            {load.service_type && (
-              <span>{load.service_type.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}</span>
-            )}
-            {load.internal_reference && (
-              <span className="text-xs font-medium text-muted-foreground/80 px-2 py-0.5 bg-muted rounded">
-                Ref: {load.internal_reference}
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="flex gap-4">
-          <Link
-            href="/dashboard/loads"
-            className="px-4 py-2 bg-card text-foreground border border-border rounded-md hover:bg-muted"
-          >
-            Back to Loads
-          </Link>
-        </div>
-      </div>
-
-      {/* Status Badge and Actions */}
-      <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex gap-2 items-center">
-          <span
-            className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
-              load.status === 'delivered'
-                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                : load.status === 'canceled'
-                  ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                  : load.status === 'in_transit'
-                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                    : load.status === 'assigned'
-                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                      : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-            }`}
-          >
-            {formatStatus(load.status)}
-          </span>
-          {!isOwnCompanyLoad && (
-            <span className="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800">
-              External Company
-            </span>
-          )}
-        </div>
-
-        {/* Load Actions: Post to Marketplace, Assign to Trip */}
-        <LoadActions
-          loadId={id}
-          postingStatus={load.posting_status ?? null}
-          initialCubicFeet={load.cubic_feet_estimate ?? load.cubic_feet ?? null}
-          canPostToMarketplace={canPostToMarketplace}
-          trips={availableTrips.map((t) => ({
-            id: t.id,
-            trip_number: t.trip_number,
-            origin_city: t.origin_city,
-            destination_city: t.destination_city,
-            driver: t.driver as { first_name?: string; last_name?: string } | null,
-          }))}
-          onPostToMarketplace={postToMarketplaceAction}
-          onAssignToTrip={assignToTripAction}
-        />
-      </div>
-
-      {/* Trip Assignment Info */}
-      {load.trip_id && (
-        <div className="mb-6 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <p className="text-sm text-blue-800 dark:text-blue-200">
-            This load is assigned to a trip.{' '}
-            <Link href={`/dashboard/trips/${load.trip_id}`} className="font-medium underline hover:no-underline">
-              View trip details
-            </Link>
+  // If no workspace company, show error (user account not properly set up)
+  if (!model) {
+    return (
+      <div>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground mb-2">Configuration Required</h1>
+          <p className="text-muted-foreground">
+            Your account is missing a workspace company. Please contact support.
           </p>
         </div>
-      )}
+        <Link
+          href="/dashboard/loads"
+          className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+        >
+          Back to Loads
+        </Link>
+      </div>
+    );
+  }
 
-      {/* Edit Form */}
-      <LoadForm
-        initialData={initialData}
-        companies={companies}
-        drivers={drivers}
-        trucks={trucks}
-        trailers={trailers}
-        onSubmit={updateLoadAction}
-        submitLabel="Save changes"
-        cancelHref={`/dashboard/loads/${id}`}
-      />
-
-      {/* Driver-Uploaded Photos */}
-      <LoadPhotos load={load} />
-
-      {/* Messages Section */}
-      {model && (
-        <div className="mt-8">
-          <LoadDetailMessaging model={model} />
-        </div>
-      )}
-    </div>
+  return (
+    <LoadDetailClient
+      load={load}
+      model={model}
+      companies={companies}
+      drivers={drivers}
+      trucks={trucks}
+      trailers={trailers}
+      trips={availableTrips.map((t) => ({
+        id: t.id,
+        trip_number: t.trip_number,
+        origin_city: t.origin_city,
+        destination_city: t.destination_city,
+        driver: t.driver as { first_name?: string; last_name?: string } | null,
+      }))}
+      auditLogs={auditLogs}
+      canPostToMarketplace={canPostToMarketplace}
+      isOwnCompanyLoad={isOwnCompanyLoad}
+      initialFormData={initialFormData}
+      onUpdate={updateLoadAction}
+      onPostToMarketplace={postToMarketplaceAction}
+      onAssignToTrip={assignToTripAction}
+    />
   );
 }

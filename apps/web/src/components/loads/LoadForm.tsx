@@ -75,6 +75,8 @@ interface LoadFormProps {
   ) => Promise<{ errors?: Record<string, string> } | null>;
   submitLabel?: string;
   cancelHref?: string;
+  /** Optional callback for cancel button (used in sheets/modals instead of navigation) */
+  onCancel?: () => void;
   /** Controls wizard step visibility based on how the load was created */
   loadFlowType?: LoadFlowType | null;
 }
@@ -131,6 +133,7 @@ export function LoadForm({
   onSubmit,
   submitLabel = 'Save load',
   cancelHref = '/dashboard/loads',
+  onCancel,
   loadFlowType,
 }: LoadFormProps) {
   const [state, formAction, pending] = useActionState(onSubmit, null);
@@ -999,9 +1002,15 @@ export function LoadForm({
                 Previous
               </Button>
             )}
-            <Button variant="outline" asChild className="h-10">
-              <Link href={cancelHref}>Cancel</Link>
-            </Button>
+            {onCancel ? (
+              <Button type="button" variant="outline" onClick={onCancel} className="h-10">
+                Cancel
+              </Button>
+            ) : (
+              <Button variant="outline" asChild className="h-10">
+                <Link href={cancelHref}>Cancel</Link>
+              </Button>
+            )}
           </div>
 
           <div className="flex gap-3">

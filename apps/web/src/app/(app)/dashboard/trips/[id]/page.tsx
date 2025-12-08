@@ -26,6 +26,7 @@ import { createTripSettlement, recalculateTripSettlement } from '@/data/settleme
 import { getWorkspaceCompanyForUser } from '@/data/companies';
 import { updateLoad, updateLoadInputSchema } from '@/data/loads';
 import { getSettlementSnapshot } from '@/data/settlements';
+import { getAuditLogsForEntity } from '@/lib/audit';
 import { TripDetailClient } from './TripDetailClient';
 
 interface TripDetailPageProps {
@@ -73,13 +74,14 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     );
   }
 
-  const [loads, drivers, trucks, trailers, loadTripAssignmentsMap, workspaceCompany] = await Promise.all([
+  const [loads, drivers, trucks, trailers, loadTripAssignmentsMap, workspaceCompany, auditLogs] = await Promise.all([
     getLoadsForUser(user.id),
     getDriversForUser(user.id),
     getTrucksForUser(user.id),
     getTrailersForUser(user.id),
     getLoadTripAssignments(user.id),
     getWorkspaceCompanyForUser(user.id),
+    getAuditLogsForEntity('trip', id, { limit: 50 }),
   ]);
   const settlementSnapshot = await getSettlementSnapshot(id, user.id);
 
@@ -439,6 +441,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
       settlementSnapshot={settlementSnapshot}
       userId={user.id}
       companyId={workspaceCompany?.id}
+      auditLogs={auditLogs}
       actions={{
         updateTripStatus: updateTripStatusAction,
         addTripLoad: addTripLoadAction,

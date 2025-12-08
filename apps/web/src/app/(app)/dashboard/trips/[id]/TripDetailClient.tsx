@@ -53,6 +53,8 @@ import { TripMapTab } from '@/components/trips/TripMapTab';
 import { useToast } from '@/hooks/use-toast';
 import { LoadSuggestionsPanel } from '@/components/trip/LoadSuggestionsPanel';
 import { ChatPanel } from '@/components/messaging/unified';
+import { ActivityFeed } from '@/components/activity';
+import type { AuditLogEntry } from '@/lib/audit';
 
 interface DriverOption {
   id: string;
@@ -93,6 +95,7 @@ interface TripDetailClientProps {
   };
   userId: string;
   companyId?: string;
+  auditLogs?: AuditLogEntry[];
   actions: {
     updateTripStatus: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
     addTripLoad: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
@@ -236,7 +239,7 @@ function SortableLoadCard({
   );
 }
 
-export function TripDetailClient({ trip, availableLoads, availableDrivers, availableTrucks, availableTrailers, loadTripAssignments, settlementSnapshot, userId, companyId, actions }: TripDetailClientProps) {
+export function TripDetailClient({ trip, availableLoads, availableDrivers, availableTrucks, availableTrailers, loadTripAssignments, settlementSnapshot, userId, companyId, auditLogs = [], actions }: TripDetailClientProps) {
   const { toast } = useToast();
   const [editingLoadId, setEditingLoadId] = useState<string | null>(null);
   const [addExpenseOpen, setAddExpenseOpen] = useState(false);
@@ -431,6 +434,7 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
           <TabsTrigger value="expenses">Expenses</TabsTrigger>
           <TabsTrigger value="settlement">Settlement</TabsTrigger>
           <TabsTrigger value="messages">Messages</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
         {/* Push to Driver Banner - shows when delivery order has been changed (visible on all tabs) */}
@@ -1499,6 +1503,14 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Activity Tab */}
+        <TabsContent value="activity" className="mt-0">
+          <ActivityFeed
+            logs={auditLogs}
+            emptyMessage="No activity recorded yet. Changes to this trip will appear here."
+          />
         </TabsContent>
       </Tabs>
 

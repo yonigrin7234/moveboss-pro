@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase-server';
 import type { Load } from '@/data/loads';
 import { computeTripFinancialsWithDriverPay, snapshotDriverCompensation, type TripFinancialResult } from '@/data/trip-financials';
 import { notifyDriverTripAssigned, notifyDriverLoadAddedToTrip, notifyDriverLoadRemovedFromTrip, notifyDriverDeliveryOrderChanged } from '@/lib/push-notifications';
+import { logAuditEvent, createStatusChangeSnapshot, createDriverAssignmentMetadata } from '@/lib/audit';
 
 export const tripStatusSchema = z.enum(['planned', 'active', 'en_route', 'completed', 'settled', 'cancelled']);
 export const tripExpenseCategorySchema = z.enum([
@@ -922,6 +923,64 @@ export async function updateTrip(
 
   if (equipmentChanged) {
     await syncTripEquipmentToLoads(id, userId);
+  }
+
+  // AUDIT LOGGING: Log status changes
+  if (input.status && input.status !== (currentTrip as any).status) {
+    const { previousValue, newValue } = createStatusChangeSnapshot(
+      (currentTrip as any).status,
+      input.status
+    );
+    logAuditEvent(supabase, {
+      entityType: 'trip',
+      entityId: id,
+      action: 'status_changed',
+      performedByUserId: userId,
+      previousValue,
+      newValue,
+      metadata: {
+        trip_number: data.trip_number,
+        old_status_label: (currentTrip as any).status,
+        new_status_label: input.status,
+      },
+    });
+  }
+
+  // AUDIT LOGGING: Log driver assignment
+  if (input.driver_id && input.driver_id !== (currentTrip as any).driver_id) {
+    const driverName = data.driver
+      ? `${data.driver.first_name} ${data.driver.last_name}`
+      : 'Unknown Driver';
+    logAuditEvent(supabase, {
+      entityType: 'trip',
+      entityId: id,
+      action: 'driver_assigned',
+      performedByUserId: userId,
+      previousValue: { driver_id: (currentTrip as any).driver_id },
+      newValue: { driver_id: input.driver_id },
+      metadata: createDriverAssignmentMetadata(
+        input.driver_id,
+        driverName,
+        (currentTrip as any).driver_id,
+        null // Old driver name not easily available
+      ),
+    });
+  }
+
+  // AUDIT LOGGING: Log driver removal
+  if ('driver_id' in input && !input.driver_id && (currentTrip as any).driver_id) {
+    logAuditEvent(supabase, {
+      entityType: 'trip',
+      entityId: id,
+      action: 'driver_removed',
+      performedByUserId: userId,
+      previousValue: { driver_id: (currentTrip as any).driver_id },
+      newValue: { driver_id: null },
+      metadata: {
+        trip_number: data.trip_number,
+        old_driver_id: (currentTrip as any).driver_id,
+      },
+    });
   }
 
   return data as Trip;
