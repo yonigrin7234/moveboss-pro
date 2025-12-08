@@ -110,20 +110,46 @@ export default function MessagesPage() {
 
     try {
       setIsLoadingMessages(true);
+      setError(null);
       const res = await fetch(`/api/messaging/messages?conversation_id=${selectedConversationId}`);
+
       if (!res.ok) {
-        throw new Error('Failed to load messages');
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to load messages');
       }
 
       const { messages: data, conversation } = await res.json();
       setMessages(data || []);
-      setSelectedConversation(conversation || null);
+
+      // Always set conversation even if minimal - prevent infinite loading
+      if (conversation) {
+        setSelectedConversation(conversation);
+      } else {
+        // Fallback: create minimal conversation from list item
+        const listItem = conversations.find(c => c.id === selectedConversationId);
+        setSelectedConversation({
+          id: selectedConversationId,
+          type: listItem?.type || 'general',
+          title: listItem?.title || 'Conversation',
+          message_count: data?.length || 0,
+        } as ConversationWithDetails);
+      }
     } catch (err) {
       console.error('Failed to fetch messages:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load messages');
+      // Still set a minimal conversation to show error state, not spinner
+      const listItem = conversations.find(c => c.id === selectedConversationId);
+      if (listItem) {
+        setSelectedConversation({
+          id: selectedConversationId,
+          type: listItem.type,
+          title: listItem.title,
+        } as ConversationWithDetails);
+      }
     } finally {
       setIsLoadingMessages(false);
     }
-  }, [selectedConversationId]);
+  }, [selectedConversationId, conversations]);
 
   // Initial load
   useEffect(() => {

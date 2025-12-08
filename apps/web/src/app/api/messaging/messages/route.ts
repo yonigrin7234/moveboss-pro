@@ -31,15 +31,32 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'conversation_id is required' }, { status: 400 });
     }
 
-    // Fetch conversation details and messages in parallel
-    const [conversation, messagesResult] = await Promise.all([
-      getConversation(conversationId, user.id),
-      getConversationMessages(conversationId, user.id, {
-        limit,
-        before,
-        after,
-      }),
-    ]);
+    // Fetch messages first (RLS will enforce access)
+    const messagesResult = await getConversationMessages(conversationId, user.id, {
+      limit,
+      before,
+      after,
+    });
+
+    // Try to get conversation details, but don't fail if RLS blocks it
+    let conversation = null;
+    try {
+      conversation = await getConversation(conversationId, user.id);
+    } catch (convError) {
+      console.error('Failed to fetch conversation details:', convError);
+      // Continue without conversation details - messages still work
+    }
+
+    // If we couldn't get conversation details, create a minimal one from the request
+    if (!conversation) {
+      // Get basic info from messages if available
+      conversation = {
+        id: conversationId,
+        type: 'general' as const,
+        title: 'Conversation',
+        message_count: messagesResult.messages.length,
+      };
+    }
 
     return NextResponse.json({
       messages: messagesResult.messages,

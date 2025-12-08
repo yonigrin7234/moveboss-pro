@@ -120,15 +120,32 @@ export async function logAuditEvent(
     // Fetch performer's name from profiles to include in metadata
     let performerName: string | null = null;
     let performerEmail: string | null = sessionUser?.email ?? null;
-    const { data: profileData } = await client
+    const { data: profileData, error: profileError } = await client
       .from('profiles')
       .select('full_name, email')
       .eq('id', input.performedByUserId)
       .single();
 
+    console.log('[Audit] Profile fetch result:', {
+      userId: input.performedByUserId,
+      profileData,
+      profileError: profileError?.message,
+      sessionEmail: sessionUser?.email,
+    });
+
     if (profileData) {
       performerName = profileData.full_name;
       performerEmail = profileData.email ?? performerEmail;
+    }
+
+    // If no full_name, try to derive from email
+    if (!performerName && performerEmail) {
+      const emailParts = performerEmail.split('@')[0];
+      // Convert "john.doe" or "johndoe" to "John Doe" or "Johndoe"
+      performerName = emailParts
+        .split(/[._-]/)
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join(' ');
     }
 
     // Merge performer info into metadata
@@ -137,6 +154,11 @@ export async function logAuditEvent(
       performer_name: performerName,
       performer_email: performerEmail,
     };
+
+    console.log('[Audit] Enriched metadata:', {
+      performer_name: performerName,
+      performer_email: performerEmail,
+    });
 
     const { error, data } = await client.from('audit_logs').insert({
       entity_type: input.entityType,
