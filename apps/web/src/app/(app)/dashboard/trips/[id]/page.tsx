@@ -26,7 +26,7 @@ import { createTripSettlement, recalculateTripSettlement } from '@/data/settleme
 import { getWorkspaceCompanyForUser } from '@/data/companies';
 import { updateLoad, updateLoadInputSchema } from '@/data/loads';
 import { getSettlementSnapshot } from '@/data/settlements';
-import { getAuditLogsForEntity, debugAuditLogCount } from '@/lib/audit';
+import { getAuditLogsForEntity } from '@/lib/audit';
 import { TripDetailClient } from './TripDetailClient';
 
 interface TripDetailPageProps {
