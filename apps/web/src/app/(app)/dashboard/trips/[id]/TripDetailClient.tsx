@@ -246,6 +246,14 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
   const [loadToRemove, setLoadToRemove] = useState<string | null>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
   const [viewingReceiptUrl, setViewingReceiptUrl] = useState<string | null>(null);
+
+  // Load reassignment confirmation state
+  const [pendingLoadReassign, setPendingLoadReassign] = useState<{
+    loadId: string;
+    loadNumber: string;
+    currentTrip: LoadTripAssignment;
+    role: string;
+  } | null>(null);
   const [shareDriverWithCompanies, setShareDriverWithCompanies] = useState(
     trip.share_driver_with_companies ?? true
   );
@@ -1032,9 +1040,32 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
                   <CardTitle className="text-base">Attach Load</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <form action={async (formData) => {
-                    await actions.addTripLoad(formData);
-                  }} className="space-y-3">
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const formData = new FormData(e.currentTarget);
+                      const loadId = formData.get('load_id') as string;
+                      const role = formData.get('role') as string;
+
+                      // Check if load is on another trip
+                      const existingAssignment = loadTripAssignments[loadId];
+                      if (existingAssignment) {
+                        // Find the load to get its number
+                        const load = availableLoads.find((l) => l.id === loadId);
+                        setPendingLoadReassign({
+                          loadId,
+                          loadNumber: load?.load_number || 'Unknown',
+                          currentTrip: existingAssignment,
+                          role,
+                        });
+                        return;
+                      }
+
+                      // No conflict, submit directly
+                      await actions.addTripLoad(formData);
+                    }}
+                    className="space-y-3"
+                  >
                     <div className="space-y-1.5">
                       <Label className="text-sm">Select Load</Label>
                       <select name="load_id" className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" required>
@@ -1061,7 +1092,7 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
                                 </optgroup>
                               )}
                               {assignedLoads.length > 0 && (
-                                <optgroup label="On Other Trips (will reassign)">
+                                <optgroup label="⚠️ On Other Trips (will reassign)">
                                   {assignedLoads.map((load) => {
                                     const company = Array.isArray(load.company) ? load.company[0] : load.company;
                                     const assignment = loadTripAssignments[load.id];
@@ -1536,6 +1567,60 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
               disabled={isSubmitting}
             >
               {isSubmitting ? 'Deleting...' : 'Delete Expense'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Load Reassignment Confirmation Dialog */}
+      <Dialog open={!!pendingLoadReassign} onOpenChange={(open) => !open && setPendingLoadReassign(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5" />
+              Confirm Load Reassignment
+            </DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Load <strong>{pendingLoadReassign?.loadNumber}</strong> is currently assigned to:
+                </p>
+                <div className="bg-muted p-3 rounded-md space-y-1">
+                  <p className="font-medium">Trip {pendingLoadReassign?.currentTrip.tripNumber}</p>
+                  {pendingLoadReassign?.currentTrip.driverName && (
+                    <p className="text-sm text-muted-foreground">
+                      Driver: {pendingLoadReassign.currentTrip.driverName}
+                    </p>
+                  )}
+                  <p className="text-sm text-muted-foreground capitalize">
+                    Status: {pendingLoadReassign?.currentTrip.tripStatus.replace('_', ' ')}
+                  </p>
+                </div>
+                <p>
+                  Adding this load will remove it from the other trip. Do you want to continue?
+                </p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setPendingLoadReassign(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!pendingLoadReassign) return;
+                setIsSubmitting(true);
+                const formData = new FormData();
+                formData.append('load_id', pendingLoadReassign.loadId);
+                formData.append('role', pendingLoadReassign.role);
+                formData.append('sequence_index', '0');
+                await actions.addTripLoad(formData);
+                setPendingLoadReassign(null);
+                setIsSubmitting(false);
+              }}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Reassigning...' : 'Confirm Reassignment'}
             </Button>
           </DialogFooter>
         </DialogContent>

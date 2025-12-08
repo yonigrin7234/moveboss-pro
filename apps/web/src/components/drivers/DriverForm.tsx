@@ -23,6 +23,16 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { DatePicker } from '@/components/ui/date-picker';
 import { AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -168,11 +178,57 @@ export function DriverForm({
     authUserId: (initialData as any)?.auth_user_id || null,
   });
 
+  // Track equipment conflicts for warnings
+  const getEquipmentConflict = (type: 'truck' | 'trailer', equipmentId: string | null | undefined) => {
+    if (!equipmentId || equipmentId === 'unassigned' || equipmentId === 'none') return null;
+    const equipment = type === 'truck'
+      ? trucks.find(t => t.id === equipmentId)
+      : trailers.find(t => t.id === equipmentId);
+    if (!equipment?.assigned_driver_id || equipment.assigned_driver_id === currentDriverId) return null;
+    const driverName = driverLookup[equipment.assigned_driver_id];
+    return driverName || 'another driver';
+  };
+
+  // Get current conflicts for assigned equipment
+  const assignedTruckConflict = getEquipmentConflict('truck', snapshot.assignedTruckId);
+  const assignedTrailerConflict = getEquipmentConflict('trailer', snapshot.assignedTrailerId);
+
+  // Handler: When default equipment is set, auto-populate assigned if empty
+  const handleDefaultTruckChange = (value: string) => {
+    setSnapshot((prev) => {
+      const newState = { ...prev, defaultTruckId: value };
+      // Auto-sync to assigned if assigned is empty/unassigned
+      if (!prev.assignedTruckId || prev.assignedTruckId === 'unassigned') {
+        newState.assignedTruckId = value === 'none' ? '' : value;
+      }
+      return newState;
+    });
+  };
+
+  const handleDefaultTrailerChange = (value: string) => {
+    setSnapshot((prev) => {
+      const newState = { ...prev, defaultTrailerId: value };
+      // Auto-sync to assigned if assigned is empty/unassigned
+      if (!prev.assignedTrailerId || prev.assignedTrailerId === 'unassigned') {
+        newState.assignedTrailerId = value === 'none' ? '' : value;
+      }
+      return newState;
+    });
+  };
+
   // Store form values to preserve data on validation errors
   const [savedFormData, setSavedFormData] = useState<Record<string, string>>({});
 
   // Track whether to show errors (hide after user starts editing/navigating)
   const [errorsCleared, setErrorsCleared] = useState(false);
+
+  // Confirmation dialog state for equipment reassignment
+  const [showReassignConfirm, setShowReassignConfirm] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
+  const confirmedReassignmentRef = useRef(false);
+
+  // Check if there are any equipment conflicts that need confirmation
+  const hasEquipmentConflicts = assignedTruckConflict || assignedTrailerConflict;
 
   // Reset errorsCleared when new errors come in from form submission
   useEffect(() => {
@@ -484,6 +540,7 @@ export function DriverForm({
   };
 
   // Capture form data before submission to preserve values on error
+  // If there are equipment conflicts, show confirmation dialog first
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     const form = e.currentTarget;
     const formData = new FormData(form);
@@ -494,7 +551,36 @@ export function DriverForm({
       }
     });
     setSavedFormData(values);
-    // Don't prevent default - let the form action run
+
+    // If there are equipment conflicts and user hasn't confirmed, show confirmation dialog
+    if (hasEquipmentConflicts && !confirmedReassignmentRef.current) {
+      e.preventDefault();
+      setPendingFormData(formData);
+      setShowReassignConfirm(true);
+      return;
+    }
+
+    // Reset the confirmation flag for next submission
+    confirmedReassignmentRef.current = false;
+    // No conflicts or user confirmed - let the form action run normally
+  };
+
+  // Handle confirmed reassignment - submit the form programmatically
+  const handleConfirmReassignment = () => {
+    setShowReassignConfirm(false);
+    if (formRef.current) {
+      // Set the flag so handleFormSubmit knows to skip the confirmation check
+      confirmedReassignmentRef.current = true;
+      // Submit the form using the action
+      formRef.current.requestSubmit();
+    }
+    setPendingFormData(null);
+  };
+
+  // Handle cancel - close dialog without submitting
+  const handleCancelReassignment = () => {
+    setShowReassignConfirm(false);
+    setPendingFormData(null);
   };
 
   const renderStepContent = (stepIndex: number) => {
@@ -1107,7 +1193,8 @@ export function DriverForm({
                     <SelectWithHiddenInput
                       key={`assigned_truck_id-${savedFormData.assigned_truck_id ?? 'init'}`}
                       name="assigned_truck_id"
-                      defaultValue={getFieldValue('assigned_truck_id', initialData?.assigned_truck_id ?? undefined)}
+                      value={snapshot.assignedTruckId || 'unassigned'}
+                      onValueChange={(value) => setSnapshot(prev => ({ ...prev, assignedTruckId: value }))}
                     >
                       <SelectTrigger id="assigned_truck_id" className="h-9">
                         <SelectValue placeholder="Unassigned" />
@@ -1129,6 +1216,11 @@ export function DriverForm({
                         })}
                       </SelectContent>
                     </SelectWithHiddenInput>
+                    {assignedTruckConflict && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        ⚠️ This truck is assigned to {assignedTruckConflict}. Saving will reassign it.
+                      </p>
+                    )}
                   </div>
                   {canAssignTrailer ? (
                     <div className="space-y-1.5">
@@ -1136,7 +1228,8 @@ export function DriverForm({
                       <SelectWithHiddenInput
                         key={`assigned_trailer_id-${savedFormData.assigned_trailer_id ?? 'init'}`}
                         name="assigned_trailer_id"
-                        defaultValue={getFieldValue('assigned_trailer_id', initialData?.assigned_trailer_id ?? undefined)}
+                        value={snapshot.assignedTrailerId || 'unassigned'}
+                        onValueChange={(value) => setSnapshot(prev => ({ ...prev, assignedTrailerId: value }))}
                       >
                         <SelectTrigger id="assigned_trailer_id" className="h-9">
                           <SelectValue placeholder="Unassigned" />
@@ -1157,6 +1250,11 @@ export function DriverForm({
                           })}
                         </SelectContent>
                       </SelectWithHiddenInput>
+                      {assignedTrailerConflict && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                          ⚠️ This trailer is assigned to {assignedTrailerConflict}. Saving will reassign it.
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-1.5">
@@ -1186,10 +1284,8 @@ export function DriverForm({
                     <SelectWithHiddenInput
                       key={`default_truck_id-${savedFormData.default_truck_id ?? 'init'}`}
                       name="default_truck_id"
-                      defaultValue={getFieldValue('default_truck_id', initialData?.default_truck_id ?? undefined)}
-                      onValueChange={(value) => {
-                        setSnapshot((prev) => ({ ...prev, defaultTruckId: value }));
-                      }}
+                      value={snapshot.defaultTruckId || 'none'}
+                      onValueChange={handleDefaultTruckChange}
                     >
                       <SelectTrigger id="default_truck_id" className="h-9">
                         <SelectValue placeholder="None" />
@@ -1207,6 +1303,11 @@ export function DriverForm({
                         })}
                       </SelectContent>
                     </SelectWithHiddenInput>
+                    <p className="text-xs text-muted-foreground">
+                      {(!snapshot.assignedTruckId || snapshot.assignedTruckId === 'unassigned')
+                        ? 'Will also set as assigned truck'
+                        : 'Used for auto-fill when creating trips'}
+                    </p>
                   </div>
                   {canAssignDefaultTrailer ? (
                     <div className="space-y-1.5">
@@ -1214,7 +1315,8 @@ export function DriverForm({
                       <SelectWithHiddenInput
                         key={`default_trailer_id-${savedFormData.default_trailer_id ?? 'init'}`}
                         name="default_trailer_id"
-                        defaultValue={getFieldValue('default_trailer_id', initialData?.default_trailer_id ?? undefined)}
+                        value={snapshot.defaultTrailerId || 'none'}
+                        onValueChange={handleDefaultTrailerChange}
                       >
                         <SelectTrigger id="default_trailer_id" className="h-9">
                           <SelectValue placeholder="None" />
@@ -1231,6 +1333,11 @@ export function DriverForm({
                           })}
                         </SelectContent>
                       </SelectWithHiddenInput>
+                      <p className="text-xs text-muted-foreground">
+                        {(!snapshot.assignedTrailerId || snapshot.assignedTrailerId === 'unassigned')
+                          ? 'Will also set as assigned trailer'
+                          : 'Used for auto-fill when creating trips'}
+                      </p>
                     </div>
                   ) : snapshot.defaultTruckId && snapshot.defaultTruckId !== 'none' ? (
                     <div className="space-y-1.5">
@@ -1697,6 +1804,41 @@ export function DriverForm({
           </div>
         </div>
       </form>
+
+      {/* Confirmation dialog for equipment reassignment */}
+      <AlertDialog open={showReassignConfirm} onOpenChange={setShowReassignConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Equipment Reassignment</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>The following equipment is currently assigned to other drivers:</p>
+                <ul className="list-disc pl-4 space-y-1">
+                  {assignedTruckConflict && (
+                    <li>
+                      <strong>Truck:</strong> Currently assigned to {assignedTruckConflict}
+                    </li>
+                  )}
+                  {assignedTrailerConflict && (
+                    <li>
+                      <strong>Trailer:</strong> Currently assigned to {assignedTrailerConflict}
+                    </li>
+                  )}
+                </ul>
+                <p className="pt-2">
+                  Saving will reassign this equipment to the current driver. Do you want to continue?
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelReassignment}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmReassignment}>
+              Confirm Reassignment
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
