@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 
 import { getDriverTripsForDriver, requireCurrentDriver } from "@/data/driver-workflow";
 
+// Force dynamic rendering - this page uses cookies for auth
+export const dynamic = 'force-dynamic';
+
 const statusTone: Record<string, string> = {
   planned: "bg-amber-100 text-amber-800",
   active: "bg-emerald-100 text-emerald-800",

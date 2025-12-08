@@ -2,6 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Receipt, Plus, Wallet } from "lucide-react";
 
+// Force dynamic rendering - this page uses cookies for auth
+export const dynamic = 'force-dynamic';
+
 import { DriverQuickActions } from "@/components/driver/driver-quick-actions";
 import { getDriverTripsForDriver, getDriverTripDetail, requireCurrentDriver, getDriverPaySettings } from "@/data/driver-workflow";
 import { Card, CardContent } from "@/components/ui/card";
