@@ -13,5 +13,6 @@ export {
 export {
   getAuditLogsForEntity,
   getRecentAuditLogs,
+  debugAuditLogCount,
   type AuditLogEntry,
 } from './getAuditLogs';

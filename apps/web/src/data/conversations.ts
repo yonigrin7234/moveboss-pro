@@ -97,7 +97,7 @@ export const addParticipantSchema = z.object({
 // ============================================================================
 
 /**
- * Get all conversations for a user (filtered by participant access)
+ * Get all conversations for a user (filtered by company membership via RLS)
  */
 export async function getUserConversations(
   userId: string,
@@ -113,6 +113,8 @@ export async function getUserConversations(
 ): Promise<ConversationListItem[]> {
   const supabase = await createClient();
 
+  // Query conversations by company membership (RLS handles access control)
+  // Use left join for participant data since user may not have a participant record yet
   let query = supabase
     .from('conversations')
     .select(`
@@ -150,19 +152,9 @@ export async function getUserConversations(
       partner_company:partner_company_id (
         id,
         name
-      ),
-      conversation_participants!inner (
-        id,
-        user_id,
-        driver_id,
-        can_read,
-        can_write,
-        unread_count,
-        is_muted
       )
     `)
-    .eq('conversation_participants.user_id', userId)
-    .eq('conversation_participants.can_read', true)
+    .or(`owner_company_id.eq.${companyId},partner_company_id.eq.${companyId},carrier_company_id.eq.${companyId}`)
     .order('last_message_at', { ascending: false, nullsFirst: false });
 
   if (options?.type) {
@@ -195,11 +187,26 @@ export async function getUserConversations(
     throw new Error(`Failed to fetch conversations: ${error.message}`);
   }
 
+  if (!data || data.length === 0) {
+    return [];
+  }
+
+  // Fetch participant data separately for unread counts
+  const conversationIds = data.map((c) => c.id);
+  const { data: participantData } = await supabase
+    .from('conversation_participants')
+    .select('conversation_id, unread_count, is_muted')
+    .eq('user_id', userId)
+    .in('conversation_id', conversationIds);
+
+  // Create a map for quick lookup
+  const participantMap = new Map(
+    (participantData ?? []).map((p) => [p.conversation_id, p])
+  );
+
   // Transform to ConversationListItem format
-  return (data ?? []).map((conv) => {
-    const participant = Array.isArray(conv.conversation_participants)
-      ? conv.conversation_participants[0]
-      : conv.conversation_participants;
+  return data.map((conv) => {
+    const participant = participantMap.get(conv.id);
 
     // Compute display title
     let title = conv.title ?? '';
@@ -247,7 +254,7 @@ export async function getUserConversations(
       last_message_at: conv.last_message_at,
       unread_count: participant?.unread_count ?? 0,
       is_muted: conv.is_muted || participant?.is_muted || false,
-      participants_preview: [], // Could be populated with additional query
+      participants_preview: [],
       context: {
         load_id: load?.id,
         load_number: load?.load_number,

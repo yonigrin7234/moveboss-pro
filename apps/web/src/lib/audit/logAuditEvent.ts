@@ -98,12 +98,24 @@ export async function logAuditEvent(
   input: LogAuditEventInput
 ): Promise<void> {
   try {
+    // Verify the session matches the performedByUserId
+    const { data: { user: sessionUser } } = await client.auth.getUser();
+    const sessionUserId = sessionUser?.id;
+
     console.log('[Audit] Attempting to log event:', {
       entityType: input.entityType,
       entityId: input.entityId,
       action: input.action,
       performedByUserId: input.performedByUserId,
+      sessionUserId,
+      sessionMatch: sessionUserId === input.performedByUserId,
     });
+
+    if (sessionUserId !== input.performedByUserId) {
+      console.warn('[Audit] WARNING: Session user ID does not match performedByUserId!',
+        'This will likely cause RLS policy to reject the insert.',
+        { sessionUserId, performedByUserId: input.performedByUserId });
+    }
 
     const { error, data } = await client.from('audit_logs').insert({
       entity_type: input.entityType,
