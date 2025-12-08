@@ -236,7 +236,7 @@ function SortableLoadCard({
   );
 }
 
-export function TripDetailClient({ trip, availableLoads, availableDrivers, availableTrucks, availableTrailers, loadTripAssignments, settlementSnapshot, actions }: TripDetailClientProps) {
+export function TripDetailClient({ trip, availableLoads, availableDrivers, availableTrucks, availableTrailers, loadTripAssignments, settlementSnapshot, userId, companyId, actions }: TripDetailClientProps) {
   const { toast } = useToast();
   const [editingLoadId, setEditingLoadId] = useState<string | null>(null);
   const [addExpenseOpen, setAddExpenseOpen] = useState(false);
@@ -422,6 +422,7 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
           </TabsTrigger>
           <TabsTrigger value="expenses">Expenses</TabsTrigger>
           <TabsTrigger value="settlement">Settlement</TabsTrigger>
+          <TabsTrigger value="messages">Messages</TabsTrigger>
         </TabsList>
 
         {/* Push to Driver Banner - shows when delivery order has been changed (visible on all tabs) */}
@@ -1447,6 +1448,24 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
               </Card>
             </div>
           </div>
+        </TabsContent>
+
+        {/* Messages Tab */}
+        <TabsContent value="messages" className="mt-0">
+          {companyId ? (
+            <TripConversationPanel
+              tripId={trip.id}
+              tripNumber={trip.trip_number}
+              companyId={companyId}
+              userId={userId}
+            />
+          ) : (
+            <Card>
+              <CardContent className="p-6 text-center text-muted-foreground">
+                Unable to load messages. Workspace company not found.
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
 

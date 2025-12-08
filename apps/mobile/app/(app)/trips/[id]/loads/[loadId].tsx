@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Linking,
 } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLoadDetail } from '../../../../../hooks/useLoadDetail';
 import { useLoadActions } from '../../../../../hooks/useLoadActions';
@@ -20,6 +20,7 @@ import { colors, typography, spacing, radius } from '../../../../../lib/theme';
 export default function LoadDetailScreen() {
   const { id: tripId, loadId } = useLocalSearchParams<{ id: string; loadId: string }>();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { load, loading, error, refetch } = useLoadDetail(loadId);
   const actions = useLoadActions(loadId, refetch);
 
@@ -316,6 +317,31 @@ export default function LoadDetailScreen() {
               </View>
             </View>
 
+            {/* Messages Section */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Messages</Text>
+                <TouchableOpacity
+                  onPress={() => router.push(`/(app)/trips/${tripId}/loads/${loadId}/messages`)}
+                  style={styles.touchTarget}
+                >
+                  <Text style={styles.viewAllLink}>View All</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={styles.messageCard}
+                onPress={() => router.push(`/(app)/trips/${tripId}/loads/${loadId}/messages`)}
+              >
+                <View style={styles.messageIconContainer}>
+                  <Text style={styles.messageIcon}>💬</Text>
+                </View>
+                <View style={styles.messageContent}>
+                  <Text style={styles.messageTitle}>Load Messages</Text>
+                  <Text style={styles.messageSubtitle}>Chat about this load</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
             {/* Documents Section */}
             <DocumentsSection loadId={loadId} />
           </>
@@ -503,6 +529,61 @@ const styles = StyleSheet.create({
   // Timeline
   timeline: {
     gap: spacing.lg,
+  },
+  // Messages Section
+  section: {
+    marginBottom: spacing.sectionGap,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.itemGap,
+  },
+  sectionTitle: {
+    ...typography.headline,
+    marginBottom: spacing.itemGap,
+  },
+  touchTarget: {
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  viewAllLink: {
+    ...typography.bodySmall,
+    color: colors.primary,
+    fontWeight: '500',
+    marginBottom: spacing.itemGap,
+  },
+  messageCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    padding: spacing.cardPadding,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  messageIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.borderLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  messageIcon: {
+    fontSize: 20,
+  },
+  messageContent: {
+    flex: 1,
+  },
+  messageTitle: {
+    ...typography.subheadline,
+    fontWeight: '600',
+  },
+  messageSubtitle: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginTop: spacing.xxs,
   },
   // States
   emptyState: {

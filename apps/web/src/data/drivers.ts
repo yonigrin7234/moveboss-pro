@@ -525,13 +525,15 @@ export async function updateDriver(
   });
 
   // Fetch current driver to reconcile assignments
+  // Always use owner_id for reliable matching (company_id may be null for legacy drivers)
   const { data: existing, error: fetchError } = await supabase
     .from('drivers')
     .select('*')
     .eq('id', id)
-    .eq(companyId ? 'company_id' : 'owner_id', companyId ?? userId)
+    .eq('owner_id', userId)
     .single();
   if (fetchError) {
+    console.error('FETCH_DRIVER_ERROR', { id, userId, error: fetchError });
     throw new Error(`Failed to fetch driver: ${fetchError.message}`);
   }
 
