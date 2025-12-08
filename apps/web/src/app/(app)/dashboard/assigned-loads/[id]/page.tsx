@@ -52,7 +52,8 @@ import {
 } from 'lucide-react';
 import { MarketplaceActions } from '@/components/marketplace/marketplace-actions';
 import { TripAssignmentForm } from '@/components/trip-assignment-form';
-import { LoadConversationPanel } from '@/components/messaging/LoadConversationPanel';
+import { LoadDetailMessaging } from '@/components/load-detail';
+import { normalizeAssignedLoad } from '@/lib/load-detail-model';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -264,6 +265,15 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
       : null;
   const status = statusConfig[load.load_status] || statusConfig.accepted;
   const hasDriver = !!load.assigned_driver_name;
+
+  // Normalize load data for shared components (messaging)
+  const model = carrierCompany
+    ? normalizeAssignedLoad(
+        load as unknown as Record<string, unknown>,
+        { id: user.id },
+        { id: carrierCompany.id, name: carrierCompany.name }
+      )
+    : null;
 
   // Build Google Maps URL for pickup navigation
   const pickupAddress = [
@@ -965,21 +975,7 @@ export default async function AssignedLoadDetailPage({ params }: PageProps) {
       )}
 
       {/* Messages Section */}
-      {carrierCompany && (
-        <div>
-          <h2 className="text-lg font-semibold text-foreground mb-4">Messages</h2>
-          <LoadConversationPanel
-            loadId={id}
-            loadNumber={load.load_number || id}
-            companyId={carrierCompany.id}
-            userId={user.id}
-            partnerCompanyId={company?.id}
-            partnerCompanyName={company?.name}
-            driverId={load.assigned_driver_id ?? undefined}
-            driverName={load.assigned_driver_name ?? undefined}
-          />
-        </div>
-      )}
+      {model && <LoadDetailMessaging model={model} />}
 
       {/* Company Contact */}
       {company?.phone && (

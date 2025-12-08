@@ -34,7 +34,7 @@ export default async function MarketplaceLoadDetailPage({ params }: PageProps) {
 
   // Normalize the load data for the shared UI
   const model = normalizeMarketplaceLoad(
-    load as Record<string, unknown>,
+    load as unknown as Record<string, unknown>,
     { id: user.id },
     { id: workspaceCompany.id, name: workspaceCompany.name }
   );
