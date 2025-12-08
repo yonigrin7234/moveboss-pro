@@ -220,8 +220,24 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
     }
 
     try {
+      // DEBUG: Log cleanedData BEFORE validation
+      console.log('PRE_VALIDATION_DEBUG', {
+        cleanedData_location_sharing: cleanedData.location_sharing_enabled,
+        cleanedData_auto_post: cleanedData.auto_post_capacity,
+        cleanedData_keys: Object.keys(cleanedData),
+        cleanedData_full: JSON.stringify(cleanedData),
+      });
+
       const { updateDriverInputSchema } = await import('@/data/drivers');
       const validated = updateDriverInputSchema.parse(cleanedData);
+
+      // DEBUG: Log validated data AFTER validation
+      console.log('POST_VALIDATION_DEBUG', {
+        validated_location_sharing: validated.location_sharing_enabled,
+        validated_auto_post: validated.auto_post_capacity,
+        validated_keys: Object.keys(validated),
+        validated_full: JSON.stringify(validated),
+      });
 
       // Derive effectiveHasLogin ONLY from validated value
       const effectiveHasLogin = validated.has_login === true;

@@ -590,6 +590,8 @@ export async function updateDriver(
     payload_location_sharing: updatePayload.location_sharing_enabled,
     payload_auto_post: updatePayload.auto_post_capacity,
     payload_capacity_visibility: updatePayload.capacity_visibility,
+    full_payload_keys: Object.keys(updatePayload),
+    full_payload: JSON.stringify(updatePayload),
   });
 
   // Handle auth user creation/updates
@@ -658,6 +660,18 @@ export async function updateDriver(
     updatePayload.has_login = effectiveHasLogin;
   }
 
+  // DEBUG: Log right before Supabase update
+  console.log('SUPABASE_UPDATE_CALL', {
+    table: 'drivers',
+    id,
+    companyId,
+    userId,
+    filter_column: companyId ? 'company_id' : 'owner_id',
+    filter_value: companyId ?? userId,
+    payload_loc_sharing: updatePayload.location_sharing_enabled,
+    payload_auto_post: updatePayload.auto_post_capacity,
+  });
+
   const { data, error } = await supabase
     .from('drivers')
     .update(updatePayload)
@@ -686,6 +700,7 @@ export async function updateDriver(
     updated_location_sharing: (updated as any).location_sharing_enabled,
     updated_auto_post: (updated as any).auto_post_capacity,
     updated_capacity_visibility: (updated as any).capacity_visibility,
+    raw_data: JSON.stringify(data),
   });
 
   // Clear previous truck/trailer assignments if changed
