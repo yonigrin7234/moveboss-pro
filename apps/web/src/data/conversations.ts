@@ -487,27 +487,10 @@ export async function getConversationMessages(
   // The messages_select_company policy ensures users can only read
   // messages in conversations belonging to their company.
 
+  // First, fetch messages without joins (to avoid schema relationship issues)
   let query = supabase
     .from('messages')
-    .select(`
-      *,
-      sender_profile:sender_user_id (
-        id,
-        full_name
-      ),
-      sender_driver:sender_driver_id (
-        id,
-        first_name,
-        last_name
-      ),
-      reply_to:reply_to_message_id (
-        id,
-        body,
-        sender_user_id,
-        sender_driver_id,
-        created_at
-      )
-    `)
+    .select('*')
     .eq('conversation_id', conversationId)
     .eq('is_deleted', false)
     .order('created_at', { ascending: false })
@@ -545,16 +528,46 @@ export async function getConversationMessages(
   }
 
   const hasMore = (data?.length ?? 0) > limit;
-  const messages = (data ?? []).slice(0, limit).map((msg) => {
-    const senderProfile = Array.isArray(msg.sender_profile) ? msg.sender_profile[0] : msg.sender_profile;
-    const senderDriver = Array.isArray(msg.sender_driver) ? msg.sender_driver[0] : msg.sender_driver;
-    const replyTo = Array.isArray(msg.reply_to) ? msg.reply_to[0] : msg.reply_to;
+  const messagesRaw = (data ?? []).slice(0, limit);
+
+  // Fetch sender profiles and drivers separately to avoid FK relationship issues
+  const userIds = [...new Set(messagesRaw.map(m => m.sender_user_id).filter(Boolean))];
+  const driverIds = [...new Set(messagesRaw.map(m => m.sender_driver_id).filter(Boolean))];
+
+  // Fetch profiles
+  let profilesMap = new Map<string, { id: string; full_name: string | null }>();
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', userIds);
+    if (profiles) {
+      profilesMap = new Map(profiles.map(p => [p.id, p]));
+    }
+  }
+
+  // Fetch drivers
+  let driversMap = new Map<string, { id: string; first_name: string; last_name: string }>();
+  if (driverIds.length > 0) {
+    const { data: drivers } = await supabase
+      .from('drivers')
+      .select('id, first_name, last_name')
+      .in('id', driverIds);
+    if (drivers) {
+      driversMap = new Map(drivers.map(d => [d.id, d]));
+    }
+  }
+
+  // Transform messages with sender info
+  const messages = messagesRaw.map((msg) => {
+    const senderProfile = msg.sender_user_id ? profilesMap.get(msg.sender_user_id) : undefined;
+    const senderDriver = msg.sender_driver_id ? driversMap.get(msg.sender_driver_id) : undefined;
 
     return {
       ...msg,
       sender_profile: senderProfile ?? undefined,
       sender_driver: senderDriver ?? undefined,
-      reply_to: replyTo ?? undefined,
+      reply_to: undefined, // Skip reply_to for now to simplify
     };
   });
 
