@@ -668,19 +668,18 @@ export async function updateDriver(
   console.log('SUPABASE_UPDATE_CALL', {
     table: 'drivers',
     id,
-    companyId,
     userId,
-    filter_column: companyId ? 'company_id' : 'owner_id',
-    filter_value: companyId ?? userId,
+    existing_owner_id: existing?.owner_id,
     payload_loc_sharing: updatePayload.location_sharing_enabled,
     payload_auto_post: updatePayload.auto_post_capacity,
   });
 
+  // Use owner_id for update filter - more reliable than company_id which may be null
   const { data, error } = await supabase
     .from('drivers')
     .update(updatePayload)
     .eq('id', id)
-    .eq(companyId ? 'company_id' : 'owner_id', companyId ?? userId)
+    .eq('owner_id', userId)
     .select()
     .single();
 

@@ -52,6 +52,7 @@ import type { Load } from '@/data/loads';
 import { TripMapTab } from '@/components/trips/TripMapTab';
 import { useToast } from '@/hooks/use-toast';
 import { LoadSuggestionsPanel } from '@/components/trip/LoadSuggestionsPanel';
+import { TripConversationPanel } from '@/components/messaging/TripConversationPanel';
 
 interface DriverOption {
   id: string;
@@ -90,6 +91,8 @@ interface TripDetailClientProps {
     receivables: any[];
     payables: any[];
   };
+  userId: string;
+  companyId?: string;
   actions: {
     updateTripStatus: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
     addTripLoad: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;

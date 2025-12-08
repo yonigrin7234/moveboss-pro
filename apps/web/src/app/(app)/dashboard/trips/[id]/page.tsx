@@ -23,6 +23,7 @@ import { getLoadsForUser } from '@/data/loads';
 import { getDriversForUser } from '@/data/drivers';
 import { getTrucksForUser, getTrailersForUser } from '@/data/fleet';
 import { createTripSettlement, recalculateTripSettlement } from '@/data/settlements';
+import { getWorkspaceCompanyForUser } from '@/data/companies';
 import { updateLoad, updateLoadInputSchema } from '@/data/loads';
 import { getSettlementSnapshot } from '@/data/settlements';
 import { TripDetailClient } from './TripDetailClient';
@@ -72,12 +73,13 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     );
   }
 
-  const [loads, drivers, trucks, trailers, loadTripAssignmentsMap] = await Promise.all([
+  const [loads, drivers, trucks, trailers, loadTripAssignmentsMap, workspaceCompany] = await Promise.all([
     getLoadsForUser(user.id),
     getDriversForUser(user.id),
     getTrucksForUser(user.id),
     getTrailersForUser(user.id),
     getLoadTripAssignments(user.id),
+    getWorkspaceCompanyForUser(user.id),
   ]);
   const settlementSnapshot = await getSettlementSnapshot(id, user.id);
 
@@ -435,6 +437,8 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
       availableTrailers={activeTrailers}
       loadTripAssignments={loadTripAssignments}
       settlementSnapshot={settlementSnapshot}
+      userId={user.id}
+      companyId={workspaceCompany?.id}
       actions={{
         updateTripStatus: updateTripStatusAction,
         addTripLoad: addTripLoadAction,
