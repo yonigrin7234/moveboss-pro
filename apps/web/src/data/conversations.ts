@@ -578,24 +578,40 @@ export async function sendMessage(
 ): Promise<Message> {
   const supabase = await createClient();
 
-  // Verify user has write access
+  // Check if user has a participant record
   const { data: participant } = await supabase
     .from('conversation_participants')
     .select('can_write, company_id')
     .eq('conversation_id', conversationId)
     .eq('user_id', senderId)
-    .single();
+    .maybeSingle();
 
-  if (!participant?.can_write) {
+  // If participant record exists, check can_write permission
+  if (participant && !participant.can_write) {
     throw new Error('You do not have permission to send messages in this conversation');
   }
+
+  // Get company_id either from participant or from user's primary membership
+  let companyId = options?.sender_company_id ?? participant?.company_id;
+  if (!companyId) {
+    const { data: membership } = await supabase
+      .from('company_memberships')
+      .select('company_id')
+      .eq('user_id', senderId)
+      .eq('is_primary', true)
+      .single();
+    companyId = membership?.company_id;
+  }
+
+  // Note: The RLS policy on messages INSERT enforces that the user must have
+  // access to the conversation via their company membership
 
   const { data: message, error } = await supabase
     .from('messages')
     .insert({
       conversation_id: conversationId,
       sender_user_id: senderId,
-      sender_company_id: options?.sender_company_id ?? participant.company_id,
+      sender_company_id: companyId,
       body,
       message_type: options?.message_type ?? 'text',
       attachments: options?.attachments ?? [],
