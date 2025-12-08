@@ -74,10 +74,6 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     );
   }
 
-  // Debug: Check audit log count directly
-  const auditDebug = await debugAuditLogCount('trip', id);
-  console.log('[Trip Page] Audit debug result:', auditDebug);
-
   const [loads, drivers, trucks, trailers, loadTripAssignmentsMap, workspaceCompany, auditLogs] = await Promise.all([
     getLoadsForUser(user.id),
     getDriversForUser(user.id),
@@ -87,8 +83,6 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     getWorkspaceCompanyForUser(user.id),
     getAuditLogsForEntity('trip', id, { limit: 50 }),
   ]);
-
-  console.log('[Trip Page] Audit logs fetched:', auditLogs.length, 'logs');
   const settlementSnapshot = await getSettlementSnapshot(id, user.id);
 
   // Get load IDs already on this trip
