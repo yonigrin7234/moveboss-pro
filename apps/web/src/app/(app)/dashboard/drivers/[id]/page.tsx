@@ -277,8 +277,16 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
         }
       } as { errors?: Record<string, string>; success?: boolean; _debug?: Record<string, unknown> };
     } catch (error) {
+      // LOG THE FULL ERROR SO WE CAN SEE IT
+      console.error('UPDATE_DRIVER_ACTION_ERROR', {
+        error_type: error?.constructor?.name,
+        error_message: error instanceof Error ? error.message : String(error),
+        error_full: JSON.stringify(error, Object.getOwnPropertyNames(error || {})),
+      });
+
       if (error && typeof error === 'object' && 'issues' in error) {
         const zodError = error as { issues: Array<{ path: (string | number)[]; message: string }> };
+        console.error('ZOD_VALIDATION_ERROR', { issues: zodError.issues });
         const errors: Record<string, string> = {};
         zodError.issues.forEach((issue) => {
           const field = issue.path[0] as string;

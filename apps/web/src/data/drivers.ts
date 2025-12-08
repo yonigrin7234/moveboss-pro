@@ -412,7 +412,21 @@ export async function createDriver(
     // Use validated default equipment values
     default_truck_id: finalDefaultTruckId ?? null,
     default_trailer_id: finalDefaultTrailerId ?? null,
+    // EXPLICITLY include location settings
+    location_sharing_enabled: input.location_sharing_enabled === true,
+    auto_post_capacity: input.auto_post_capacity === true,
+    capacity_visibility: input.capacity_visibility || 'private',
   };
+
+  // Debug: Log location settings in create payload
+  console.log('CREATE_DRIVER_PAYLOAD_DEBUG', {
+    input_location_sharing: input.location_sharing_enabled,
+    input_auto_post: input.auto_post_capacity,
+    input_capacity_visibility: input.capacity_visibility,
+    payload_location_sharing: insertPayload.location_sharing_enabled,
+    payload_auto_post: insertPayload.auto_post_capacity,
+    payload_capacity_visibility: insertPayload.capacity_visibility,
+  });
 
   const { data, error } = await dbClient
     .from('drivers')

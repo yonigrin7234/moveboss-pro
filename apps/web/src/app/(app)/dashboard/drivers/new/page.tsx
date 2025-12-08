@@ -60,6 +60,16 @@ export async function createDriverAction(
   const auto_post_capacity = formData.get('auto_post_capacity') === 'true';
   const capacity_visibility = (formData.get('capacity_visibility') as string) || 'private';
 
+  // Debug: Log location settings extraction
+  console.log('NEW_DRIVER_LOCATION_SETTINGS_DEBUG', {
+    raw_location_sharing: formData.get('location_sharing_enabled'),
+    raw_auto_post: formData.get('auto_post_capacity'),
+    raw_capacity_visibility: formData.get('capacity_visibility'),
+    parsed_location_sharing: location_sharing_enabled,
+    parsed_auto_post: auto_post_capacity,
+    parsed_capacity_visibility: capacity_visibility,
+  });
+
   // Early validation: if portal access requested but service role key missing
   if (requestedHasLogin && !hasServiceRoleKey) {
     return {
@@ -189,6 +199,10 @@ export async function createDriverAction(
       login_method,
       email,
       phone,
+      // Location settings after validation
+      validated_location_sharing: validated.location_sharing_enabled,
+      validated_auto_post: validated.auto_post_capacity,
+      validated_capacity_visibility: validated.capacity_visibility,
     });
 
     const createdDriver = await createDriver(validated, user.id, {
