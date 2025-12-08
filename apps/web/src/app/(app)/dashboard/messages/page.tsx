@@ -1,24 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { format, isToday, isYesterday } from 'date-fns';
 import {
   MessageSquare,
   Search,
   Filter,
   Loader2,
-  Users,
-  Globe,
-  Building2,
-  Package,
-  Route,
-  Send,
-  AlertCircle,
   ChevronLeft,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
@@ -29,29 +21,24 @@ import {
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
+import {
+  ConversationList,
+  MessageList,
+  MessageComposer,
+  ConversationTypeIcon,
+} from '@/components/messaging/unified';
 import type {
   ConversationType,
   ConversationWithDetails,
   MessageWithSender,
 } from '@/lib/communication-types';
+import type { ConversationListItemProps } from '@/components/messaging/unified';
 
 type ConversationFilter = 'all' | 'load' | 'trip' | 'company';
 
-interface ConversationListItemData {
-  id: string;
-  type: ConversationType;
-  title: string;
-  subtitle: string;
-  lastMessage: string | null;
-  lastMessageAt: string | null;
-  unreadCount: number;
-  load?: { id: string; load_number: string };
-  trip?: { id: string; trip_number: string };
-  partner_company?: { id: string; name: string };
-}
-
 export default function MessagesPage() {
-  const [conversations, setConversations] = useState<ConversationListItemData[]>([]);
+  // State
+  const [conversations, setConversations] = useState<ConversationListItemProps[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [selectedConversation, setSelectedConversation] = useState<ConversationWithDetails | null>(null);
   const [messages, setMessages] = useState<MessageWithSender[]>([]);
@@ -61,9 +48,16 @@ export default function MessagesPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<ConversationFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [messageInput, setMessageInput] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isMobileThreadOpen, setIsMobileThreadOpen] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // Get current user ID
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(res => res.json())
+      .then(data => setUserId(data.user?.id || null))
+      .catch(() => setUserId(null));
+  }, []);
 
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
@@ -89,18 +83,17 @@ export default function MessagesPage() {
 
       const { conversations: data } = await res.json();
 
-      // Transform to list items
-      const items: ConversationListItemData[] = (data || []).map((conv: ConversationWithDetails) => ({
+      // Transform to list item format
+      const items: ConversationListItemProps[] = (data || []).map((conv: ConversationWithDetails) => ({
         id: conv.id,
         type: conv.type,
         title: getConversationTitle(conv),
         subtitle: getConversationSubtitle(conv),
         lastMessage: conv.last_message_preview,
         lastMessageAt: conv.last_message_at,
-        unreadCount: 0, // TODO: Get from participant data
-        load: conv.load,
-        trip: conv.trip,
-        partner_company: conv.partner_company,
+        unreadCount: 0,
+        isSelected: false,
+        onClick: () => {},
       }));
 
       setConversations(items);
@@ -147,14 +140,9 @@ export default function MessagesPage() {
     }
   }, [selectedConversationId, fetchMessages]);
 
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
   // Send message
-  const handleSendMessage = async () => {
-    if (!selectedConversationId || !messageInput.trim() || isSending) return;
+  const handleSendMessage = useCallback(async (body: string) => {
+    if (!selectedConversationId || !body.trim()) return;
 
     try {
       setIsSending(true);
@@ -163,7 +151,7 @@ export default function MessagesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           conversation_id: selectedConversationId,
-          body: messageInput.trim(),
+          body: body.trim(),
         }),
       });
 
@@ -172,53 +160,50 @@ export default function MessagesPage() {
         throw new Error(error);
       }
 
-      setMessageInput('');
+      // Refetch messages
       fetchMessages();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send message');
     } finally {
       setIsSending(false);
     }
-  };
+  }, [selectedConversationId, fetchMessages]);
 
   // Filter conversations by search
-  const filteredConversations = conversations.filter((conv) => {
-    if (!searchQuery) return true;
+  const filteredConversations = useMemo(() => {
+    if (!searchQuery) return conversations;
     const query = searchQuery.toLowerCase();
-    return (
+    return conversations.filter((conv) =>
       conv.title.toLowerCase().includes(query) ||
       conv.subtitle.toLowerCase().includes(query) ||
       conv.lastMessage?.toLowerCase().includes(query)
     );
-  });
+  }, [conversations, searchQuery]);
 
   // Select a conversation
-  const handleSelectConversation = (id: string) => {
+  const handleSelectConversation = useCallback((id: string) => {
     setSelectedConversationId(id);
     setIsMobileThreadOpen(true);
-  };
+  }, []);
 
   // Go back (mobile)
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     setIsMobileThreadOpen(false);
-  };
+  }, []);
 
   return (
     <div className="h-[calc(100vh-120px)] flex flex-col">
       {/* Header */}
       <div className="border-b px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-muted-foreground" />
-            <h1 className="text-xl font-semibold">Messages</h1>
-          </div>
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-5 w-5 text-muted-foreground" />
+          <h1 className="text-xl font-semibold">Messages</h1>
         </div>
       </div>
 
       {/* Error display */}
       {error && (
         <Alert variant="destructive" className="mx-6 mt-4">
-          <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
@@ -228,7 +213,7 @@ export default function MessagesPage() {
         {/* Left column - Conversation list */}
         <div
           className={cn(
-            'w-full md:w-[360px] border-r flex flex-col',
+            'w-full md:w-[380px] border-r flex flex-col bg-background',
             isMobileThreadOpen && 'hidden md:flex'
           )}
         >
@@ -258,42 +243,30 @@ export default function MessagesPage() {
           </div>
 
           {/* Conversation list */}
-          <ScrollArea className="flex-1">
-            {isLoadingConversations ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : filteredConversations.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                <MessageSquare className="h-12 w-12 mb-2 opacity-50" />
-                <p>No conversations found</p>
-              </div>
-            ) : (
-              <div className="divide-y">
-                {filteredConversations.map((conv) => (
-                  <ConversationListItem
-                    key={conv.id}
-                    conversation={conv}
-                    isSelected={conv.id === selectedConversationId}
-                    onClick={() => handleSelectConversation(conv.id)}
-                  />
-                ))}
-              </div>
-            )}
-          </ScrollArea>
+          <ConversationList
+            conversations={filteredConversations.map(c => ({
+              ...c,
+              isSelected: c.id === selectedConversationId,
+              onClick: () => handleSelectConversation(c.id),
+            }))}
+            isLoading={isLoadingConversations}
+            selectedId={selectedConversationId ?? undefined}
+            onSelect={handleSelectConversation}
+            emptyMessage="No conversations found"
+          />
         </div>
 
         {/* Right column - Thread view */}
         <div
           className={cn(
-            'flex-1 flex flex-col',
+            'flex-1 flex flex-col bg-card',
             !isMobileThreadOpen && 'hidden md:flex'
           )}
         >
-          {selectedConversationId ? (
+          {selectedConversationId && selectedConversation ? (
             <>
               {/* Thread header */}
-              <div className="px-4 py-3 border-b flex items-center gap-3">
+              <div className="px-4 py-3 border-b flex items-center gap-3 bg-background/50">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -302,80 +275,45 @@ export default function MessagesPage() {
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </Button>
+                <ConversationTypeIcon type={selectedConversation.type} />
                 <div className="flex-1 min-w-0">
-                  <h2 className="font-semibold truncate">
-                    {selectedConversation
-                      ? getConversationTitle(selectedConversation)
-                      : 'Loading...'}
+                  <h2 className="font-semibold text-sm truncate">
+                    {getConversationTitle(selectedConversation)}
                   </h2>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {selectedConversation
-                      ? getConversationSubtitle(selectedConversation)
-                      : ''}
+                  <p className="text-xs text-muted-foreground truncate">
+                    {getConversationSubtitle(selectedConversation)}
                   </p>
                 </div>
-                <ConversationTypeIcon type={selectedConversation?.type} />
               </div>
 
               {/* Messages */}
-              <ScrollArea className="flex-1 p-4">
-                {isLoadingMessages ? (
-                  <div className="flex items-center justify-center h-full">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
-                ) : messages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                    <MessageSquare className="h-12 w-12 mb-2 opacity-50" />
-                    <p>No messages yet</p>
-                    <p className="text-sm">Start the conversation!</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {messages.map((message, index) => {
-                      const showDateHeader = shouldShowDateHeader(message, messages[index - 1]);
-                      return (
-                        <React.Fragment key={message.id}>
-                          {showDateHeader && <DateHeader date={message.created_at} />}
-                          <MessageBubble message={message} />
-                        </React.Fragment>
-                      );
-                    })}
-                    <div ref={messagesEndRef} />
-                  </div>
-                )}
-              </ScrollArea>
+              <MessageList
+                messages={messages}
+                currentUserId={userId || ''}
+                isLoading={isLoadingMessages}
+                emptyMessage="No messages yet"
+              />
 
               {/* Input area */}
-              <div className="p-4 border-t">
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }}
-                  className="flex gap-2"
-                >
-                  <Input
-                    value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    placeholder="Type a message..."
-                    disabled={isSending}
-                    className="flex-1"
-                  />
-                  <Button type="submit" disabled={isSending || !messageInput.trim()}>
-                    {isSending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                  </Button>
-                </form>
-              </div>
+              <MessageComposer
+                onSend={handleSendMessage}
+                isSending={isSending}
+                placeholder="Type a message..."
+              />
             </>
+          ) : selectedConversationId ? (
+            // Loading state
+            <div className="flex-1 flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
+            // Empty state
+            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8">
               <MessageSquare className="h-16 w-16 mb-4 opacity-30" />
-              <p className="text-lg">Select a conversation</p>
-              <p className="text-sm">Choose a conversation from the list to view messages</p>
+              <p className="text-lg font-medium">Select a conversation</p>
+              <p className="text-sm text-center mt-1">
+                Choose a conversation from the list to view messages
+              </p>
             </div>
           )}
         </div>
@@ -384,151 +322,8 @@ export default function MessagesPage() {
   );
 }
 
-// Helper components
-
-interface ConversationListItemProps {
-  conversation: ConversationListItemData;
-  isSelected: boolean;
-  onClick: () => void;
-}
-
-function ConversationListItem({ conversation, isSelected, onClick }: ConversationListItemProps) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors',
-        isSelected && 'bg-muted'
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <ConversationTypeIcon type={conversation.type} className="mt-1 shrink-0" />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-medium truncate">{conversation.title}</span>
-            {conversation.lastMessageAt && (
-              <span className="text-xs text-muted-foreground shrink-0">
-                {formatMessageTime(conversation.lastMessageAt)}
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-muted-foreground truncate">{conversation.subtitle}</p>
-          {conversation.lastMessage && (
-            <p className="text-sm text-muted-foreground truncate mt-1">
-              {conversation.lastMessage}
-            </p>
-          )}
-        </div>
-        {conversation.unreadCount > 0 && (
-          <Badge variant="default" className="shrink-0">
-            {conversation.unreadCount}
-          </Badge>
-        )}
-      </div>
-    </button>
-  );
-}
-
-function ConversationTypeIcon({
-  type,
-  className,
-}: {
-  type?: ConversationType;
-  className?: string;
-}) {
-  const iconClass = cn('h-5 w-5 text-muted-foreground', className);
-
-  switch (type) {
-    case 'load_internal':
-      return <Users className={iconClass} />;
-    case 'load_shared':
-      return <Globe className={iconClass} />;
-    case 'trip_internal':
-      return <Route className={iconClass} />;
-    case 'company_to_company':
-      return <Building2 className={iconClass} />;
-    default:
-      return <MessageSquare className={iconClass} />;
-  }
-}
-
-function shouldShowDateHeader(
-  current: MessageWithSender,
-  previous: MessageWithSender | undefined
-): boolean {
-  if (!previous) return true;
-  const currentDate = new Date(current.created_at).toDateString();
-  const previousDate = new Date(previous.created_at).toDateString();
-  return currentDate !== previousDate;
-}
-
-function DateHeader({ date }: { date: string }) {
-  const dateObj = new Date(date);
-  let label: string;
-
-  if (isToday(dateObj)) {
-    label = 'Today';
-  } else if (isYesterday(dateObj)) {
-    label = 'Yesterday';
-  } else {
-    label = format(dateObj, 'MMMM d, yyyy');
-  }
-
-  return (
-    <div className="flex justify-center my-4">
-      <span className="px-3 py-1 text-xs bg-muted rounded-full text-muted-foreground">
-        {label}
-      </span>
-    </div>
-  );
-}
-
-interface MessageBubbleProps {
-  message: MessageWithSender;
-}
-
-function MessageBubble({ message }: MessageBubbleProps) {
-  const senderName =
-    message.sender_profile?.full_name ||
-    (message.sender_driver
-      ? `${message.sender_driver.first_name} ${message.sender_driver.last_name}`
-      : 'Unknown');
-
-  const isAI = message.message_type === 'ai_response';
-  const isSystem = message.message_type === 'system';
-
-  if (isSystem) {
-    return (
-      <div className="flex justify-center">
-        <span className="text-xs text-muted-foreground italic">{message.body}</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex justify-start">
-      <div
-        className={cn(
-          'max-w-[80%] rounded-lg px-4 py-2',
-          isAI ? 'bg-green-50 border border-green-200' : 'bg-muted'
-        )}
-      >
-        <p className={cn('text-xs font-medium mb-1', isAI ? 'text-green-600' : 'text-muted-foreground')}>
-          {isAI ? 'AI Assistant' : senderName}
-        </p>
-        <p className="text-sm text-foreground">{message.body}</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          {format(new Date(message.created_at), 'h:mm a')}
-          {message.is_edited && ' (edited)'}
-        </p>
-      </div>
-    </div>
-  );
-}
-
 // Helper functions
-
-function getConversationTitle(conv: ConversationWithDetails | ConversationListItemData): string {
+function getConversationTitle(conv: ConversationWithDetails): string {
   if (conv.title) return conv.title;
 
   switch (conv.type) {
@@ -545,28 +340,17 @@ function getConversationTitle(conv: ConversationWithDetails | ConversationListIt
   }
 }
 
-function getConversationSubtitle(conv: ConversationWithDetails | ConversationListItemData): string {
+function getConversationSubtitle(conv: ConversationWithDetails): string {
   switch (conv.type) {
     case 'load_internal':
       return 'Internal team discussion';
     case 'load_shared':
-      return conv.partner_company ? `with ${conv.partner_company.name}` : 'Shared with partner';
+      return conv.partner_company ? `Shared with ${conv.partner_company.name}` : 'Shared with partner';
     case 'trip_internal':
       return 'Trip coordination';
     case 'company_to_company':
       return 'Company thread';
     default:
       return '';
-  }
-}
-
-function formatMessageTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  if (isToday(date)) {
-    return format(date, 'h:mm a');
-  } else if (isYesterday(date)) {
-    return 'Yesterday';
-  } else {
-    return format(date, 'MMM d');
   }
 }

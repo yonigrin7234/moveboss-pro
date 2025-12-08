@@ -186,47 +186,49 @@ function TabButton({
 
 const { width } = Dimensions.get('window');
 
+// Slack/Intercom-style enterprise theme
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#0D1117',
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#161B22',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#30363D',
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
   tabButtonActive: {
-    borderBottomColor: '#3B82F6',
+    borderBottomColor: '#58A6FF',
+    backgroundColor: '#21262D',
   },
   tabContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
   },
   tabLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#6B7280',
+    color: '#8B949E',
   },
   tabLabelActive: {
-    color: '#3B82F6',
+    color: '#58A6FF',
     fontWeight: '600',
   },
   readOnlyIcon: {
     marginLeft: 2,
   },
   unreadBadge: {
-    backgroundColor: '#EF4444',
+    backgroundColor: '#F87171',
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -244,38 +246,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFBEB',
-    padding: 8,
-    gap: 6,
+    backgroundColor: '#2D2006',
+    padding: 10,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#5C4813',
   },
   readOnlyNoticeText: {
     fontSize: 12,
-    color: '#92400E',
+    color: '#F59E0B',
   },
   noConversation: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
+    backgroundColor: '#0D1117',
   },
   noConversationText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#6B7280',
+    color: '#8B949E',
     textAlign: 'center',
   },
   noConversationError: {
     marginTop: 12,
     fontSize: 16,
-    color: '#EF4444',
+    color: '#F87171',
     textAlign: 'center',
   },
   retryButton: {
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: '#3B82F6',
-    borderRadius: 8,
+    backgroundColor: '#238636',
+    borderRadius: 6,
   },
   retryButtonText: {
     color: '#FFFFFF',

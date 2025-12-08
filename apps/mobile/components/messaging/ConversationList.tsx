@@ -168,36 +168,38 @@ function ConversationItem({ conversation, onPress }: ConversationItemProps) {
   );
 }
 
+// Slack/Intercom-style enterprise theme
 const styles = StyleSheet.create({
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
+    backgroundColor: '#0D1117',
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#6B7280',
+    color: '#8B949E',
   },
   errorText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#EF4444',
+    color: '#F87171',
     textAlign: 'center',
   },
   emptyText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#9CA3AF',
+    color: '#6E7681',
     textAlign: 'center',
   },
   retryButton: {
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: '#3B82F6',
-    borderRadius: 8,
+    backgroundColor: '#238636',
+    borderRadius: 6,
   },
   retryButtonText: {
     color: '#FFFFFF',
@@ -205,17 +207,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   listContent: {
-    paddingVertical: 8,
+    paddingVertical: 4,
+    backgroundColor: '#0D1117',
   },
   separator: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#21262D',
     marginHorizontal: 16,
   },
   itemContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0D1117',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   itemContent: {
     flexDirection: 'row',
@@ -232,6 +235,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   itemMain: {
     flex: 1,
@@ -240,27 +244,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   itemTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#111827',
+    color: '#E6EDF3',
     flex: 1,
     marginRight: 8,
   },
   itemTime: {
-    fontSize: 12,
-    color: '#9CA3AF',
+    fontSize: 11,
+    color: '#6E7681',
   },
   itemSubtitle: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#8B949E',
     marginBottom: 4,
   },
   itemPreview: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#6E7681',
     lineHeight: 20,
   },
   itemIndicators: {
@@ -270,21 +274,21 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   unreadBadge: {
-    backgroundColor: '#3B82F6',
-    borderRadius: 12,
-    minWidth: 24,
-    height: 24,
+    backgroundColor: '#58A6FF',
+    borderRadius: 10,
+    minWidth: 22,
+    height: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 7,
   },
   unreadBadgeText: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
   },
   readOnlyBadge: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#21262D',
     borderRadius: 4,
     padding: 4,
   },

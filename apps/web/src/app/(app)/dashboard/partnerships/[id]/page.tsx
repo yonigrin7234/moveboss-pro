@@ -43,7 +43,7 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { RequestDocumentsButton } from '@/components/partnerships/RequestDocumentsButton';
-import { CompanyConversationPanel } from '@/components/messaging/CompanyConversationPanel';
+import { ChatPanel } from '@/components/messaging/unified';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   active: { label: 'Active', color: 'bg-green-500/20 text-green-600 dark:text-green-400' },
@@ -479,12 +479,15 @@ export default async function PartnershipDetailPage({
             <CardTitle>Messages</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <CompanyConversationPanel
-              myCompanyId={myCompany.id}
+            <ChatPanel
+              context="company"
+              companyId={myCompany.id}
               partnerCompanyId={partner.id}
               partnerCompanyName={partner.name}
               isPartnerMoveBossMember={partnerIsMoveBossMember}
               userId={user.id}
+              height={450}
+              minimal
             />
           </CardContent>
         </Card>

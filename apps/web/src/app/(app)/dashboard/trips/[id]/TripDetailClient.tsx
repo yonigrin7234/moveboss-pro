@@ -52,7 +52,7 @@ import type { Load } from '@/data/loads';
 import { TripMapTab } from '@/components/trips/TripMapTab';
 import { useToast } from '@/hooks/use-toast';
 import { LoadSuggestionsPanel } from '@/components/trip/LoadSuggestionsPanel';
-import { TripConversationPanel } from '@/components/messaging/TripConversationPanel';
+import { ChatPanel } from '@/components/messaging/unified';
 
 interface DriverOption {
   id: string;
@@ -1453,11 +1453,13 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
         {/* Messages Tab */}
         <TabsContent value="messages" className="mt-0">
           {companyId ? (
-            <TripConversationPanel
+            <ChatPanel
+              context="trip"
               tripId={trip.id}
-              tripNumber={trip.trip_number}
               companyId={companyId}
               userId={userId}
+              isInternal={true}
+              height={450}
             />
           ) : (
             <Card>

@@ -310,26 +310,28 @@ function MessageBubble({ message, isOwn, onLongPress }: MessageBubbleProps) {
   );
 }
 
+// Slack/Intercom-style enterprise messaging design
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#0D1117', // Dark background matching MoveBoss theme
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
+    backgroundColor: '#0D1117',
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#6B7280',
+    color: '#8B949E',
   },
   errorText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#EF4444',
+    color: '#F87171',
     textAlign: 'center',
   },
   retryButton: {
@@ -337,7 +339,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 12,
     backgroundColor: '#3B82F6',
-    borderRadius: 8,
+    borderRadius: 6,
   },
   retryButtonText: {
     color: '#FFFFFF',
@@ -348,15 +350,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#161B22',
     padding: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#30363D',
     gap: 6,
   },
   readOnlyText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#8B949E',
   },
   messagesList: {
     padding: 16,
@@ -372,72 +374,78 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#8B949E',
   },
   emptySubtext: {
     marginTop: 4,
     fontSize: 14,
-    color: '#9CA3AF',
+    color: '#6E7681',
   },
   dateHeader: {
     alignItems: 'center',
     marginVertical: 16,
   },
   dateHeaderText: {
-    fontSize: 12,
-    color: '#6B7280',
-    backgroundColor: '#E5E7EB',
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#8B949E',
+    backgroundColor: '#21262D',
     paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 10,
     overflow: 'hidden',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
+  // Slack-style message bubbles - cleaner rectangles, not pills
   messageBubble: {
-    maxWidth: '80%',
+    maxWidth: '85%',
     padding: 12,
-    borderRadius: 16,
-    marginBottom: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8, // Smaller radius for enterprise look
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   ownMessage: {
     alignSelf: 'flex-end',
-    backgroundColor: '#3B82F6',
-    borderBottomRightRadius: 4,
+    backgroundColor: '#1F6FEB', // Blue for own messages
+    borderColor: '#388BFD',
   },
   otherMessage: {
     alignSelf: 'flex-start',
-    backgroundColor: '#FFFFFF',
-    borderBottomLeftRadius: 4,
+    backgroundColor: '#21262D', // Dark gray for others
+    borderColor: '#30363D',
   },
   aiMessage: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#0D1F12', // Dark green tint
     borderWidth: 1,
-    borderColor: '#86EFAC',
+    borderColor: '#238636',
   },
   senderName: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#58A6FF', // Blue accent for names
     marginBottom: 4,
   },
   aiSenderName: {
-    color: '#16A34A',
+    color: '#3FB950', // Green for AI
   },
   messageText: {
     fontSize: 15,
-    color: '#111827',
-    lineHeight: 20,
+    color: '#E6EDF3', // Light text
+    lineHeight: 21,
   },
   ownMessageText: {
     color: '#FFFFFF',
   },
   messageTime: {
     fontSize: 10,
-    color: '#9CA3AF',
-    marginTop: 4,
-    alignSelf: 'flex-end',
+    color: '#6E7681',
+    marginTop: 6,
   },
   ownMessageTime: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: 'rgba(255, 255, 255, 0.6)',
   },
   systemMessage: {
     alignItems: 'center',
@@ -445,75 +453,79 @@ const styles = StyleSheet.create({
   },
   systemMessageText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#6E7681',
     fontStyle: 'italic',
     textAlign: 'center',
   },
   replyPreview: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    padding: 8,
+    backgroundColor: '#161B22',
+    padding: 10,
     paddingHorizontal: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: '#30363D',
   },
   replyContent: {
     flex: 1,
+    borderLeftWidth: 2,
+    borderLeftColor: '#3B82F6',
+    paddingLeft: 10,
   },
   replyLabel: {
     fontSize: 11,
-    color: '#6B7280',
+    color: '#8B949E',
     fontWeight: '600',
   },
   replyText: {
     fontSize: 13,
-    color: '#374151',
+    color: '#C9D1D9',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    padding: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#FFFFFF',
+    padding: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#161B22',
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: '#30363D',
   },
   textInput: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 20,
-    paddingHorizontal: 16,
+    backgroundColor: '#0D1117',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#30363D',
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    paddingRight: 16,
     fontSize: 15,
     maxHeight: 100,
-    color: '#111827',
+    color: '#E6EDF3',
   },
   sendButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: '#3B82F6',
+    borderRadius: 6,
+    backgroundColor: '#238636',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
+    marginLeft: 10,
   },
   sendButtonDisabled: {
-    backgroundColor: '#9CA3AF',
+    backgroundColor: '#21262D',
   },
   readOnlyInput: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#161B22',
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: '#30363D',
     gap: 8,
   },
   readOnlyInputText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#6E7681',
   },
 });
