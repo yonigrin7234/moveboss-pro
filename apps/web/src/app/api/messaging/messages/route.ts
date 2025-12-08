@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import {
   getConversationMessages,
+  getConversation,
   sendMessage,
   sendMessageSchema,
 } from '@/data/conversations';
@@ -30,13 +31,21 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'conversation_id is required' }, { status: 400 });
     }
 
-    const { messages, hasMore } = await getConversationMessages(conversationId, user.id, {
-      limit,
-      before,
-      after,
-    });
+    // Fetch conversation details and messages in parallel
+    const [conversation, messagesResult] = await Promise.all([
+      getConversation(conversationId, user.id),
+      getConversationMessages(conversationId, user.id, {
+        limit,
+        before,
+        after,
+      }),
+    ]);
 
-    return NextResponse.json({ messages, hasMore });
+    return NextResponse.json({
+      messages: messagesResult.messages,
+      hasMore: messagesResult.hasMore,
+      conversation,
+    });
   } catch (error) {
     console.error('Get messages API error:', error);
     return NextResponse.json(

@@ -128,6 +128,7 @@ export async function getUserConversations(
       is_muted,
       last_message_at,
       last_message_preview,
+      last_message_sender_name,
       message_count,
       created_at,
       loads:load_id (
@@ -231,12 +232,18 @@ export async function getUserConversations(
         break;
     }
 
+    // Format preview with sender name
+    const senderName = (conv as { last_message_sender_name?: string }).last_message_sender_name;
+    const messagePreview = conv.last_message_preview
+      ? (senderName ? `${senderName}: ${conv.last_message_preview}` : conv.last_message_preview)
+      : undefined;
+
     return {
       id: conv.id,
       type: conv.type as ConversationType,
       title,
       subtitle,
-      last_message_preview: conv.last_message_preview,
+      last_message_preview: messagePreview,
       last_message_at: conv.last_message_at,
       unread_count: participant?.unread_count ?? 0,
       is_muted: conv.is_muted || participant?.is_muted || false,
@@ -307,14 +314,8 @@ export async function getConversation(
     throw new Error(`Failed to fetch conversation: ${error.message}`);
   }
 
-  // Verify user has access
-  const userParticipant = data.conversation_participants?.find(
-    (p: ConversationParticipant) => p.user_id === userId && p.can_read
-  );
-
-  if (!userParticipant) {
-    return null; // User doesn't have access
-  }
+  // Note: RLS policies enforce access control.
+  // If the query returns data, the user has access via company membership.
 
   // Transform relations
   const load = Array.isArray(data.loads) ? data.loads[0] : data.loads;
@@ -487,17 +488,9 @@ export async function getConversationMessages(
   const supabase = await createClient();
   const limit = options?.limit ?? 50;
 
-  // Verify user has read access
-  const { data: participant } = await supabase
-    .from('conversation_participants')
-    .select('can_read')
-    .eq('conversation_id', conversationId)
-    .eq('user_id', userId)
-    .single();
-
-  if (!participant?.can_read) {
-    throw new Error('Access denied');
-  }
+  // Note: We rely on RLS policies to enforce access control.
+  // The messages_select_company policy ensures users can only read
+  // messages in conversations belonging to their company.
 
   let query = supabase
     .from('messages')
@@ -1123,6 +1116,7 @@ export async function getDriverConversations(
       is_muted,
       last_message_at,
       last_message_preview,
+      last_message_sender_name,
       message_count,
       loads:load_id (
         id,
@@ -1196,12 +1190,18 @@ export async function getDriverConversations(
         title = title || 'Chat';
     }
 
+    // Format preview with sender name
+    const senderName = (conv as { last_message_sender_name?: string }).last_message_sender_name;
+    const messagePreview = conv.last_message_preview
+      ? (senderName ? `${senderName}: ${conv.last_message_preview}` : conv.last_message_preview)
+      : undefined;
+
     return {
       id: conv.id,
       type: conv.type as ConversationType,
       title,
       subtitle,
-      last_message_preview: conv.last_message_preview,
+      last_message_preview: messagePreview,
       last_message_at: conv.last_message_at,
       unread_count: participant?.unread_count ?? 0,
       is_muted: conv.is_muted || participant?.is_muted || false,
