@@ -860,6 +860,22 @@ export async function acceptLoadRequest(
           console.log('[Partnership Creation] Broker partnership already exists:', existingBrokerPartnership.id);
           newPartnership = existingBrokerPartnership;
           brokerPartnershipCreated = true;
+
+          // Check if this is a reverse transaction - broker previously only received loads
+          // If so, upgrade to 'mutual' relationship
+          const { data: currentBrokerPartnership } = await adminClient
+            .from('company_partnerships')
+            .select('relationship_type')
+            .eq('id', existingBrokerPartnership.id)
+            .single();
+
+          if (currentBrokerPartnership?.relationship_type === 'receives_loads') {
+            console.log('[Partnership Creation] Upgrading broker partnership to mutual (was receives_loads, now also gives_loads)');
+            await adminClient
+              .from('company_partnerships')
+              .update({ relationship_type: 'mutual', updated_at: new Date().toISOString() })
+              .eq('id', existingBrokerPartnership.id);
+          }
         } else {
           // Create partnership for the broker (load owner)
           const { data: createdPartnership, error: partnershipError } = await adminClient
@@ -905,6 +921,22 @@ export async function acceptLoadRequest(
         if (existingCarrierPartnership) {
           console.log('[Partnership Creation] Carrier partnership already exists:', existingCarrierPartnership.id);
           carrierPartnershipCreated = true;
+
+          // Check if this is a reverse transaction - carrier previously only gave loads
+          // If so, upgrade to 'mutual' relationship
+          const { data: currentCarrierPartnership } = await adminClient
+            .from('company_partnerships')
+            .select('relationship_type')
+            .eq('id', existingCarrierPartnership.id)
+            .single();
+
+          if (currentCarrierPartnership?.relationship_type === 'gives_loads') {
+            console.log('[Partnership Creation] Upgrading carrier partnership to mutual (was gives_loads, now also receives_loads)');
+            await adminClient
+              .from('company_partnerships')
+              .update({ relationship_type: 'mutual', updated_at: new Date().toISOString() })
+              .eq('id', existingCarrierPartnership.id);
+          }
         } else {
           // Create partnership for the carrier (so they see this in their partnerships)
           const { data: carrierPartnership, error: carrierPartnershipError } = await adminClient
