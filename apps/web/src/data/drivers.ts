@@ -580,6 +580,10 @@ export async function updateDriver(
     // Use validated default equipment values
     default_truck_id: finalDefaultTruckId,
     default_trailer_id: finalDefaultTrailerId,
+    // EXPLICITLY include location settings (Zod partial() may strip these)
+    location_sharing_enabled: input.location_sharing_enabled === true,
+    auto_post_capacity: input.auto_post_capacity === true,
+    capacity_visibility: input.capacity_visibility || 'private',
   };
 
   // Debug: Log location settings in update payload
