@@ -8,6 +8,7 @@ import {
   notifyDriverAssigned,
 } from './notifications';
 import { createComplianceRequestsForPartnership } from './compliance';
+import { logAuditEvent } from '@/lib/audit';
 
 export interface MarketplaceStorageLocation {
   id: string;
@@ -706,6 +707,26 @@ export async function createLoadRequest(
     route
   );
 
+  // AUDIT LOGGING: Log carrier request submitted
+  logAuditEvent(supabase, {
+    entityType: 'load',
+    entityId: data.load_id,
+    action: 'carrier_request_submitted',
+    performedByUserId: carrierOwnerId,
+    newValue: {
+      request_id: result.id,
+      carrier_id: carrierId,
+      request_type: data.request_type || 'accept_listed',
+      offered_rate: data.offered_rate,
+    },
+    metadata: {
+      request_id: result.id,
+      carrier_name: carrier?.name || null,
+      load_number: load.load_number,
+      is_counter_offer: data.request_type === 'counter_offer',
+    },
+  });
+
   return { success: true, id: result.id };
 }
 
@@ -1008,6 +1029,41 @@ export async function acceptLoadRequest(
     route
   );
 
+  // AUDIT LOGGING: Log carrier request accepted and carrier assigned
+  logAuditEvent(supabase, {
+    entityType: 'load',
+    entityId: request.load_id,
+    action: 'carrier_request_accepted',
+    performedByUserId: responderId,
+    newValue: {
+      carrier_id: request.carrier_id,
+      final_rate: finalRate,
+      final_rate_type: finalRateType,
+    },
+    metadata: {
+      request_id: requestId,
+      load_number: loadData.load_number as string,
+      carrier_id: request.carrier_id,
+      created_partnership: !request.is_partner,
+    },
+  });
+
+  // Also log carrier assignment
+  logAuditEvent(supabase, {
+    entityType: 'load',
+    entityId: request.load_id,
+    action: 'carrier_assigned',
+    performedByUserId: responderId,
+    newValue: {
+      assigned_carrier_id: request.carrier_id,
+      carrier_rate: finalRate,
+    },
+    metadata: {
+      load_number: loadData.load_number as string,
+      carrier_id: request.carrier_id,
+    },
+  });
+
   return { success: true };
 }
 
@@ -1063,14 +1119,38 @@ export async function declineLoadRequest(
     loadObj?.load_number || 'Load'
   );
 
+  // AUDIT LOGGING: Log carrier request rejected
+  logAuditEvent(supabase, {
+    entityType: 'load',
+    entityId: request.load_id,
+    action: 'carrier_request_rejected',
+    performedByUserId: responderId,
+    previousValue: { carrier_id: request.carrier_id, status: 'pending' },
+    newValue: { status: 'declined' },
+    metadata: {
+      request_id: requestId,
+      load_number: loadObj?.load_number || null,
+      carrier_id: request.carrier_id,
+      response_message: responseMessage || null,
+    },
+  });
+
   return { success: true };
 }
 
 // Withdraw a load request (carrier withdrawing)
 export async function withdrawLoadRequest(
-  requestId: string
+  requestId: string,
+  carrierOwnerId?: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
+
+  // Fetch request details before updating for audit logging
+  const { data: requestData } = await supabase
+    .from('load_requests')
+    .select('load_id, carrier_id, carrier_owner_id')
+    .eq('id', requestId)
+    .single();
 
   const { error } = await supabase
     .from('load_requests')
@@ -1083,6 +1163,22 @@ export async function withdrawLoadRequest(
   if (error) {
     console.error('Error withdrawing request:', error);
     return { success: false, error: error.message };
+  }
+
+  // AUDIT LOGGING: Log carrier request withdrawn
+  if (requestData) {
+    logAuditEvent(supabase, {
+      entityType: 'load',
+      entityId: requestData.load_id,
+      action: 'carrier_request_withdrawn',
+      performedByUserId: carrierOwnerId || requestData.carrier_owner_id,
+      previousValue: { status: 'pending' },
+      newValue: { status: 'withdrawn' },
+      metadata: {
+        request_id: requestId,
+        carrier_id: requestData.carrier_id,
+      },
+    });
   }
 
   return { success: true };
@@ -1141,6 +1237,26 @@ export async function confirmLoadAssignment(
       new Date(data.expected_load_date).toLocaleDateString(),
       data.assigned_driver_name
     );
+
+    // AUDIT LOGGING: Log load assignment confirmed
+    // Note: We use owner_id as the performer since this is called by the carrier owner
+    logAuditEvent(supabase, {
+      entityType: 'load',
+      entityId: loadId,
+      action: 'load_status_changed',
+      performedByUserId: loadDetails.owner_id,
+      newValue: {
+        load_status: 'accepted',
+        expected_load_date: data.expected_load_date,
+        assigned_driver_name: data.assigned_driver_name || null,
+      },
+      metadata: {
+        load_number: loadDetails.load_number,
+        carrier_name: carrierObj?.name || null,
+        expected_load_date: data.expected_load_date,
+        driver_assigned: !!data.assigned_driver_name,
+      },
+    });
   }
 
   return { success: true };
@@ -1979,6 +2095,22 @@ export async function updateLoadOperationalStatus(
     // Don't fail the operation, just log the error
   }
 
+  // AUDIT LOGGING: Log operational status change
+  logAuditEvent(supabase, {
+    entityType: 'load',
+    entityId: loadId,
+    action: 'load_status_changed',
+    performedByUserId: userId,
+    previousValue: { operational_status: load.operational_status },
+    newValue: { operational_status: newStatus },
+    metadata: {
+      old_status: load.operational_status,
+      new_status: newStatus,
+      notes: notes || null,
+      has_location: !!location,
+    },
+  });
+
   return { success: true };
 }
 
@@ -2267,6 +2399,20 @@ export async function assignLoadToTrip(
     console.error('assignLoadToTrip: Load update failed or trip_id not set', { updatedLoad });
     return { success: false, error: 'Failed to update load with trip assignment - check RLS policies' };
   }
+
+  // AUDIT LOGGING: Log load added to trip (from marketplace flow)
+  logAuditEvent(supabase, {
+    entityType: 'trip',
+    entityId: tripId,
+    action: 'load_added',
+    performedByUserId: user.id,
+    newValue: { load_id: loadId, delivery_order: loadOrder },
+    metadata: {
+      load_id: loadId,
+      is_marketplace_load: true,
+      driver_name: driverName,
+    },
+  });
 
   console.log('assignLoadToTrip: SUCCESS - Load assigned to trip', { loadId, tripId, tripLoadId: insertedTripLoad.id });
   return { success: true };

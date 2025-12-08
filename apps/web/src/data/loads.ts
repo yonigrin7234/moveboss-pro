@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase-server';
 import { computeAndSaveLoadFinancials } from './load-financials';
+import { logAuditEvent } from '@/lib/audit';
 
 // Enums
 export const loadStatusSchema = z.enum(['pending', 'assigned', 'in_transit', 'delivered', 'canceled']);
@@ -774,6 +775,29 @@ export async function createLoad(input: NewLoadInput, userId: string): Promise<L
     throw new Error(`Failed to create load: ${error.message}`);
   }
 
+  // AUDIT LOGGING: Log load creation
+  logAuditEvent(supabase, {
+    entityType: 'load',
+    entityId: data.id,
+    action: 'load_created',
+    performedByUserId: userId,
+    newValue: {
+      load_number: data.load_number,
+      load_type: data.load_type,
+      load_source: data.load_source,
+      status: data.status,
+      service_type: data.service_type,
+    },
+    metadata: {
+      load_number: data.load_number,
+      load_type: data.load_type,
+      load_source: data.load_source,
+      cubic_feet: data.cubic_feet,
+      linehaul_amount: data.linehaul_amount,
+      company_name: data.company?.name || null,
+    },
+  });
+
   return data as Load;
 }
 
@@ -987,6 +1011,25 @@ export async function updateLoad(
     throw new Error(`Failed to update load: ${error.message}`);
   }
 
+  // AUDIT LOGGING: Log load update with changed fields
+  // Determine what type of update this is
+  const isStatusChange = input.status !== undefined;
+  const isMarketplaceChange = input.marketplace_listed !== undefined;
+
+  logAuditEvent(supabase, {
+    entityType: 'load',
+    entityId: id,
+    action: isStatusChange ? 'load_status_changed' : 'load_updated',
+    performedByUserId: userId,
+    newValue: payload,
+    metadata: {
+      load_number: data.load_number,
+      status: data.status,
+      marketplace_listed: data.marketplace_listed,
+      fields_updated: Object.keys(payload).filter((k) => k !== 'updated_at'),
+    },
+  });
+
   // Recalculate financials after update
   await computeAndSaveLoadFinancials(id, userId);
 
@@ -995,9 +1038,31 @@ export async function updateLoad(
 
 export async function deleteLoad(id: string, userId: string): Promise<void> {
   const supabase = await createClient();
+
+  // Fetch load info before deletion for audit logging
+  const { data: loadData } = await supabase
+    .from('loads')
+    .select('load_number, status, load_type')
+    .eq('id', id)
+    .eq('owner_id', userId)
+    .single();
+
   const { error } = await supabase.from('loads').delete().eq('id', id).eq('owner_id', userId);
 
   if (error) {
     throw new Error(`Failed to delete load: ${error.message}`);
   }
+
+  // AUDIT LOGGING: Log load deletion
+  logAuditEvent(supabase, {
+    entityType: 'load',
+    entityId: id,
+    action: 'load_deleted',
+    performedByUserId: userId,
+    previousValue: loadData ? { load_number: loadData.load_number, status: loadData.status } : null,
+    metadata: {
+      load_number: loadData?.load_number || null,
+      load_type: loadData?.load_type || null,
+    },
+  });
 }

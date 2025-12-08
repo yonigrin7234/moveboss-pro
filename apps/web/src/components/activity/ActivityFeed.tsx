@@ -1,6 +1,6 @@
 'use client';
 
-import { History, ArrowRight, Package, Truck, Store, UserPlus, UserMinus, Clock } from 'lucide-react';
+import { History, ArrowRight, Package, Truck, Store, UserPlus, UserMinus, Clock, Plus, Trash2, DollarSign, Receipt, RefreshCw, CheckCircle, XCircle, Send, RotateCcw, FileText, List, Eye } from 'lucide-react';
 import type { AuditLogEntry } from '@/lib/audit';
 
 interface ActivityFeedProps {
@@ -38,43 +38,41 @@ function getActionText(log: AuditLogEntry): string {
   const metadata = log.metadata || {};
 
   switch (log.action) {
+    // Trip status and lifecycle
     case 'status_changed': {
       const oldStatus = metadata.old_status_label || log.previous_value?.status || 'Unknown';
       const newStatus = metadata.new_status_label || log.new_value?.status || 'Unknown';
       return `changed status from "${oldStatus}" to "${newStatus}"`;
     }
+    case 'trip_created':
+      return 'created trip';
+    case 'trip_deleted':
+      return 'deleted trip';
+    case 'trip_completed':
+      return 'completed trip';
+    case 'trip_settled': {
+      const profit = metadata.total_profit;
+      if (profit != null) {
+        return `settled trip (profit: $${Number(profit).toLocaleString()})`;
+      }
+      return 'settled trip';
+    }
+    case 'settlement_recalculated':
+      return 'recalculated settlement';
+
+    // Driver actions
     case 'driver_assigned': {
       const driverName = metadata.driver_name || 'a driver';
       return `assigned ${driverName}`;
     }
     case 'driver_removed':
       return 'removed driver assignment';
-    case 'posted_to_marketplace':
-      return 'posted to marketplace';
-    case 'removed_from_marketplace':
-      return 'removed from marketplace';
-    case 'carrier_assigned': {
-      const carrierName = metadata.carrier_name || 'a carrier';
-      return `assigned to ${carrierName}`;
+    case 'driver_sharing_changed': {
+      const sharing = metadata.share_driver_with_companies;
+      return sharing ? 'enabled driver info sharing' : 'disabled driver info sharing';
     }
-    case 'carrier_request_accepted':
-      return 'accepted carrier request';
-    case 'carrier_request_rejected':
-      return 'rejected carrier request';
-    case 'load_added':
-      return 'added load to trip';
-    case 'load_removed':
-      return 'removed load from trip';
-    case 'trip_created':
-      return 'created trip';
-    case 'trip_completed':
-      return 'completed trip';
-    case 'trip_settled':
-      return 'settled trip';
-    case 'load_created':
-      return 'created load';
-    case 'load_delivered':
-      return 'marked as delivered';
+
+    // Equipment actions
     case 'equipment_assigned': {
       const truckUnit = metadata.truck_unit || null;
       const trailerUnit = metadata.trailer_unit || null;
@@ -87,10 +85,92 @@ function getActionText(log: AuditLogEntry): string {
       }
       return 'updated equipment assignment';
     }
+
+    // Load on trip actions
+    case 'load_added': {
+      const loadNum = metadata.load_number;
+      return loadNum ? `added load ${loadNum} to trip` : 'added load to trip';
+    }
+    case 'load_removed': {
+      const loadNum = metadata.load_number;
+      return loadNum ? `removed load ${loadNum} from trip` : 'removed load from trip';
+    }
+    case 'loads_reordered': {
+      const count = metadata.load_count;
+      return count ? `reordered ${count} loads` : 'reordered loads';
+    }
+    case 'delivery_order_confirmed':
+      return 'confirmed delivery order and notified driver';
+
+    // Expense actions
+    case 'expense_added': {
+      const category = metadata.category;
+      const amount = metadata.amount;
+      if (category && amount) {
+        return `added ${category} expense ($${Number(amount).toLocaleString()})`;
+      }
+      return 'added expense';
+    }
+    case 'expense_updated':
+      return 'updated expense';
+    case 'expense_deleted': {
+      const category = metadata.category;
+      return category ? `deleted ${category} expense` : 'deleted expense';
+    }
+
+    // Load lifecycle
+    case 'load_created':
+      return 'created load';
+    case 'load_updated': {
+      const fields = metadata.fields_updated as string[] | undefined;
+      if (fields && fields.length > 0 && fields.length <= 3) {
+        return `updated ${fields.join(', ')}`;
+      }
+      return 'updated load';
+    }
+    case 'load_deleted':
+      return 'deleted load';
+    case 'load_delivered':
+      return 'marked as delivered';
+    case 'load_status_changed': {
+      const oldStatus = metadata.old_status;
+      const newStatus = metadata.new_status;
+      if (oldStatus && newStatus) {
+        return `changed status from "${oldStatus}" to "${newStatus}"`;
+      }
+      return 'updated load status';
+    }
+
+    // Marketplace actions
+    case 'posted_to_marketplace':
+      return 'posted to marketplace';
+    case 'removed_from_marketplace':
+      return 'removed from marketplace';
+    case 'carrier_assigned': {
+      const carrierName = metadata.carrier_name || 'a carrier';
+      return `assigned to ${carrierName}`;
+    }
+    case 'carrier_removed':
+      return 'removed carrier assignment';
+    case 'carrier_request_submitted': {
+      const isCounter = metadata.is_counter_offer;
+      return isCounter ? 'submitted counter offer' : 'requested load';
+    }
+    case 'carrier_request_accepted':
+      return 'accepted carrier request';
+    case 'carrier_request_rejected':
+      return 'rejected carrier request';
+    case 'carrier_request_withdrawn':
+      return 'withdrew request';
+
+    // Partnership actions
     case 'partnership_created':
       return 'created partnership';
     case 'partnership_upgraded':
       return 'upgraded partnership to mutual';
+    case 'partnership_deactivated':
+      return 'deactivated partnership';
+
     default:
       return log.action.replace(/_/g, ' ');
   }
@@ -101,22 +181,77 @@ function getActionText(log: AuditLogEntry): string {
  */
 function getActionIcon(action: string): React.ReactNode {
   switch (action) {
+    // Status changes
     case 'status_changed':
+    case 'load_status_changed':
       return <ArrowRight className="h-3 w-3" />;
+
+    // Creation and deletion
+    case 'trip_created':
+    case 'load_created':
+      return <Plus className="h-3 w-3" />;
+    case 'trip_deleted':
+    case 'load_deleted':
+      return <Trash2 className="h-3 w-3" />;
+
+    // Driver actions
     case 'driver_assigned':
       return <UserPlus className="h-3 w-3" />;
     case 'driver_removed':
       return <UserMinus className="h-3 w-3" />;
-    case 'posted_to_marketplace':
-    case 'removed_from_marketplace':
-      return <Store className="h-3 w-3" />;
+    case 'driver_sharing_changed':
+      return <Eye className="h-3 w-3" />;
+
+    // Equipment
     case 'equipment_assigned':
       return <Truck className="h-3 w-3" />;
+
+    // Marketplace
+    case 'posted_to_marketplace':
+    case 'removed_from_marketplace':
+    case 'carrier_request_submitted':
+    case 'carrier_request_withdrawn':
+      return <Store className="h-3 w-3" />;
+    case 'carrier_assigned':
+    case 'carrier_request_accepted':
+      return <CheckCircle className="h-3 w-3" />;
+    case 'carrier_removed':
+    case 'carrier_request_rejected':
+      return <XCircle className="h-3 w-3" />;
+
+    // Load actions
     case 'load_added':
     case 'load_removed':
-    case 'load_created':
+    case 'load_updated':
     case 'load_delivered':
       return <Package className="h-3 w-3" />;
+    case 'loads_reordered':
+      return <List className="h-3 w-3" />;
+    case 'delivery_order_confirmed':
+      return <Send className="h-3 w-3" />;
+
+    // Expenses
+    case 'expense_added':
+    case 'expense_updated':
+    case 'expense_deleted':
+      return <Receipt className="h-3 w-3" />;
+
+    // Settlements
+    case 'trip_settled':
+      return <DollarSign className="h-3 w-3" />;
+    case 'settlement_recalculated':
+      return <RefreshCw className="h-3 w-3" />;
+
+    // Trip completion
+    case 'trip_completed':
+      return <CheckCircle className="h-3 w-3" />;
+
+    // Partnerships
+    case 'partnership_created':
+    case 'partnership_upgraded':
+    case 'partnership_deactivated':
+      return <FileText className="h-3 w-3" />;
+
     default:
       return <Clock className="h-3 w-3" />;
   }

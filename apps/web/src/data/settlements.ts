@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase-server';
 import { getTripById } from '@/data/trips';
 import type { TripLoad } from '@/data/trips';
+import { logAuditEvent } from '@/lib/audit';
 
 export interface TripSettlement {
   id: string;
@@ -394,6 +395,29 @@ export async function createTripSettlement(tripId: string, userId: string): Prom
     .eq('id', tripId)
     .eq('owner_id', userId);
 
+  // AUDIT LOGGING: Log trip settlement created
+  logAuditEvent(supabase, {
+    entityType: 'trip',
+    entityId: tripId,
+    action: 'trip_settled',
+    performedByUserId: userId,
+    newValue: {
+      settlement_id: (settlement as any).id,
+      total_revenue: revenueTotal,
+      total_expenses: totalExpenses,
+      total_profit: totalProfit,
+    },
+    metadata: {
+      settlement_id: (settlement as any).id,
+      trip_number: trip.trip_number,
+      total_revenue: revenueTotal,
+      total_driver_pay: driverPayTotal,
+      total_expenses: totalExpenses,
+      total_profit: totalProfit,
+      actual_miles: actualMiles,
+    },
+  });
+
   return settlement as TripSettlement;
 }
 
@@ -703,6 +727,17 @@ export async function recalculateTripSettlement(tripId: string, userId: string):
     .update({ status: 'completed' })
     .eq('id', tripId)
     .eq('owner_id', userId);
+
+  // AUDIT LOGGING: Log settlement recalculation
+  logAuditEvent(supabase, {
+    entityType: 'trip',
+    entityId: tripId,
+    action: 'settlement_recalculated',
+    performedByUserId: userId,
+    metadata: {
+      previous_settlement_deleted: true,
+    },
+  });
 
   // Create fresh settlement with updated amounts
   return createTripSettlement(tripId, userId);

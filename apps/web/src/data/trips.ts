@@ -687,6 +687,27 @@ export async function createTrip(input: NewTripInput, userId: string): Promise<T
     throw new Error(`Failed to create trip: ${error.message}`);
   }
 
+  // AUDIT LOGGING: Log trip creation
+  logAuditEvent(supabase, {
+    entityType: 'trip',
+    entityId: data.id,
+    action: 'trip_created',
+    performedByUserId: userId,
+    newValue: {
+      trip_number: data.trip_number,
+      status: data.status,
+      driver_id: data.driver_id,
+      truck_id: data.truck_id,
+      trailer_id: data.trailer_id,
+    },
+    metadata: {
+      trip_number: data.trip_number,
+      driver_name: data.driver ? `${data.driver.first_name} ${data.driver.last_name}` : null,
+      truck_unit: data.truck?.unit_number || null,
+      trailer_unit: data.trailer?.unit_number || null,
+    },
+  });
+
   return data as Trip;
 }
 
@@ -983,15 +1004,63 @@ export async function updateTrip(
     });
   }
 
+  // AUDIT LOGGING: Log equipment changes (truck or trailer)
+  const truckChanged = 'truck_id' in input && input.truck_id !== (currentTrip as any).truck_id;
+  const trailerChanged = 'trailer_id' in input && input.trailer_id !== (currentTrip as any).trailer_id;
+  if (truckChanged || trailerChanged) {
+    logAuditEvent(supabase, {
+      entityType: 'trip',
+      entityId: id,
+      action: 'equipment_assigned',
+      performedByUserId: userId,
+      previousValue: {
+        truck_id: (currentTrip as any).truck_id,
+        trailer_id: (currentTrip as any).trailer_id,
+      },
+      newValue: {
+        truck_id: data.truck_id,
+        trailer_id: data.trailer_id,
+      },
+      metadata: {
+        trip_number: data.trip_number,
+        truck_unit: data.truck?.unit_number || null,
+        trailer_unit: data.trailer?.unit_number || null,
+        old_truck_id: (currentTrip as any).truck_id,
+        old_trailer_id: (currentTrip as any).trailer_id,
+      },
+    });
+  }
+
   return data as Trip;
 }
 
 export async function deleteTrip(id: string, userId: string): Promise<void> {
   const supabase = await createClient();
+
+  // Fetch trip details before deletion for audit logging
+  const { data: tripData } = await supabase
+    .from('trips')
+    .select('trip_number, status')
+    .eq('id', id)
+    .eq('owner_id', userId)
+    .single();
+
   const { error } = await supabase.from('trips').delete().eq('id', id).eq('owner_id', userId);
   if (error) {
     throw new Error(`Failed to delete trip: ${error.message}`);
   }
+
+  // AUDIT LOGGING: Log trip deletion
+  logAuditEvent(supabase, {
+    entityType: 'trip',
+    entityId: id,
+    action: 'trip_deleted',
+    performedByUserId: userId,
+    previousValue: tripData ? { trip_number: tripData.trip_number, status: tripData.status } : null,
+    metadata: {
+      trip_number: tripData?.trip_number || null,
+    },
+  });
 }
 
 export async function addLoadToTrip(
@@ -1362,6 +1431,18 @@ export async function reorderTripLoads(
     }
   }
 
+  // AUDIT LOGGING: Log loads reorder
+  logAuditEvent(supabase, {
+    entityType: 'trip',
+    entityId: tripId,
+    action: 'loads_reordered',
+    performedByUserId: userId,
+    newValue: { load_order: items.map((i) => ({ load_id: i.load_id, sequence: i.sequence_index })) },
+    metadata: {
+      load_count: items.length,
+    },
+  });
+
   // NOTE: No notification sent here - owner may be experimenting with order.
   // Use confirmDeliveryOrder() when owner is done to notify driver.
 }
@@ -1396,6 +1477,18 @@ export async function confirmDeliveryOrder(
     tripNumber,
     `Delivery order has been updated for Trip #${tripNumber}. Check the new sequence.`
   );
+
+  // AUDIT LOGGING: Log delivery order confirmation
+  logAuditEvent(supabase, {
+    entityType: 'trip',
+    entityId: tripId,
+    action: 'delivery_order_confirmed',
+    performedByUserId: userId,
+    metadata: {
+      trip_number: tripData.trip_number,
+      driver_id: tripData.driver_id,
+    },
+  });
 }
 
 export async function listTripExpenses(tripId: string, userId: string): Promise<TripExpense[]> {
@@ -1445,6 +1538,27 @@ export async function createTripExpense(
     throw new Error(`Failed to create trip expense: ${error.message}`);
   }
 
+  // AUDIT LOGGING: Log expense creation
+  logAuditEvent(supabase, {
+    entityType: 'trip',
+    entityId: input.trip_id,
+    action: 'expense_added',
+    performedByUserId: userId,
+    newValue: {
+      expense_id: data.id,
+      category: data.category,
+      amount: data.amount,
+      paid_by: data.paid_by,
+    },
+    metadata: {
+      expense_id: data.id,
+      category: data.category,
+      amount: data.amount,
+      description: data.description,
+      paid_by: data.paid_by,
+    },
+  });
+
   await computeTripFinancialSummary(supabase, input.trip_id, userId);
   return data as TripExpense;
 }
@@ -1489,6 +1603,21 @@ export async function updateTripExpense(
     throw new Error(`Failed to update trip expense: ${error.message}`);
   }
 
+  // AUDIT LOGGING: Log expense update
+  logAuditEvent(supabase, {
+    entityType: 'trip',
+    entityId: data.trip_id,
+    action: 'expense_updated',
+    performedByUserId: userId,
+    newValue: updatePayload,
+    metadata: {
+      expense_id: data.id,
+      category: data.category,
+      amount: data.amount,
+      description: data.description,
+    },
+  });
+
   await computeTripFinancialSummary(supabase, data.trip_id, userId);
   return data as TripExpense;
 }
@@ -1505,7 +1634,7 @@ export async function deleteTripExpense(
     .delete()
     .eq('id', id)
     .eq('owner_id', userId)
-    .select('trip_id')
+    .select('trip_id, category, amount, description')
     .single();
 
   if (error) {
@@ -1514,6 +1643,25 @@ export async function deleteTripExpense(
     }
     throw new Error(`Failed to delete trip expense: ${error.message}`);
   }
+
+  // AUDIT LOGGING: Log expense deletion
+  logAuditEvent(supabase, {
+    entityType: 'trip',
+    entityId: data.trip_id,
+    action: 'expense_deleted',
+    performedByUserId: userId,
+    previousValue: {
+      expense_id: id,
+      category: data.category,
+      amount: data.amount,
+    },
+    metadata: {
+      expense_id: id,
+      category: data.category,
+      amount: data.amount,
+      description: data.description,
+    },
+  });
 
   await computeTripFinancialSummary(supabase, data.trip_id, userId);
 }
@@ -1710,6 +1858,18 @@ export async function updateTripDriverSharing(
   if (updateError) {
     return { success: false, error: updateError.message };
   }
+
+  // AUDIT LOGGING: Log driver sharing change
+  logAuditEvent(supabase, {
+    entityType: 'trip',
+    entityId: tripId,
+    action: 'driver_sharing_changed',
+    performedByUserId: userId,
+    newValue: { share_driver_with_companies: shareWithCompanies },
+    metadata: {
+      share_driver_with_companies: shareWithCompanies,
+    },
+  });
 
   // If trip has a driver, re-sync loads with new sharing preference
   if (trip.driver_id) {

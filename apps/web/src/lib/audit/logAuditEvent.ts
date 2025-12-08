@@ -16,17 +16,31 @@ export type AuditAction =
   | 'equipment_assigned'
   | 'load_added'
   | 'load_removed'
+  | 'loads_reordered'
   | 'trip_created'
+  | 'trip_deleted'
   | 'trip_completed'
   | 'trip_settled'
+  | 'delivery_order_confirmed'
+  | 'driver_sharing_changed'
+  // Trip expense actions
+  | 'expense_added'
+  | 'expense_updated'
+  | 'expense_deleted'
   // Load actions
   | 'posted_to_marketplace'
   | 'removed_from_marketplace'
   | 'carrier_assigned'
+  | 'carrier_removed'
   | 'carrier_request_accepted'
   | 'carrier_request_rejected'
+  | 'carrier_request_submitted'
+  | 'carrier_request_withdrawn'
   | 'load_created'
+  | 'load_updated'
+  | 'load_deleted'
   | 'load_delivered'
+  | 'load_status_changed'
   // Partnership actions
   | 'partnership_created'
   | 'partnership_upgraded'
@@ -35,6 +49,9 @@ export type AuditAction =
   | 'company_updated'
   | 'member_added'
   | 'member_removed'
+  // Settlement actions
+  | 'settlement_created'
+  | 'settlement_recalculated'
   // Generic
   | 'updated'
   | 'created'
@@ -81,7 +98,14 @@ export async function logAuditEvent(
   input: LogAuditEventInput
 ): Promise<void> {
   try {
-    const { error } = await client.from('audit_logs').insert({
+    console.log('[Audit] Attempting to log event:', {
+      entityType: input.entityType,
+      entityId: input.entityId,
+      action: input.action,
+      performedByUserId: input.performedByUserId,
+    });
+
+    const { error, data } = await client.from('audit_logs').insert({
       entity_type: input.entityType,
       entity_id: input.entityId,
       action: input.action,
@@ -92,14 +116,16 @@ export async function logAuditEvent(
       previous_value: input.previousValue ?? null,
       new_value: input.newValue ?? null,
       metadata: input.metadata ?? null,
-    });
+    }).select('id');
 
     if (error) {
-      console.error('[Audit] Failed to log event:', error.message, {
+      console.error('[Audit] Failed to log event:', error.message, error.code, error.details, {
         entityType: input.entityType,
         entityId: input.entityId,
         action: input.action,
       });
+    } else {
+      console.log('[Audit] Successfully logged event:', data?.[0]?.id);
     }
   } catch (err) {
     // Silently fail - audit logging should never break the main flow
