@@ -268,6 +268,7 @@ export async function getConversation(
 ): Promise<ConversationWithDetails | null> {
   const supabase = await createClient();
 
+  // Simplified query - don't fetch nested participants to avoid RLS complexity
   const { data, error } = await supabase
     .from('conversations')
     .select(`
@@ -291,19 +292,6 @@ export async function getConversation(
       partner_company:partner_company_id (
         id,
         name
-      ),
-      conversation_participants (
-        *,
-        profile:user_id (
-          id,
-          full_name,
-          email
-        ),
-        driver:driver_id (
-          id,
-          first_name,
-          last_name
-        )
       )
     `)
     .eq('id', conversationId)
@@ -325,7 +313,7 @@ export async function getConversation(
 
   return {
     ...data,
-    participants: data.conversation_participants ?? [],
+    participants: [], // Participants not fetched to avoid RLS complexity
     load: load ?? undefined,
     trip: trip ?? undefined,
     carrier_company: carrierCompany ?? undefined,
