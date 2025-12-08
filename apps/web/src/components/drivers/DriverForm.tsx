@@ -263,9 +263,13 @@ export function DriverForm({
     if (state?.success) {
       // Mark setup progress for first driver
       markComplete('first_driver_added');
+      // TEMPORARY DEBUG: Show what was sent
+      const debugInfo = (state as any)?._debug;
       toast({
         title: 'Driver saved',
-        description: 'The driver was created successfully.',
+        description: debugInfo
+          ? `DEBUG: form_loc=${debugInfo.form_location_sharing}, form_auto=${debugInfo.form_auto_post}, val_loc=${debugInfo.validated_location_sharing}, val_auto=${debugInfo.validated_auto_post}, truck=${debugInfo.validated_default_truck}, trailer=${debugInfo.validated_default_trailer}`
+          : 'The driver was created successfully.',
       });
       router.push('/dashboard/drivers');
       router.refresh();

@@ -248,7 +248,18 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
         password: password || null,
         resetPassword: reset,
       });
-      return { success: true };
+      // TEMPORARY DEBUG: Return what was sent to help debug
+      return {
+        success: true,
+        _debug: {
+          form_location_sharing: formData.get('location_sharing_enabled'),
+          form_auto_post: formData.get('auto_post_capacity'),
+          validated_location_sharing: validated.location_sharing_enabled,
+          validated_auto_post: validated.auto_post_capacity,
+          validated_default_truck: validated.default_truck_id,
+          validated_default_trailer: validated.default_trailer_id,
+        }
+      };
     } catch (error) {
       if (error && typeof error === 'object' && 'issues' in error) {
         const zodError = error as { issues: Array<{ path: (string | number)[]; message: string }> };

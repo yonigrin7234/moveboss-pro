@@ -11,54 +11,66 @@
 -- ============================================================================
 
 -- ============================================================================
--- 1. ENUM TYPES
+-- 1. ENUM TYPES (with IF NOT EXISTS pattern)
 -- ============================================================================
 
 -- Conversation types for contextual messaging
-CREATE TYPE conversation_type AS ENUM (
-  'load_shared',        -- Carrier <-> Partner for a specific load (visible based on driver_visibility)
-  'load_internal',      -- Internal carrier team discussion about a load
-  'trip_internal',      -- Internal carrier team discussion about a trip
-  'company_to_company', -- General carrier <-> partner communication (not load-specific)
-  'general'             -- General company-wide or team chat
-);
+DO $$ BEGIN
+  CREATE TYPE conversation_type AS ENUM (
+    'load_shared',        -- Carrier <-> Partner for a specific load (visible based on driver_visibility)
+    'load_internal',      -- Internal carrier team discussion about a load
+    'trip_internal',      -- Internal carrier team discussion about a trip
+    'company_to_company', -- General carrier <-> partner communication (not load-specific)
+    'general'             -- General company-wide or team chat
+  );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- Driver visibility levels for shared conversations
-CREATE TYPE driver_visibility_level AS ENUM (
-  'none',       -- Driver cannot see the shared conversation at all
-  'read_only',  -- Driver can see but not reply to shared conversation
-  'full'        -- Driver can see and reply to shared conversation
-);
+DO $$ BEGIN
+  CREATE TYPE driver_visibility_level AS ENUM (
+    'none',       -- Driver cannot see the shared conversation at all
+    'read_only',  -- Driver can see but not reply to shared conversation
+    'full'        -- Driver can see and reply to shared conversation
+  );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- Participant roles in conversations
-CREATE TYPE conversation_participant_role AS ENUM (
-  'owner',          -- Company owner
-  'dispatcher',     -- Dispatcher
-  'driver',         -- Driver
-  'helper',         -- Helper on a load/trip
-  'partner_rep',    -- Representative from partner company
-  'broker',         -- Broker role
-  'ai_agent'        -- AI agent participant (for tracking AI interactions)
-);
+DO $$ BEGIN
+  CREATE TYPE conversation_participant_role AS ENUM (
+    'owner',          -- Company owner
+    'dispatcher',     -- Dispatcher
+    'driver',         -- Driver
+    'helper',         -- Helper on a load/trip
+    'partner_rep',    -- Representative from partner company
+    'broker',         -- Broker role
+    'ai_agent'        -- AI agent participant (for tracking AI interactions)
+  );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- Message types for classification
-CREATE TYPE message_type AS ENUM (
-  'text',              -- Regular text message
-  'system',            -- System-generated message (load assigned, status change, etc.)
-  'ai_response',       -- AI agent response
-  'document',          -- Document/file attachment
-  'image',             -- Image attachment
-  'voice',             -- Voice message
-  'location',          -- Location share
-  'balance_request',   -- Balance verification request
-  'status_update'      -- Status update (arrival, departure, etc.)
-);
+DO $$ BEGIN
+  CREATE TYPE message_type AS ENUM (
+    'text',              -- Regular text message
+    'system',            -- System-generated message (load assigned, status change, etc.)
+    'ai_response',       -- AI agent response
+    'document',          -- Document/file attachment
+    'image',             -- Image attachment
+    'voice',             -- Voice message
+    'location',          -- Location share
+    'balance_request',   -- Balance verification request
+    'status_update'      -- Status update (arrival, departure, etc.)
+  );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- ============================================================================
 -- 2. CONVERSATIONS TABLE
 -- ============================================================================
 
-CREATE TABLE conversations (
+CREATE TABLE IF NOT EXISTS conversations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Conversation type determines visibility and routing rules
@@ -106,14 +118,14 @@ CREATE TABLE conversations (
 );
 
 -- Indexes for common query patterns
-CREATE INDEX idx_conversations_owner_company ON conversations(owner_company_id);
-CREATE INDEX idx_conversations_load ON conversations(load_id) WHERE load_id IS NOT NULL;
-CREATE INDEX idx_conversations_trip ON conversations(trip_id) WHERE trip_id IS NOT NULL;
-CREATE INDEX idx_conversations_type ON conversations(type);
-CREATE INDEX idx_conversations_last_message ON conversations(last_message_at DESC);
-CREATE INDEX idx_conversations_company_pair ON conversations(carrier_company_id, partner_company_id)
+CREATE INDEX IF NOT EXISTS idx_conversations_owner_company ON conversations(owner_company_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_load ON conversations(load_id) WHERE load_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_conversations_trip ON conversations(trip_id) WHERE trip_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_conversations_type ON conversations(type);
+CREATE INDEX IF NOT EXISTS idx_conversations_last_message ON conversations(last_message_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_company_pair ON conversations(carrier_company_id, partner_company_id)
   WHERE type = 'company_to_company';
-CREATE INDEX idx_conversations_not_archived ON conversations(owner_company_id, last_message_at DESC)
+CREATE INDEX IF NOT EXISTS idx_conversations_not_archived ON conversations(owner_company_id, last_message_at DESC)
   WHERE is_archived = FALSE;
 
 -- ============================================================================
@@ -121,7 +133,7 @@ CREATE INDEX idx_conversations_not_archived ON conversations(owner_company_id, l
 -- ============================================================================
 -- This is the SINGLE SOURCE OF TRUTH for who can access which conversations
 
-CREATE TABLE conversation_participants (
+CREATE TABLE IF NOT EXISTS conversation_participants (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- References
@@ -160,19 +172,19 @@ CREATE TABLE conversation_participants (
 );
 
 -- Indexes for permission lookups
-CREATE INDEX idx_participants_conversation ON conversation_participants(conversation_id);
-CREATE INDEX idx_participants_user ON conversation_participants(user_id) WHERE user_id IS NOT NULL;
-CREATE INDEX idx_participants_driver ON conversation_participants(driver_id) WHERE driver_id IS NOT NULL;
-CREATE INDEX idx_participants_company ON conversation_participants(company_id) WHERE company_id IS NOT NULL;
-CREATE INDEX idx_participants_can_read ON conversation_participants(conversation_id, can_read) WHERE can_read = TRUE;
-CREATE INDEX idx_participants_unread ON conversation_participants(user_id, unread_count)
+CREATE INDEX IF NOT EXISTS idx_participants_conversation ON conversation_participants(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_participants_user ON conversation_participants(user_id) WHERE user_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_participants_driver ON conversation_participants(driver_id) WHERE driver_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_participants_company ON conversation_participants(company_id) WHERE company_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_participants_can_read ON conversation_participants(conversation_id, can_read) WHERE can_read = TRUE;
+CREATE INDEX IF NOT EXISTS idx_participants_unread ON conversation_participants(user_id, unread_count)
   WHERE unread_count > 0 AND user_id IS NOT NULL;
 
 -- ============================================================================
 -- 4. MESSAGES TABLE
 -- ============================================================================
 
-CREATE TABLE messages (
+CREATE TABLE IF NOT EXISTS messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Conversation reference
@@ -217,19 +229,19 @@ CREATE TABLE messages (
 );
 
 -- Indexes for message queries
-CREATE INDEX idx_messages_conversation ON messages(conversation_id, created_at DESC);
-CREATE INDEX idx_messages_sender_user ON messages(sender_user_id) WHERE sender_user_id IS NOT NULL;
-CREATE INDEX idx_messages_sender_driver ON messages(sender_driver_id) WHERE sender_driver_id IS NOT NULL;
-CREATE INDEX idx_messages_created ON messages(created_at DESC);
-CREATE INDEX idx_messages_not_deleted ON messages(conversation_id, created_at DESC) WHERE is_deleted = FALSE;
-CREATE INDEX idx_messages_type ON messages(conversation_id, message_type);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_sender_user ON messages(sender_user_id) WHERE sender_user_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_messages_sender_driver ON messages(sender_driver_id) WHERE sender_driver_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_not_deleted ON messages(conversation_id, created_at DESC) WHERE is_deleted = FALSE;
+CREATE INDEX IF NOT EXISTS idx_messages_type ON messages(conversation_id, message_type);
 
 -- ============================================================================
 -- 5. LOAD COMMUNICATION SETTINGS TABLE
 -- ============================================================================
 -- Per-load settings that control driver visibility in shared conversations
 
-CREATE TABLE load_communication_settings (
+CREATE TABLE IF NOT EXISTS load_communication_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Load reference (unique per load)
@@ -258,8 +270,8 @@ CREATE TABLE load_communication_settings (
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
-CREATE INDEX idx_load_comm_settings_load ON load_communication_settings(load_id);
-CREATE INDEX idx_load_comm_settings_driver ON load_communication_settings(driver_id)
+CREATE INDEX IF NOT EXISTS idx_load_comm_settings_load ON load_communication_settings(load_id);
+CREATE INDEX IF NOT EXISTS idx_load_comm_settings_driver ON load_communication_settings(driver_id)
   WHERE driver_id IS NOT NULL;
 
 -- ============================================================================
@@ -267,7 +279,7 @@ CREATE INDEX idx_load_comm_settings_driver ON load_communication_settings(driver
 -- ============================================================================
 -- Default communication policies between a carrier and partner
 
-CREATE TABLE partner_communication_settings (
+CREATE TABLE IF NOT EXISTS partner_communication_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Company pair (carrier <-> partner)
@@ -307,15 +319,15 @@ CREATE TABLE partner_communication_settings (
   CONSTRAINT different_companies CHECK (carrier_company_id != partner_company_id)
 );
 
-CREATE INDEX idx_partner_comm_carrier ON partner_communication_settings(carrier_company_id);
-CREATE INDEX idx_partner_comm_partner ON partner_communication_settings(partner_company_id);
+CREATE INDEX IF NOT EXISTS idx_partner_comm_carrier ON partner_communication_settings(carrier_company_id);
+CREATE INDEX IF NOT EXISTS idx_partner_comm_partner ON partner_communication_settings(partner_company_id);
 
 -- ============================================================================
 -- 7. MESSAGE READ RECEIPTS TABLE
 -- ============================================================================
 -- Track when users/drivers have read specific messages
 
-CREATE TABLE message_read_receipts (
+CREATE TABLE IF NOT EXISTS message_read_receipts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
@@ -330,16 +342,16 @@ CREATE TABLE message_read_receipts (
   CONSTRAINT must_have_reader CHECK (user_id IS NOT NULL OR driver_id IS NOT NULL)
 );
 
-CREATE INDEX idx_receipts_message ON message_read_receipts(message_id);
-CREATE INDEX idx_receipts_user ON message_read_receipts(user_id) WHERE user_id IS NOT NULL;
-CREATE INDEX idx_receipts_driver ON message_read_receipts(driver_id) WHERE driver_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_receipts_message ON message_read_receipts(message_id);
+CREATE INDEX IF NOT EXISTS idx_receipts_user ON message_read_receipts(user_id) WHERE user_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_receipts_driver ON message_read_receipts(driver_id) WHERE driver_id IS NOT NULL;
 
 -- ============================================================================
 -- 8. CONVERSATION ACTIVITY LOG TABLE
 -- ============================================================================
 -- Audit trail for conversation-related actions
 
-CREATE TABLE conversation_activity_log (
+CREATE TABLE IF NOT EXISTS conversation_activity_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
@@ -355,7 +367,7 @@ CREATE TABLE conversation_activity_log (
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
-CREATE INDEX idx_conv_activity_conversation ON conversation_activity_log(conversation_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conv_activity_conversation ON conversation_activity_log(conversation_id, created_at DESC);
 
 -- ============================================================================
 -- 9. HELPER FUNCTIONS
@@ -487,6 +499,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger for message stats
+DROP TRIGGER IF EXISTS trigger_update_conversation_stats ON messages;
 CREATE TRIGGER trigger_update_conversation_stats
   AFTER INSERT ON messages
   FOR EACH ROW
@@ -597,21 +610,25 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_conversations_updated_at ON conversations;
 CREATE TRIGGER update_conversations_updated_at
   BEFORE UPDATE ON conversations
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_participants_updated_at ON conversation_participants;
 CREATE TRIGGER update_participants_updated_at
   BEFORE UPDATE ON conversation_participants
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_load_comm_settings_updated_at ON load_communication_settings;
 CREATE TRIGGER update_load_comm_settings_updated_at
   BEFORE UPDATE ON load_communication_settings
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_partner_comm_settings_updated_at ON partner_communication_settings;
 CREATE TRIGGER update_partner_comm_settings_updated_at
   BEFORE UPDATE ON partner_communication_settings
   FOR EACH ROW

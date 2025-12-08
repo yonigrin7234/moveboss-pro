@@ -19,6 +19,7 @@ ALTER TABLE conversation_activity_log ENABLE ROW LEVEL SECURITY;
 -- ============================================================================
 
 -- Users can view conversations they are participants of
+DROP POLICY IF EXISTS conversations_select_participant ON conversations;
 CREATE POLICY conversations_select_participant
   ON conversations FOR SELECT
   USING (
@@ -31,6 +32,7 @@ CREATE POLICY conversations_select_participant
   );
 
 -- Users can view conversations for their company
+DROP POLICY IF EXISTS conversations_select_company_member ON conversations;
 CREATE POLICY conversations_select_company_member
   ON conversations FOR SELECT
   USING (
@@ -41,6 +43,7 @@ CREATE POLICY conversations_select_company_member
   );
 
 -- Company members can create conversations for their company
+DROP POLICY IF EXISTS conversations_insert_company_member ON conversations;
 CREATE POLICY conversations_insert_company_member
   ON conversations FOR INSERT
   WITH CHECK (
@@ -51,6 +54,7 @@ CREATE POLICY conversations_insert_company_member
   );
 
 -- Company members can update conversations for their company
+DROP POLICY IF EXISTS conversations_update_company_member ON conversations;
 CREATE POLICY conversations_update_company_member
   ON conversations FOR UPDATE
   USING (
@@ -71,6 +75,7 @@ CREATE POLICY conversations_update_company_member
 -- ============================================================================
 
 -- Users can view participant records for conversations they can access
+DROP POLICY IF EXISTS participants_select_accessible ON conversation_participants;
 CREATE POLICY participants_select_accessible
   ON conversation_participants FOR SELECT
   USING (
@@ -89,6 +94,7 @@ CREATE POLICY participants_select_accessible
   );
 
 -- Company members can add participants to their company's conversations
+DROP POLICY IF EXISTS participants_insert_company_member ON conversation_participants;
 CREATE POLICY participants_insert_company_member
   ON conversation_participants FOR INSERT
   WITH CHECK (
@@ -100,6 +106,7 @@ CREATE POLICY participants_insert_company_member
   );
 
 -- Company members can update participants in their company's conversations
+DROP POLICY IF EXISTS participants_update_company_member ON conversation_participants;
 CREATE POLICY participants_update_company_member
   ON conversation_participants FOR UPDATE
   USING (
@@ -118,6 +125,7 @@ CREATE POLICY participants_update_company_member
   );
 
 -- Company members can remove participants from their company's conversations
+DROP POLICY IF EXISTS participants_delete_company_member ON conversation_participants;
 CREATE POLICY participants_delete_company_member
   ON conversation_participants FOR DELETE
   USING (
@@ -133,6 +141,7 @@ CREATE POLICY participants_delete_company_member
 -- ============================================================================
 
 -- Users can read messages in conversations they have read access to
+DROP POLICY IF EXISTS messages_select_participant ON messages;
 CREATE POLICY messages_select_participant
   ON messages FOR SELECT
   USING (
@@ -143,6 +152,7 @@ CREATE POLICY messages_select_participant
   );
 
 -- Users can send messages to conversations they have write access to
+DROP POLICY IF EXISTS messages_insert_participant ON messages;
 CREATE POLICY messages_insert_participant
   ON messages FOR INSERT
   WITH CHECK (
@@ -157,12 +167,14 @@ CREATE POLICY messages_insert_participant
   );
 
 -- Users can update their own messages (for editing)
+DROP POLICY IF EXISTS messages_update_own ON messages;
 CREATE POLICY messages_update_own
   ON messages FOR UPDATE
   USING (sender_user_id = auth.uid())
   WITH CHECK (sender_user_id = auth.uid());
 
 -- Users can soft-delete their own messages
+DROP POLICY IF EXISTS messages_delete_own ON messages;
 CREATE POLICY messages_delete_own
   ON messages FOR DELETE
   USING (sender_user_id = auth.uid());
@@ -172,6 +184,7 @@ CREATE POLICY messages_delete_own
 -- ============================================================================
 
 -- Users can view settings for loads in their company
+DROP POLICY IF EXISTS load_comm_select_company ON load_communication_settings;
 CREATE POLICY load_comm_select_company
   ON load_communication_settings FOR SELECT
   USING (
@@ -184,6 +197,7 @@ CREATE POLICY load_comm_select_company
   );
 
 -- Dispatchers and owners can create/update load communication settings
+DROP POLICY IF EXISTS load_comm_insert_dispatcher ON load_communication_settings;
 CREATE POLICY load_comm_insert_dispatcher
   ON load_communication_settings FOR INSERT
   WITH CHECK (
@@ -195,6 +209,7 @@ CREATE POLICY load_comm_insert_dispatcher
     )
   );
 
+DROP POLICY IF EXISTS load_comm_update_dispatcher ON load_communication_settings;
 CREATE POLICY load_comm_update_dispatcher
   ON load_communication_settings FOR UPDATE
   USING (
@@ -219,6 +234,7 @@ CREATE POLICY load_comm_update_dispatcher
 -- ============================================================================
 
 -- Users can view partner settings for their company (either side)
+DROP POLICY IF EXISTS partner_comm_select_company ON partner_communication_settings;
 CREATE POLICY partner_comm_select_company
   ON partner_communication_settings FOR SELECT
   USING (
@@ -232,6 +248,7 @@ CREATE POLICY partner_comm_select_company
   );
 
 -- Carrier company members can create/update partner settings
+DROP POLICY IF EXISTS partner_comm_insert_carrier ON partner_communication_settings;
 CREATE POLICY partner_comm_insert_carrier
   ON partner_communication_settings FOR INSERT
   WITH CHECK (
@@ -242,6 +259,7 @@ CREATE POLICY partner_comm_insert_carrier
     )
   );
 
+DROP POLICY IF EXISTS partner_comm_update_carrier ON partner_communication_settings;
 CREATE POLICY partner_comm_update_carrier
   ON partner_communication_settings FOR UPDATE
   USING (
@@ -260,6 +278,7 @@ CREATE POLICY partner_comm_update_carrier
   );
 
 -- Partner can update lock_driver_visibility only
+DROP POLICY IF EXISTS partner_comm_update_partner_lock ON partner_communication_settings;
 CREATE POLICY partner_comm_update_partner_lock
   ON partner_communication_settings FOR UPDATE
   USING (
@@ -282,6 +301,7 @@ CREATE POLICY partner_comm_update_partner_lock
 -- ============================================================================
 
 -- Users can view read receipts for messages they can read
+DROP POLICY IF EXISTS receipts_select_accessible ON message_read_receipts;
 CREATE POLICY receipts_select_accessible
   ON message_read_receipts FOR SELECT
   USING (
@@ -293,6 +313,7 @@ CREATE POLICY receipts_select_accessible
   );
 
 -- Users can create read receipts for themselves
+DROP POLICY IF EXISTS receipts_insert_own ON message_read_receipts;
 CREATE POLICY receipts_insert_own
   ON message_read_receipts FOR INSERT
   WITH CHECK (
@@ -310,6 +331,7 @@ CREATE POLICY receipts_insert_own
 -- ============================================================================
 
 -- Users can view activity for conversations they can access
+DROP POLICY IF EXISTS activity_log_select_accessible ON conversation_activity_log;
 CREATE POLICY activity_log_select_accessible
   ON conversation_activity_log FOR SELECT
   USING (
@@ -320,6 +342,7 @@ CREATE POLICY activity_log_select_accessible
   );
 
 -- System/functions can insert activity logs (via SECURITY DEFINER functions)
+DROP POLICY IF EXISTS activity_log_insert_system ON conversation_activity_log;
 CREATE POLICY activity_log_insert_system
   ON conversation_activity_log FOR INSERT
   WITH CHECK (TRUE);
@@ -338,6 +361,7 @@ RETURNS UUID AS $$
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 -- Drivers can view conversations they're participants of (via driver_id)
+DROP POLICY IF EXISTS conversations_select_driver ON conversations;
 CREATE POLICY conversations_select_driver
   ON conversations FOR SELECT
   USING (
@@ -350,6 +374,7 @@ CREATE POLICY conversations_select_driver
   );
 
 -- Drivers can view messages in their conversations
+DROP POLICY IF EXISTS messages_select_driver ON messages;
 CREATE POLICY messages_select_driver
   ON messages FOR SELECT
   USING (
@@ -361,6 +386,7 @@ CREATE POLICY messages_select_driver
   );
 
 -- Drivers can send messages if they have write access
+DROP POLICY IF EXISTS messages_insert_driver ON messages;
 CREATE POLICY messages_insert_driver
   ON messages FOR INSERT
   WITH CHECK (
@@ -374,6 +400,7 @@ CREATE POLICY messages_insert_driver
   );
 
 -- Drivers can create read receipts
+DROP POLICY IF EXISTS receipts_insert_driver ON message_read_receipts;
 CREATE POLICY receipts_insert_driver
   ON message_read_receipts FOR INSERT
   WITH CHECK (
