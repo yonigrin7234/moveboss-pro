@@ -147,7 +147,7 @@ export interface Driver {
   // Location & capacity settings
   location_sharing_enabled: boolean;
   auto_post_capacity: boolean;
-  capacity_visibility: 'private' | 'network' | 'public';
+  capacity_visibility: 'private' | 'partners_only' | 'public';
 }
 
 // Filter interface

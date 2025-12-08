@@ -127,7 +127,7 @@ export const newDriverInputSchema = z
     // Location & capacity settings
     location_sharing_enabled: z.boolean().optional().default(false),
     auto_post_capacity: z.boolean().optional().default(false),
-    capacity_visibility: z.enum(['private', 'network', 'public']).optional().default('private'),
+    capacity_visibility: z.enum(['private', 'partners_only', 'public']).optional().default('private'),
   })
   .refine(
     (data) => {
