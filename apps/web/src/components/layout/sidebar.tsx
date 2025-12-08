@@ -33,6 +33,7 @@ import {
   PackagePlus,
   FileText,
   Package,
+  MessageSquare,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -126,6 +127,7 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
     const items: NavItem[] = [
       { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
       { label: "Activity", href: "/dashboard/activity", icon: Radio },
+      { label: "Messages", href: "/dashboard/messages", icon: MessageSquare },
     ]
 
     // POSTING Section - only show when canPostLoads (is_broker = true)
@@ -267,6 +269,7 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
         { label: "Company Profile", href: "/dashboard/settings/company-profile", icon: Building2 },
         { label: "Team", href: "/dashboard/settings/team", icon: Users },
         { label: "Roles & Permissions", href: "/dashboard/settings/roles", icon: ShieldCheck },
+        { label: "Communications", href: "/dashboard/settings/communications", icon: MessageSquare },
         { label: "Integrations", href: "/dashboard/settings/integrations", icon: Plug },
       ],
     })

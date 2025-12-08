@@ -192,6 +192,31 @@ export default function TripDetailScreen() {
               )}
             </View>
 
+            {/* Messages Section */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Messages</Text>
+                <TouchableOpacity
+                  onPress={() => router.push(`/(app)/trips/${trip.id}/messages`)}
+                  style={styles.touchTarget}
+                >
+                  <Text style={styles.addLink}>View All</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={styles.messageCard}
+                onPress={() => router.push(`/(app)/trips/${trip.id}/messages`)}
+              >
+                <View style={styles.messageIconContainer}>
+                  <Text style={styles.messageIcon}>💬</Text>
+                </View>
+                <View style={styles.messageContent}>
+                  <Text style={styles.messageTitle}>Trip Messages</Text>
+                  <Text style={styles.messageSubtitle}>Chat with your team about this trip</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
             {/* Expenses Section */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -378,6 +403,38 @@ const styles = StyleSheet.create({
   expenseAmount: {
     ...typography.subheadline,
     fontWeight: '600',
+  },
+  // Messages
+  messageCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    padding: spacing.cardPadding,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  messageIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.borderLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  messageIcon: {
+    fontSize: 20,
+  },
+  messageContent: {
+    flex: 1,
+  },
+  messageTitle: {
+    ...typography.subheadline,
+    fontWeight: '600',
+  },
+  messageSubtitle: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginTop: spacing.xxs,
   },
   // States
   emptyState: {

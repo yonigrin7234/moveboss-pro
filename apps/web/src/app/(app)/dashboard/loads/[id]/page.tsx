@@ -8,6 +8,7 @@ import { getTrucksForUser, getTrailersForUser } from '@/data/fleet';
 import { getTripsForLoadAssignment, addLoadToTrip } from '@/data/trips';
 import { LoadForm } from '@/components/loads/LoadForm';
 import { LoadPhotos } from '@/components/loads/LoadPhotos';
+import { LoadConversationPanel } from '@/components/messaging/LoadConversationPanel';
 import { LoadActions, type MarketplacePostingData } from './load-actions';
 import { cleanFormValues, extractFormValues } from '@/lib/form-data';
 
@@ -385,6 +386,27 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
 
       {/* Driver-Uploaded Photos */}
       <LoadPhotos load={load} />
+
+      {/* Messages Section */}
+      {workspaceCompany && (
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Messages</h2>
+          <LoadConversationPanel
+            loadId={id}
+            loadNumber={load.load_number || load.job_number || id}
+            companyId={workspaceCompany.id}
+            userId={user.id}
+            partnerCompanyId={!isOwnCompanyLoad ? load.company_id : undefined}
+            partnerCompanyName={!isOwnCompanyLoad ? load.company?.name : undefined}
+            driverId={load.assigned_driver_id ?? undefined}
+            driverName={
+              load.assigned_driver
+                ? `${load.assigned_driver.first_name} ${load.assigned_driver.last_name}`
+                : undefined
+            }
+          />
+        </div>
+      )}
     </div>
   );
 }
