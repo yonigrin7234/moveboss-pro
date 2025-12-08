@@ -55,6 +55,11 @@ export async function createDriverAction(
   const passwordConfirm = (formData.get('driver_password_confirm') as string) || '';
   const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
+  // Location & capacity settings
+  const location_sharing_enabled = formData.get('location_sharing_enabled') === 'true';
+  const auto_post_capacity = formData.get('auto_post_capacity') === 'true';
+  const capacity_visibility = (formData.get('capacity_visibility') as string) || 'private';
+
   // Early validation: if portal access requested but service role key missing
   if (requestedHasLogin && !hasServiceRoleKey) {
     return {
@@ -90,6 +95,10 @@ export async function createDriverAction(
     medical_card_expiry: medical_card_expiry || new Date().toISOString().split('T')[0],
     has_login: requestedHasLogin && hasServiceRoleKey,
     login_method,
+    // Location & capacity settings
+    location_sharing_enabled,
+    auto_post_capacity,
+    capacity_visibility: capacity_visibility as 'private' | 'partners_only' | 'public',
   };
 
   // Handle optional compliance fields
