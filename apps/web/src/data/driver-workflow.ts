@@ -6,6 +6,12 @@ import { updateTrip } from '@/data/trips';
 import { addLoadToTrip } from '@/data/trips';
 import type { AddTripLoadInput, TripExpense, TripLoad, TripWithDetails } from '@/data/trips';
 import { logActivity } from '@/data/activity-log';
+import {
+  logStructuredUploadEvent,
+  createPhotoUploadMetadata,
+  createPaperworkMetadata,
+} from '@/lib/audit';
+import { recordStructuredUploadMessage } from '@/lib/messaging';
 
 const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
@@ -361,20 +367,34 @@ export async function driverAttachLoad(tripId: string, input: AddTripLoadInput, 
 }
 
 // Driver marks load pickup
-export async function driverMarkLoadPickup(loadId: string, userId: string, payload: {
-  actual_cuft_loaded: number;
-  contract_rate_per_cuft: number;
-  contract_accessorials_shuttle?: number;
-  contract_accessorials_stairs?: number;
-  contract_accessorials_long_carry?: number;
-  contract_accessorials_bulky?: number;
-  contract_accessorials_other?: number;
-  balance_due_on_delivery?: number;
-  origin_arrival_at?: string;
-  contract_photo_url?: string;
-  load_report_photo_url?: string;
-}) {
+export async function driverMarkLoadPickup(
+  loadId: string,
+  userId: string,
+  payload: {
+    actual_cuft_loaded: number;
+    contract_rate_per_cuft: number;
+    contract_accessorials_shuttle?: number;
+    contract_accessorials_stairs?: number;
+    contract_accessorials_long_carry?: number;
+    contract_accessorials_bulky?: number;
+    contract_accessorials_other?: number;
+    balance_due_on_delivery?: number;
+    origin_arrival_at?: string;
+    contract_photo_url?: string;
+    load_report_photo_url?: string;
+  },
+  context?: { driver?: { id: string; first_name?: string; last_name?: string } }
+) {
   const supabase = await getDbClient();
+
+  // Get load info for audit logging
+  const { data: loadData } = await supabase
+    .from('loads')
+    .select('load_number, company:companies(id, name)')
+    .eq('id', loadId)
+    .eq('owner_id', userId)
+    .single();
+
   const accessorials =
     (payload.contract_accessorials_shuttle || 0) +
     (payload.contract_accessorials_stairs || 0) +
@@ -409,25 +429,113 @@ export async function driverMarkLoadPickup(loadId: string, userId: string, paylo
   if (error) {
     throw new Error(`Failed to mark load pickup: ${error.message}`);
   }
+
+  // AUDIT & MESSAGING: Log photo uploads
+  const company = Array.isArray((loadData as any)?.company) ? (loadData as any)?.company[0] : (loadData as any)?.company;
+  const companyId = company?.id;
+  const loadNumber = (loadData as any)?.load_number;
+  const driverName = context?.driver ? `${context.driver.first_name || ''} ${context.driver.last_name || ''}`.trim() : undefined;
+
+  // Log contract photo
+  if (payload.contract_photo_url) {
+    const metadata = createPaperworkMetadata({
+      documentType: 'other', // contract type stored in upload_kind
+      loadNumber,
+      fileUrl: payload.contract_photo_url,
+    });
+
+    logStructuredUploadEvent(supabase, {
+      entityType: 'load',
+      entityId: loadId,
+      action: 'paperwork_uploaded',
+      performedByUserId: userId,
+      performedByCompanyId: companyId,
+      source: 'mobile',
+      visibility: 'partner',
+      metadata: { ...metadata, upload_kind: 'load_contract' } as Record<string, unknown>,
+    }).catch(() => {});
+
+    if (companyId) {
+      recordStructuredUploadMessage(supabase, {
+        entityType: 'load',
+        entityId: loadId,
+        companyId,
+        action: 'paperwork_uploaded',
+        performerUserId: userId,
+        performerDriverId: context?.driver?.id,
+        performerName: driverName,
+        target: 'internal',
+        metadata: { ...metadata, upload_kind: 'load_contract' } as Record<string, unknown>,
+      }).catch(() => {});
+    }
+  }
+
+  // Log load report photo
+  if (payload.load_report_photo_url) {
+    const metadata = createPaperworkMetadata({
+      documentType: 'other',
+      loadNumber,
+      fileUrl: payload.load_report_photo_url,
+    });
+
+    logStructuredUploadEvent(supabase, {
+      entityType: 'load',
+      entityId: loadId,
+      action: 'paperwork_uploaded',
+      performedByUserId: userId,
+      performedByCompanyId: companyId,
+      source: 'mobile',
+      visibility: 'partner',
+      metadata: { ...metadata, upload_kind: 'load_report' } as Record<string, unknown>,
+    }).catch(() => {});
+
+    if (companyId) {
+      recordStructuredUploadMessage(supabase, {
+        entityType: 'load',
+        entityId: loadId,
+        companyId,
+        action: 'paperwork_uploaded',
+        performerUserId: userId,
+        performerDriverId: context?.driver?.id,
+        performerName: driverName,
+        target: 'internal',
+        metadata: { ...metadata, upload_kind: 'load_report' } as Record<string, unknown>,
+      }).catch(() => {});
+    }
+  }
 }
 
 // Driver marks load delivered
-export async function driverMarkLoadDelivered(loadId: string, userId: string, payload: {
-  destination_arrival_at?: string;
-  amount_collected_on_delivery?: number;
-  amount_paid_directly_to_company?: number;
-  payment_method?: 'cash' | 'card' | 'certified_check' | 'customer_paid_directly_to_company';
-  payment_method_notes?: string;
-  extra_shuttle?: number;
-  extra_stairs?: number;
-  extra_long_carry?: number;
-  extra_packing?: number;
-  extra_bulky?: number;
-  extra_other?: number;
-  delivery_report_photo_url?: string;
-  delivery_photos?: string[];
-}) {
+export async function driverMarkLoadDelivered(
+  loadId: string,
+  userId: string,
+  payload: {
+    destination_arrival_at?: string;
+    amount_collected_on_delivery?: number;
+    amount_paid_directly_to_company?: number;
+    payment_method?: 'cash' | 'card' | 'certified_check' | 'customer_paid_directly_to_company';
+    payment_method_notes?: string;
+    extra_shuttle?: number;
+    extra_stairs?: number;
+    extra_long_carry?: number;
+    extra_packing?: number;
+    extra_bulky?: number;
+    extra_other?: number;
+    delivery_report_photo_url?: string;
+    delivery_photos?: string[];
+  },
+  context?: { driver?: { id: string; first_name?: string; last_name?: string } }
+) {
   const supabase = await getDbClient();
+
+  // Get load info for audit logging
+  const { data: loadData } = await supabase
+    .from('loads')
+    .select('load_number, company:companies(id, name)')
+    .eq('id', loadId)
+    .eq('owner_id', userId)
+    .single();
+
   const extraTotal =
     (payload.extra_shuttle || 0) +
     (payload.extra_stairs || 0) +
@@ -460,6 +568,80 @@ export async function driverMarkLoadDelivered(loadId: string, userId: string, pa
 
   if (error) {
     throw new Error(`Failed to mark load delivered: ${error.message}`);
+  }
+
+  // AUDIT & MESSAGING: Log photo uploads
+  const company = Array.isArray((loadData as any)?.company) ? (loadData as any)?.company[0] : (loadData as any)?.company;
+  const companyId = company?.id;
+  const loadNumber = (loadData as any)?.load_number;
+  const driverName = context?.driver ? `${context.driver.first_name || ''} ${context.driver.last_name || ''}`.trim() : undefined;
+
+  // Log delivery report photo
+  if (payload.delivery_report_photo_url) {
+    const metadata = createPaperworkMetadata({
+      documentType: 'other',
+      loadNumber,
+      fileUrl: payload.delivery_report_photo_url,
+    });
+
+    logStructuredUploadEvent(supabase, {
+      entityType: 'load',
+      entityId: loadId,
+      action: 'paperwork_uploaded',
+      performedByUserId: userId,
+      performedByCompanyId: companyId,
+      source: 'mobile',
+      visibility: 'partner',
+      metadata: { ...metadata, upload_kind: 'load_delivery_report' } as Record<string, unknown>,
+    }).catch(() => {});
+
+    if (companyId) {
+      recordStructuredUploadMessage(supabase, {
+        entityType: 'load',
+        entityId: loadId,
+        companyId,
+        action: 'paperwork_uploaded',
+        performerUserId: userId,
+        performerDriverId: context?.driver?.id,
+        performerName: driverName,
+        target: 'internal',
+        metadata: { ...metadata, upload_kind: 'load_delivery_report' } as Record<string, unknown>,
+      }).catch(() => {});
+    }
+  }
+
+  // Log delivery photos (array)
+  if (payload.delivery_photos && payload.delivery_photos.length > 0) {
+    const metadata = createPhotoUploadMetadata({
+      photoType: 'delivery',
+      loadNumber,
+      uploadContext: 'load_delivery',
+    });
+
+    logStructuredUploadEvent(supabase, {
+      entityType: 'load',
+      entityId: loadId,
+      action: 'photo_uploaded',
+      performedByUserId: userId,
+      performedByCompanyId: companyId,
+      source: 'mobile',
+      visibility: 'partner',
+      metadata: { ...metadata, upload_kind: 'load_delivery_photos', file_count: payload.delivery_photos.length } as Record<string, unknown>,
+    }).catch(() => {});
+
+    if (companyId) {
+      recordStructuredUploadMessage(supabase, {
+        entityType: 'load',
+        entityId: loadId,
+        companyId,
+        action: 'photo_uploaded',
+        performerUserId: userId,
+        performerDriverId: context?.driver?.id,
+        performerName: driverName,
+        target: 'internal',
+        metadata: { ...metadata, upload_kind: 'load_delivery_photos', file_count: payload.delivery_photos.length } as Record<string, unknown>,
+      }).catch(() => {});
+    }
   }
 }
 
@@ -616,8 +798,47 @@ export async function driverStartLoading(
     }
   }
 
-  // Log activity
+  // AUDIT & MESSAGING: Log loading start photo upload
   const company = Array.isArray((load as any).company) ? (load as any).company[0] : (load as any).company;
+  const companyId = company?.id;
+
+  if (payload.loading_start_photo) {
+    const metadata = createPhotoUploadMetadata({
+      photoType: 'pickup',
+      fileUrl: payload.loading_start_photo,
+      loadNumber: (load as any).load_number,
+      uploadContext: 'load_pickup',
+    });
+
+    // Log audit event (non-blocking)
+    logStructuredUploadEvent(supabase, {
+      entityType: 'load',
+      entityId: loadId,
+      action: 'photo_uploaded',
+      performedByUserId: userId,
+      performedByCompanyId: companyId,
+      source: 'mobile',
+      visibility: 'partner',
+      metadata: { ...metadata, upload_kind: 'load_loading_before_photo' } as Record<string, unknown>,
+    }).catch(() => {});
+
+    // Record system message
+    if (companyId) {
+      recordStructuredUploadMessage(supabase, {
+        entityType: 'load',
+        entityId: loadId,
+        companyId,
+        action: 'photo_uploaded',
+        performerUserId: userId,
+        performerDriverId: context?.driver?.id,
+        performerName: context?.driver ? `${context.driver.first_name || ''} ${context.driver.last_name || ''}`.trim() : undefined,
+        target: 'internal',
+        metadata: { ...metadata, upload_kind: 'load_loading_before_photo' } as Record<string, unknown>,
+      }).catch(() => {});
+    }
+  }
+
+  // Log activity
   const driverName = context?.driver ? `${context.driver.first_name || ''} ${context.driver.last_name || ''}`.trim() : 'Driver';
   await logActivity({
     ownerId: userId,
@@ -700,8 +921,47 @@ export async function driverFinishLoading(
     }
   }
 
-  // Log activity
+  // AUDIT & MESSAGING: Log loading end photo upload
   const company = Array.isArray((load as any).company) ? (load as any).company[0] : (load as any).company;
+  const companyId = company?.id;
+
+  if (payload.loading_end_photo) {
+    const metadata = createPhotoUploadMetadata({
+      photoType: 'pickup',
+      fileUrl: payload.loading_end_photo,
+      loadNumber: (load as any).load_number,
+      uploadContext: 'load_pickup',
+    });
+
+    // Log audit event (non-blocking)
+    logStructuredUploadEvent(supabase, {
+      entityType: 'load',
+      entityId: loadId,
+      action: 'photo_uploaded',
+      performedByUserId: userId,
+      performedByCompanyId: companyId,
+      source: 'mobile',
+      visibility: 'partner',
+      metadata: { ...metadata, upload_kind: 'load_loading_after_photo' } as Record<string, unknown>,
+    }).catch(() => {});
+
+    // Record system message
+    if (companyId) {
+      recordStructuredUploadMessage(supabase, {
+        entityType: 'load',
+        entityId: loadId,
+        companyId,
+        action: 'photo_uploaded',
+        performerUserId: userId,
+        performerDriverId: context?.driver?.id,
+        performerName: context?.driver ? `${context.driver.first_name || ''} ${context.driver.last_name || ''}`.trim() : undefined,
+        target: 'internal',
+        metadata: { ...metadata, upload_kind: 'load_loading_after_photo' } as Record<string, unknown>,
+      }).catch(() => {});
+    }
+  }
+
+  // Log activity
   const driverName = context?.driver ? `${context.driver.first_name || ''} ${context.driver.last_name || ''}`.trim() : 'Driver';
   await logActivity({
     ownerId: userId,
@@ -719,20 +979,33 @@ export async function driverFinishLoading(
 }
 
 // Driver completes load details (after loading, before delivery)
-export async function driverCompleteLoadDetails(loadId: string, userId: string, payload: {
-  actual_cuft_loaded?: number;
-  contract_rate_per_cuft?: number;
-  contract_accessorials_shuttle?: number;
-  contract_accessorials_stairs?: number;
-  contract_accessorials_long_carry?: number;
-  contract_accessorials_bulky?: number;
-  contract_accessorials_other?: number;
-  balance_due_on_delivery?: number;
-  first_available_date?: string;
-  loading_report_photo?: string;
-  origin_paperwork_photos?: string[];
-}) {
+export async function driverCompleteLoadDetails(
+  loadId: string,
+  userId: string,
+  payload: {
+    actual_cuft_loaded?: number;
+    contract_rate_per_cuft?: number;
+    contract_accessorials_shuttle?: number;
+    contract_accessorials_stairs?: number;
+    contract_accessorials_long_carry?: number;
+    contract_accessorials_bulky?: number;
+    contract_accessorials_other?: number;
+    balance_due_on_delivery?: number;
+    first_available_date?: string;
+    loading_report_photo?: string;
+    origin_paperwork_photos?: string[];
+  },
+  context?: { driver?: { id: string; first_name?: string; last_name?: string } }
+) {
   const supabase = await getDbClient();
+
+  // Get load info for audit logging
+  const { data: loadData } = await supabase
+    .from('loads')
+    .select('load_number, company:companies(id, name)')
+    .eq('id', loadId)
+    .eq('owner_id', userId)
+    .single();
 
   const accessorials =
     (payload.contract_accessorials_shuttle || 0) +
@@ -788,6 +1061,79 @@ export async function driverCompleteLoadDetails(loadId: string, userId: string, 
       return;
     }
     throw new Error(`Failed to complete load details: ${error.message}`);
+  }
+
+  // AUDIT & MESSAGING: Log photo/document uploads
+  const company = Array.isArray((loadData as any)?.company) ? (loadData as any)?.company[0] : (loadData as any)?.company;
+  const companyId = company?.id;
+  const loadNumber = (loadData as any)?.load_number;
+  const driverName = context?.driver ? `${context.driver.first_name || ''} ${context.driver.last_name || ''}`.trim() : undefined;
+
+  // Log loading report photo
+  if (payload.loading_report_photo) {
+    const metadata = createPaperworkMetadata({
+      documentType: 'other',
+      loadNumber,
+      fileUrl: payload.loading_report_photo,
+    });
+
+    logStructuredUploadEvent(supabase, {
+      entityType: 'load',
+      entityId: loadId,
+      action: 'paperwork_uploaded',
+      performedByUserId: userId,
+      performedByCompanyId: companyId,
+      source: 'mobile',
+      visibility: 'partner',
+      metadata: { ...metadata, upload_kind: 'load_loading_report' } as Record<string, unknown>,
+    }).catch(() => {});
+
+    if (companyId) {
+      recordStructuredUploadMessage(supabase, {
+        entityType: 'load',
+        entityId: loadId,
+        companyId,
+        action: 'paperwork_uploaded',
+        performerUserId: userId,
+        performerDriverId: context?.driver?.id,
+        performerName: driverName,
+        target: 'internal',
+        metadata: { ...metadata, upload_kind: 'load_loading_report' } as Record<string, unknown>,
+      }).catch(() => {});
+    }
+  }
+
+  // Log origin paperwork photos (array upload)
+  if (payload.origin_paperwork_photos && payload.origin_paperwork_photos.length > 0) {
+    const metadata = createPaperworkMetadata({
+      documentType: 'other',
+      loadNumber,
+    });
+
+    logStructuredUploadEvent(supabase, {
+      entityType: 'load',
+      entityId: loadId,
+      action: 'paperwork_uploaded',
+      performedByUserId: userId,
+      performedByCompanyId: companyId,
+      source: 'mobile',
+      visibility: 'partner',
+      metadata: { ...metadata, upload_kind: 'load_origin_paperwork', file_count: payload.origin_paperwork_photos.length } as Record<string, unknown>,
+    }).catch(() => {});
+
+    if (companyId) {
+      recordStructuredUploadMessage(supabase, {
+        entityType: 'load',
+        entityId: loadId,
+        companyId,
+        action: 'paperwork_uploaded',
+        performerUserId: userId,
+        performerDriverId: context?.driver?.id,
+        performerName: driverName,
+        target: 'internal',
+        metadata: { ...metadata, upload_kind: 'load_origin_paperwork', file_count: payload.origin_paperwork_photos.length } as Record<string, unknown>,
+      }).catch(() => {});
+    }
   }
 }
 
@@ -928,6 +1274,8 @@ export async function driverCompleteDelivery(
 
   // Log activity
   const company = Array.isArray((load as any).company) ? (load as any).company[0] : (load as any).company;
+  const companyId = company?.id;
+  const loadNumber = (load as any).load_number;
   const driverName = context?.driver ? `${context.driver.first_name || ''} ${context.driver.last_name || ''}`.trim() : 'Driver';
   const collectedText = payload.collected_amount ? `$${payload.collected_amount} collected (${payload.collection_method || 'cash'})` : 'No collection';
   await logActivity({
@@ -938,18 +1286,125 @@ export async function driverCompleteDelivery(
     tripId: context?.tripId,
     tripNumber: context?.tripNumber,
     loadId,
-    loadNumber: (load as any).load_number,
-    title: `${driverName} completed delivery for ${(load as any).load_number || loadId.slice(0, 8)}`,
+    loadNumber,
+    title: `${driverName} completed delivery for ${loadNumber || loadId.slice(0, 8)}`,
     description: `${collectedText} • ${company?.name || 'Unknown company'}`,
     metadata: { collectedAmount: payload.collected_amount, collectionMethod: payload.collection_method, companyName: company?.name },
   });
+
+  // AUDIT & MESSAGING: Log delivery photo uploads
+  // Log delivery location photo
+  if (payload.delivery_location_photo) {
+    const metadata = createPhotoUploadMetadata({
+      photoType: 'delivery',
+      fileUrl: payload.delivery_location_photo,
+      loadNumber,
+      uploadContext: 'load_delivery',
+    });
+
+    logStructuredUploadEvent(supabase, {
+      entityType: 'load',
+      entityId: loadId,
+      action: 'photo_uploaded',
+      performedByUserId: userId,
+      performedByCompanyId: companyId,
+      source: 'mobile',
+      visibility: 'partner',
+      metadata: { ...metadata, upload_kind: 'load_delivery_location_photo' } as Record<string, unknown>,
+    }).catch(() => {});
+
+    if (companyId) {
+      recordStructuredUploadMessage(supabase, {
+        entityType: 'load',
+        entityId: loadId,
+        companyId,
+        action: 'photo_uploaded',
+        performerUserId: userId,
+        performerDriverId: context?.driver?.id,
+        performerName: driverName,
+        target: 'internal',
+        metadata: { ...metadata, upload_kind: 'load_delivery_location_photo' } as Record<string, unknown>,
+      }).catch(() => {});
+    }
+  }
+
+  // Log signed BOL photos (array)
+  if (payload.signed_bol_photos && payload.signed_bol_photos.length > 0) {
+    const metadata = createPaperworkMetadata({
+      documentType: 'bol', // signed_bol stored in upload_kind
+      loadNumber,
+    });
+
+    logStructuredUploadEvent(supabase, {
+      entityType: 'load',
+      entityId: loadId,
+      action: 'paperwork_uploaded',
+      performedByUserId: userId,
+      performedByCompanyId: companyId,
+      source: 'mobile',
+      visibility: 'partner',
+      metadata: { ...metadata, upload_kind: 'load_signed_bol', file_count: payload.signed_bol_photos.length } as Record<string, unknown>,
+    }).catch(() => {});
+
+    if (companyId) {
+      recordStructuredUploadMessage(supabase, {
+        entityType: 'load',
+        entityId: loadId,
+        companyId,
+        action: 'paperwork_uploaded',
+        performerUserId: userId,
+        performerDriverId: context?.driver?.id,
+        performerName: driverName,
+        target: 'internal',
+        metadata: { ...metadata, upload_kind: 'load_signed_bol', file_count: payload.signed_bol_photos.length } as Record<string, unknown>,
+      }).catch(() => {});
+    }
+  }
+
+  // Log signed inventory photos (array)
+  if (payload.signed_inventory_photos && payload.signed_inventory_photos.length > 0) {
+    const metadata = createPaperworkMetadata({
+      documentType: 'other', // signed_inventory stored in upload_kind
+      loadNumber,
+    });
+
+    logStructuredUploadEvent(supabase, {
+      entityType: 'load',
+      entityId: loadId,
+      action: 'paperwork_uploaded',
+      performedByUserId: userId,
+      performedByCompanyId: companyId,
+      source: 'mobile',
+      visibility: 'partner',
+      metadata: { ...metadata, upload_kind: 'load_signed_inventory', file_count: payload.signed_inventory_photos.length } as Record<string, unknown>,
+    }).catch(() => {});
+
+    if (companyId) {
+      recordStructuredUploadMessage(supabase, {
+        entityType: 'load',
+        entityId: loadId,
+        companyId,
+        action: 'paperwork_uploaded',
+        performerUserId: userId,
+        performerDriverId: context?.driver?.id,
+        performerName: driverName,
+        target: 'internal',
+        metadata: { ...metadata, upload_kind: 'load_signed_inventory', file_count: payload.signed_inventory_photos.length } as Record<string, unknown>,
+      }).catch(() => {});
+    }
+  }
 }
 
 // Update load with contract documents during loading phase
-export async function driverUpdateLoadingDocuments(loadId: string, userId: string, payload: {
-  loading_report_photo?: string;
-  contract_documents?: string[];
-}) {
+export async function driverUpdateLoadingDocuments(
+  loadId: string,
+  userId: string,
+  payload: {
+    loading_report_photo?: string;
+    contract_documents?: string[];
+  },
+  context?: { driver?: { id: string; first_name?: string; last_name?: string } }
+) {
   const supabase = await getDbClient();
 
   const updateData: Record<string, any> = {};
@@ -964,6 +1419,14 @@ export async function driverUpdateLoadingDocuments(loadId: string, userId: strin
     return; // Nothing to update
   }
 
+  // Get load info for audit logging
+  const { data: loadData } = await supabase
+    .from('loads')
+    .select('load_number, company:companies(id, name)')
+    .eq('id', loadId)
+    .eq('owner_id', userId)
+    .single();
+
   const { error } = await supabase
     .from('loads')
     .update(updateData)
@@ -974,8 +1437,82 @@ export async function driverUpdateLoadingDocuments(loadId: string, userId: strin
     // Silently fail if columns don't exist
     if (error.message.includes('column') || error.code === '42703') {
       console.warn('[driverUpdateLoadingDocuments] Some columns missing. Run migrations for full features.');
+      return; // Can't log uploads if columns don't exist
     } else {
       throw new Error(`Failed to update loading documents: ${error.message}`);
+    }
+  }
+
+  // AUDIT & MESSAGING: Log document uploads
+  const company = Array.isArray((loadData as any)?.company) ? (loadData as any)?.company[0] : (loadData as any)?.company;
+  const companyId = company?.id;
+  const loadNumber = (loadData as any)?.load_number;
+  const driverName = context?.driver ? `${context.driver.first_name || ''} ${context.driver.last_name || ''}`.trim() : undefined;
+
+  // Log loading report photo
+  if (payload.loading_report_photo) {
+    const metadata = createPaperworkMetadata({
+      documentType: 'other',
+      loadNumber,
+      fileUrl: payload.loading_report_photo,
+    });
+
+    logStructuredUploadEvent(supabase, {
+      entityType: 'load',
+      entityId: loadId,
+      action: 'paperwork_uploaded',
+      performedByUserId: userId,
+      performedByCompanyId: companyId,
+      source: 'mobile',
+      visibility: 'partner',
+      metadata: { ...metadata, upload_kind: 'load_loading_report' } as Record<string, unknown>,
+    }).catch(() => {});
+
+    if (companyId) {
+      recordStructuredUploadMessage(supabase, {
+        entityType: 'load',
+        entityId: loadId,
+        companyId,
+        action: 'paperwork_uploaded',
+        performerUserId: userId,
+        performerDriverId: context?.driver?.id,
+        performerName: driverName,
+        target: 'internal',
+        metadata: { ...metadata, upload_kind: 'load_loading_report' } as Record<string, unknown>,
+      }).catch(() => {});
+    }
+  }
+
+  // Log contract documents (array)
+  if (payload.contract_documents && payload.contract_documents.length > 0) {
+    const metadata = createPaperworkMetadata({
+      documentType: 'other', // contract stored in upload_kind
+      loadNumber,
+    });
+
+    logStructuredUploadEvent(supabase, {
+      entityType: 'load',
+      entityId: loadId,
+      action: 'paperwork_uploaded',
+      performedByUserId: userId,
+      performedByCompanyId: companyId,
+      source: 'mobile',
+      visibility: 'partner',
+      metadata: { ...metadata, upload_kind: 'load_contract_documents', file_count: payload.contract_documents.length } as Record<string, unknown>,
+    }).catch(() => {});
+
+    if (companyId) {
+      recordStructuredUploadMessage(supabase, {
+        entityType: 'load',
+        entityId: loadId,
+        companyId,
+        action: 'paperwork_uploaded',
+        performerUserId: userId,
+        performerDriverId: context?.driver?.id,
+        performerName: driverName,
+        target: 'internal',
+        metadata: { ...metadata, upload_kind: 'load_contract_documents', file_count: payload.contract_documents.length } as Record<string, unknown>,
+      }).catch(() => {});
     }
   }
 }
