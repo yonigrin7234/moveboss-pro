@@ -186,9 +186,8 @@ export async function getRecentAuditLogs(
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  // Filter by the user who performed the action
-  // This ensures we see all activity by this user across all entities
-  query = query.eq('performed_by_user_id', userId);
+  // Note: RLS handles access control - we don't filter by user here
+  // The RLS policy should ensure users only see logs for entities they have access to
 
   if (options?.entityTypes && options.entityTypes.length > 0) {
     query = query.in('entity_type', options.entityTypes);
