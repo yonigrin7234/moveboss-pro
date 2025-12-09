@@ -125,10 +125,10 @@ function shouldShowDateHeader(
 function shouldShowSender(
   current: MessageWithSender,
   previous: MessageWithSender | undefined,
-  isOwn: boolean
+  _isOwn: boolean // Kept for API compatibility but no longer affects logic
 ): boolean {
-  // Always show sender for first message or own messages don't need sender
-  if (!previous || isOwn) return !isOwn;
+  // Always show sender for first message
+  if (!previous) return true;
 
   // Show sender if different from previous
   const currentSender = current.sender_user_id || current.sender_driver_id;

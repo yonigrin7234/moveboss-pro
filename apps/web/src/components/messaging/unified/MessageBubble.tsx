@@ -53,9 +53,12 @@ export function MessageBubble({ message, isOwn, showSender = true }: MessageBubb
           isOwn ? 'items-end' : 'items-start'
         )}
       >
-        {/* Sender name - only for non-own messages */}
-        {!isOwn && showSender && (
-          <div className="flex items-center gap-1.5 mb-1 px-1">
+        {/* Sender name - shown for all messages when showSender is true */}
+        {showSender && (
+          <div className={cn(
+            'flex items-center gap-1.5 mb-1 px-1',
+            isOwn ? 'justify-end' : 'justify-start'
+          )}>
             {isAI && <Bot className="h-3 w-3 text-emerald-500" />}
             <span
               className={cn(
