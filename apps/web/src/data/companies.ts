@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase-server';
 import { companyProfileSchema, type CompanyProfileFormValues } from '@/lib/validation/companyProfileSchema';
+import { logAuditEvent } from '@/lib/audit';
 
 // Enums
 export const companyTypeSchema = z.enum(['customer', 'carrier', 'both']);
@@ -297,6 +298,23 @@ export async function createCompany(input: NewCompanyInput, userId: string): Pro
     throw new Error(`Failed to create company: ${error.message}`);
   }
 
+  // Log audit event
+  await logAuditEvent(supabase, {
+    entityType: 'company',
+    entityId: data.id,
+    action: 'created',
+    performedByUserId: userId,
+    newValue: {
+      name: input.name,
+      company_type: input.company_type,
+      status: input.status || 'active',
+    },
+    metadata: {
+      company_name: input.name,
+      company_type: input.company_type,
+    },
+  });
+
   return data as Company;
 }
 
@@ -306,6 +324,14 @@ export async function updateCompany(
   userId: string
 ): Promise<Company> {
   const supabase = await createClient();
+
+  // Fetch current state for audit log
+  const { data: currentData } = await supabase
+    .from('companies')
+    .select('name, company_type, status')
+    .eq('id', id)
+    .eq('owner_id', userId)
+    .single();
 
   const { data, error } = await supabase
     .from('companies')
@@ -323,11 +349,41 @@ export async function updateCompany(
     throw new Error(`Failed to update company: ${error.message}`);
   }
 
+  // Log audit event
+  await logAuditEvent(supabase, {
+    entityType: 'company',
+    entityId: id,
+    action: 'company_updated',
+    performedByUserId: userId,
+    previousValue: currentData ? {
+      name: currentData.name,
+      company_type: currentData.company_type,
+      status: currentData.status,
+    } : null,
+    newValue: {
+      name: input.name,
+      company_type: input.company_type,
+      status: input.status,
+    },
+    metadata: {
+      company_name: data.name,
+    },
+  });
+
   return data as Company;
 }
 
 export async function deleteCompany(id: string, userId: string): Promise<void> {
   const supabase = await createClient();
+
+  // Fetch company info for audit log before deletion
+  const { data: companyData } = await supabase
+    .from('companies')
+    .select('name, company_type')
+    .eq('id', id)
+    .eq('owner_id', userId)
+    .single();
+
   const { error } = await supabase
     .from('companies')
     .delete()
@@ -338,6 +394,21 @@ export async function deleteCompany(id: string, userId: string): Promise<void> {
   if (error) {
     throw new Error(`Failed to delete company: ${error.message}`);
   }
+
+  // Log audit event
+  await logAuditEvent(supabase, {
+    entityType: 'company',
+    entityId: id,
+    action: 'deleted',
+    performedByUserId: userId,
+    previousValue: companyData ? {
+      name: companyData.name,
+      company_type: companyData.company_type,
+    } : null,
+    metadata: {
+      company_name: companyData?.name,
+    },
+  });
 }
 
 export async function getWorkspaceCompanyForUser(userId: string): Promise<Company | null> {
@@ -420,6 +491,8 @@ export async function upsertWorkspaceCompanyForUser(
     secondary_contact_email: parsed.secondary_contact_email ?? null,
   };
 
+  const isUpdate = !!existing?.id;
+
   if (existing?.id) {
     const { data, error } = await supabase
       .from('companies')
@@ -458,6 +531,22 @@ export async function upsertWorkspaceCompanyForUser(
     }
     company = data as Company;
   }
+
+  // Log audit event
+  await logAuditEvent(supabase, {
+    entityType: 'company',
+    entityId: company.id,
+    action: isUpdate ? 'company_updated' : 'created',
+    performedByUserId: userId,
+    newValue: {
+      name: parsed.name,
+      is_workspace_company: true,
+    },
+    metadata: {
+      company_name: parsed.name,
+      is_workspace_company: true,
+    },
+  });
 
   await ensureWorkspaceMembership(userId, company.id);
   return company;
@@ -575,6 +664,9 @@ export async function updateCompanyProfileFields(
   const parsed = companyProfileSchema.parse(values);
   const supabase = await createClient();
 
+  // Get authenticated user for audit log
+  const { data: { user } } = await supabase.auth.getUser();
+
   const { error } = await supabase
     .from('companies')
     .update({
@@ -604,6 +696,23 @@ export async function updateCompanyProfileFields(
 
   if (error) {
     throw new Error(`Failed to update company: ${error.message}`);
+  }
+
+  // Log audit event
+  if (user?.id) {
+    await logAuditEvent(supabase, {
+      entityType: 'company',
+      entityId: companyId,
+      action: 'company_updated',
+      performedByUserId: user.id,
+      newValue: {
+        name: parsed.name,
+      },
+      metadata: {
+        company_name: parsed.name,
+        is_workspace_company: true,
+      },
+    });
   }
 }
 

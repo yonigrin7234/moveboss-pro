@@ -92,7 +92,6 @@ export async function getAuditLogsForEntity(
 
   // If join fails, try without the join
   if (error) {
-    console.error('[Audit] Failed to fetch logs with join, trying without:', error.message, error.code);
     const fallbackResult = await supabase
       .from('audit_logs')
       .select(
@@ -117,20 +116,12 @@ export async function getAuditLogsForEntity(
       .range(offset, offset + limit - 1);
 
     if (fallbackResult.error) {
-      console.error('[Audit] Fallback query also failed:', fallbackResult.error.message);
       return [];
     }
 
     data = fallbackResult.data?.map((row: any) => ({ ...row, performer: null })) ?? null;
     error = null;
-    console.log('[Audit] Fallback query succeeded with', data?.length, 'rows');
   }
-
-  console.log('[Audit] getAuditLogsForEntity result:', {
-    entityType,
-    entityId,
-    count: data?.length ?? 0,
-  });
 
   // Transform the data to flatten the performer info
   // Supabase returns joined relations as arrays, so we take the first element
@@ -153,30 +144,6 @@ export async function getAuditLogsForEntity(
       performer_email: performer?.email ?? null,
     };
   });
-}
-
-/**
- * Debug function to check audit log count for an entity (no joins)
- */
-export async function debugAuditLogCount(
-  entityType: AuditEntityType,
-  entityId: string
-): Promise<{ count: number; error: string | null }> {
-  const supabase = await createClient();
-
-  const { count, error } = await supabase
-    .from('audit_logs')
-    .select('id', { count: 'exact', head: true })
-    .eq('entity_type', entityType)
-    .eq('entity_id', entityId);
-
-  if (error) {
-    console.error('[Audit Debug] Count query failed:', error.message, error.code);
-    return { count: 0, error: error.message };
-  }
-
-  console.log('[Audit Debug] Count for', entityType, entityId, ':', count);
-  return { count: count ?? 0, error: null };
 }
 
 /**
@@ -225,7 +192,6 @@ export async function getRecentAuditLogs(
   const { data, error } = await query;
 
   if (error) {
-    console.error('[Audit] Failed to fetch recent logs:', error.message);
     return [];
   }
 

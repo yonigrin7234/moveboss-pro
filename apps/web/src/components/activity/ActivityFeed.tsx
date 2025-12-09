@@ -161,10 +161,42 @@ function getActionText(log: AuditLogEntry): string {
     // Partnership actions
     case 'partnership_created':
       return 'created partnership';
-    case 'partnership_upgraded':
-      return 'upgraded partnership to mutual';
-    case 'partnership_deactivated':
-      return 'deactivated partnership';
+    case 'partnership_upgraded': {
+      const newStatus = metadata.new_status;
+      return newStatus === 'active' ? 'reactivated partnership' : 'upgraded partnership';
+    }
+    case 'partnership_deactivated': {
+      const newStatus = metadata.new_status;
+      const reason = metadata.reason;
+      if (newStatus === 'paused') {
+        return reason ? `paused partnership (${reason})` : 'paused partnership';
+      }
+      return reason ? `terminated partnership (${reason})` : 'terminated partnership';
+    }
+    case 'updated':
+      return 'updated details';
+
+    // Company actions
+    case 'company_updated': {
+      const companyName = metadata.company_name;
+      return companyName ? `updated company "${companyName}"` : 'updated company';
+    }
+    case 'created': {
+      const companyName = metadata.company_name;
+      return companyName ? `created company "${companyName}"` : 'created company';
+    }
+    case 'deleted': {
+      const companyName = metadata.company_name;
+      return companyName ? `deleted company "${companyName}"` : 'deleted company';
+    }
+    case 'member_added': {
+      const memberName = metadata.member_name;
+      return memberName ? `added ${memberName} to company` : 'added team member';
+    }
+    case 'member_removed': {
+      const memberName = metadata.member_name;
+      return memberName ? `removed ${memberName} from company` : 'removed team member';
+    }
 
     default:
       return log.action.replace(/_/g, ' ');
@@ -243,9 +275,25 @@ function getActionIcon(action: string): React.ReactNode {
 
     // Partnerships
     case 'partnership_created':
+      return <Plus className="h-3 w-3" />;
     case 'partnership_upgraded':
+      return <CheckCircle className="h-3 w-3" />;
     case 'partnership_deactivated':
+      return <XCircle className="h-3 w-3" />;
+    case 'updated':
       return <FileText className="h-3 w-3" />;
+
+    // Company actions
+    case 'company_updated':
+      return <FileText className="h-3 w-3" />;
+    case 'created':
+      return <Plus className="h-3 w-3" />;
+    case 'deleted':
+      return <Trash2 className="h-3 w-3" />;
+    case 'member_added':
+      return <UserPlus className="h-3 w-3" />;
+    case 'member_removed':
+      return <UserMinus className="h-3 w-3" />;
 
     default:
       return <Clock className="h-3 w-3" />;

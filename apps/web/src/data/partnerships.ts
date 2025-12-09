@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server';
 import { sendPartnershipInvitationEmail } from '@/lib/email/notifications';
+import { logAuditEvent } from '@/lib/audit';
 
 export interface PartnerCompany {
   id: string;
@@ -285,6 +286,24 @@ export async function createPartnership(
     return { success: false, error: error.message };
   }
 
+  // Log audit event
+  await logAuditEvent(supabase, {
+    entityType: 'partnership',
+    entityId: result.id,
+    action: 'partnership_created',
+    performedByUserId: ownerId,
+    newValue: {
+      company_a_id: data.company_a_id,
+      company_b_id: data.company_b_id,
+      relationship_type: data.relationship_type,
+      status: 'active',
+    },
+    metadata: {
+      relationship_type: data.relationship_type,
+      payment_terms: data.payment_terms || 'net_30',
+    },
+  });
+
   return { success: true, id: result.id };
 }
 
@@ -296,6 +315,16 @@ export async function updatePartnershipStatus(
   reason?: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
+
+  // Fetch current state for audit log
+  const { data: currentData } = await supabase
+    .from('company_partnerships')
+    .select('status')
+    .eq('id', id)
+    .eq('owner_id', ownerId)
+    .single();
+
+  const previousStatus = currentData?.status;
 
   const updateData: Record<string, unknown> = {
     status,
@@ -325,6 +354,22 @@ export async function updatePartnershipStatus(
     return { success: false, error: error.message };
   }
 
+  // Log audit event
+  const action = status === 'active' ? 'partnership_upgraded' : 'partnership_deactivated';
+  await logAuditEvent(supabase, {
+    entityType: 'partnership',
+    entityId: id,
+    action,
+    performedByUserId: ownerId,
+    previousValue: { status: previousStatus },
+    newValue: { status, reason: reason || null },
+    metadata: {
+      previous_status: previousStatus,
+      new_status: status,
+      reason: reason || null,
+    },
+  });
+
   return { success: true };
 }
 
@@ -338,6 +383,14 @@ export async function updatePartnershipTerms(
   }
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
+
+  // Fetch current state for audit log
+  const { data: currentData } = await supabase
+    .from('company_partnerships')
+    .select('payment_terms, internal_notes')
+    .eq('id', id)
+    .eq('owner_id', ownerId)
+    .single();
 
   const { error } = await supabase
     .from('company_partnerships')
@@ -353,6 +406,22 @@ export async function updatePartnershipTerms(
     console.error('Error updating partnership terms:', error);
     return { success: false, error: error.message };
   }
+
+  // Log audit event
+  await logAuditEvent(supabase, {
+    entityType: 'partnership',
+    entityId: id,
+    action: 'updated',
+    performedByUserId: ownerId,
+    previousValue: {
+      payment_terms: currentData?.payment_terms,
+      internal_notes: currentData?.internal_notes,
+    },
+    newValue: {
+      payment_terms: data.payment_terms,
+      internal_notes: data.internal_notes,
+    },
+  });
 
   return { success: true };
 }
@@ -557,6 +626,25 @@ export async function acceptPartnershipInvitation(
       to_company_id: acceptingCompanyId,
     })
     .eq('id', invitation.id);
+
+  // Log audit event for the accepting user's partnership
+  await logAuditEvent(supabase, {
+    entityType: 'partnership',
+    entityId: partnership.id,
+    action: 'partnership_created',
+    performedByUserId: acceptingUserId,
+    newValue: {
+      company_a_id: invitation.from_company_id,
+      company_b_id: acceptingCompanyId,
+      relationship_type: invitation.relationship_type,
+      status: 'active',
+    },
+    metadata: {
+      relationship_type: invitation.relationship_type,
+      from_invitation: true,
+      from_company_name: invitation.from_company?.name,
+    },
+  });
 
   return { success: true, partnershipId: partnership.id };
 }

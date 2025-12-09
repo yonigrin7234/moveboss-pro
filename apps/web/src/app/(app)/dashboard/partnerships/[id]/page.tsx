@@ -22,6 +22,7 @@ import {
 import { getCurrentUser, createClient } from '@/lib/supabase-server';
 import { getPartnershipById, updatePartnershipStatus, updatePartnershipTerms, isMoveBossMemberCompany } from '@/data/partnerships';
 import { getWorkspaceCompanyForUser } from '@/data/companies';
+import { getAuditLogsForEntity } from '@/lib/audit';
 import {
   getComplianceRequestsForPartnership,
   createComplianceRequestsForPartnership,
@@ -44,6 +45,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { RequestDocumentsButton } from '@/components/partnerships/RequestDocumentsButton';
 import { ChatPanel } from '@/components/messaging/unified';
+import { ActivityFeed } from '@/components/activity/ActivityFeed';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   active: { label: 'Active', color: 'bg-green-500/20 text-green-600 dark:text-green-400' },
@@ -87,6 +89,9 @@ export default async function PartnershipDetailPage({
 
   // Get compliance requests for this partnership
   const complianceRequests = await getComplianceRequestsForPartnership(id);
+
+  // Get activity logs for this partnership
+  const activityLogs = await getAuditLogsForEntity('partnership', id, { limit: 20 });
 
   async function activateAction() {
     'use server';
@@ -492,6 +497,9 @@ export default async function PartnershipDetailPage({
           </CardContent>
         </Card>
       )}
+
+      {/* Activity */}
+      <ActivityFeed logs={activityLogs} emptyMessage="No activity recorded for this partnership yet" />
 
       {/* Status Actions */}
       <Card>

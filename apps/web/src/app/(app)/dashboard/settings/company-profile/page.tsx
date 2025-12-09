@@ -6,6 +6,8 @@ import { CompanyProfileFormClient } from './CompanyProfileFormClient';
 import { DOTVerificationCard } from './DOTVerificationCard';
 import { loadCompanyProfile, updateCompanyProfileAction, createWorkspaceCompanyAction } from './actions';
 import { type CompanyProfileFormValues } from '@/lib/validation/companyProfileSchema';
+import { getAuditLogsForEntity } from '@/lib/audit';
+import { ActivityFeed } from '@/components/activity/ActivityFeed';
 
 export default async function CompanyProfilePage() {
   const user = await getCurrentUser();
@@ -111,6 +113,9 @@ export default async function CompanyProfilePage() {
       }
     : null;
 
+  // Get activity logs for this company
+  const activityLogs = await getAuditLogsForEntity('company', company.id, { limit: 20 });
+
   return (
     <div className="space-y-6">
       <div className="space-y-1">
@@ -145,6 +150,9 @@ export default async function CompanyProfilePage() {
           />
         </CardContent>
       </Card>
+
+      {/* Activity */}
+      <ActivityFeed logs={activityLogs} emptyMessage="No activity recorded for this company yet" />
     </div>
   );
 }

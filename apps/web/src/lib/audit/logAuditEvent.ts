@@ -98,40 +98,17 @@ export async function logAuditEvent(
   input: LogAuditEventInput
 ): Promise<void> {
   try {
-    // Verify the session matches the performedByUserId
+    // Get session user for performer info
     const { data: { user: sessionUser } } = await client.auth.getUser();
-    const sessionUserId = sessionUser?.id;
-
-    console.log('[Audit] Attempting to log event:', {
-      entityType: input.entityType,
-      entityId: input.entityId,
-      action: input.action,
-      performedByUserId: input.performedByUserId,
-      sessionUserId,
-      sessionMatch: sessionUserId === input.performedByUserId,
-    });
-
-    if (sessionUserId !== input.performedByUserId) {
-      console.warn('[Audit] WARNING: Session user ID does not match performedByUserId!',
-        'This will likely cause RLS policy to reject the insert.',
-        { sessionUserId, performedByUserId: input.performedByUserId });
-    }
 
     // Fetch performer's name from profiles to include in metadata
     let performerName: string | null = null;
     let performerEmail: string | null = sessionUser?.email ?? null;
-    const { data: profileData, error: profileError } = await client
+    const { data: profileData } = await client
       .from('profiles')
       .select('full_name, email')
       .eq('id', input.performedByUserId)
       .single();
-
-    console.log('[Audit] Profile fetch result:', {
-      userId: input.performedByUserId,
-      profileData,
-      profileError: profileError?.message,
-      sessionEmail: sessionUser?.email,
-    });
 
     if (profileData) {
       performerName = profileData.full_name;
@@ -155,12 +132,7 @@ export async function logAuditEvent(
       performer_email: performerEmail,
     };
 
-    console.log('[Audit] Enriched metadata:', {
-      performer_name: performerName,
-      performer_email: performerEmail,
-    });
-
-    const { error, data } = await client.from('audit_logs').insert({
+    const { error } = await client.from('audit_logs').insert({
       entity_type: input.entityType,
       entity_id: input.entityId,
       action: input.action,
@@ -171,16 +143,13 @@ export async function logAuditEvent(
       previous_value: input.previousValue ?? null,
       new_value: input.newValue ?? null,
       metadata: enrichedMetadata,
-    }).select('id');
+    });
 
     if (error) {
-      console.error('[Audit] Failed to log event:', error.message, error.code, error.details, {
+      console.error('[Audit] Failed to log event:', error.message, {
         entityType: input.entityType,
-        entityId: input.entityId,
         action: input.action,
       });
-    } else {
-      console.log('[Audit] Successfully logged event:', data?.[0]?.id);
     }
   } catch (err) {
     // Silently fail - audit logging should never break the main flow
