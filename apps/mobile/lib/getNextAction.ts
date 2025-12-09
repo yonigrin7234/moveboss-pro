@@ -386,7 +386,7 @@ function createStartTripAction(trip: TripWithLoads): NextAction {
     subtitle: `Trip #${trip.trip_number}`,
     description: route,
     trip,
-    route: `/(app)/trips/${trip.id}`,
+    route: `/(app)/trips/${trip.id}/start`,
     canSwipeToComplete: false,
     requiresInput: true, // Needs odometer reading
     estimatedTime: '2 min',

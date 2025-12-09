@@ -11,6 +11,7 @@
 import React, { Component, ReactNode } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { colors, typography, spacing, radius } from '../../lib/theme';
+import { createLogger } from '../../lib/logger';
 import { Icon } from './Icon';
 
 interface ErrorBoundaryProps {
@@ -29,6 +30,8 @@ interface ErrorBoundaryState {
 }
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  private logger = createLogger('ErrorBoundary');
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -39,7 +42,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    this.logger.error('Caught error', { error, errorInfo });
     this.props.onError?.(error, errorInfo);
   }
 

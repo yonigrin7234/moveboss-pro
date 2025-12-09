@@ -12,6 +12,9 @@ import { LoadRequestActions } from '@/components/load-request-actions';
 import { checkCarrierCompliance } from '@/data/compliance-alerts';
 import { getLoadRequests, acceptLoadRequest, declineLoadRequest } from '@/data/marketplace';
 import { getLoadStatusHistory } from '@/data/load-status';
+import { getWorkspaceCompanyForUser } from '@/data/companies';
+import { LoadDetailMessaging } from '@/components/load-detail';
+import type { LoadDetailViewModel, MessagingProps } from '@/lib/load-detail-model';
 import {
   ArrowLeft,
   ArrowRight,
@@ -274,16 +277,7 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
   const supabase = await createClient();
 
   // Get user's workspace company
-  const { data: workspaceCompany, error: workspaceError } = await supabase
-    .from('companies')
-    .select('id')
-    .eq('owner_id', user.id)
-    .eq('is_workspace_company', true)
-    .maybeSingle();
-
-  if (workspaceError) {
-    console.error('[PostedJobDetail] Workspace company error:', workspaceError);
-  }
+  const workspaceCompany = await getWorkspaceCompanyForUser(user.id);
 
   if (!workspaceCompany) {
     console.error('[PostedJobDetail] No workspace company found for user:', user.id);
@@ -391,6 +385,56 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
   const loadDate = postedJob.expected_load_date || postedJob.pickup_date || postedJob.rfd_date;
   const isAssigned = !!postedJob.assigned_carrier_id;
   const loadStatus = loadStatusConfig[postedJob.load_status] || loadStatusConfig.accepted;
+
+  // Create messaging model for broker's posted job view
+  // Partner is the assigned carrier (if any)
+  const messagingModel: LoadDetailViewModel = {
+    id: postedJob.id,
+    loadNumber: postedJob.load_number || postedJob.job_number,
+    context: 'owner',
+    displayStatus: 'pending',
+    statusLabel: 'Posted',
+    statusVariant: 'blue',
+    origin: { city: origin.city || '', state: origin.state || '' },
+    destination: { city: destination.city || '', state: destination.state || '' },
+    dates: {},
+    size: { estimatedCuft: cuft || undefined },
+    pricing: { rate: rate || undefined },
+    ownerCompany: { id: workspaceCompany.id, name: workspaceCompany.name },
+    partnerCompany: postedJob.assigned_carrier
+      ? {
+          id: postedJob.assigned_carrier.id,
+          name: postedJob.assigned_carrier.name,
+        }
+      : undefined,
+    badges: [],
+    messagingProps: {
+      loadId: postedJob.id,
+      loadNumber: postedJob.load_number || postedJob.job_number,
+      companyId: workspaceCompany.id,
+      userId: user.id,
+      partnerCompanyId: postedJob.assigned_carrier?.id,
+      partnerCompanyName: postedJob.assigned_carrier?.name,
+    },
+    permissions: {
+      canEdit: false,
+      canDelete: false,
+      canPostToMarketplace: false,
+      canAssignToTrip: false,
+      canUpdateStatus: false,
+      canAssignDriver: false,
+      canAssignEquipment: false,
+      canRatePartner: false,
+      canViewPhotos: false,
+      canViewTimeline: false,
+    },
+    isFromMarketplace: false,
+    isPickup: postedJob.posting_type === 'pickup',
+    isRfd: postedJob.load_type === 'rfd',
+    isMarketplaceListed: true,
+    _raw: postedJob,
+    _context: { user: { id: user.id }, workspaceCompany: { id: workspaceCompany.id, name: workspaceCompany.name } },
+  };
 
   return (
     <div className="space-y-6">
@@ -952,6 +996,9 @@ export default async function PostedJobDetailPage({ params }: PageProps) {
         )}
       </div>
       )}
+
+      {/* Messaging Section */}
+      <LoadDetailMessaging model={messagingModel} />
     </div>
   );
 }

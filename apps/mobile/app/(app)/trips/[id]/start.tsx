@@ -15,9 +15,12 @@ import { TripStartScreen } from '../../../../components/ui/TripStartScreen';
 import { useTripActions } from '../../../../hooks/useTripActions';
 import { useImageUpload } from '../../../../hooks/useImageUpload';
 import { useAuth } from '../../../../providers/AuthProvider';
+import { useDriver } from '../../../../providers/DriverProvider';
 import { supabase } from '../../../../lib/supabase';
 import { TripWithLoads, TripLoad } from '../../../../types';
 import { colors, typography, spacing } from '../../../../lib/theme';
+import { useQueryClient } from '@tanstack/react-query';
+import { dataLogger } from '../../../../lib/logger';
 
 // Helper to add timeout to promises
 // Uses PromiseLike<T> to support Supabase query builders which are Promise-like but not Promise types
@@ -43,6 +46,9 @@ export default function TripStartRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
+  const { driverId, ownerId } = useDriver();
+  const queryClient = useQueryClient();
+  const [odometerPhotoUrl, setOdometerPhotoUrl] = useState<string | null>(null);
 
   // Check cache for initial state
   const cacheKey = id || '';
@@ -208,11 +214,23 @@ export default function TripStartRoute() {
           return { success: false, error: uploadResult.error || 'Failed to upload photo' };
         }
 
+        setOdometerPhotoUrl(uploadResult.url!);
+
         // Start trip with odometer data
         const result = await tripActions.startTrip({
           odometerStart: data.odometer,
           odometerStartPhotoUrl: uploadResult.url!,
         });
+
+        if (result.success) {
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ['tripDetail', id, user?.id, driverId, ownerId] }),
+            queryClient.invalidateQueries({ queryKey: ['driverTrips', user?.id, driverId, ownerId] }),
+            queryClient.invalidateQueries({ queryKey: ['driverDashboard', user?.id, driverId, ownerId] }),
+          ]);
+          // Navigate to trip detail
+          router.replace(`/(app)/trips/${id}`);
+        }
 
         return result;
       } catch (err) {
@@ -221,7 +239,7 @@ export default function TripStartRoute() {
         isProcessingRef.current = false;
       }
     },
-    [id, tripActions, uploadOdometerPhoto]
+    [id, tripActions, uploadOdometerPhoto, queryClient, user?.id, driverId, ownerId, router]
   );
 
   const handleCancel = useCallback(() => {
@@ -235,17 +253,9 @@ export default function TripStartRoute() {
       tripStartCache.delete(id);
     }
 
-    // Navigate to first load or back to trip detail
-    const firstLoad = findFirstLoad();
-
-    if (firstLoad) {
-      // Navigate to first load
-      router.replace(`/(app)/trips/${id}/loads/${firstLoad.loads.id}`);
-    } else {
-      // No loads, go back to trip detail
-      router.replace(`/(app)/trips/${id}`);
-    }
-  }, [router, id, findFirstLoad]);
+    // Navigate to trip detail
+    router.replace(`/(app)/trips/${id}`);
+  }, [router, id]);
 
   const handleRetry = useCallback(() => {
     if (!id || !user?.id) return;
@@ -313,6 +323,7 @@ export default function TripStartRoute() {
           animation: 'slide_from_bottom',
         }}
       />
+      {dataLogger.debug('[TripStart] render', { tripId: id, hasPhoto: !!odometerPhotoUrl })}
       <TripStartScreen
         tripNumber={String(trip.trip_number || '')}
         truckUnit={trip.trucks?.unit_number?.toString()}

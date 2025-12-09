@@ -9,16 +9,13 @@
  * Features offline caching for instant load on app restart.
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { TripWithLoads } from '../types';
 import { useAuth } from '../providers/AuthProvider';
+import { useDriver } from '../providers/DriverProvider';
 import { getNextAction, getAllPendingActions, NextAction } from '../lib/getNextAction';
-import {
-  saveToCache,
-  loadFromCache,
-  CACHE_KEYS,
-} from '../lib/offlineCache';
 import { useDriverRealtimeSubscription } from './useRealtimeSubscription';
 import { dataLogger } from '../lib/logger';
 
@@ -46,101 +43,16 @@ interface DashboardData {
   refetch: () => Promise<void>;
 }
 
-// Module-level cache with per-user tracking
-const dashboardCache: { data: TripWithLoads[] | null; fetchedForUser: string | null } = {
-  data: null,
-  fetchedForUser: null,
-};
-// Track which user we last loaded persistent cache for (prevents re-loading on every mount)
-let lastPersistentCacheLoadedForUser: string | null = null;
-
-// Minimum time between fetches to prevent flickering (in ms)
-const FETCH_COOLDOWN_MS = 2000;
-
 export function useDriverDashboard(): DashboardData {
   const { user } = useAuth();
-  const [tripsWithLoads, setTripsWithLoads] = useState<TripWithLoads[]>(() =>
-    dashboardCache.fetchedForUser === user?.id ? (dashboardCache.data || []) : []
-  );
-  const [loading, setLoading] = useState(() =>
-    dashboardCache.fetchedForUser !== user?.id
-  );
-  const [error, setError] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const isFetchingRef = useRef(false);
-  const lastFetchTimeRef = useRef<number>(0);
-  const [driverInfo, setDriverInfo] = useState<{ driverId: string; ownerId: string } | null>(null);
+  const { driverId, ownerId, loading: driverLoading, error: driverError, isReady: driverReady } = useDriver();
+  const queryClient = useQueryClient();
+  const driverInfo = useMemo(() => (driverId && ownerId ? { driverId, ownerId } : null), [driverId, ownerId]);
 
-  // Load from persistent cache on first mount (per-user)
-  useEffect(() => {
-    if (!user?.id) return;
-    // Skip if we already loaded for this user
-    if (lastPersistentCacheLoadedForUser === user.id) return;
-
-    const loadPersistentCache = async () => {
-      dataLogger.debug('Loading dashboard from persistent cache');
-      const cached = await loadFromCache<TripWithLoads[]>(CACHE_KEYS.DASHBOARD, user.id);
-      if (cached && cached.length > 0) {
-        dashboardCache.data = cached;
-        dashboardCache.fetchedForUser = user.id;
-        setTripsWithLoads(cached);
-        setLoading(false);
-        dataLogger.info(`Loaded ${cached.length} trips from cache`);
-      }
-      lastPersistentCacheLoadedForUser = user.id;
-    };
-
-    loadPersistentCache();
-  }, [user?.id]);
-
-  const fetchDashboardData = useCallback(async () => {
-    if (!user?.id) {
-      setLoading(false);
-      setTripsWithLoads([]);
-      return;
-    }
-
-    if (isFetchingRef.current) {
-      return;
-    }
-
-    const hasCachedData = dashboardCache.fetchedForUser === user.id && dashboardCache.data;
-    if (hasCachedData) {
-      setTripsWithLoads(dashboardCache.data!);
-      setLoading(false);
-    }
-
-    try {
-      isFetchingRef.current = true;
-      if (!hasCachedData) {
-        setLoading(true);
-      } else {
-        setIsRefreshing(true);
-      }
-      setError(null);
-
-      const { data: driver, error: driverError } = await supabase
-        .from('drivers')
-        .select('id, owner_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (driverError || !driver) {
-        if (!hasCachedData) {
-          setError('Driver profile not found');
-          setTripsWithLoads([]);
-        }
-        return;
-      }
-
-      // Save driver info for realtime subscription (only if changed)
-      setDriverInfo(prev => {
-        if (prev?.driverId === driver.id && prev?.ownerId === driver.owner_id) {
-          return prev; // No change, return same reference
-        }
-        return { driverId: driver.id, ownerId: driver.owner_id };
-      });
-
+  const dashboardQuery = useQuery<TripWithLoads[]>({
+    queryKey: ['driverDashboard', user?.id, driverId, ownerId],
+    enabled: driverReady && !!driverId && !!ownerId,
+    queryFn: async () => {
       const { data: trips, error: tripsError } = await supabase
         .from('trips')
         .select(`
@@ -178,8 +90,8 @@ export function useDriverDashboard(): DashboardData {
           ),
           trip_expenses (*)
         `)
-        .eq('driver_id', driver.id)
-        .eq('owner_id', driver.owner_id)
+        .eq('driver_id', driverId!)
+        .eq('owner_id', ownerId!)
         .in('status', ['planned', 'active', 'en_route'])
         .order('start_date', { ascending: true });
 
@@ -188,60 +100,21 @@ export function useDriverDashboard(): DashboardData {
       }
 
       const result = trips || [];
-      dashboardCache.data = result;
-      dashboardCache.fetchedForUser = user.id;
-      setTripsWithLoads(result);
-      setError(null);
-
-      // Save to persistent cache
-      saveToCache(CACHE_KEYS.DASHBOARD, result, user.id);
       dataLogger.info(`Fetched ${result.length} trips for dashboard`);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
-      dataLogger.error('Dashboard fetch failed', err);
-      // Only show error UI if we don't have cached data to show
-      if (!hasCachedData) {
-        setError(errorMessage);
-        setTripsWithLoads([]);
-      }
-      // If we have cached data, silently fail - user still sees old data
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-      isFetchingRef.current = false;
-      lastFetchTimeRef.current = Date.now();
-    }
-  }, [user?.id]);
+      return result;
+    },
+  });
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+  const tripsWithLoads = dashboardQuery.data || [];
 
   const refetch = useCallback(async () => {
-    if (!user?.id) return;
+    await dashboardQuery.refetch();
+  }, [dashboardQuery]);
 
-    dataLogger.debug('Manual refetch triggered');
-    // Reset fetch flag to allow new fetch, but DON'T clear cached data
-    // The fetch will update cache on success; on failure, old data remains
-    isFetchingRef.current = false;
-    setIsRefreshing(true);
-    setError(null);
-    fetchDashboardData();
-  }, [user?.id, fetchDashboardData]);
-
-  // Silent background refetch for realtime updates (doesn't clear cache or show loading)
   const silentRefetch = useCallback(() => {
-    if (!user?.id || isFetchingRef.current) return;
-
-    // Enforce cooldown to prevent rapid refetches causing flickering
-    const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
-    if (timeSinceLastFetch < FETCH_COOLDOWN_MS) {
-      dataLogger.debug(`Skipping refetch - cooldown active (${timeSinceLastFetch}ms < ${FETCH_COOLDOWN_MS}ms)`);
-      return;
-    }
-
-    fetchDashboardData();
-  }, [user?.id, fetchDashboardData]);
+    if (!driverReady || !driverId || !ownerId) return;
+    queryClient.invalidateQueries({ queryKey: ['driverDashboard', user?.id, driverId, ownerId] });
+  }, [queryClient, user?.id, driverReady, driverId, ownerId]);
 
   // Subscribe to realtime updates for trips and loads
   useDriverRealtimeSubscription({
@@ -303,6 +176,10 @@ export function useDriverDashboard(): DashboardData {
   }, [tripsWithLoads]);
 
   // Memoize return value to prevent unnecessary re-renders in consumers
+  const loading = driverLoading || dashboardQuery.isLoading;
+  const isRefreshing = dashboardQuery.isRefetching;
+  const error = driverError || (dashboardQuery.error ? (dashboardQuery.error as Error).message : null);
+
   return useMemo(() => ({
     nextAction,
     pendingActions,

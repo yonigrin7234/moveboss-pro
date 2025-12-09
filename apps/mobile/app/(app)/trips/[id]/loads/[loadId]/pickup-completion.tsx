@@ -1,12 +1,5 @@
 import { useState, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +7,7 @@ import { useLoadDetail } from '../../../../../../hooks/useLoadDetail';
 import { useLoadActions } from '../../../../../../hooks/useLoadActions';
 import { useImageUpload } from '../../../../../../hooks/useImageUpload';
 import { useToast, LoadDetailSkeleton } from '../../../../../../components/ui';
+import { ErrorState } from '../../../../../../components/ui';
 import { PaymentMethod, ZelleRecipient } from '../../../../../../types';
 import { DamageDocumentation } from '../../../../../../components/DamageDocumentation';
 import {
@@ -23,6 +17,10 @@ import {
   PaperworkSection,
   SummaryCard,
 } from '../../../../../../components/pickup';
+import { PickupCompletionHeader } from './components/PickupCompletionHeader';
+import { PickupLoadingSummary } from './components/PickupLoadingSummary';
+import { PickupSubmitButton } from './components/PickupSubmitButton';
+import ErrorBoundary from '../../../../../../components/ui/ErrorBoundary';
 import { colors, typography, spacing, radius } from '../../../../../../lib/theme';
 
 interface AccessorialsState {
@@ -266,9 +264,7 @@ export default function PickupCompletionScreen() {
       <>
         <Stack.Screen options={{ title: 'Complete Pickup' }} />
         <View style={styles.container}>
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
+          <ErrorState title="Unable to load pickup" message={error} actionLabel="Retry" onAction={refetch} />
         </View>
       </>
     );
@@ -289,138 +285,107 @@ export default function PickupCompletionScreen() {
   const locationInfo = [load.pickup_city, load.pickup_state].filter(Boolean).join(', ');
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          title: 'Complete Pickup',
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.textPrimary,
-        }}
-      />
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.screenPadding }]}
-        keyboardDismissMode="on-drag"
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>{customerInfo}</Text>
-          {locationInfo && <Text style={styles.headerSubtitle}>{locationInfo}</Text>}
-        </View>
-
-        {/* Section 1: Loading Summary */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Loading Summary</Text>
-          <Text style={styles.sectionSubtitle}>Captured during loading</Text>
-
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Actual CUFT Loaded</Text>
-              <Text style={styles.summaryValueLarge}>{actualCuft.toLocaleString()}</Text>
-            </View>
-          </View>
-
-          {/* Loading photos thumbnails */}
-          {(load.loading_start_photo || load.loading_end_photo) && (
-            <View style={styles.photoThumbnails}>
-              {load.loading_start_photo && (
-                <View style={styles.thumbnailContainer}>
-                  <Text style={styles.thumbnailLabel}>Start</Text>
-                  <Image source={{ uri: load.loading_start_photo }} style={styles.thumbnail} />
-                </View>
-              )}
-              {load.loading_end_photo && (
-                <View style={styles.thumbnailContainer}>
-                  <Text style={styles.thumbnailLabel}>End</Text>
-                  <Image source={{ uri: load.loading_end_photo }} style={styles.thumbnail} />
-                </View>
-              )}
-            </View>
-          )}
-        </View>
-
-        {/* Section 2: Pre-Existing Damages */}
-        <DamageDocumentation loadId={loadId} onUpdate={refetch} />
-
-        {/* Section 3: Contract Details */}
-        <ContractDetailsSection
-          actualCuft={actualCuft}
-          ratePerCuft={ratePerCuft}
-          onRateChange={setRatePerCuft}
-          linehaulOverride={linehaulOverride}
-          onLinehaulOverrideChange={setLinehaulOverride}
-          calculatedLinehaul={calculatedLinehaul}
-          accessorials={accessorials}
-          onAccessorialChange={handleAccessorialChange}
-          accessorialsTotal={accessorialsTotal}
-          balanceDue={balanceDue}
-          onBalanceDueChange={setBalanceDue}
+    <ErrorBoundary fallback={<FallbackView />}>
+      <>
+        <Stack.Screen
+          options={{
+            title: 'Complete Pickup',
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.textPrimary,
+          }}
         />
-
-        {/* Section 4: Payment at Pickup */}
-        <PaymentCollectionSection
-          amountCollected={amountCollected}
-          onAmountChange={setAmountCollected}
-          paymentMethod={paymentMethod}
-          onPaymentMethodChange={handlePaymentMethodChange}
-          zelleRecipient={zelleRecipient}
-          onZelleRecipientChange={setZelleRecipient}
-          paymentPhotoFront={paymentPhotoFront}
-          paymentPhotoBack={paymentPhotoBack}
-          onTakePaymentPhoto={handleTakePaymentPhoto}
-          disabled={submitting || uploading}
-        />
-
-        {/* Section 5: Delivery Information */}
-        <DeliveryScheduleSection
-          rfdDate={rfdDate}
-          onRfdDateChange={setRfdDate}
-          rfdDateEnd={rfdDateEnd}
-          onRfdDateEndChange={setRfdDateEnd}
-          deliveryNotes={deliveryNotes}
-          onDeliveryNotesChange={setDeliveryNotes}
-        />
-
-        {/* Section 6: Documentation */}
-        <PaperworkSection
-          contractPhoto={contractPhoto}
-          onTakeContractPhoto={handleTakeContractPhoto}
-          inventoryPhotos={inventoryPhotos}
-          onTakeInventoryPhoto={handleTakeInventoryPhoto}
-          disabled={submitting || uploading}
-        />
-
-        {/* Section 7: Summary Card */}
-        <SummaryCard
-          linehaulTotal={linehaulTotal}
-          accessorialsTotal={accessorialsTotal}
-          totalContract={totalContract}
-          amountCollected={collectedNum}
-          remainingBalance={remainingBalance}
-        />
-
-        {/* Submit Button */}
-        <TouchableOpacity
-          style={[styles.submitButton, !canSubmit && styles.submitButtonDisabled]}
-          onPress={handleSubmit}
-          disabled={!canSubmit}
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.screenPadding }]}
+          keyboardDismissMode="on-drag"
         >
-          <Text style={styles.submitButtonText}>
-            {submitting
-              ? 'Completing...'
-              : uploading
-              ? `Uploading... ${progress}%`
-              : 'Complete Pickup'}
-          </Text>
-        </TouchableOpacity>
+          <PickupCompletionHeader title={customerInfo} subtitle={locationInfo} />
 
-        {!rfdDate && (
-          <Text style={styles.validationHint}>
-            Please select a Ready-for-Delivery date
-          </Text>
-        )}
-      </ScrollView>
-    </>
+          <PickupLoadingSummary
+            actualCuft={actualCuft}
+            startPhoto={load.loading_start_photo}
+            endPhoto={load.loading_end_photo}
+          />
+
+          {/* Section 2: Pre-Existing Damages */}
+          <DamageDocumentation loadId={loadId} onUpdate={refetch} />
+
+          {/* Section 3: Contract Details */}
+          <ContractDetailsSection
+            actualCuft={actualCuft}
+            ratePerCuft={ratePerCuft}
+            onRateChange={setRatePerCuft}
+            linehaulOverride={linehaulOverride}
+            onLinehaulOverrideChange={setLinehaulOverride}
+            calculatedLinehaul={calculatedLinehaul}
+            accessorials={accessorials}
+            onAccessorialChange={handleAccessorialChange}
+            accessorialsTotal={accessorialsTotal}
+            balanceDue={balanceDue}
+            onBalanceDueChange={setBalanceDue}
+          />
+
+          {/* Section 4: Payment at Pickup */}
+          <PaymentCollectionSection
+            amountCollected={amountCollected}
+            onAmountChange={setAmountCollected}
+            paymentMethod={paymentMethod}
+            onPaymentMethodChange={handlePaymentMethodChange}
+            zelleRecipient={zelleRecipient}
+            onZelleRecipientChange={setZelleRecipient}
+            paymentPhotoFront={paymentPhotoFront}
+            paymentPhotoBack={paymentPhotoBack}
+            onTakePaymentPhoto={handleTakePaymentPhoto}
+            disabled={submitting || uploading}
+          />
+
+          {/* Section 5: Delivery Information */}
+          <DeliveryScheduleSection
+            rfdDate={rfdDate}
+            onRfdDateChange={setRfdDate}
+            rfdDateEnd={rfdDateEnd}
+            onRfdDateEndChange={setRfdDateEnd}
+            deliveryNotes={deliveryNotes}
+            onDeliveryNotesChange={setDeliveryNotes}
+          />
+
+          {/* Section 6: Documentation */}
+          <PaperworkSection
+            contractPhoto={contractPhoto}
+            onTakeContractPhoto={handleTakeContractPhoto}
+            inventoryPhotos={inventoryPhotos}
+            onTakeInventoryPhoto={handleTakeInventoryPhoto}
+            disabled={submitting || uploading}
+          />
+
+          {/* Section 7: Summary Card */}
+          <SummaryCard
+            linehaulTotal={linehaulTotal}
+            accessorialsTotal={accessorialsTotal}
+            totalContract={totalContract}
+            amountCollected={collectedNum}
+            remainingBalance={remainingBalance}
+          />
+
+          <PickupSubmitButton
+            canSubmit={canSubmit}
+            submitting={submitting}
+            uploading={uploading}
+            progress={progress}
+            onSubmit={handleSubmit}
+            showValidationHint={!rfdDate}
+          />
+        </ScrollView>
+      </>
+    </ErrorBoundary>
+  );
+}
+
+function FallbackView() {
+  return (
+    <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <Text style={styles.errorText}>Something went wrong. Please try again.</Text>
+    </View>
   );
 }
 
@@ -432,97 +397,8 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.screenPadding,
   },
-  header: {
-    marginBottom: spacing.sectionGap,
-  },
-  headerTitle: {
-    ...typography.headline,
-    color: colors.textPrimary,
-  },
-  headerSubtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  section: {
-    marginBottom: spacing.sectionGap,
-  },
-  sectionTitle: {
-    ...typography.subheadline,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  sectionSubtitle: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginBottom: spacing.lg,
-  },
-  summaryCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.cardPadding,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  summaryLabel: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  summaryValueLarge: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.success,
-  },
-  photoThumbnails: {
-    flexDirection: 'row',
-    gap: spacing.itemGap,
-    marginTop: spacing.itemGap,
-  },
-  thumbnailContainer: {
-    alignItems: 'center',
-  },
-  thumbnailLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  thumbnail: {
-    width: 60,
-    height: 60,
-    borderRadius: radius.sm,
-    backgroundColor: colors.borderLight,
-  },
-  submitButton: {
-    backgroundColor: colors.success,
-    borderRadius: radius.md,
-    padding: 18,
-    alignItems: 'center',
-    minHeight: 44,
-  },
-  submitButtonDisabled: {
-    opacity: 0.5,
-  },
-  submitButtonText: {
-    ...typography.button,
-    color: colors.textPrimary,
-  },
-  validationHint: {
-    ...typography.bodySmall,
-    color: colors.warning,
-    textAlign: 'center',
-    marginTop: spacing.itemGap,
-  },
-  errorCard: {
-    backgroundColor: '#fee2e2',
-    borderRadius: radius.md,
-    padding: spacing.cardPadding,
-    margin: spacing.screenPadding,
-  },
   errorText: {
-    ...typography.bodySmall,
-    color: '#991b1b',
+    ...typography.body,
+    color: colors.error,
   },
 });

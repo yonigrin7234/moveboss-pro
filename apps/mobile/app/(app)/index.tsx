@@ -27,10 +27,12 @@ import {
   Icon,
   NextActionSkeleton,
   SkeletonStats,
+  ErrorState,
 } from '../../components/ui';
 import { QuickActionButton, UpcomingTripCard, DocumentAlertCard } from '../../components/dashboard';
 import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
 import { TripWithLoads } from '../../types';
+import { dataLogger } from '../../lib/logger';
 
 export default function HomeScreen() {
   const { signOut } = useAuth();
@@ -98,16 +100,18 @@ export default function HomeScreen() {
 
       {/* Error State */}
       {error && (
-        <View style={styles.errorCard}>
-          <Text style={styles.errorText}>{error}</Text>
+        <View style={{ marginBottom: spacing.lg }}>
+          <ErrorState title="Unable to load dashboard" message={error} actionLabel="Retry" onAction={handleRefresh} />
         </View>
       )}
 
       {/* THE ONE ACTION */}
-      {showSkeleton ? (
+      {showSkeleton || (nextAction.type === 'start_trip' && (!nextAction.trip?.id || !nextAction.route)) ? (
         <NextActionSkeleton style={{ marginBottom: spacing.lg }} />
       ) : (
-        <NextActionCard action={nextAction} />
+        <>
+          <NextActionCard action={nextAction} />
+        </>
       )}
 
       {/* Quick Stats Row */}
@@ -255,18 +259,6 @@ const styles = StyleSheet.create({
   },
   signOutText: {
     ...typography.caption,
-    color: colors.error,
-  },
-  errorCard: {
-    backgroundColor: colors.errorSoft,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.error,
-  },
-  errorText: {
-    ...typography.bodySmall,
     color: colors.error,
   },
   quickActions: {

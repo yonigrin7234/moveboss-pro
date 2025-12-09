@@ -7,6 +7,7 @@ import { ChatView } from '../../../../components/messaging/ChatView';
 import { ConversationListItem } from '../../../../types/messaging';
 import { colors, typography, spacing, radius } from '../../../../lib/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { ErrorState } from 'components/ui';
 
 export default function TripMessagesScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -122,12 +123,8 @@ export default function TripMessagesScreen() {
             <Text style={styles.loadingText}>Loading conversations...</Text>
           </View>
         ) : conversationsError ? (
-          <View style={[styles.container, styles.centered]}>
-            <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
-            <Text style={styles.errorText}>{conversationsError}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={refetchConversations}>
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
+          <View style={{ padding: spacing.sectionGap }}>
+            <ErrorState title="Unable to load conversations" message={conversationsError} actionLabel="Retry" onAction={refetchConversations} />
           </View>
         ) : (
           <View style={styles.list}>
@@ -187,24 +184,6 @@ const styles = StyleSheet.create({
   loadingText: {
     ...typography.body,
     color: colors.textSecondary,
-  },
-  errorText: {
-    ...typography.body,
-    color: colors.error,
-    textAlign: 'center',
-    marginTop: spacing.md,
-  },
-  retryButton: {
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-  },
-  retryButtonText: {
-    ...typography.body,
-    color: '#FFFFFF',
-    fontWeight: '600',
   },
   emptyTitle: {
     ...typography.headline,

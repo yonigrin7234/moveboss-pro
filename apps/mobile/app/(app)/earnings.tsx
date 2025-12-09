@@ -22,6 +22,7 @@ import {
   EarningsStatsRow,
   EarningsFilterTabs,
 } from '../../components/earnings';
+import { ErrorState } from '../../components/ui';
 
 export default function EarningsScreen() {
   const { settlements, summary, loading, error, refetch } = useDriverEarnings();
@@ -41,9 +42,7 @@ export default function EarningsScreen() {
       <>
         <Stack.Screen options={{ title: 'Earnings' }} />
         <View style={styles.container}>
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
+          <ErrorState title="Unable to load earnings" message={error} actionLabel="Retry" onAction={refetch} />
         </View>
       </>
     );
@@ -135,15 +134,5 @@ const styles = StyleSheet.create({
   emptyText: {
     ...typography.bodySmall,
     color: colors.textSecondary,
-  },
-  errorCard: {
-    backgroundColor: colors.errorSoft,
-    borderRadius: radius.md,
-    padding: spacing.cardPadding,
-    margin: spacing.screenPadding,
-  },
-  errorText: {
-    ...typography.bodySmall,
-    color: colors.error,
   },
 });

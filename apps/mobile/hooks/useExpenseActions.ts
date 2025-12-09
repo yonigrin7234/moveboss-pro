@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { TripExpense, ExpenseCategory, ExpensePaidBy } from '../types';
 import { useAuth } from '../providers/AuthProvider';
+import { useDriver } from '../providers/DriverProvider';
 import { notifyOwnerExpenseAdded } from '../lib/notify-owner';
 
 type ActionResult = { success: boolean; error?: string };
@@ -18,18 +20,13 @@ export interface CreateExpenseInput {
 export function useExpenseActions(tripId: string, onSuccess?: () => void) {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
+  const { driverId, ownerId, isReady, error: driverError } = useDriver();
 
   const getDriverInfo = async () => {
     if (!user) throw new Error('Not authenticated');
-
-    const { data: driver, error } = await supabase
-      .from('drivers')
-      .select('id, owner_id')
-      .eq('auth_user_id', user.id)
-      .single();
-
-    if (error || !driver) throw new Error('Driver profile not found');
-    return driver;
+    if (driverError) throw new Error(driverError);
+    if (!isReady || !driverId || !ownerId) throw new Error('Driver profile not found');
+    return { id: driverId, owner_id: ownerId };
   };
 
   const createExpense = async (input: CreateExpenseInput): Promise<ActionResult> => {
@@ -94,51 +91,35 @@ export function useExpenseActions(tripId: string, onSuccess?: () => void) {
 }
 
 export function useTripExpenses(tripId: string | null) {
-  const [expenses, setExpenses] = useState<TripExpense[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { driverId, ownerId, loading: driverLoading, error: driverError, isReady: driverReady } = useDriver();
 
-  const fetchExpenses = useCallback(async () => {
-    if (!user || !tripId) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      const { data: driver, error: driverError } = await supabase
-        .from('drivers')
-        .select('id, owner_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (driverError || !driver) {
-        setError('Driver profile not found');
-        return;
+  const expensesQuery = useQuery<TripExpense[]>({
+    queryKey: ['tripExpenses', tripId, user?.id, driverId, ownerId],
+    enabled: driverReady && !!driverId && !!ownerId && !!tripId,
+    queryFn: async () => {
+      if (driverError) {
+        throw new Error(driverError);
+      }
+      if (!driverId || !ownerId) {
+        throw new Error('Driver profile not found');
       }
 
       const { data, error: expenseError } = await supabase
         .from('trip_expenses')
         .select('*')
-        .eq('trip_id', tripId)
-        .eq('owner_id', driver.owner_id)
+        .eq('trip_id', tripId!)
+        .eq('owner_id', ownerId)
         .order('incurred_at', { ascending: false });
 
       if (expenseError) throw expenseError;
-      setExpenses(data || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch expenses');
-    } finally {
-      setLoading(false);
-    }
-  }, [user, tripId]);
+      return data || [];
+    },
+  });
 
-  useEffect(() => {
-    fetchExpenses();
-  }, [fetchExpenses]);
+  const expenses = expensesQuery.data || [];
+  const loading = driverLoading || expensesQuery.isLoading;
+  const error = driverError || (expensesQuery.error ? (expensesQuery.error as Error).message : null);
 
-  return { expenses, loading, error, refetch: fetchExpenses };
+  return { expenses, loading, error, refetch: expensesQuery.refetch };
 }

@@ -125,7 +125,7 @@ export default function CompleteDeliveryRoute() {
           <Text style={styles.errorTitle}>Unable to Load</Text>
           <Text style={styles.errorMessage}>{error || 'Load not found'}</Text>
           <View style={styles.errorActions}>
-            <TouchableOpacity style={styles.retryButton} onPress={refetch}>
+            <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
               <Text style={styles.retryText}>Try Again</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.backButton} onPress={handleCancel}>

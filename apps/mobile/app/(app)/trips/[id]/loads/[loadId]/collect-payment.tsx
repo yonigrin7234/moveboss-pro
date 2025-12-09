@@ -29,6 +29,7 @@ import { useToast } from '../../../../../../components/ui/Toast';
 import { SuccessCelebration } from '../../../../../../components/ui/SuccessCelebration';
 import { PaymentCardSkeleton } from '../../../../../../components/ui/Skeleton';
 import { Icon, IconName, IconWithBackground } from '../../../../../../components/ui/Icon';
+import { ErrorState } from '../../../../../../components/ui';
 import { colors, typography, spacing, radius, shadows } from '../../../../../../lib/theme';
 import { PaymentMethod, ZelleRecipient } from '../../../../../../types';
 
@@ -201,9 +202,7 @@ export default function CollectPaymentScreen() {
       <>
         <Stack.Screen options={{ title: 'Collect Payment' }} />
         <View style={styles.container}>
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
+          <ErrorState title="Unable to load payment" message={error} actionLabel="Retry" onAction={refetch} />
         </View>
       </>
     );
@@ -612,17 +611,5 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
     marginTop: spacing.md,
-  },
-  errorCard: {
-    backgroundColor: colors.errorSoft,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    margin: spacing.xl,
-    borderWidth: 1,
-    borderColor: colors.error,
-  },
-  errorText: {
-    ...typography.body,
-    color: colors.error,
   },
 });

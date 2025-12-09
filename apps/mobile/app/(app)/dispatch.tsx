@@ -5,6 +5,7 @@ import { useDispatchConversation, useConversationMessages } from '../../hooks/us
 import { ChatView } from '../../components/messaging/ChatView';
 import { colors, typography, spacing } from '../../lib/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { ErrorState } from '../../components/ui';
 
 export default function DispatchScreen() {
   // Get or create the dispatch conversation
@@ -59,11 +60,10 @@ export default function DispatchScreen() {
           }}
         />
         <View style={[styles.container, styles.centered]}>
-          <Ionicons name="alert-circle-outline" size={64} color={colors.error} />
-          <Text style={styles.errorTitle}>Connection Error</Text>
-          <Text style={styles.errorText}>
-            {conversationError || 'Unable to connect to dispatch'}
-          </Text>
+          <ErrorState
+            title="Connection Error"
+            message={conversationError || 'Unable to connect to dispatch'}
+          />
         </View>
       </>
     );

@@ -1,105 +1,24 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { Trip, TripWithLoads } from '../types';
 import { useAuth } from '../providers/AuthProvider';
-import {
-  saveToCache,
-  loadFromCache,
-  CACHE_KEYS,
-} from '../lib/offlineCache';
+import { useDriver } from '../providers/DriverProvider';
 import { useTripRealtimeSubscription } from './useRealtimeSubscription';
 import { dataLogger } from '../lib/logger';
 
-// Module-level cache to persist across component mounts
-const tripsCache: { data: Trip[] | null; fetchedForUser: string | null } = {
-  data: null,
-  fetchedForUser: null,
-};
-
-// Track which user we last loaded persistent cache for (per-user tracking)
-let lastTripsListCacheLoadedForUser: string | null = null;
-
-// Minimum time between fetches to prevent flickering (in ms)
-const FETCH_COOLDOWN_MS = 2000;
-
 export function useDriverTrips() {
   const { user } = useAuth();
-  const [trips, setTrips] = useState<Trip[]>(() =>
-    tripsCache.fetchedForUser === user?.id ? (tripsCache.data || []) : []
-  );
-  const [loading, setLoading] = useState(() =>
-    tripsCache.fetchedForUser !== user?.id
-  );
-  const [error, setError] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const isFetching = useRef(false);
-
-  // Load from persistent cache on first mount (per-user)
-  useEffect(() => {
-    if (!user?.id) return;
-    // Skip if we already loaded for this user
-    if (lastTripsListCacheLoadedForUser === user.id) return;
-
-    const loadPersistentCache = async () => {
-      dataLogger.debug('Loading trips list from persistent cache');
-      const cached = await loadFromCache<Trip[]>(CACHE_KEYS.TRIPS_LIST, user.id);
-      if (cached && cached.length > 0) {
-        tripsCache.data = cached;
-        tripsCache.fetchedForUser = user.id;
-        setTrips(cached);
-        setLoading(false);
-        dataLogger.info(`Loaded ${cached.length} trips from cache`);
-      }
-      lastTripsListCacheLoadedForUser = user.id;
-    };
-
-    loadPersistentCache();
-  }, [user?.id]);
-
-  const fetchTrips = useCallback(async () => {
-    if (!user?.id) {
-      setLoading(false);
-      setTrips([]);
-      return;
-    }
-
-    if (isFetching.current) return;
-
-    // If we have cached data, show it but still refresh in background
-    const hasCachedData = tripsCache.fetchedForUser === user.id && tripsCache.data;
-    if (hasCachedData) {
-      setTrips(tripsCache.data!);
-      setLoading(false);
-    }
-
-    try {
-      isFetching.current = true;
-      if (!hasCachedData) {
-        setLoading(true);
-      } else {
-        setIsRefreshing(true);
-      }
-      setError(null);
-
-      const { data: driver, error: driverError } = await supabase
-        .from('drivers')
-        .select('id, owner_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (driverError || !driver) {
-        if (!hasCachedData) {
-          setError('Driver profile not found');
-          setTrips([]);
-        }
-        return;
-      }
-
+  const { driverId, ownerId, loading: driverLoading, error: driverError, isReady: driverReady } = useDriver();
+  const tripsQuery = useQuery<Trip[]>({
+    queryKey: ['driverTrips', user?.id, driverId, ownerId],
+    enabled: driverReady && !!driverId && !!ownerId,
+    queryFn: async () => {
       const { data: tripsData, error: tripsError } = await supabase
         .from('trips')
         .select('*')
-        .eq('driver_id', driver.id)
-        .eq('owner_id', driver.owner_id)
+        .eq('driver_id', driverId!)
+        .eq('owner_id', ownerId!)
         .order('start_date', { ascending: false });
 
       if (tripsError) {
@@ -107,43 +26,18 @@ export function useDriverTrips() {
       }
 
       const result = tripsData || [];
-      tripsCache.data = result;
-      tripsCache.fetchedForUser = user.id;
-      setTrips(result);
-      setError(null);
-
-      // Save to persistent cache
-      saveToCache(CACHE_KEYS.TRIPS_LIST, result, user.id);
       dataLogger.info(`Fetched ${result.length} trips`);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch trips';
-      dataLogger.error('Trips fetch failed', err);
-      // Only show error UI if we don't have cached data to show
-      if (!hasCachedData) {
-        setError(errorMessage);
-        setTrips([]);
-      }
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-      isFetching.current = false;
-    }
-  }, [user?.id]);
+      return result;
+    },
+  });
 
-  useEffect(() => {
-    fetchTrips();
-  }, [fetchTrips]);
-
+  const trips = tripsQuery.data || [];
+  const loading = driverLoading || tripsQuery.isLoading;
+  const isRefreshing = tripsQuery.isRefetching;
+  const error = driverError || (tripsQuery.error ? (tripsQuery.error as Error).message : null);
   const refetch = useCallback(async () => {
-    if (!user?.id) return;
-
-    dataLogger.debug('Manual trips refetch triggered');
-    // Reset fetch flag to allow new fetch, but DON'T clear cached data
-    isFetching.current = false;
-    setIsRefreshing(true);
-    setError(null);
-    fetchTrips();
-  }, [user?.id, fetchTrips]);
+    await tripsQuery.refetch();
+  }, [tripsQuery]);
 
   // Memoize return value to prevent unnecessary re-renders in consumers
   return useMemo(() => ({
@@ -159,86 +53,13 @@ const tripDetailPersistentLoaded: Map<string, string> = new Map(); // tripId -> 
 
 export function useDriverTripDetail(tripId: string | null) {
   const { user } = useAuth();
-  const cacheKey = tripId || '';
+  const { driverId, ownerId, loading: driverLoading, error: driverError, isReady: driverReady } = useDriver();
+  const queryClient = useQueryClient();
 
-  const cachedData = tripDetailCache.get(cacheKey);
-  const hasCachedData = cachedData && cachedData.fetchedForUser === user?.id;
-
-  const [trip, setTrip] = useState<TripWithLoads | null>(() =>
-    hasCachedData ? cachedData.data : null
-  );
-  const [loading, setLoading] = useState(() => !hasCachedData);
-  const [error, setError] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [ownerId, setOwnerId] = useState<string | null>(null);
-  const isFetchingRef = useRef(false);
-  const lastFetchTimeRef = useRef<number>(0);
-
-  // Load from persistent cache (per-user)
-  useEffect(() => {
-    if (!user?.id || !tripId) return;
-    // Skip if we already loaded for this trip+user combination
-    if (tripDetailPersistentLoaded.get(tripId) === user.id) return;
-
-    const loadPersistentCache = async () => {
-      dataLogger.debug(`Loading trip ${tripId} from persistent cache`);
-      const cached = await loadFromCache<TripWithLoads>(
-        CACHE_KEYS.TRIP_DETAIL(tripId),
-        user.id
-      );
-      if (cached) {
-        tripDetailCache.set(tripId, { data: cached, fetchedForUser: user.id });
-        setTrip(cached);
-        setLoading(false);
-        dataLogger.info(`Loaded trip ${tripId} from cache`);
-      }
-      tripDetailPersistentLoaded.set(tripId, user.id);
-    };
-
-    loadPersistentCache();
-  }, [user?.id, tripId]);
-
-  const fetchTripDetail = useCallback(async () => {
-    if (!user?.id || !tripId) {
-      setLoading(false);
-      return;
-    }
-
-    if (tripDetailFetching.has(tripId)) return;
-
-    const cached = tripDetailCache.get(tripId);
-    const hasCached = cached && cached.fetchedForUser === user.id;
-
-    if (hasCached) {
-      setTrip(cached.data);
-      setLoading(false);
-    }
-
-    try {
-      tripDetailFetching.add(tripId);
-      if (!hasCached) {
-        setLoading(true);
-      } else {
-        setIsRefreshing(true);
-      }
-      setError(null);
-
-      const { data: driver, error: driverError } = await supabase
-        .from('drivers')
-        .select('id, owner_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (driverError || !driver) {
-        if (!hasCached) {
-          setError('Driver profile not found');
-        }
-        return;
-      }
-
-      // Save owner ID for realtime subscription (only if changed)
-      setOwnerId(prev => prev === driver.owner_id ? prev : driver.owner_id);
-
+  const tripQuery = useQuery<TripWithLoads | null>({
+    queryKey: ['tripDetail', tripId, user?.id, driverId, ownerId],
+    enabled: driverReady && !!driverId && !!ownerId && !!tripId,
+    queryFn: async () => {
       const { data: tripData, error: tripError } = await supabase
         .from('trips')
         .select(`
@@ -251,72 +72,33 @@ export function useDriverTripDetail(tripId: string | null) {
           ),
           trip_expenses (*)
         `)
-        .eq('id', tripId)
+        .eq('id', tripId!)
         .single();
 
       if (tripError) throw tripError;
 
-      if (tripData && tripData.driver_id !== driver.id) {
-        if (!hasCached) {
-          setError('Access denied');
-        }
-        return;
+      if (tripData && driverId && tripData.driver_id !== driverId) {
+        throw new Error('Access denied');
       }
 
-      tripDetailCache.set(tripId, { data: tripData, fetchedForUser: user.id });
-      setTrip(tripData);
-      setError(null);
-
-      // Save to persistent cache
-      saveToCache(CACHE_KEYS.TRIP_DETAIL(tripId), tripData, user.id);
       dataLogger.info(`Fetched trip ${tripId} detail`);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch trip';
-      dataLogger.error(`Trip ${tripId} fetch failed`, err);
-      // Only show error UI if we don't have cached data
-      if (!hasCached) {
-        setError(errorMessage);
-      }
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-      tripDetailFetching.delete(tripId);
-      isFetchingRef.current = false;
-      lastFetchTimeRef.current = Date.now();
-    }
-  }, [user?.id, tripId]);
+      return tripData;
+    },
+  });
 
-  useEffect(() => {
-    fetchTripDetail();
-  }, [fetchTripDetail]);
+  const trip = tripQuery.data || null;
+  const loading = driverLoading || tripQuery.isLoading;
+  const isRefreshing = tripQuery.isRefetching;
+  const error = driverError || (tripQuery.error ? (tripQuery.error as Error).message : null);
 
   const refetch = useCallback(async () => {
-    if (!tripId || !user?.id) return;
+    await tripQuery.refetch();
+  }, [tripQuery]);
 
-    dataLogger.debug(`Manual trip ${tripId} refetch triggered`);
-    // Reset fetching flag to allow new fetch, but DON'T clear cached data
-    tripDetailFetching.delete(tripId);
-    setIsRefreshing(true);
-    setError(null);
-    fetchTripDetail();
-  }, [tripId, user?.id, fetchTripDetail]);
-
-  // Silent background refetch for realtime updates
   const silentRefetch = useCallback(() => {
-    if (!tripId || !user?.id || isFetchingRef.current) return;
-
-    // Enforce cooldown to prevent rapid refetches causing flickering
-    const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
-    if (timeSinceLastFetch < FETCH_COOLDOWN_MS) {
-      dataLogger.debug(`Skipping trip ${tripId} refetch - cooldown active (${timeSinceLastFetch}ms < ${FETCH_COOLDOWN_MS}ms)`);
-      return;
-    }
-
-    dataLogger.debug(`Silent refetch for trip ${tripId}`);
-    // Clear the fetching flag to allow a new fetch
-    tripDetailFetching.delete(tripId);
-    fetchTripDetail();
-  }, [tripId, user?.id, fetchTripDetail]);
+    if (!tripId || !driverReady || !driverId || !ownerId) return;
+    queryClient.invalidateQueries({ queryKey: ['tripDetail', tripId, user?.id, driverId, ownerId] });
+  }, [queryClient, tripId, user?.id, driverReady, driverId, ownerId]);
 
   // Subscribe to realtime updates for this trip
   useTripRealtimeSubscription({

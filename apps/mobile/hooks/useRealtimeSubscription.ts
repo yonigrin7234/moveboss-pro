@@ -12,9 +12,8 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { supabase } from '../lib/supabase';
-import { RealtimeChannel } from '@supabase/supabase-js';
 import { realtimeLogger } from '../lib/logger';
+import { realtimeManager } from '../lib/realtimeManager';
 
 interface UseRealtimeOptions {
   /** Driver ID to filter subscriptions */
@@ -39,8 +38,8 @@ export function useDriverRealtimeSubscription({
   enabled = true,
   debounceMs = 500,
 }: UseRealtimeOptions) {
-  const channelRef = useRef<RealtimeChannel | null>(null);
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const driverSubRef = useRef<string | null>(null);
+  const loadSubRef = useRef<string | null>(null);
   const onDataChangeRef = useRef(onDataChange);
   const debounceRef = useRef(debounceMs);
 
@@ -53,63 +52,32 @@ export function useDriverRealtimeSubscription({
       return;
     }
 
-    // Create a unique channel name
-    const channelName = `driver-updates-${driverId}`;
-    realtimeLogger.info(`Subscribing to ${channelName}`);
-
-    // Stable handler that reads from refs
-    const handleChange = () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-      debounceTimerRef.current = setTimeout(() => {
-        realtimeLogger.debug(`Realtime change detected, triggering refetch`);
-        onDataChangeRef.current();
-      }, debounceRef.current);
+    const handle = () => {
+      realtimeLogger.debug(`Realtime change detected, triggering refetch`);
+      onDataChangeRef.current();
     };
 
-    // Subscribe to trips and loads changes
-    // NOTE: We only subscribe to trips (filtered by driver) and loads (filtered by owner)
-    // We removed the unfiltered trip_loads subscription which was receiving ALL changes
-    // across the entire database, causing excessive refetches and flickering
-    const channel = supabase
-      .channel(channelName)
-      // Listen to trip changes for this driver
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'trips',
-          filter: `driver_id=eq.${driverId}`,
-        },
-        handleChange
-      )
-      // Listen to load status changes for this owner
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'loads',
-          filter: `owner_id=eq.${ownerId}`,
-        },
-        handleChange
-      )
-      .subscribe();
+    driverSubRef.current = realtimeManager.subscribe({
+      table: 'trips',
+      filter: `driver_id=eq.${driverId}`,
+      event: '*',
+      debounceMs: debounceRef.current,
+      callback: handle,
+    });
 
-    channelRef.current = channel;
+    loadSubRef.current = realtimeManager.subscribe({
+      table: 'loads',
+      filter: `owner_id=eq.${ownerId}`,
+      event: 'UPDATE',
+      debounceMs: debounceRef.current,
+      callback: handle,
+    });
 
-    // Cleanup
     return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-      if (channelRef.current) {
-        realtimeLogger.debug(`Unsubscribing from ${channelName}`);
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
+      if (driverSubRef.current) realtimeManager.unsubscribe(driverSubRef.current);
+      if (loadSubRef.current) realtimeManager.unsubscribe(loadSubRef.current);
+      driverSubRef.current = null;
+      loadSubRef.current = null;
     };
   }, [enabled, driverId, ownerId]); // Removed handleChange - now defined inside effect
 }
@@ -130,8 +98,7 @@ export function useTripRealtimeSubscription({
   enabled?: boolean;
   debounceMs?: number;
 }) {
-  const channelRef = useRef<RealtimeChannel | null>(null);
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const subsRef = useRef<string[]>([]);
   const onDataChangeRef = useRef(onDataChange);
   const debounceRef = useRef(debounceMs);
 
@@ -144,79 +111,58 @@ export function useTripRealtimeSubscription({
       return;
     }
 
-    const channelName = `trip-updates-${tripId}`;
-    realtimeLogger.info(`Subscribing to ${channelName}`);
-
-    // Stable handler that reads from refs
-    const handleChange = () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-      debounceTimerRef.current = setTimeout(() => {
-        realtimeLogger.debug(`Realtime change detected for trip ${tripId}, triggering refetch`);
-        onDataChangeRef.current();
-      }, debounceRef.current);
+    const handle = () => {
+      realtimeLogger.debug(`Realtime change detected for trip ${tripId}, triggering refetch`);
+      onDataChangeRef.current();
     };
 
-    const channel = supabase
-      .channel(channelName)
-      // Listen to this specific trip
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'trips',
-          filter: `id=eq.${tripId}`,
-        },
-        handleChange
-      )
-      // Listen to trip_loads for this trip
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'trip_loads',
-          filter: `trip_id=eq.${tripId}`,
-        },
-        handleChange
-      )
-      // Listen to loads changes for this owner
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'loads',
-          filter: `owner_id=eq.${ownerId}`,
-        },
-        handleChange
-      )
-      // Listen to trip expenses
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'trip_expenses',
-          filter: `trip_id=eq.${tripId}`,
-        },
-        handleChange
-      )
-      .subscribe();
+    const subs: string[] = [];
 
-    channelRef.current = channel;
+    subs.push(
+      realtimeManager.subscribe({
+        table: 'trips',
+        filter: `id=eq.${tripId}`,
+        event: '*',
+        debounceMs: debounceRef.current,
+        callback: handle,
+      }),
+    );
+
+    subs.push(
+      realtimeManager.subscribe({
+        table: 'trip_loads',
+        filter: `trip_id=eq.${tripId}`,
+        event: '*',
+        debounceMs: debounceRef.current,
+        callback: handle,
+      }),
+    );
+
+    subs.push(
+      realtimeManager.subscribe({
+        table: 'loads',
+        filter: `owner_id=eq.${ownerId}`,
+        event: 'UPDATE',
+        debounceMs: debounceRef.current,
+        callback: handle,
+      }),
+    );
+
+    subs.push(
+      realtimeManager.subscribe({
+        table: 'trip_expenses',
+        filter: `trip_id=eq.${tripId}`,
+        event: '*',
+        debounceMs: debounceRef.current,
+        callback: handle,
+      }),
+    );
+
+    subsRef.current = subs;
 
     return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-      if (channelRef.current) {
-        realtimeLogger.debug(`Unsubscribing from ${channelName}`);
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
+      subsRef.current.forEach((id) => realtimeManager.unsubscribe(id));
+      subsRef.current = [];
     };
   }, [enabled, tripId, ownerId]); // Removed handleChange - now defined inside effect
 }

@@ -19,7 +19,7 @@ import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVehicleDocuments } from '../../hooks/useVehicleDocuments';
 import { VehicleDocument, DocumentStatus } from '../../types';
-import { Icon } from '../../components/ui';
+import { Icon, ErrorState } from '../../components/ui';
 import { DocumentViewerModal, VehicleDocumentsCard } from '../../components/documents';
 import { colors, typography, spacing, radius } from '../../lib/theme';
 
@@ -100,8 +100,8 @@ export default function DocumentsScreen() {
         }
       >
         {error && (
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>{error}</Text>
+          <View style={{ marginBottom: spacing.lg }}>
+            <ErrorState title="Unable to load documents" message={error} actionLabel="Retry" onAction={refetch} />
           </View>
         )}
 
@@ -324,16 +324,6 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 22,
-  },
-  errorCard: {
-    backgroundColor: colors.errorSoft,
-    borderRadius: radius.md,
-    padding: spacing.cardPadding,
-    marginBottom: spacing.sectionGap,
-  },
-  errorText: {
-    ...typography.body,
-    color: colors.error,
   },
   refreshHint: {
     ...typography.caption,

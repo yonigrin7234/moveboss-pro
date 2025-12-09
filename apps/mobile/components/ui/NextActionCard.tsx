@@ -21,6 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
 import { springs } from '../../lib/animations';
 import { haptics } from '../../lib/haptics';
+import { dataLogger } from '../../lib/logger';
 import {
   NextAction,
   ActionType,
@@ -37,6 +38,10 @@ export function NextActionCard({ action, onAction }: NextActionCardProps) {
   const router = useRouter();
   const scale = useSharedValue(1);
   const pulseOpacity = useSharedValue(0.5);
+  const tripId = action.trip?.id;
+  const canNavigate =
+    action.type !== 'start_trip' ||
+    (Boolean(tripId) && Boolean(action.route));
 
   // Pulse animation for urgent actions - with cleanup
   React.useEffect(() => {
@@ -67,10 +72,17 @@ export function NextActionCard({ action, onAction }: NextActionCardProps) {
 
     if (onAction) {
       onAction();
-    } else {
-      router.push(action.route as any);
+    } else if (canNavigate) {
+      if (action.type === 'start_trip' && tripId) {
+        const target = { pathname: '/(app)/trips/[id]/start', params: { id: tripId } };
+        dataLogger.info('[HomeNextAction] press', { type: action.type, tripId, route: target.pathname });
+        router.push(target);
+      } else if (action.route) {
+        dataLogger.info('[HomeNextAction] press', { type: action.type, tripId, route: action.route });
+        router.push(action.route as any);
+      }
     }
-  }, [action.route, onAction, router]);
+  }, [action.route, action.type, canNavigate, onAction, router, scale, tripId]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -91,7 +103,7 @@ export function NextActionCard({ action, onAction }: NextActionCardProps) {
   return (
     <View style={styles.container}>
       <Animated.View style={animatedStyle}>
-        <Pressable onPress={handlePress} style={styles.pressable}>
+        <Pressable onPress={canNavigate ? handlePress : undefined} style={styles.pressable} disabled={!canNavigate}>
         <LinearGradient
           colors={
             isPayment
@@ -279,6 +291,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
     borderRadius: radius.full,
+  },
+  actionButtonDisabled: {
+    opacity: 0.6,
   },
   actionButtonText: {
     ...typography.button,

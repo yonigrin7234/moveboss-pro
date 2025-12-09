@@ -5,6 +5,8 @@ import {
   notifyOwnerTripStarted,
   notifyOwnerTripCompleted,
 } from '../lib/notify-owner';
+import { useDriver } from '../providers/DriverProvider';
+import { dataLogger } from '../lib/logger';
 
 export interface StartTripData {
   odometerStart: number;
@@ -21,6 +23,7 @@ type ActionResult = { success: boolean; error?: string };
 export function useTripActions(tripId: string, onSuccess?: () => void) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { driverId, ownerId, isReady, error: driverError } = useDriver();
 
   // Use refs for values that shouldn't trigger re-renders when accessed in callbacks
   const tripIdRef = useRef(tripId);
@@ -33,6 +36,15 @@ export function useTripActions(tripId: string, onSuccess?: () => void) {
     setError(null);
 
     try {
+      if (driverError) {
+        throw new Error(driverError);
+      }
+      if (!isReady || !driverId || !ownerId) {
+        throw new Error('Driver profile not found');
+      }
+
+      dataLogger.info('Starting trip', { tripId: tripIdRef.current, odometerStart: data.odometerStart });
+
       const { error: updateError } = await supabase
         .from('trips')
         .update({
@@ -41,11 +53,14 @@ export function useTripActions(tripId: string, onSuccess?: () => void) {
           odometer_start: data.odometerStart,
           odometer_start_photo_url: data.odometerStartPhotoUrl,
         })
-        .eq('id', tripIdRef.current);
+        .eq('id', tripIdRef.current)
+        .eq('owner_id', ownerId);
 
       if (updateError) {
         throw updateError;
       }
+
+      dataLogger.info('Trip started successfully', { tripId: tripIdRef.current, newStatus: 'active' });
 
       // Notify owner that trip started (fire-and-forget)
       notifyOwnerTripStarted(tripIdRef.current, data.odometerStart);
@@ -55,6 +70,7 @@ export function useTripActions(tripId: string, onSuccess?: () => void) {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to start trip';
       setError(message);
+      dataLogger.error('Start trip failed', err);
       return { success: false, error: message };
     } finally {
       setLoading(false);
@@ -66,21 +82,56 @@ export function useTripActions(tripId: string, onSuccess?: () => void) {
     setError(null);
 
     try {
+      if (driverError) {
+        throw new Error(driverError);
+      }
+      if (!isReady || !driverId || !ownerId) {
+        throw new Error('Driver profile not found');
+      }
+
+      if (!data || data.odometerEnd === undefined || data.odometerEnd === null || Number.isNaN(data.odometerEnd)) {
+        return { success: false, error: 'Ending odometer is required' };
+      }
+
+      // Ensure all loads are delivered before completing the trip
+      const { data: tripLoads, error: loadsError } = await supabase
+        .from('trip_loads')
+        .select(`
+          load_id,
+          loads:load_id (
+            id,
+            load_status
+          )
+        `)
+        .eq('trip_id', tripIdRef.current);
+
+      if (loadsError) {
+        throw loadsError;
+      }
+
+      const hasUndelivered = (tripLoads || []).some((tl) => {
+        const status = (tl as any).loads?.load_status;
+        return status !== 'delivered' && status !== 'storage_completed';
+      });
+
+      if (hasUndelivered) {
+        return { success: false, error: 'Complete all deliveries before finishing the trip' };
+      }
+
       // If completing with odometer data
       const updatePayload: Record<string, unknown> = {
         status: 'completed' as TripStatus,
         end_date: new Date().toISOString(),
       };
 
-      if (data) {
-        updatePayload.odometer_end = data.odometerEnd;
-        updatePayload.odometer_end_photo_url = data.odometerEndPhotoUrl;
-      }
+      updatePayload.odometer_end = data.odometerEnd;
+      updatePayload.odometer_end_photo_url = data.odometerEndPhotoUrl;
 
       const { error: updateError } = await supabase
         .from('trips')
         .update(updatePayload)
-        .eq('id', tripIdRef.current);
+        .eq('id', tripIdRef.current)
+        .eq('owner_id', ownerId);
 
       if (updateError) {
         throw updateError;

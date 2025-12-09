@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../providers/AuthProvider';
+import { useDriver } from '../providers/DriverProvider';
 import { Truck, Trailer, VehicleDocument, DocumentStatus, DocumentType } from '../types';
 
 interface TruckWithDocuments {
@@ -55,12 +57,9 @@ interface UseVehicleDocumentsReturn {
   expiredCount: number;
 }
 
-/**
- * Calculate document status based on expiry date
- */
 function getDocumentStatus(url: string | null, expiry: string | null): DocumentStatus {
   if (!url) return 'missing';
-  if (!expiry) return 'valid'; // If no expiry but has URL, assume valid
+  if (!expiry) return 'valid';
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -70,7 +69,6 @@ function getDocumentStatus(url: string | null, expiry: string | null): DocumentS
 
   if (expiryDate < today) return 'expired';
 
-  // Check if expiring within 30 days
   const thirtyDaysFromNow = new Date(today);
   thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
@@ -79,9 +77,6 @@ function getDocumentStatus(url: string | null, expiry: string | null): DocumentS
   return 'valid';
 }
 
-/**
- * Transform truck data into documents array
- */
 function getTruckDocuments(truck: Truck): VehicleDocument[] {
   return [
     {
@@ -122,9 +117,6 @@ function getTruckDocuments(truck: Truck): VehicleDocument[] {
   ];
 }
 
-/**
- * Transform trailer data into documents array
- */
 function getTrailerDocuments(trailer: Trailer): VehicleDocument[] {
   return [
     {
@@ -146,108 +138,83 @@ function getTrailerDocuments(trailer: Trailer): VehicleDocument[] {
 
 export function useVehicleDocuments(): UseVehicleDocumentsReturn {
   const { user } = useAuth();
-  const [truck, setTruck] = useState<TruckWithDocuments | null>(null);
-  const [trailer, setTrailer] = useState<TrailerWithDocuments | null>(null);
-  const [driver, setDriver] = useState<DriverInfo | null>(null);
-  const [company, setCompany] = useState<CompanyInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [hasActiveTrip, setHasActiveTrip] = useState(false);
-  const [tripNumber, setTripNumber] = useState<number | null>(null);
-  const isFetchingRef = useRef(false);
+  const { driverId, ownerId, loading: driverLoading, error: driverError, isReady: driverReady } = useDriver();
 
-  const fetchVehicleDocuments = useCallback(async () => {
-    if (!user?.id) {
-      setIsLoading(false);
-      setHasActiveTrip(false);
-      setDriver(null);
-      setCompany(null);
-      setTruck(null);
-      setTrailer(null);
-      return;
-    }
+  const documentsQuery = useQuery<{
+    truck: TruckWithDocuments | null;
+    trailer: TrailerWithDocuments | null;
+    driver: DriverInfo | null;
+    company: CompanyInfo | null;
+    hasActiveTrip: boolean;
+    tripNumber: number | null;
+  }>({
+    queryKey: ['vehicleDocuments', user?.id, driverId, ownerId],
+    enabled: driverReady && !!driverId && !!ownerId,
+    queryFn: async () => {
+      if (driverError) throw new Error(driverError);
+      if (!driverId || !ownerId) throw new Error('Driver profile not found');
 
-    // Prevent concurrent fetches
-    if (isFetchingRef.current) {
-      return;
-    }
-
-    try {
-      isFetchingRef.current = true;
-      setIsLoading(true);
-      setError(null);
-
-      // First, get driver info for current user
-      const { data: driverData, error: driverError } = await supabase
+      const { data: driverData, error: driverDataError } = await supabase
         .from('drivers')
         .select('id, owner_id, first_name, last_name, license_number, license_state')
-        .eq('auth_user_id', user.id)
+        .eq('id', driverId)
+        .eq('owner_id', ownerId)
         .single();
 
-      if (driverError || !driverData) {
-        setIsLoading(false);
-        setHasActiveTrip(false);
-        setDriver(null);
-        setCompany(null);
-        return;
+      if (driverDataError || !driverData) {
+        throw driverDataError || new Error('Driver profile not found');
       }
 
-      // Set driver info
-      setDriver({
+      const driverInfo: DriverInfo = {
         id: driverData.id,
         first_name: driverData.first_name,
         last_name: driverData.last_name,
         cdl_number: driverData.license_number,
         cdl_state: driverData.license_state,
-      });
+      };
 
-      // Fetch company (owner) info
-      const { data: companyData, error: companyError } = await supabase
+      const { data: companyData } = await supabase
         .from('companies')
         .select('id, name, dot_number, mc_number, phone, city, state')
-        .eq('owner_id', driverData.owner_id)
+        .eq('owner_id', ownerId)
         .single();
 
-      if (!companyError && companyData) {
-        setCompany({
-          id: companyData.id,
-          name: companyData.name,
-          dot_number: companyData.dot_number,
-          mc_number: companyData.mc_number,
-          phone: companyData.phone,
-          city: companyData.city,
-          state: companyData.state,
-        });
-      } else {
-        setCompany(null);
-      }
+      const companyInfo: CompanyInfo | null = companyData
+        ? {
+            id: companyData.id,
+            name: companyData.name,
+            dot_number: companyData.dot_number,
+            mc_number: companyData.mc_number,
+            phone: companyData.phone,
+            city: companyData.city,
+            state: companyData.state,
+          }
+        : null;
 
-      // Find active trip for this driver (assigned or in_progress)
-      const { data: activeTrip, error: tripError } = await supabase
+      const { data: activeTrip } = await supabase
         .from('trips')
         .select('id, trip_number, truck_id, trailer_id')
-        .eq('driver_id', driverData.id)
-        .eq('owner_id', driverData.owner_id)
+        .eq('driver_id', driverId)
+        .eq('owner_id', ownerId)
         .in('status', ['assigned', 'active', 'en_route'])
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
 
-      if (tripError || !activeTrip) {
-        setIsLoading(false);
-        setHasActiveTrip(false);
-        setTruck(null);
-        setTrailer(null);
-        setTripNumber(null);
-        return;
+      if (!activeTrip) {
+        return {
+          truck: null,
+          trailer: null,
+          driver: driverInfo,
+          company: companyInfo,
+          hasActiveTrip: false,
+          tripNumber: null,
+        };
       }
 
-      setHasActiveTrip(true);
-      setTripNumber(activeTrip.trip_number);
-
-      // Fetch truck details if assigned
+      let truckResult: TruckWithDocuments | null = null;
       if (activeTrip.truck_id) {
-        const { data: truckData, error: truckError } = await supabase
+        const { data: truckData } = await supabase
           .from('trucks')
           .select(`
             id,
@@ -269,28 +236,20 @@ export function useVehicleDocuments(): UseVehicleDocumentsReturn {
             permit_expiry
           `)
           .eq('id', activeTrip.truck_id)
+          .eq('owner_id', ownerId)
           .single();
 
-        if (!truckError && truckData) {
-          const documents = getTruckDocuments(truckData as Truck);
-          setTruck({
-            id: truckData.id,
-            unit_number: truckData.unit_number,
-            year: truckData.year,
-            make: truckData.make,
-            model: truckData.model,
-            plate_number: truckData.plate_number,
-            plate_state: truckData.plate_state,
-            documents,
-          });
+        if (truckData) {
+          truckResult = {
+            ...(truckData as Truck),
+            documents: getTruckDocuments(truckData as Truck),
+          };
         }
-      } else {
-        setTruck(null);
       }
 
-      // Fetch trailer details if assigned
+      let trailerResult: TrailerWithDocuments | null = null;
       if (activeTrip.trailer_id) {
-        const { data: trailerData, error: trailerError } = await supabase
+        const { data: trailerData } = await supabase
           .from('trailers')
           .select(`
             id,
@@ -304,54 +263,64 @@ export function useVehicleDocuments(): UseVehicleDocumentsReturn {
             inspection_expiry
           `)
           .eq('id', activeTrip.trailer_id)
+          .eq('owner_id', ownerId)
           .single();
 
-        if (!trailerError && trailerData) {
-          const documents = getTrailerDocuments(trailerData as Trailer);
-          setTrailer({
-            id: trailerData.id,
-            unit_number: trailerData.unit_number,
-            capacity_cuft: trailerData.capacity_cuft,
-            plate_number: trailerData.plate_number,
-            plate_state: trailerData.plate_state,
-            documents,
-          });
+        if (trailerData) {
+          trailerResult = {
+            ...(trailerData as Trailer),
+            documents: getTrailerDocuments(trailerData as Trailer),
+          };
         }
-      } else {
-        setTrailer(null);
       }
-    } catch {
-      setError('Failed to load vehicle documents');
-    } finally {
-      setIsLoading(false);
-      isFetchingRef.current = false;
-    }
-  }, [user?.id]);
 
-  useEffect(() => {
-    fetchVehicleDocuments();
-  }, [fetchVehicleDocuments]);
+      return {
+        truck: truckResult,
+        trailer: trailerResult,
+        driver: driverInfo,
+        company: companyInfo,
+        hasActiveTrip: true,
+        tripNumber: activeTrip.trip_number,
+      };
+    },
+  });
 
-  // Calculate expiring and expired counts
-  const allDocuments = [
-    ...(truck?.documents || []),
-    ...(trailer?.documents || []),
-  ];
+  const truck = documentsQuery.data?.truck || null;
+  const trailer = documentsQuery.data?.trailer || null;
+  const driver = documentsQuery.data?.driver || null;
+  const company = documentsQuery.data?.company || null;
+  const hasActiveTrip = documentsQuery.data?.hasActiveTrip || false;
+  const tripNumber = documentsQuery.data?.tripNumber || null;
 
-  const expiringCount = allDocuments.filter(d => d.status === 'expiring').length;
-  const expiredCount = allDocuments.filter(d => d.status === 'expired').length;
+  const expiringCount = useMemo(
+    () => [...(truck?.documents || []), ...(trailer?.documents || [])].filter((doc) => doc.status === 'expiring').length,
+    [truck, trailer],
+  );
 
-  return {
-    truck,
-    trailer,
-    driver,
-    company,
-    isLoading,
-    error,
-    hasActiveTrip,
-    tripNumber,
-    refetch: fetchVehicleDocuments,
-    expiringCount,
-    expiredCount,
-  };
+  const expiredCount = useMemo(
+    () => [...(truck?.documents || []), ...(trailer?.documents || [])].filter((doc) => doc.status === 'expired').length,
+    [truck, trailer],
+  );
+
+  const isLoading = driverLoading || documentsQuery.isLoading;
+  const error = driverError || (documentsQuery.error ? (documentsQuery.error as Error).message : null);
+
+  return useMemo(
+    () => ({
+      truck,
+      trailer,
+      driver,
+      company,
+      isLoading,
+      error,
+      hasActiveTrip,
+      tripNumber,
+      refetch: async () => {
+        await documentsQuery.refetch();
+      },
+      expiringCount,
+      expiredCount,
+    }),
+    [truck, trailer, driver, company, isLoading, error, hasActiveTrip, tripNumber, documentsQuery.refetch, expiringCount, expiredCount],
+  );
 }

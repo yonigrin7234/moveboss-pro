@@ -1,12 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../providers/AuthProvider';
-import {
-  TripSettlement,
-  EarningsSummary,
-  SettlementStatus,
-  DriverPayMode,
-} from '../types';
+import { useDriver } from '../providers/DriverProvider';
+import { TripSettlement, EarningsSummary, SettlementStatus, DriverPayMode } from '../types';
 
 // Calculate driver pay based on pay mode and trip data
 function calculateDriverPay(
@@ -52,42 +49,27 @@ function calculateDriverPay(
 }
 
 export function useDriverEarnings(dateRange?: { start: Date; end: Date }) {
-  const [settlements, setSettlements] = useState<TripSettlement[]>([]);
-  const [summary, setSummary] = useState<EarningsSummary>({
-    totalEarned: 0,
-    pendingPay: 0,
-    paidOut: 0,
-    tripsCompleted: 0,
-    totalMiles: 0,
-    totalCuft: 0,
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { driverId, ownerId, loading: driverLoading, error: driverError, isReady: driverReady } = useDriver();
 
-  const fetchEarnings = useCallback(async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Get driver record
-      const { data: driver, error: driverError } = await supabase
-        .from('drivers')
-        .select('id, owner_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (driverError || !driver) {
-        setError('Driver profile not found');
-        return;
+  const earningsQuery = useQuery<{ settlements: TripSettlement[]; summary: EarningsSummary }>({
+    queryKey: [
+      'driverEarnings',
+      user?.id,
+      driverId,
+      ownerId,
+      dateRange?.start?.toISOString(),
+      dateRange?.end?.toISOString(),
+    ],
+    enabled: driverReady && !!driverId && !!ownerId,
+    queryFn: async () => {
+      if (driverError) {
+        throw new Error(driverError);
+      }
+      if (!driverId || !ownerId) {
+        throw new Error('Driver profile not found');
       }
 
-      // Build query for completed/settled trips assigned to this driver
       let query = supabase
         .from('trips')
         .select(`
@@ -119,16 +101,13 @@ export function useDriverEarnings(dateRange?: { start: Date; end: Date }) {
             paid_by
           )
         `)
-        .eq('owner_id', driver.owner_id)
-        .eq('driver_id', driver.id)
+        .eq('owner_id', ownerId)
+        .eq('driver_id', driverId)
         .in('status', ['completed', 'settled'])
         .order('end_date', { ascending: false });
 
-      // Apply date range filter if provided
       if (dateRange) {
-        query = query
-          .gte('end_date', dateRange.start.toISOString())
-          .lte('end_date', dateRange.end.toISOString());
+        query = query.gte('end_date', dateRange.start.toISOString()).lte('end_date', dateRange.end.toISOString());
       }
 
       const { data: trips, error: tripsError } = await query;
@@ -137,7 +116,6 @@ export function useDriverEarnings(dateRange?: { start: Date; end: Date }) {
         throw tripsError;
       }
 
-      // Transform trips into settlements
       const tripSettlements: TripSettlement[] = (trips || []).map((trip) => {
         const route = [
           [trip.origin_city, trip.origin_state].filter(Boolean).join(', '),
@@ -146,26 +124,25 @@ export function useDriverEarnings(dateRange?: { start: Date; end: Date }) {
           .filter(Boolean)
           .join(' → ') || 'No route';
 
-        // Calculate gross pay
-        const grossPay = trip.driver_pay_total || calculateDriverPay(
-          trip.trip_pay_mode,
-          trip.trip_rate_per_mile,
-          trip.trip_rate_per_cuft,
-          trip.trip_percent_of_revenue,
-          trip.trip_flat_daily_rate,
-          trip.actual_miles,
-          trip.total_cuft,
-          trip.revenue_total,
-          trip.start_date,
-          trip.end_date
-        );
+        const grossPay =
+          trip.driver_pay_total ||
+          calculateDriverPay(
+            trip.trip_pay_mode,
+            trip.trip_rate_per_mile,
+            trip.trip_rate_per_cuft,
+            trip.trip_percent_of_revenue,
+            trip.trip_flat_daily_rate,
+            trip.actual_miles,
+            trip.total_cuft,
+            trip.revenue_total,
+            trip.start_date,
+            trip.end_date
+          );
 
-        // Calculate reimbursable expenses (paid by driver personally)
         const reimbursableExpenses = (trip.trip_expenses || [])
           .filter((e: { paid_by: string }) => e.paid_by === 'driver_personal')
           .reduce((sum: number, e: { amount: number }) => sum + (e.amount || 0), 0);
 
-        // Calculate cash collected (should be deducted from pay)
         const cashCollected = (trip.trip_expenses || [])
           .filter((e: { paid_by: string }) => e.paid_by === 'driver_cash')
           .reduce((sum: number, e: { amount: number }) => sum + (e.amount || 0), 0);
@@ -197,33 +174,39 @@ export function useDriverEarnings(dateRange?: { start: Date; end: Date }) {
         };
       });
 
-      setSettlements(tripSettlements);
-
-      // Calculate summary
       const summaryData: EarningsSummary = {
         totalEarned: tripSettlements.reduce((sum, s) => sum + s.netPay, 0),
-        pendingPay: tripSettlements
-          .filter((s) => s.settlementStatus !== 'paid')
-          .reduce((sum, s) => sum + s.netPay, 0),
-        paidOut: tripSettlements
-          .filter((s) => s.settlementStatus === 'paid')
-          .reduce((sum, s) => sum + s.netPay, 0),
+        pendingPay: tripSettlements.filter((s) => s.settlementStatus !== 'paid').reduce((sum, s) => sum + s.netPay, 0),
+        paidOut: tripSettlements.filter((s) => s.settlementStatus === 'paid').reduce((sum, s) => sum + s.netPay, 0),
         tripsCompleted: tripSettlements.length,
         totalMiles: tripSettlements.reduce((sum, s) => sum + (s.totalMiles || 0), 0),
         totalCuft: tripSettlements.reduce((sum, s) => sum + (s.totalCuft || 0), 0),
       };
 
-      setSummary(summaryData);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch earnings');
-    } finally {
-      setLoading(false);
-    }
-  }, [user, dateRange]);
+      return { settlements: tripSettlements, summary: summaryData };
+    },
+  });
 
-  useEffect(() => {
-    fetchEarnings();
-  }, [fetchEarnings]);
+  const settlements = earningsQuery.data?.settlements || [];
+  const summary = earningsQuery.data?.summary || {
+    totalEarned: 0,
+    pendingPay: 0,
+    paidOut: 0,
+    tripsCompleted: 0,
+    totalMiles: 0,
+    totalCuft: 0,
+  };
+  const loading = driverLoading || earningsQuery.isLoading;
+  const error = driverError || (earningsQuery.error ? (earningsQuery.error as Error).message : null);
 
-  return { settlements, summary, loading, error, refetch: fetchEarnings };
+  return useMemo(
+    () => ({
+      settlements,
+      summary,
+      loading,
+      error,
+      refetch: earningsQuery.refetch,
+    }),
+    [settlements, summary, loading, error, earningsQuery.refetch],
+  );
 }

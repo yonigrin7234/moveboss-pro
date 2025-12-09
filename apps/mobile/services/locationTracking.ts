@@ -7,6 +7,9 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
+import { createLogger } from '../lib/logger';
+
+const locationLogger = createLogger('LocationTracking');
 
 const LOCATION_TASK_NAME = 'MOVEBOSS_BACKGROUND_LOCATION';
 const LOCATION_CACHE_KEY = 'MOVEBOSS_PENDING_LOCATIONS';
@@ -41,7 +44,7 @@ interface LocationUpdateContext {
  */
 TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
   if (error) {
-    console.error('Background location error:', error);
+    locationLogger.error('Background location error', error);
     return;
   }
 
@@ -91,8 +94,7 @@ async function processLocationUpdate(location: Location.LocationObject) {
       });
 
     if (insertError) {
-      console.error('Error inserting location:', insertError);
-      // Cache for later if offline
+      locationLogger.error('Error inserting location', insertError);
       await cacheLocationForLater(locationData);
     } else {
       // Also update the trip's current location if we have a trip
@@ -101,7 +103,7 @@ async function processLocationUpdate(location: Location.LocationObject) {
       }
     }
   } catch (e) {
-    console.error('Error processing location:', e);
+    locationLogger.error('Error processing location', e);
   }
 }
 
@@ -144,7 +146,7 @@ async function cacheLocationForLater(locationData: CachedLocation) {
     const trimmed = locations.slice(-100);
     await AsyncStorage.setItem(LOCATION_CACHE_KEY, JSON.stringify(trimmed));
   } catch (e) {
-    console.error('Error caching location:', e);
+    locationLogger.error('Error caching location', e);
   }
 }
 
@@ -171,7 +173,7 @@ export async function syncCachedLocations(): Promise<number> {
 
     return 0;
   } catch (e) {
-    console.error('Error syncing cached locations:', e);
+    locationLogger.error('Error syncing cached locations', e);
     return 0;
   }
 }

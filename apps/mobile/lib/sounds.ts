@@ -12,6 +12,9 @@
 import { Audio } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { haptics } from './haptics';
+import { createLogger } from './logger';
+
+const soundLogger = createLogger('Sounds');
 
 // Storage key for sound settings
 const SOUND_ENABLED_KEY = '@moveboss_sounds_enabled';
@@ -77,7 +80,7 @@ export async function initializeSounds(): Promise<void> {
 
     initialized = true;
   } catch (error) {
-    console.warn('Failed to initialize sounds:', error);
+    soundLogger.warn('Failed to initialize sounds', error);
     initialized = true; // Mark as initialized to prevent retries
   }
 }

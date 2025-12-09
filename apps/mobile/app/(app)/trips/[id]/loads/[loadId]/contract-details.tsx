@@ -12,7 +12,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useLoadDetail } from '../../../../../../hooks/useLoadDetail';
 import { useLoadActions } from '../../../../../../hooks/useLoadActions';
 import { useImageUpload } from '../../../../../../hooks/useImageUpload';
-import { useToast, LoadDetailSkeleton } from '../../../../../../components/ui';
+import { useToast, LoadDetailSkeleton, ErrorState } from '../../../../../../components/ui';
 import { DamageDocumentation } from '../../../../../../components/DamageDocumentation';
 import {
   DocumentScanner,
@@ -187,9 +187,7 @@ export default function ContractDetailsScreen() {
       <>
         <Stack.Screen options={{ title: 'Contract Details' }} />
         <View style={styles.container}>
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
+          <ErrorState title="Unable to load contract details" message={error} actionLabel="Retry" onAction={refetch} />
         </View>
       </>
     );
@@ -488,15 +486,5 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 40,
-  },
-  errorCard: {
-    backgroundColor: '#fee2e2',
-    borderRadius: 12,
-    padding: 16,
-    margin: 20,
-  },
-  errorText: {
-    color: '#991b1b',
-    fontSize: 14,
   },
 });

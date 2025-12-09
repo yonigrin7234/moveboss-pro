@@ -1,42 +1,28 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRef, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { Load } from '../types';
 import { useAuth } from '../providers/AuthProvider';
+import { useDriver } from '../providers/DriverProvider';
+import { realtimeManager } from '../lib/realtimeManager';
 
 export function useLoadDetail(loadId: string | null) {
-  const [load, setLoad] = useState<Load | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { ownerId, loading: driverLoading, error: driverError, isReady: driverReady } = useDriver();
   const tripIdRef = useRef<string | null>(null);
 
-  const fetchLoad = useCallback(async () => {
-    if (!user?.id || !loadId) {
-      setLoading(false);
-      setLoad(null);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Get driver record
-      const { data: driver, error: driverError } = await supabase
-        .from('drivers')
-        .select('id, owner_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (driverError || !driver) {
-        setError('Driver profile not found');
-        setLoad(null);
-        setLoading(false);
-        return;
+  const loadQuery = useQuery<Load | null>({
+    queryKey: ['loadDetail', loadId, ownerId],
+    enabled: driverReady && !!ownerId && !!loadId && !!user?.id,
+    queryFn: async () => {
+      if (driverError) {
+        throw new Error(driverError);
       }
 
-      // Fetch load with company info (including trust_level for delivery workflow)
-      // Note: using companies:company_id to specify which FK to use (loads has both company_id and assigned_carrier_id)
+      if (!ownerId) {
+        throw new Error('Driver profile not found');
+      }
+
       const { data: loadData, error: loadError } = await supabase
         .from('loads')
         .select(`
@@ -48,97 +34,65 @@ export function useLoadDetail(loadId: string | null) {
             trust_level
           )
         `)
-        .eq('id', loadId)
-        .eq('owner_id', driver.owner_id)
+        .eq('id', loadId!)
+        .eq('owner_id', ownerId)
         .single();
 
       if (loadError) {
         throw loadError;
       }
 
-      setLoad(loadData);
-
-      // Get the trip ID for this load (for real-time subscription)
       const { data: tripLoadData } = await supabase
         .from('trip_loads')
         .select('trip_id')
-        .eq('load_id', loadId)
+        .eq('load_id', loadId!)
         .single();
 
       if (tripLoadData) {
         tripIdRef.current = tripLoadData.trip_id;
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch load');
-      setLoad(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id, loadId]);
 
-  useEffect(() => {
-    fetchLoad();
-  }, [fetchLoad]);
+      return loadData;
+    },
+  });
 
   // Real-time subscription for delivery order changes
+  const load = loadQuery.data || null;
+  const loading = driverLoading || loadQuery.isLoading;
+  const error = driverError || (loadQuery.error ? (loadQuery.error as Error).message : null);
+  const refetch = loadQuery.refetch;
+
+  const tripId = tripIdRef.current;
+
   useEffect(() => {
     if (!loadId || !user?.id) return;
 
-    // Subscribe to changes on this load (delivery_order changes)
-    const loadChannel = supabase
-      .channel(`load-${loadId}`)
-      .on(
-        'postgres_changes',
-        {
+    const subs: string[] = [];
+
+    subs.push(
+      realtimeManager.subscribe({
+        table: 'loads',
+        event: 'UPDATE',
+        filter: `id=eq.${loadId}`,
+        callback: () => refetch(),
+      }),
+    );
+
+    if (tripId) {
+      subs.push(
+        realtimeManager.subscribe({
+          table: 'trips',
           event: 'UPDATE',
-          schema: 'public',
-          table: 'loads',
-          filter: `id=eq.${loadId}`,
-        },
-        () => {
-          // Refetch when load changes (including delivery_order)
-          fetchLoad();
-        }
-      )
-      .subscribe();
-
-    // Subscribe to trip changes (current_delivery_index changes)
-    // We'll set this up after we know the trip ID
-    let tripChannel: ReturnType<typeof supabase.channel> | null = null;
-
-    const setupTripSubscription = () => {
-      if (tripIdRef.current) {
-        tripChannel = supabase
-          .channel(`trip-${tripIdRef.current}`)
-          .on(
-            'postgres_changes',
-            {
-              event: 'UPDATE',
-              schema: 'public',
-              table: 'trips',
-              filter: `id=eq.${tripIdRef.current}`,
-            },
-            () => {
-              // Refetch when trip changes (including current_delivery_index)
-              fetchLoad();
-            }
-          )
-          .subscribe();
-      }
-    };
-
-    // Set up trip subscription after a brief delay to let fetchLoad complete
-    const timeoutId = setTimeout(setupTripSubscription, 1000);
+          filter: `id=eq.${tripId}`,
+          callback: () => refetch(),
+        }),
+      );
+    }
 
     return () => {
-      clearTimeout(timeoutId);
-      loadChannel.unsubscribe();
-      if (tripChannel) {
-        tripChannel.unsubscribe();
-      }
+      subs.forEach((id) => realtimeManager.unsubscribe(id));
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadId, user?.id]);
+  }, [loadId, user?.id, tripId, refetch]);
 
-  return { load, loading, error, refetch: fetchLoad };
+  return { load, loading, error, refetch };
 }

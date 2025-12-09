@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../providers/AuthProvider';
+import { useDriver } from '../providers/DriverProvider';
 import { useImageUpload } from './useImageUpload';
 
 export type DocumentType =
@@ -37,46 +39,32 @@ interface UseLoadDocumentsResult {
 }
 
 export function useLoadDocuments(loadId: string | null): UseLoadDocumentsResult {
-  const [documents, setDocuments] = useState<LoadDocument[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { driverId, ownerId, loading: driverLoading, error: driverError, isReady: driverReady } = useDriver();
   const { uploading, progress, uploadImage } = useImageUpload();
+  const queryClient = useQueryClient();
 
-  const fetchDocuments = useCallback(async () => {
-    if (!user || !loadId) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Get driver record
-      const { data: driver, error: driverError } = await supabase
-        .from('drivers')
-        .select('id, owner_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (driverError || !driver) {
-        setError('Driver profile not found');
-        return;
+  const documentsQuery = useQuery<LoadDocument[]>({
+    queryKey: ['loadDocuments', loadId, driverId, ownerId],
+    enabled: driverReady && !!driverId && !!ownerId && !!user && !!loadId,
+    queryFn: async () => {
+      if (driverError) {
+        throw new Error(driverError);
+      }
+      if (!ownerId) {
+        throw new Error('Driver profile not found');
       }
 
-      // Fetch from load_photos table
       const { data: photos, error: photosError } = await supabase
         .from('load_photos')
         .select('*')
-        .eq('load_id', loadId)
+        .eq('load_id', loadId!)
         .order('created_at', { ascending: false });
 
       if (photosError) {
         throw photosError;
       }
 
-      // Also fetch inline document URLs from loads table
       const { data: load, error: loadError } = await supabase
         .from('loads')
         .select(`
@@ -87,14 +75,14 @@ export function useLoadDocuments(loadId: string | null): UseLoadDocumentsResult 
           delivery_report_photo_url,
           contract_photo_url
         `)
-        .eq('id', loadId)
+        .eq('id', loadId!)
+        .eq('owner_id', ownerId)
         .single();
 
       if (loadError) {
         throw loadError;
       }
 
-      // Transform load_photos to LoadDocument
       const docsFromPhotos: LoadDocument[] = (photos || []).map((photo) => ({
         id: photo.id,
         loadId: photo.load_id,
@@ -104,15 +92,13 @@ export function useLoadDocuments(loadId: string | null): UseLoadDocumentsResult 
         createdAt: photo.created_at,
       }));
 
-      // Add inline documents from loads table
       const inlineDocs: LoadDocument[] = [];
 
-      // Contract documents (JSONB array)
       if (load?.contract_documents && Array.isArray(load.contract_documents)) {
         load.contract_documents.forEach((url: string, idx: number) => {
           inlineDocs.push({
             id: `contract-${idx}`,
-            loadId,
+            loadId: loadId!,
             type: 'contract',
             url,
             createdAt: '',
@@ -120,23 +106,21 @@ export function useLoadDocuments(loadId: string | null): UseLoadDocumentsResult 
         });
       }
 
-      // Single contract photo URL
       if (load?.contract_photo_url) {
         inlineDocs.push({
           id: 'contract-single',
-          loadId,
+          loadId: loadId!,
           type: 'contract',
           url: load.contract_photo_url,
           createdAt: '',
         });
       }
 
-      // Signed BOL photos (JSONB array)
       if (load?.signed_bol_photos && Array.isArray(load.signed_bol_photos)) {
         load.signed_bol_photos.forEach((url: string, idx: number) => {
           inlineDocs.push({
             id: `bol-${idx}`,
-            loadId,
+            loadId: loadId!,
             type: 'bol',
             url,
             createdAt: '',
@@ -144,12 +128,11 @@ export function useLoadDocuments(loadId: string | null): UseLoadDocumentsResult 
         });
       }
 
-      // Signed inventory photos (JSONB array)
       if (load?.signed_inventory_photos && Array.isArray(load.signed_inventory_photos)) {
         load.signed_inventory_photos.forEach((url: string, idx: number) => {
           inlineDocs.push({
             id: `inventory-${idx}`,
-            loadId,
+            loadId: loadId!,
             type: 'inventory',
             url,
             createdAt: '',
@@ -157,29 +140,26 @@ export function useLoadDocuments(loadId: string | null): UseLoadDocumentsResult 
         });
       }
 
-      // Loading report photo
       if (load?.loading_report_photo) {
         inlineDocs.push({
           id: 'loading-report',
-          loadId,
+          loadId: loadId!,
           type: 'loading_report',
           url: load.loading_report_photo,
           createdAt: '',
         });
       }
 
-      // Delivery report photo
       if (load?.delivery_report_photo_url) {
         inlineDocs.push({
           id: 'delivery-report',
-          loadId,
+          loadId: loadId!,
           type: 'delivery_report',
           url: load.delivery_report_photo_url,
           createdAt: '',
         });
       }
 
-      // Combine and deduplicate by URL
       const allDocs = [...docsFromPhotos, ...inlineDocs];
       const seen = new Set<string>();
       const uniqueDocs = allDocs.filter((doc) => {
@@ -188,17 +168,9 @@ export function useLoadDocuments(loadId: string | null): UseLoadDocumentsResult 
         return true;
       });
 
-      setDocuments(uniqueDocs);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch documents');
-    } finally {
-      setLoading(false);
-    }
-  }, [user, loadId]);
-
-  useEffect(() => {
-    fetchDocuments();
-  }, [fetchDocuments]);
+      return uniqueDocs;
+    },
+  });
 
   const uploadDocument = async (
     localUri: string,
@@ -236,8 +208,7 @@ export function useLoadDocuments(loadId: string | null): UseLoadDocumentsResult 
         throw insertError;
       }
 
-      // Refetch documents
-      await fetchDocuments();
+      await queryClient.invalidateQueries({ queryKey: ['loadDocuments', loadId, driverId, ownerId] });
 
       return { success: true };
     } catch (err) {
@@ -268,8 +239,7 @@ export function useLoadDocuments(loadId: string | null): UseLoadDocumentsResult 
         }
       }
 
-      // Refetch documents
-      await fetchDocuments();
+      await queryClient.invalidateQueries({ queryKey: ['loadDocuments', loadId, driverId, ownerId] });
 
       return { success: true };
     } catch (err) {
@@ -280,16 +250,25 @@ export function useLoadDocuments(loadId: string | null): UseLoadDocumentsResult 
     }
   };
 
-  return {
-    documents,
-    loading,
-    error,
-    uploading,
-    uploadProgress: progress,
-    uploadDocument,
-    deleteDocument,
-    refetch: fetchDocuments,
-  };
+  const documents = documentsQuery.data || [];
+  const loading = driverLoading || documentsQuery.isLoading;
+  const error = driverError || (documentsQuery.error ? (documentsQuery.error as Error).message : null);
+
+  return useMemo(
+    () => ({
+      documents,
+      loading,
+      error,
+      uploading,
+      uploadProgress: progress,
+      uploadDocument,
+      deleteDocument,
+      refetch: async () => {
+        await documentsQuery.refetch();
+      },
+    }),
+    [documents, loading, error, uploading, progress, uploadDocument, deleteDocument, documentsQuery.refetch],
+  );
 }
 
 // Helper to map photo_type to DocumentType

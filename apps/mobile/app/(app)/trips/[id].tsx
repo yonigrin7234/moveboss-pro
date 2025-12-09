@@ -4,10 +4,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDriverTripDetail } from '../../../hooks/useDriverTrips';
 import { useTripActions } from '../../../hooks/useTripActions';
 import { StatusBadge } from '../../../components/StatusBadge';
-import { TripDetailSkeleton } from '../../../components/ui';
+import { TripDetailSkeleton, ErrorState } from '../../../components/ui';
 import { LoadCard, TripActionCard } from '../../../components/trip';
 import { findNextActionableLoad, formatTripDate, formatCurrency } from '../../../lib/tripUtils';
 import { colors, typography, spacing, radius } from '../../../lib/theme';
+import { dataLogger } from '../../../lib/logger';
 
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -15,6 +16,13 @@ export default function TripDetailScreen() {
   const tripActions = useTripActions(id || '', refetch);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  dataLogger.debug('[TripDetail] render', {
+    tripId: id,
+    status: trip?.status,
+    isLoading: loading,
+    hasTrip: !!trip,
+  });
 
   // Show skeleton on initial load (no cached data yet)
   const showSkeleton = loading && !isRefreshing && !trip;
@@ -42,9 +50,7 @@ export default function TripDetailScreen() {
       <>
         <Stack.Screen options={{ title: 'Trip Details' }} />
         <View style={styles.container}>
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
+          <ErrorState title="Unable to load trip" message={error} actionLabel="Retry" onAction={refetch} />
         </View>
       </>
     );
@@ -446,15 +452,5 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     ...typography.headline,
     color: colors.textSecondary,
-  },
-  errorCard: {
-    backgroundColor: colors.errorSoft,
-    borderRadius: radius.md,
-    padding: spacing.cardPadding,
-    margin: spacing.screenPadding,
-  },
-  errorText: {
-    ...typography.bodySmall,
-    color: colors.error,
   },
 });

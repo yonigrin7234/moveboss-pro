@@ -63,6 +63,8 @@ export type { StatusType } from './StatusGlow';
 export { SwipeableActionCard } from './SwipeableActionCard';
 export { NextActionCard } from './NextActionCard';
 export { QuickStats } from './QuickStats';
+export { ErrorState } from './ErrorState';
+export { LoadingState } from './LoadingState';
 
 // Full-screen Experiences
 export { SuccessCelebration } from './SuccessCelebration';

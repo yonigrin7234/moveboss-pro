@@ -11,11 +11,15 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLoadDetail } from '../../../../../hooks/useLoadDetail';
 import { useLoadActions } from '../../../../../hooks/useLoadActions';
-import { StatusBadge } from '../../../../../components/StatusBadge';
-import { DamageDocumentation } from '../../../../../components/DamageDocumentation';
-import { WorkflowActionCard, DocumentsSection, TimelineItem } from '../../../../../components/load';
-import { DamageItem } from '../../../../../types';
+import { DocumentsSection } from '../../../../../components/load';
+import { ErrorState } from '../../../../../components/ui';
 import { colors, typography, spacing, radius } from '../../../../../lib/theme';
+import { LoadFinancialSection } from './components/LoadFinancialSection';
+import { LoadHeader } from './components/LoadHeader';
+import { LoadInfoSection } from './components/LoadInfoSection';
+import { LoadTimelineSection } from './components/LoadTimelineSection';
+import type { LoadActions, LoadDetail } from './types';
+import ErrorBoundary from '../../../../../components/ui/ErrorBoundary';
 
 export default function LoadDetailScreen() {
   const { id: tripId, loadId } = useLocalSearchParams<{ id: string; loadId: string }>();
@@ -29,9 +33,7 @@ export default function LoadDetailScreen() {
       <>
         <Stack.Screen options={{ title: 'Load Details' }} />
         <View style={styles.container}>
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
+          <ErrorState title="Unable to load details" message={error} actionLabel="Retry" onAction={refetch} />
         </View>
       </>
     );
@@ -101,253 +103,96 @@ export default function LoadDetailScreen() {
     });
   };
 
+  const loadDetail = load as LoadDetail | null;
+  const pickupAddress = getPickupAddress();
+  const deliveryAddress = getDeliveryAddress();
+
+  const handleNavigatePickup = () => openMaps(pickupAddress);
+  const handleNavigateDelivery = () => openMaps(deliveryAddress);
+
   return (
-    <>
-      <Stack.Screen
-        options={{
-          title: load?.load_number || 'Load Details',
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.textPrimary,
-        }}
-      />
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.sectionGap }]}
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />
-        }
-      >
-        {load && (
-          <>
-            {/* Header */}
-            <View style={styles.header}>
-              <View style={styles.headerInfo}>
-                {load.load_number && (
-                  <View style={styles.loadNumberRow}>
-                    <Text style={styles.loadNumberLabel}>Load #</Text>
-                    <Text style={styles.loadNumberValue}>{load.load_number}</Text>
-                  </View>
-                )}
-                {/* Show internal_reference if user provided one */}
-                {load.internal_reference && (
-                  <View style={styles.jobNumberRow}>
-                    <Text style={styles.jobNumberLabel}>Ref #</Text>
-                    <Text style={styles.jobNumber}>{load.internal_reference}</Text>
-                  </View>
-                )}
-                {!load.load_number && (
-                  <Text style={styles.jobNumber}>Load</Text>
-                )}
-                {load.companies?.name && (
-                  <Text style={styles.companyName}>{load.companies.name}</Text>
-                )}
-              </View>
-              <StatusBadge status={load.load_status} />
-            </View>
+    <ErrorBoundary fallback={<FallbackView />}>
+      <>
+        <Stack.Screen
+          options={{
+            title: load?.load_number || 'Load Details',
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.textPrimary,
+          }}
+        />
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.sectionGap }]}
+          refreshControl={
+            <RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />
+          }
+        >
+          {loadDetail && (
+            <>
+              <LoadHeader
+                load={loadDetail}
+                loadId={loadId}
+                tripId={tripId}
+                actions={actions as LoadActions}
+                onCall={handleCall}
+                onText={handleText}
+              />
 
-            {/* Action Card */}
-            <WorkflowActionCard
-              loadId={loadId}
-              tripId={tripId}
-              loadStatus={load.load_status}
-              loadSource={load.load_source}
-              postingType={load.posting_type}
-              pickupCompletedAt={load.pickup_completed_at}
-              actions={actions}
-              balanceDue={load.balance_due_on_delivery}
-              company={load.companies}
-              deliveryOrder={load.delivery_order}
-              loadUpdatedAt={load.updated_at}
-            />
+              <LoadInfoSection
+                load={loadDetail}
+                loadId={loadId}
+                pickupAddress={pickupAddress}
+                deliveryAddress={deliveryAddress}
+                formatDate={formatDate}
+                onNavigatePickup={handleNavigatePickup}
+                onNavigateDelivery={handleNavigateDelivery}
+                onCallPickupContact={() => handleCall(loadDetail.pickup_contact_phone || null)}
+              />
 
-            {/* Contact Company Card */}
-            {load.companies?.phone && (
-              <View style={styles.contactCard}>
-                <View style={styles.contactInfo}>
-                  <Text style={styles.contactLabel}>Contact Dispatcher</Text>
-                  <Text style={styles.contactName}>{load.companies.name}</Text>
-                  <Text style={styles.contactPhone}>{load.companies.phone}</Text>
-                </View>
-                <View style={styles.contactActions}>
+              <LoadFinancialSection load={loadDetail} formatCurrency={formatCurrency} />
+
+              <LoadTimelineSection load={loadDetail} formatDate={formatDate} />
+
+              {/* Messages Section */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Messages</Text>
                   <TouchableOpacity
-                    style={styles.contactButton}
-                    onPress={() => handleCall(load.companies?.phone || null)}
+                    onPress={() => router.push(`/(app)/trips/${tripId}/loads/${loadId}/messages`)}
+                    style={styles.touchTarget}
                   >
-                    <Text style={styles.contactButtonText}>Call</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.contactButton}
-                    onPress={() => handleText(load.companies?.phone || null)}
-                  >
-                    <Text style={styles.contactButtonText}>Text</Text>
+                    <Text style={styles.viewAllLink}>View All</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
-            )}
-
-            {/* Pickup Section */}
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>Pickup</Text>
-                {load.pickup_date && (
-                  <Text style={styles.cardDate}>{formatDate(load.pickup_date)}</Text>
-                )}
-              </View>
-              <Text style={styles.address}>{getPickupAddress()}</Text>
-              <View style={styles.cardActions}>
                 <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => openMaps(getPickupAddress())}
-                >
-                  <Text style={styles.actionButtonText}>Navigate</Text>
-                </TouchableOpacity>
-                {load.pickup_contact_phone && (
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => handleCall(load.pickup_contact_phone)}
-                  >
-                    <Text style={styles.actionButtonText}>Call</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-              {load.pickup_contact_name && (
-                <Text style={styles.contactName}>Contact: {load.pickup_contact_name}</Text>
-              )}
-            </View>
-
-            {/* Delivery Section */}
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>Delivery</Text>
-                {load.delivery_date && (
-                  <Text style={styles.cardDate}>{formatDate(load.delivery_date)}</Text>
-                )}
-              </View>
-              <Text style={styles.address}>{getDeliveryAddress()}</Text>
-              <View style={styles.cardActions}>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => openMaps(getDeliveryAddress())}
-                >
-                  <Text style={styles.actionButtonText}>Navigate</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Load Info */}
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Load Information</Text>
-              <View style={styles.infoGrid}>
-                {load.cubic_feet && (
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>Estimated CUFT</Text>
-                    <Text style={styles.infoValue}>{load.cubic_feet}</Text>
-                  </View>
-                )}
-                {load.actual_cuft_loaded && (
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>Actual CUFT</Text>
-                    <Text style={styles.infoValue}>{load.actual_cuft_loaded}</Text>
-                  </View>
-                )}
-                {load.weight_lbs_estimate && (
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>Weight (lbs)</Text>
-                    <Text style={styles.infoValue}>{load.weight_lbs_estimate.toLocaleString()}</Text>
-                  </View>
-                )}
-                {load.pieces_count && (
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>Pieces</Text>
-                    <Text style={styles.infoValue}>{load.pieces_count}</Text>
-                  </View>
-                )}
-              </View>
-              {load.description && (
-                <View style={styles.descriptionSection}>
-                  <Text style={styles.infoLabel}>Description</Text>
-                  <Text style={styles.description}>{load.description}</Text>
-                </View>
-              )}
-            </View>
-
-            {/* Pre-Existing Damages - Read Only */}
-            {(load.load_status === 'in_transit' || load.load_status === 'delivered') &&
-              load.pre_existing_damages &&
-              (load.pre_existing_damages as DamageItem[]).length > 0 && (
-              <View style={styles.card}>
-                <DamageDocumentation loadId={loadId} readonly />
-              </View>
-            )}
-
-            {/* Financial Info */}
-            {(load.balance_due_on_delivery || load.amount_collected_on_delivery) && (
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Payment</Text>
-                <View style={styles.infoGrid}>
-                  {load.balance_due_on_delivery && (
-                    <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Balance Due</Text>
-                      <Text style={styles.infoValueLarge}>
-                        {formatCurrency(load.balance_due_on_delivery)}
-                      </Text>
-                    </View>
-                  )}
-                  {load.amount_collected_on_delivery && (
-                    <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Collected</Text>
-                      <Text style={[styles.infoValueLarge, styles.collected]}>
-                        {formatCurrency(load.amount_collected_on_delivery)}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-            )}
-
-            {/* Timeline */}
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Timeline</Text>
-              <View style={styles.timeline}>
-                <TimelineItem label="Accepted" time={formatDate(load.accepted_at)} />
-                <TimelineItem label="Loading Started" time={formatDate(load.loading_started_at)} />
-                <TimelineItem label="Loading Finished" time={formatDate(load.loading_finished_at)} />
-                <TimelineItem label="In Transit" time={formatDate(load.delivery_started_at)} />
-                <TimelineItem label="Delivered" time={formatDate(load.delivery_finished_at)} />
-              </View>
-            </View>
-
-            {/* Messages Section */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Messages</Text>
-                <TouchableOpacity
+                  style={styles.messageCard}
                   onPress={() => router.push(`/(app)/trips/${tripId}/loads/${loadId}/messages`)}
-                  style={styles.touchTarget}
                 >
-                  <Text style={styles.viewAllLink}>View All</Text>
+                  <View style={styles.messageIconContainer}>
+                    <Text style={styles.messageIcon}>💬</Text>
+                  </View>
+                  <View style={styles.messageContent}>
+                    <Text style={styles.messageTitle}>Load Messages</Text>
+                    <Text style={styles.messageSubtitle}>Chat about this load</Text>
+                  </View>
                 </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={styles.messageCard}
-                onPress={() => router.push(`/(app)/trips/${tripId}/loads/${loadId}/messages`)}
-              >
-                <View style={styles.messageIconContainer}>
-                  <Text style={styles.messageIcon}>💬</Text>
-                </View>
-                <View style={styles.messageContent}>
-                  <Text style={styles.messageTitle}>Load Messages</Text>
-                  <Text style={styles.messageSubtitle}>Chat about this load</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
 
-            {/* Documents Section */}
-            <DocumentsSection loadId={loadId} />
-          </>
-        )}
-      </ScrollView>
-    </>
+              {/* Documents Section */}
+              <DocumentsSection loadId={loadId} />
+            </>
+          )}
+        </ScrollView>
+      </>
+    </ErrorBoundary>
+  );
+}
+
+function FallbackView() {
+  return (
+    <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <Text style={styles.errorText}>Something went wrong. Please try again.</Text>
+    </View>
   );
 }
 
@@ -359,178 +204,6 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.screenPadding,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.sectionGap,
-  },
-  headerInfo: {
-    flex: 1,
-  },
-  jobNumberRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: spacing.xs,
-  },
-  jobNumberLabel: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginRight: spacing.xs,
-  },
-  jobNumber: {
-    ...typography.title,
-    color: colors.textPrimary,
-  },
-  loadNumberRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: spacing.sm,
-  },
-  loadNumberLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginRight: spacing.xs,
-  },
-  loadNumberValue: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  companyName: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.card,
-    padding: spacing.cardPaddingLarge,
-    marginBottom: spacing.lg,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.itemGap,
-  },
-  cardTitle: {
-    ...typography.subheadline,
-    color: colors.textPrimary,
-    marginBottom: spacing.itemGap,
-  },
-  cardDate: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  address: {
-    ...typography.body,
-    color: colors.textSecondary,
-    lineHeight: 24,
-    marginBottom: spacing.itemGap,
-  },
-  cardActions: {
-    flexDirection: 'row',
-    gap: spacing.itemGap,
-  },
-  actionButton: {
-    backgroundColor: colors.borderLight,
-    paddingHorizontal: spacing.cardPadding,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.sm,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  actionButtonText: {
-    ...typography.button,
-    color: colors.primary,
-  },
-  // Contact Card
-  contactCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.card,
-    padding: spacing.cardPadding,
-    marginBottom: spacing.lg,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  contactInfo: {
-    flex: 1,
-  },
-  contactLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-    textTransform: 'uppercase',
-  },
-  contactName: {
-    ...typography.subheadline,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  contactPhone: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  contactActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  contactButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.sm,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  contactButtonText: {
-    ...typography.button,
-    color: colors.textPrimary,
-  },
-  // Info Grid
-  infoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.lg,
-  },
-  infoItem: {
-    minWidth: '45%',
-  },
-  infoLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginBottom: spacing.xs,
-  },
-  infoValue: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontWeight: '500',
-  },
-  infoValueLarge: {
-    ...typography.headline,
-    color: colors.textPrimary,
-    fontWeight: '700',
-  },
-  collected: {
-    color: colors.success,
-  },
-  descriptionSection: {
-    marginTop: spacing.lg,
-    paddingTop: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
-  },
-  description: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    lineHeight: 22,
-  },
-  // Timeline
-  timeline: {
-    gap: spacing.lg,
-  },
-  // Messages Section
   section: {
     marginBottom: spacing.sectionGap,
   },
@@ -585,7 +258,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.xxs,
   },
-  // States
   emptyState: {
     flex: 1,
     alignItems: 'center',
@@ -596,14 +268,8 @@ const styles = StyleSheet.create({
     ...typography.headline,
     color: colors.textSecondary,
   },
-  errorCard: {
-    backgroundColor: '#fee2e2',
-    borderRadius: radius.md,
-    padding: spacing.cardPadding,
-    margin: spacing.screenPadding,
-  },
   errorText: {
-    ...typography.bodySmall,
-    color: '#991b1b',
+    ...typography.body,
+    color: colors.error,
   },
 });

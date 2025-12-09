@@ -4,7 +4,7 @@ import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDriverTrips } from '../../../hooks/useDriverTrips';
 import { TripCard } from '../../../components/TripCard';
-import { EmptyState, TripCardSkeleton } from '../../../components/ui';
+import { EmptyState, TripCardSkeleton, ErrorState } from '../../../components/ui';
 import { Trip, TripStatus } from '../../../types';
 import { colors, typography, spacing, radius } from '../../../lib/theme';
 
@@ -75,8 +75,8 @@ export default function TripsScreen() {
       />
       <View style={styles.container}>
         {error && (
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>{error}</Text>
+          <View style={{ margin: spacing.screenPadding, marginBottom: 0 }}>
+            <ErrorState title="Unable to load trips" message={error} actionLabel="Retry" onAction={refetch} />
           </View>
         )}
 
@@ -121,18 +121,5 @@ const styles = StyleSheet.create({
   },
   skeletonCard: {
     marginBottom: spacing.md,
-  },
-  errorCard: {
-    backgroundColor: colors.errorSoft,
-    borderRadius: radius.md,
-    padding: spacing.cardPadding,
-    margin: spacing.screenPadding,
-    marginBottom: 0,
-    borderWidth: 1,
-    borderColor: colors.error,
-  },
-  errorText: {
-    ...typography.bodySmall,
-    color: colors.error,
   },
 });

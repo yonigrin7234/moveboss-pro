@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { useAuth } from '../providers/AuthProvider';
 import { supabase } from '../lib/supabase';
+import { useDriver } from '../providers/DriverProvider';
 import {
   startLocationTracking,
   stopLocationTracking,
@@ -43,13 +44,13 @@ interface UseLocationTrackingReturn {
 
 export function useLocationTracking(tripId?: string): UseLocationTrackingReturn {
   const { user } = useAuth();
+  const { driver, driverId, ownerId, loading: driverLoading, error: driverError, isReady: driverReady } = useDriver();
 
   const [isTracking, setIsTracking] = useState(false);
   const [isEnabled, setIsEnabled] = useState(false);
   const [lastLocation, setLastLocation] = useState<LocationInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [driverId, setDriverId] = useState<string | null>(null);
 
   // Fetch driver info and settings
   useEffect(() => {
@@ -59,24 +60,25 @@ export function useLocationTracking(tripId?: string): UseLocationTrackingReturn 
         return;
       }
 
+      if (driverLoading) {
+        return;
+      }
+
+      if (driverError) {
+        setError(driverError);
+        setIsLoading(false);
+        return;
+      }
+
+      if (!driverReady || !driverId || !ownerId) {
+        setError('Driver not found');
+        setIsLoading(false);
+        return;
+      }
+
       try {
-        // Get driver record for current user
-        const { data: driver, error: driverError } = await supabase
-          .from('drivers')
-          .select('id, owner_id, location_sharing_enabled')
-          .eq('auth_user_id', user.id)
-          .single();
-
-        if (driverError || !driver) {
-          setError('Driver not found');
-          setIsLoading(false);
-          return;
-        }
-
-        setDriverId(driver.id);
-
         // Get trip-level override if tripId provided
-        let shareLocation = driver.location_sharing_enabled || false;
+        let shareLocation = driver?.location_sharing_enabled || false;
 
         if (tripId) {
           const { data: trip } = await supabase
@@ -108,8 +110,8 @@ export function useLocationTracking(tripId?: string): UseLocationTrackingReturn 
 
         // Set tracking context
         await setTrackingContext({
-          driverId: driver.id,
-          ownerId: driver.owner_id,
+          driverId,
+          ownerId,
           tripId: tripId || null,
           locationSharingEnabled: shareLocation,
         });
@@ -126,7 +128,7 @@ export function useLocationTracking(tripId?: string): UseLocationTrackingReturn 
     };
 
     fetchDriverInfo();
-  }, [user, tripId]);
+  }, [user, tripId, driverLoading, driverError, driverReady, driverId, ownerId, driver]);
 
   // Start/stop tracking based on enabled state
   useEffect(() => {
@@ -211,6 +213,11 @@ export function useLocationTracking(tripId?: string): UseLocationTrackingReturn 
       setError(null);
 
       try {
+        if (!driverId && !tripId) {
+          setError('Driver not found');
+          return;
+        }
+
         // Update trip-level setting if we have a tripId
         if (tripId) {
           await supabase
