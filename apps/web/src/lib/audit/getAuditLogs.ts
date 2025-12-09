@@ -186,16 +186,9 @@ export async function getRecentAuditLogs(
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  // Filter by user or their company
-  // Show logs where either:
-  // - The user performed the action, OR
-  // - The action was performed by someone in their company
-  if (options?.companyId) {
-    query = query.or(`performed_by_user_id.eq.${userId},performed_by_company_id.eq.${options.companyId}`);
-  } else {
-    // If no company, just show what the user did
-    query = query.eq('performed_by_user_id', userId);
-  }
+  // Filter by the user who performed the action
+  // This ensures we see all activity by this user across all entities
+  query = query.eq('performed_by_user_id', userId);
 
   if (options?.entityTypes && options.entityTypes.length > 0) {
     query = query.in('entity_type', options.entityTypes);
@@ -204,7 +197,13 @@ export async function getRecentAuditLogs(
   const { data, error } = await query;
 
   if (error) {
+    console.error('[getRecentAuditLogs] Query failed:', error.code, error.message, { userId });
     return [];
+  }
+
+  // Debug: log if no results
+  if (!data || data.length === 0) {
+    console.log('[getRecentAuditLogs] No results for userId:', userId);
   }
 
   return (data || []).map((row: RawAuditLogRow) => {
