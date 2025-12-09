@@ -41,6 +41,8 @@ export type AuditAction =
   | 'load_deleted'
   | 'load_delivered'
   | 'load_status_changed'
+  | 'added_to_trip'
+  | 'removed_from_trip'
   // Partnership actions
   | 'partnership_created'
   | 'partnership_upgraded'

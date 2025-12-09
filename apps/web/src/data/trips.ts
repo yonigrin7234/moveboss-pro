@@ -1365,7 +1365,7 @@ export async function addLoadToTrip(
     }
   }
 
-  // AUDIT LOGGING: Log load added to trip
+  // AUDIT LOGGING: Log load added to trip (on trip entity)
   const loadInfo = data.load as Load | null;
   logAuditEvent(supabase, {
     entityType: 'trip',
@@ -1376,6 +1376,22 @@ export async function addLoadToTrip(
     metadata: {
       load_id: input.load_id,
       load_number: loadInfo?.load_number || loadInfo?.job_number || null,
+      role: input.role ?? 'primary',
+    },
+  });
+
+  // AUDIT LOGGING: Log load added to trip (on load entity)
+  // This allows the load's activity feed to show this event
+  const tripNumber = (await supabase.from('trips').select('trip_number').eq('id', tripId).single()).data?.trip_number;
+  logAuditEvent(supabase, {
+    entityType: 'load',
+    entityId: input.load_id,
+    action: 'added_to_trip',
+    performedByUserId: userId,
+    newValue: { trip_id: tripId },
+    metadata: {
+      trip_id: tripId,
+      trip_number: tripNumber || null,
       role: input.role ?? 'primary',
     },
   });
@@ -1506,7 +1522,7 @@ export async function removeLoadFromTrip(tripId: string, loadId: string, userId:
     });
   }
 
-  // AUDIT LOGGING: Log load removed from trip
+  // AUDIT LOGGING: Log load removed from trip (on trip entity)
   logAuditEvent(supabase, {
     entityType: 'trip',
     entityId: tripId,
@@ -1516,6 +1532,20 @@ export async function removeLoadFromTrip(tripId: string, loadId: string, userId:
     metadata: {
       load_id: loadId,
       load_number: loadData?.load_number || loadData?.job_number || null,
+    },
+  });
+
+  // AUDIT LOGGING: Log load removed from trip (on load entity)
+  // This allows the load's activity feed to show this event
+  logAuditEvent(supabase, {
+    entityType: 'load',
+    entityId: loadId,
+    action: 'removed_from_trip',
+    performedByUserId: userId,
+    previousValue: { trip_id: tripId },
+    metadata: {
+      trip_id: tripId,
+      trip_number: tripData?.trip_number || null,
     },
   });
 }

@@ -140,6 +140,16 @@ function getActionText(log: AuditLogEntry): string {
       return 'updated load status';
     }
 
+    // Load-Trip relationship actions
+    case 'added_to_trip': {
+      const tripNum = metadata.trip_number;
+      return tripNum ? `added to trip ${tripNum}` : 'added to trip';
+    }
+    case 'removed_from_trip': {
+      const tripNum = metadata.trip_number;
+      return tripNum ? `removed from trip ${tripNum}` : 'removed from trip';
+    }
+
     // Marketplace actions
     case 'posted_to_marketplace':
       return 'posted to marketplace';
@@ -311,6 +321,11 @@ function getActionIcon(action: string): React.ReactNode {
       return <List className="h-3 w-3" />;
     case 'delivery_order_confirmed':
       return <Send className="h-3 w-3" />;
+
+    // Load-Trip relationship (on load entity)
+    case 'added_to_trip':
+    case 'removed_from_trip':
+      return <Truck className="h-3 w-3" />;
 
     // Expenses
     case 'expense_added':
