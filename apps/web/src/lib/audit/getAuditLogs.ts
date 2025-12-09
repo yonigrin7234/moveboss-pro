@@ -197,9 +197,12 @@ export async function getRecentAuditLogs(
   `;
 
   // First try with profiles join
+  // Filter by performed_by_user_id to show this user's actions
+  // RLS will further restrict based on entity access
   let query = supabase
     .from('audit_logs')
     .select(selectWithJoin)
+    .eq('performed_by_user_id', userId)
     .order('created_at', { ascending: false })
     .limit(limit);
 
@@ -216,6 +219,7 @@ export async function getRecentAuditLogs(
     let fallbackQuery = supabase
       .from('audit_logs')
       .select(selectWithoutJoin)
+      .eq('performed_by_user_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit);
 
