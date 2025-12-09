@@ -757,6 +757,11 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
                         description: result.errors._form,
                         variant: 'destructive',
                       });
+                    } else if (result?.success) {
+                      toast({
+                        title: 'Status updated',
+                        description: `Trip status changed to ${formatStatus(tripStatus)}.`,
+                      });
                     }
                   }}>
                     <input type="hidden" name="trip_id" value={trip.id} />

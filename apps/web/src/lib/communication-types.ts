@@ -11,6 +11,7 @@ export type ConversationType =
   | 'load_internal'      // Internal carrier team discussion about a load
   | 'trip_internal'      // Internal carrier team discussion about a trip
   | 'company_to_company' // General carrier <-> partner communication
+  | 'driver_dispatch'    // Direct driver <-> dispatch team chat
   | 'general';           // General company-wide or team chat
 
 export type DriverVisibilityLevel =
@@ -350,6 +351,8 @@ export interface ConversationListItem {
     trip_id?: string;
     trip_number?: string;
     partner_name?: string;
+    driver_name?: string;
+    driver_id?: string;
   };
 }
 
