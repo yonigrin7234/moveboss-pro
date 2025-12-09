@@ -5,6 +5,7 @@ import {
   getOrCreateLoadConversation,
   getOrCreateTripConversation,
   getOrCreateCompanyConversation,
+  getOrCreateDriverDispatchConversation,
   createConversationSchema,
 } from '@/data/conversations';
 import type { ConversationType } from '@/lib/communication-types';
@@ -88,7 +89,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { type, load_id, trip_id, partner_company_id, title } = parsed.data;
+    const { type, load_id, trip_id, driver_id, partner_company_id, title } = parsed.data;
 
     // Get user's primary company
     const { data: membership } = await supabase
@@ -136,6 +137,20 @@ export async function POST(request: Request) {
         conversation = await getOrCreateCompanyConversation(
           membership.company_id,
           partner_company_id,
+          user.id
+        );
+        break;
+
+      case 'driver_dispatch':
+        if (!driver_id) {
+          return NextResponse.json(
+            { error: 'driver_id is required for driver-dispatch conversations' },
+            { status: 400 }
+          );
+        }
+        conversation = await getOrCreateDriverDispatchConversation(
+          driver_id,
+          membership.company_id,
           user.id
         );
         break;

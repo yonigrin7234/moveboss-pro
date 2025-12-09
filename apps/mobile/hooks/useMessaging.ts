@@ -136,6 +136,10 @@ export function useDriverConversations(options: UseDriverConversationsOptions = 
             title = title || `Trip ${trip?.trip_number ?? ''}`;
             subtitle = 'Team Chat';
             break;
+          case 'driver_dispatch':
+            title = title || 'Dispatch';
+            subtitle = 'Direct message';
+            break;
           default:
             title = title || 'Chat';
         }
@@ -621,6 +625,147 @@ export function useLoadConversations(loadId: string | null) {
       refetch: fetchConversations,
     }),
     [internalConversation, sharedConversation, loading, error, fetchConversations]
+  );
+}
+
+// ============================================================================
+// DISPATCH CONVERSATION HOOK (for direct driver-dispatch messaging)
+// ============================================================================
+
+export function useDispatchConversation() {
+  const { user } = useAuth();
+  const [conversation, setConversation] = useState<ConversationListItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const isFetching = useRef(false);
+
+  const fetchOrCreateConversation = useCallback(async () => {
+    if (!user?.id || isFetching.current) return;
+
+    try {
+      isFetching.current = true;
+      setError(null);
+      setLoading(true);
+
+      // Get driver ID and company
+      const { data: driver, error: driverError } = await supabase
+        .from('drivers')
+        .select('id, company_id, first_name, last_name')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (driverError || !driver) {
+        setError('Driver profile not found');
+        setLoading(false);
+        return;
+      }
+
+      // Check for existing driver_dispatch conversation
+      const { data: existing } = await supabase
+        .from('conversations')
+        .select(`
+          id,
+          type,
+          owner_company_id,
+          driver_id,
+          title,
+          is_muted,
+          last_message_at,
+          last_message_preview,
+          message_count,
+          conversation_participants!inner (
+            can_read,
+            can_write,
+            unread_count
+          )
+        `)
+        .eq('type', 'driver_dispatch')
+        .eq('driver_id', driver.id)
+        .eq('owner_company_id', driver.company_id)
+        .eq('conversation_participants.driver_id', driver.id)
+        .maybeSingle();
+
+      if (existing) {
+        const participant = Array.isArray(existing.conversation_participants)
+          ? existing.conversation_participants[0]
+          : existing.conversation_participants;
+
+        setConversation({
+          id: existing.id,
+          type: 'driver_dispatch',
+          title: existing.title || 'Dispatch',
+          subtitle: 'Direct message with dispatch',
+          last_message_preview: existing.last_message_preview,
+          last_message_at: existing.last_message_at,
+          unread_count: participant?.unread_count ?? 0,
+          is_muted: existing.is_muted || false,
+          can_write: participant?.can_write ?? true,
+        });
+        dataLogger.info('Found existing dispatch conversation');
+      } else {
+        // Create new conversation
+        const driverName = `${driver.first_name} ${driver.last_name}`;
+        const { data: newConv, error: createError } = await supabase
+          .from('conversations')
+          .insert({
+            type: 'driver_dispatch',
+            owner_company_id: driver.company_id,
+            driver_id: driver.id,
+            title: `${driverName} - Dispatch`,
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          throw createError;
+        }
+
+        // Add driver as participant
+        await supabase.from('conversation_participants').insert({
+          conversation_id: newConv.id,
+          driver_id: driver.id,
+          company_id: driver.company_id,
+          role: 'driver',
+          can_read: true,
+          can_write: true,
+          is_driver: true,
+        });
+
+        setConversation({
+          id: newConv.id,
+          type: 'driver_dispatch',
+          title: 'Dispatch',
+          subtitle: 'Direct message with dispatch',
+          last_message_preview: null,
+          last_message_at: null,
+          unread_count: 0,
+          is_muted: false,
+          can_write: true,
+        });
+        dataLogger.info('Created new dispatch conversation');
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load dispatch conversation';
+      dataLogger.error('Dispatch conversation fetch failed', err);
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+      isFetching.current = false;
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchOrCreateConversation();
+  }, [fetchOrCreateConversation]);
+
+  return useMemo(
+    () => ({
+      conversation,
+      loading,
+      error,
+      refetch: fetchOrCreateConversation,
+    }),
+    [conversation, loading, error, fetchOrCreateConversation]
   );
 }
 

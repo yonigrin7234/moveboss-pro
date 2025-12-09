@@ -2,7 +2,7 @@
 
 import type { ConversationType, MessageWithSender, ConversationWithDetails } from '@/lib/communication-types';
 
-export type ConversationContext = 'load' | 'trip' | 'company';
+export type ConversationContext = 'load' | 'trip' | 'company' | 'driver_dispatch';
 
 export interface ChatPanelProps {
   /** Context type for the conversation */
@@ -11,6 +11,8 @@ export interface ChatPanelProps {
   loadId?: string;
   /** Trip ID (required for trip context) */
   tripId?: string;
+  /** Driver ID (required for driver_dispatch context) */
+  driverId?: string;
   /** User's company ID */
   companyId: string;
   /** Current user ID */

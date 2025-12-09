@@ -234,6 +234,14 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
             { label: "Crew & Helpers", href: "/dashboard/people/helpers", icon: UserCog },
           ],
         })
+
+        // Dispatch Console - direct messaging with drivers
+        items.push({
+          label: "Dispatch",
+          href: "/dashboard/dispatch",
+          icon: Radio,
+          section: "carrier",
+        })
       }
     }
 

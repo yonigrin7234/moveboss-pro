@@ -137,6 +137,11 @@ export default function HomeScreen() {
           onPress={() => router.push('/(app)/documents')}
         />
         <QuickActionButton
+          icon="message-square"
+          label="Dispatch"
+          onPress={() => router.push('/(app)/dispatch')}
+        />
+        <QuickActionButton
           icon="dollar"
           label="Earnings"
           onPress={() => router.push('/(app)/earnings')}

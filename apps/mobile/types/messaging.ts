@@ -8,6 +8,7 @@ export type ConversationType =
   | 'load_internal'
   | 'trip_internal'
   | 'company_to_company'
+  | 'driver_dispatch'  // Direct driver <-> dispatch team chat
   | 'general';
 
 // Driver visibility levels
@@ -180,6 +181,7 @@ export const CONVERSATION_TYPE_LABELS: Record<ConversationType, string> = {
   load_internal: 'Team',
   trip_internal: 'Trip',
   company_to_company: 'Partner',
+  driver_dispatch: 'Dispatch',
   general: 'General',
 };
 
@@ -188,5 +190,6 @@ export const CONVERSATION_TYPE_COLORS: Record<ConversationType, string> = {
   load_internal: '#10B981', // green
   trip_internal: '#8B5CF6', // purple
   company_to_company: '#F59E0B', // amber
+  driver_dispatch: '#EC4899', // pink
   general: '#6B7280', // gray
 };

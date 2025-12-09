@@ -28,6 +28,7 @@ export function ChatPanel({
   context,
   loadId,
   tripId,
+  driverId,
   companyId,
   userId,
   partnerCompanyId,
@@ -63,6 +64,8 @@ export function ChatPanel({
         return 'trip_internal';
       case 'company':
         return 'company_to_company';
+      case 'driver_dispatch':
+        return 'driver_dispatch';
       default:
         return 'general';
     }
@@ -115,6 +118,8 @@ export function ChatPanel({
         body.trip_id = tripId;
       } else if (context === 'company' && partnerCompanyId) {
         body.partner_company_id = partnerCompanyId;
+      } else if (context === 'driver_dispatch' && driverId) {
+        body.driver_id = driverId;
       }
 
       const res = await fetch('/api/messaging/conversations', {

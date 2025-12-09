@@ -10,7 +10,9 @@ import {
   type DriverStatus,
 } from '@/data/drivers';
 import { getPrimaryCompanyForUser } from '@/data/companies';
+import { getCompanyDriverDispatchConversations } from '@/data/conversations';
 import { DriverListFilters } from './driver-list-filters';
+import { DriverMessagesTab } from './driver-messages-tab';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -122,12 +124,14 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
 
   let drivers: Driver[] = [];
   let stats = { totalDrivers: 0, activeDrivers: 0, suspendedDrivers: 0 };
+  let driverConversations: Awaited<ReturnType<typeof getCompanyDriverDispatchConversations>> = [];
   let error: string | null = null;
 
   try {
-    [drivers, stats] = await Promise.all([
+    [drivers, stats, driverConversations] = await Promise.all([
       getDriversForUser(user.id, filters),
       getDriverStatsForUser(user.id, primaryCompany?.id),
+      primaryCompany?.id ? getCompanyDriverDispatchConversations(primaryCompany.id, user.id) : Promise.resolve([]),
     ]);
   } catch (err) {
     error = err instanceof Error ? err.message : 'Failed to load drivers';
@@ -211,6 +215,7 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
       <Tabs defaultValue="roster" className="space-y-4">
         <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="roster">Roster</TabsTrigger>
+          <TabsTrigger value="messages">Messages</TabsTrigger>
           <TabsTrigger value="compliance">Compliance</TabsTrigger>
           <TabsTrigger value="access">Access</TabsTrigger>
           <TabsTrigger value="compensation">Compensation</TabsTrigger>
@@ -297,6 +302,15 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="messages">
+          <DriverMessagesTab
+            drivers={drivers}
+            conversations={driverConversations}
+            companyId={primaryCompany?.id ?? ''}
+            userId={user.id}
+          />
         </TabsContent>
 
         <TabsContent value="compliance">

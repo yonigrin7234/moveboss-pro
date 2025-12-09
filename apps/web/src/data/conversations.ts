@@ -27,6 +27,7 @@ export const conversationTypeSchema = z.enum([
   'load_internal',
   'trip_internal',
   'company_to_company',
+  'driver_dispatch',
   'general',
 ]);
 
@@ -58,6 +59,7 @@ export const createConversationSchema = z.object({
   type: conversationTypeSchema,
   load_id: z.string().uuid().optional(),
   trip_id: z.string().uuid().optional(),
+  driver_id: z.string().uuid().optional(),
   partner_company_id: z.string().uuid().optional(),
   title: z.string().max(200).optional(),
 });
@@ -233,6 +235,10 @@ export async function getUserConversations(
         title = title || (partnerCompany?.name ?? 'Partner Chat');
         subtitle = 'Company thread';
         break;
+      case 'driver_dispatch':
+        title = title || 'Driver Chat';
+        subtitle = 'Direct message';
+        break;
       case 'general':
         title = title || 'General Chat';
         subtitle = '';
@@ -330,27 +336,53 @@ export async function getConversation(
 
 /**
  * Get or create a conversation for a load (internal or shared)
+ *
+ * IMPORTANT: Load conversations are keyed by load_id and type, NOT by the viewing company.
+ * This ensures the same conversation is shared between all parties who have access to the load.
+ * - owner_company_id: Always the load's actual owner company (the broker/company that owns the load)
+ * - carrier_company_id: The carrier assigned to the load (if any)
+ * - partner_company_id: For shared conversations between broker and carrier
+ *
+ * RLS policies grant access based on owner_company_id, partner_company_id, and carrier_company_id.
  */
 export async function getOrCreateLoadConversation(
   loadId: string,
   type: 'load_internal' | 'load_shared',
-  ownerCompanyId: string,
+  callerCompanyId: string,
   partnerCompanyId?: string,
   createdByUserId?: string
 ): Promise<Conversation> {
   const supabase = await createClient();
 
-  // Check for existing conversation
+  // First, get the load to determine the actual owner and carrier
+  const { data: load, error: loadError } = await supabase
+    .from('loads')
+    .select('company_id, owner_id, assigned_carrier_id, posted_by_company_id')
+    .eq('id', loadId)
+    .single();
+
+  if (loadError || !load) {
+    throw new Error(`Failed to get load: ${loadError?.message || 'Load not found'}`);
+  }
+
+  // Determine the load's actual owner company (the broker/company that created the load)
+  const loadOwnerCompanyId = load.posted_by_company_id || load.company_id;
+  const assignedCarrierId = load.assigned_carrier_id;
+
+  // For load_internal conversations: look up by load_id, type, and the load's actual owner
+  // For load_shared conversations: look up by load_id and type (shared between broker & carrier)
   let query = supabase
     .from('conversations')
     .select('*')
     .eq('load_id', loadId)
-    .eq('type', type)
-    .eq('owner_company_id', ownerCompanyId);
+    .eq('type', type);
 
-  if (type === 'load_shared' && partnerCompanyId) {
-    query = query.eq('partner_company_id', partnerCompanyId);
+  if (type === 'load_internal') {
+    // Internal conversations are scoped to each company
+    // The caller's company owns their internal conversation
+    query = query.eq('owner_company_id', callerCompanyId);
   }
+  // For load_shared, we just look by load_id + type (there's only one shared conversation per load)
 
   const { data: existing } = await query.maybeSingle();
 
@@ -359,16 +391,36 @@ export async function getOrCreateLoadConversation(
   }
 
   // Create new conversation
+  let insertData: Record<string, unknown>;
+
+  if (type === 'load_internal') {
+    // Internal conversation belongs to the caller's company
+    insertData = {
+      type,
+      owner_company_id: callerCompanyId,
+      load_id: loadId,
+      carrier_company_id: null,
+      partner_company_id: null,
+      created_by_user_id: createdByUserId,
+    };
+  } else {
+    // Shared conversation between broker and carrier
+    // owner_company_id = the load's owner (broker)
+    // carrier_company_id = the assigned carrier
+    // partner_company_id = whichever is the "other" company (for backwards compatibility)
+    insertData = {
+      type,
+      owner_company_id: loadOwnerCompanyId,
+      load_id: loadId,
+      carrier_company_id: assignedCarrierId,
+      partner_company_id: partnerCompanyId || assignedCarrierId,
+      created_by_user_id: createdByUserId,
+    };
+  }
+
   const { data: newConv, error } = await supabase
     .from('conversations')
-    .insert({
-      type,
-      owner_company_id: ownerCompanyId,
-      load_id: loadId,
-      carrier_company_id: type === 'load_shared' ? ownerCompanyId : null,
-      partner_company_id: type === 'load_shared' ? partnerCompanyId : null,
-      created_by_user_id: createdByUserId,
-    })
+    .insert(insertData)
     .select()
     .single();
 
@@ -423,21 +475,28 @@ export async function getOrCreateTripConversation(
 
 /**
  * Get or create a company-to-company conversation
+ *
+ * IMPORTANT: Company-to-company conversations should be symmetric.
+ * If A chats with B, and B replies, they should use the SAME conversation.
+ * We check for existing conversations in BOTH directions to ensure this.
  */
 export async function getOrCreateCompanyConversation(
-  carrierCompanyId: string,
-  partnerCompanyId: string,
+  callerCompanyId: string,
+  otherCompanyId: string,
   createdByUserId?: string
 ): Promise<Conversation> {
   const supabase = await createClient();
 
-  // Check for existing conversation
+  // Check for existing conversation in EITHER direction
+  // (A→B or B→A should find the same conversation)
   const { data: existing } = await supabase
     .from('conversations')
     .select('*')
     .eq('type', 'company_to_company')
-    .eq('carrier_company_id', carrierCompanyId)
-    .eq('partner_company_id', partnerCompanyId)
+    .or(
+      `and(carrier_company_id.eq.${callerCompanyId},partner_company_id.eq.${otherCompanyId}),` +
+      `and(carrier_company_id.eq.${otherCompanyId},partner_company_id.eq.${callerCompanyId})`
+    )
     .maybeSingle();
 
   if (existing) {
@@ -445,13 +504,14 @@ export async function getOrCreateCompanyConversation(
   }
 
   // Create new conversation
+  // Use consistent ordering: the initiating company becomes the "carrier"
   const { data: newConv, error } = await supabase
     .from('conversations')
     .insert({
       type: 'company_to_company',
-      owner_company_id: carrierCompanyId,
-      carrier_company_id: carrierCompanyId,
-      partner_company_id: partnerCompanyId,
+      owner_company_id: callerCompanyId,
+      carrier_company_id: callerCompanyId,
+      partner_company_id: otherCompanyId,
       created_by_user_id: createdByUserId,
     })
     .select()
@@ -462,6 +522,156 @@ export async function getOrCreateCompanyConversation(
   }
 
   return newConv as Conversation;
+}
+
+/**
+ * Get or create a driver-dispatch conversation
+ *
+ * This creates a direct messaging channel between a driver and their company's dispatch team.
+ * - owner_company_id: The driver's company
+ * - driver_id: The specific driver this conversation is for
+ */
+export async function getOrCreateDriverDispatchConversation(
+  driverId: string,
+  companyId: string,
+  createdByUserId?: string
+): Promise<Conversation> {
+  const supabase = await createClient();
+
+  // Check for existing conversation
+  const { data: existing } = await supabase
+    .from('conversations')
+    .select('*')
+    .eq('type', 'driver_dispatch')
+    .eq('driver_id', driverId)
+    .eq('owner_company_id', companyId)
+    .maybeSingle();
+
+  if (existing) {
+    return existing as Conversation;
+  }
+
+  // Get driver details for title
+  const { data: driver } = await supabase
+    .from('drivers')
+    .select('first_name, last_name')
+    .eq('id', driverId)
+    .single();
+
+  const driverName = driver ? `${driver.first_name} ${driver.last_name}` : 'Driver';
+
+  // Create new conversation
+  const { data: newConv, error } = await supabase
+    .from('conversations')
+    .insert({
+      type: 'driver_dispatch',
+      owner_company_id: companyId,
+      driver_id: driverId,
+      title: `${driverName} - Dispatch`,
+      created_by_user_id: createdByUserId,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to create driver dispatch conversation: ${error.message}`);
+  }
+
+  // Add the driver as a participant with full read/write access
+  await supabase.from('conversation_participants').insert({
+    conversation_id: newConv.id,
+    driver_id: driverId,
+    company_id: companyId,
+    role: 'driver',
+    can_read: true,
+    can_write: true,
+    is_driver: true,
+    added_by_user_id: createdByUserId,
+  });
+
+  return newConv as Conversation;
+}
+
+/**
+ * Get all driver dispatch conversations for a company
+ * Used by dispatchers to see all driver conversations
+ */
+export async function getCompanyDriverDispatchConversations(
+  companyId: string,
+  userId?: string
+): Promise<ConversationListItem[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('conversations')
+    .select(`
+      id,
+      type,
+      owner_company_id,
+      driver_id,
+      title,
+      is_archived,
+      is_muted,
+      last_message_at,
+      last_message_preview,
+      last_message_sender_name,
+      message_count,
+      drivers:driver_id (
+        id,
+        first_name,
+        last_name
+      )
+    `)
+    .eq('type', 'driver_dispatch')
+    .eq('owner_company_id', companyId)
+    .eq('is_archived', false)
+    .order('last_message_at', { ascending: false, nullsFirst: false });
+
+  if (error) {
+    throw new Error(`Failed to fetch driver dispatch conversations: ${error.message}`);
+  }
+
+  // Fetch unread counts for the user if userId provided
+  let unreadMap = new Map<string, number>();
+  if (userId && data && data.length > 0) {
+    const conversationIds = data.map((c) => c.id);
+    const { data: participantData } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id, unread_count')
+      .eq('user_id', userId)
+      .in('conversation_id', conversationIds);
+
+    if (participantData) {
+      unreadMap = new Map(participantData.map((p) => [p.conversation_id, p.unread_count]));
+    }
+  }
+
+  return (data ?? []).map((conv) => {
+    const driver = Array.isArray(conv.drivers) ? conv.drivers[0] : conv.drivers;
+    const driverName = driver ? `${driver.first_name} ${driver.last_name}` : 'Driver';
+
+    // Format preview with sender name
+    const senderName = (conv as { last_message_sender_name?: string }).last_message_sender_name;
+    const messagePreview = conv.last_message_preview
+      ? (senderName ? `${senderName}: ${conv.last_message_preview}` : conv.last_message_preview)
+      : undefined;
+
+    return {
+      id: conv.id,
+      type: 'driver_dispatch' as ConversationType,
+      title: conv.title || `${driverName} - Dispatch`,
+      subtitle: 'Direct message',
+      last_message_preview: messagePreview,
+      last_message_at: conv.last_message_at,
+      unread_count: unreadMap.get(conv.id) ?? 0,
+      is_muted: conv.is_muted || false,
+      participants_preview: [],
+      context: {
+        driver_name: driverName,
+        driver_id: driver?.id,
+      },
+    };
+  });
 }
 
 // ============================================================================
@@ -1224,6 +1434,10 @@ export async function getDriverConversations(
       case 'trip_internal':
         title = title || `Trip ${trip?.trip_number ?? ''}`;
         subtitle = 'Team Chat';
+        break;
+      case 'driver_dispatch':
+        title = title || 'Dispatch';
+        subtitle = 'Direct message';
         break;
       default:
         title = title || 'Chat';
