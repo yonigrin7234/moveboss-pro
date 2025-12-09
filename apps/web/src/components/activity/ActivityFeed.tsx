@@ -1,11 +1,15 @@
 'use client';
 
+import Link from 'next/link';
 import { History, ArrowRight, Package, Truck, Store, UserPlus, UserMinus, Clock, Plus, Trash2, DollarSign, Receipt, RefreshCw, CheckCircle, XCircle, Send, RotateCcw, FileText, List, Eye } from 'lucide-react';
 import type { AuditLogEntry } from '@/lib/audit';
+import { getActivityQuickActions } from './getActivityQuickActions';
 
 interface ActivityFeedProps {
   logs: AuditLogEntry[];
   emptyMessage?: string;
+  /** If provided, hides the "View [Entity]" action for the current entity */
+  currentEntityId?: string;
 }
 
 /**
@@ -324,7 +328,7 @@ function getPerformerName(log: AuditLogEntry): string {
   return 'Unknown User';
 }
 
-export function ActivityFeed({ logs, emptyMessage = 'No activity yet' }: ActivityFeedProps) {
+export function ActivityFeed({ logs, emptyMessage = 'No activity yet', currentEntityId }: ActivityFeedProps) {
   if (logs.length === 0) {
     return (
       <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -406,6 +410,30 @@ export function ActivityFeed({ logs, emptyMessage = 'No activity yet' }: Activit
                     {log.source === 'mobile' ? 'Mobile' : 'System'}
                   </span>
                 )}
+
+                {/* Quick actions */}
+                {(() => {
+                  let actions = getActivityQuickActions(log);
+                  // If we're on an entity page, filter out the action linking to the same entity
+                  if (currentEntityId && log.entity_id === currentEntityId) {
+                    actions = actions.filter(a => !a.href.includes(currentEntityId));
+                  }
+                  if (actions.length === 0) return null;
+                  return (
+                    <div className="flex items-center gap-2 mt-2">
+                      {actions.map((action, actionIndex) => (
+                        <Link
+                          key={actionIndex}
+                          href={action.href}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-md transition-colors"
+                        >
+                          <action.icon className="h-3 w-3" />
+                          {action.label}
+                        </Link>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           ))}

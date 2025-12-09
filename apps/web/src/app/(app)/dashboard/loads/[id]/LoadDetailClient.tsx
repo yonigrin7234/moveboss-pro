@@ -151,6 +151,7 @@ export function LoadDetailClient({
           /* Activity Section */
           <ActivityFeed
             logs={auditLogs}
+            currentEntityId={load.id}
             emptyMessage="No activity recorded yet. Changes to this load will appear here."
           />
         }

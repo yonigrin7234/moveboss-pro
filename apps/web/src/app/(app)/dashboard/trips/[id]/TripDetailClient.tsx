@@ -1538,6 +1538,7 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
         <TabsContent value="activity" className="mt-0">
           <ActivityFeed
             logs={auditLogs}
+            currentEntityId={trip.id}
             emptyMessage="No activity recorded yet. Changes to this trip will appear here."
           />
         </TabsContent>

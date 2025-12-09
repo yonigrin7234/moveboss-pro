@@ -499,7 +499,7 @@ export default async function PartnershipDetailPage({
       )}
 
       {/* Activity */}
-      <ActivityFeed logs={activityLogs} emptyMessage="No activity recorded for this partnership yet" />
+      <ActivityFeed logs={activityLogs} currentEntityId={id} emptyMessage="No activity recorded for this partnership yet" />
 
       {/* Status Actions */}
       <Card>
