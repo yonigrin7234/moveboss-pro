@@ -675,13 +675,18 @@ export function useDispatchConversation() {
 
       // Check for existing driver_dispatch conversation
       // First try to find by driver_id on conversation (works even without participant)
-      const { data: existingConv, error: convError } = await supabase
+      // Use order + limit to handle duplicates (get the one with most recent activity)
+      const { data: existingConvs, error: convError } = await supabase
         .from('conversations')
         .select('id, type, owner_company_id, driver_id, title, is_muted, last_message_at, last_message_preview, message_count')
         .eq('type', 'driver_dispatch')
         .eq('driver_id', driver.id)
         .eq('owner_company_id', driver.company_id)
-        .maybeSingle();
+        .order('last_message_at', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const existingConv = existingConvs?.[0] ?? null;
 
       dataLogger.info('Dispatch conversation check:', { existingConv, convError });
 
