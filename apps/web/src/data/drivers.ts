@@ -205,7 +205,7 @@ export async function getDriversForUser(
       userId,
       authUserId: authUser?.id,
     });
-    throw new Error(`Failed to fetch drivers: ${error.message}`);
+    return [];
   }
 
   // Debug logging

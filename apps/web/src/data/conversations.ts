@@ -628,7 +628,8 @@ export async function getCompanyDriverDispatchConversations(
     .order('last_message_at', { ascending: false, nullsFirst: false });
 
   if (error) {
-    throw new Error(`Failed to fetch driver dispatch conversations: ${error.message}`);
+    console.error('[getCompanyDriverDispatchConversations] Error:', error.code, error.message);
+    return [];
   }
 
   // Fetch unread counts for the user if userId provided
