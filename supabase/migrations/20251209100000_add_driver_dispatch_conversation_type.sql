@@ -26,6 +26,9 @@ CREATE INDEX IF NOT EXISTS idx_conversations_driver_id ON conversations(driver_i
 -- STEP 3: Add RLS policy for driver_dispatch conversations
 -- ============================================================================
 
+-- Drop existing policy if it exists (from partial migration)
+DROP POLICY IF EXISTS conversations_select_driver_dispatch ON conversations;
+
 -- Drivers can SELECT driver_dispatch conversations where they are the driver
 CREATE POLICY conversations_select_driver_dispatch
   ON conversations FOR SELECT
@@ -108,6 +111,9 @@ CREATE POLICY messages_insert_company
         )
     )
   );
+
+-- Drop existing policy if it exists (from partial migration)
+DROP POLICY IF EXISTS messages_insert_driver_dispatch ON messages;
 
 -- Allow drivers to insert messages using sender_driver_id
 CREATE POLICY messages_insert_driver_dispatch

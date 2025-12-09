@@ -14,6 +14,13 @@ DROP POLICY IF EXISTS messages_insert_driver ON messages;
 DROP POLICY IF EXISTS participants_select_driver ON conversation_participants;
 DROP POLICY IF EXISTS receipts_insert_driver ON message_read_receipts;
 
+-- Also drop the _direct versions in case they exist from a partial migration
+DROP POLICY IF EXISTS conversations_select_driver_direct ON conversations;
+DROP POLICY IF EXISTS messages_select_driver_direct ON messages;
+DROP POLICY IF EXISTS messages_insert_driver_direct ON messages;
+DROP POLICY IF EXISTS participants_select_driver_direct ON conversation_participants;
+DROP POLICY IF EXISTS receipts_insert_driver_direct ON message_read_receipts;
+
 -- ============================================================================
 -- SIMPLIFIED POLICIES - NO CROSS-TABLE RECURSION
 -- ============================================================================

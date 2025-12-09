@@ -248,15 +248,11 @@ export function useConversationMessages(
         return;
       }
 
-      // Fetch messages
+      // Fetch messages (without sender_user_id join since it references auth.users which PostgREST can't access)
       const { data: messages, error: msgError } = await supabase
         .from('messages')
         .select(`
           *,
-          sender_profile:sender_user_id (
-            id,
-            full_name
-          ),
           sender_driver:sender_driver_id (
             id,
             first_name,
@@ -268,17 +264,28 @@ export function useConversationMessages(
         .order('created_at', { ascending: true })
         .limit(options.limit ?? 100);
 
+      // If there are messages from users (not drivers), fetch their profiles separately
+      const userIds = [...new Set((messages ?? []).map(m => m.sender_user_id).filter(Boolean))] as string[];
+      let profilesMap = new Map<string, { id: string; full_name: string | null }>();
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds);
+        if (profiles) {
+          profiles.forEach(p => profilesMap.set(p.id, p));
+        }
+      }
+
       if (msgError) {
         throw msgError;
       }
 
       const formattedMessages: MessageWithSender[] = (messages ?? []).map((msg) => {
-        const senderProfile = Array.isArray(msg.sender_profile)
-          ? msg.sender_profile[0]
-          : msg.sender_profile;
         const senderDriver = Array.isArray(msg.sender_driver)
           ? msg.sender_driver[0]
           : msg.sender_driver;
+        const senderProfile = msg.sender_user_id ? profilesMap.get(msg.sender_user_id) : undefined;
 
         return {
           ...msg,
@@ -334,15 +341,11 @@ export function useConversationMessages(
         async (payload) => {
           dataLogger.debug('New message received', payload);
 
-          // Fetch the full message with sender info
+          // Fetch the full message with sender info (without sender_user_id join)
           const { data: newMsg } = await supabase
             .from('messages')
             .select(`
               *,
-              sender_profile:sender_user_id (
-                id,
-                full_name
-              ),
               sender_driver:sender_driver_id (
                 id,
                 first_name,
@@ -353,12 +356,20 @@ export function useConversationMessages(
             .single();
 
           if (newMsg) {
-            const senderProfile = Array.isArray(newMsg.sender_profile)
-              ? newMsg.sender_profile[0]
-              : newMsg.sender_profile;
             const senderDriver = Array.isArray(newMsg.sender_driver)
               ? newMsg.sender_driver[0]
               : newMsg.sender_driver;
+
+            // Fetch profile separately if sender is a user
+            let senderProfile: { id: string; full_name: string | null } | undefined;
+            if (newMsg.sender_user_id) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('id, full_name')
+                .eq('id', newMsg.sender_user_id)
+                .single();
+              senderProfile = profile ?? undefined;
+            }
 
             const formatted: MessageWithSender = {
               ...newMsg,
@@ -654,6 +665,8 @@ export function useDispatchConversation() {
         .eq('auth_user_id', user.id)
         .single();
 
+      dataLogger.info('Driver lookup:', { driver: driver?.id, error: driverError?.message });
+
       if (driverError || !driver) {
         setError('Driver profile not found');
         setLoading(false);
@@ -661,29 +674,59 @@ export function useDispatchConversation() {
       }
 
       // Check for existing driver_dispatch conversation
-      const { data: existing } = await supabase
+      // First try to find by driver_id on conversation (works even without participant)
+      const { data: existingConv, error: convError } = await supabase
         .from('conversations')
-        .select(`
-          id,
-          type,
-          owner_company_id,
-          driver_id,
-          title,
-          is_muted,
-          last_message_at,
-          last_message_preview,
-          message_count,
-          conversation_participants!inner (
-            can_read,
-            can_write,
-            unread_count
-          )
-        `)
+        .select('id, type, owner_company_id, driver_id, title, is_muted, last_message_at, last_message_preview, message_count')
         .eq('type', 'driver_dispatch')
         .eq('driver_id', driver.id)
         .eq('owner_company_id', driver.company_id)
-        .eq('conversation_participants.driver_id', driver.id)
         .maybeSingle();
+
+      dataLogger.info('Dispatch conversation check:', { existingConv, convError });
+
+      // If conversation exists, check for participant separately
+      let existing: typeof existingConv & { conversation_participants?: { can_read: boolean; can_write: boolean; unread_count: number } | null } | null = null;
+
+      if (existingConv) {
+        // Check if driver has a participant record
+        const { data: participant, error: partError } = await supabase
+          .from('conversation_participants')
+          .select('can_read, can_write, unread_count')
+          .eq('conversation_id', existingConv.id)
+          .eq('driver_id', driver.id)
+          .maybeSingle();
+
+        dataLogger.info('Participant check:', { participant, partError });
+
+        if (!participant) {
+          // No participant record - need to create one
+          dataLogger.info('Creating missing participant record for driver');
+          const { error: insertError } = await supabase.from('conversation_participants').insert({
+            conversation_id: existingConv.id,
+            driver_id: driver.id,
+            company_id: driver.company_id,
+            role: 'driver',
+            can_read: true,
+            can_write: true,
+            is_driver: true,
+          });
+
+          if (insertError) {
+            dataLogger.error('Failed to create participant:', insertError);
+          } else {
+            existing = {
+              ...existingConv,
+              conversation_participants: { can_read: true, can_write: true, unread_count: 0 },
+            };
+          }
+        } else {
+          existing = {
+            ...existingConv,
+            conversation_participants: participant,
+          };
+        }
+      }
 
       if (existing) {
         const participant = Array.isArray(existing.conversation_participants)
