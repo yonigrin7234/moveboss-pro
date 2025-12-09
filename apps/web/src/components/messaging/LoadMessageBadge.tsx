@@ -11,6 +11,8 @@ interface LoadMessageBadgeProps {
   size?: 'sm' | 'default';
   /** Whether to show even when count is 0 */
   showWhenEmpty?: boolean;
+  /** Custom href - overrides default /dashboard/loads/[id]?tab=messages */
+  href?: string;
 }
 
 /**
@@ -21,6 +23,7 @@ export function LoadMessageBadge({
   loadId,
   size = 'default',
   showWhenEmpty = true,
+  href,
 }: LoadMessageBadgeProps) {
   const { unreadCount } = useSingleEntityUnreadCount('load', loadId);
 
@@ -31,6 +34,7 @@ export function LoadMessageBadge({
   const sizeClasses = size === 'sm' ? 'h-7 w-7' : 'h-8 w-8';
   const iconSize = size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4';
   const badgeSize = size === 'sm' ? 'h-3.5 min-w-3.5 text-[9px]' : 'h-4 min-w-4 text-[10px]';
+  const linkHref = href ?? `/dashboard/loads/${loadId}?tab=messages`;
 
   return (
     <Button
@@ -44,7 +48,7 @@ export function LoadMessageBadge({
       }`}
       title={unreadCount > 0 ? `${unreadCount} unread messages` : 'Messages'}
     >
-      <Link href={`/dashboard/loads/${loadId}?tab=messages`}>
+      <Link href={linkHref}>
         <MessageSquare className={iconSize} />
         {unreadCount > 0 && (
           <span className={`absolute -top-1 -right-1 ${badgeSize} flex items-center justify-center bg-primary text-primary-foreground font-medium rounded-full px-0.5`}>
@@ -62,17 +66,22 @@ export function LoadMessageBadge({
 export function LoadMessageIndicator({
   loadId,
   className = '',
+  href,
 }: {
   loadId: string;
   className?: string;
+  /** Custom href - overrides default /dashboard/loads/[id]?tab=messages */
+  href?: string;
 }) {
   const { unreadCount } = useSingleEntityUnreadCount('load', loadId);
 
   if (unreadCount === 0) return null;
 
+  const linkHref = href ?? `/dashboard/loads/${loadId}?tab=messages`;
+
   return (
     <Link
-      href={`/dashboard/loads/${loadId}?tab=messages`}
+      href={linkHref}
       className={`inline-flex items-center gap-1 text-primary hover:text-primary/80 ${className}`}
       title={`${unreadCount} unread messages`}
     >

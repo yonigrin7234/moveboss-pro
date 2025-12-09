@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Pencil, MessageSquare } from 'lucide-react';
 import { useSingleEntityUnreadCount } from '@/hooks/useEntityUnreadCounts';
 import { Button } from '@/components/ui/button';
@@ -70,6 +70,7 @@ export function LoadDetailClient({
   onAssignToTrip,
 }: LoadDetailClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const { unreadCount } = useSingleEntityUnreadCount('load', load.id);
 
@@ -79,6 +80,17 @@ export function LoadDetailClient({
       messagesSection.scrollIntoView({ behavior: 'smooth' });
     }
   };
+
+  // Scroll to messages section if ?tab=messages is in the URL
+  useEffect(() => {
+    if (searchParams.get('tab') === 'messages') {
+      // Small delay to ensure the page is rendered
+      const timer = setTimeout(() => {
+        scrollToMessages();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams]);
 
   // Handle successful form submission - close sheet and refresh
   const handleFormSuccess = () => {

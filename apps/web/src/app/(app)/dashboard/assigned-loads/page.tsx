@@ -21,6 +21,7 @@ import {
   AlertCircle,
   AlertTriangle,
 } from 'lucide-react';
+import { LoadMessageBadge } from '@/components/messaging/LoadMessageBadge';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   pending: { label: 'Needs Confirm', color: 'bg-yellow-500/20 text-yellow-400' },
@@ -256,12 +257,19 @@ export default async function AssignedLoadsPage() {
                             )}
                           </div>
                         </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <Badge className={status.color}>{status.label}</Badge>
-                          <Badge variant="outline" className="text-orange-500 border-orange-500/50">
-                            <Truck className="h-3 w-3 mr-1" />
-                            Add to Trip
-                          </Badge>
+                        <div className="flex items-center gap-2">
+                          <LoadMessageBadge
+                            loadId={load.id}
+                            size="sm"
+                            href={`/dashboard/assigned-loads/${load.id}#messages-section`}
+                          />
+                          <div className="flex flex-col items-end gap-2">
+                            <Badge className={status.color}>{status.label}</Badge>
+                            <Badge variant="outline" className="text-orange-500 border-orange-500/50">
+                              <Truck className="h-3 w-3 mr-1" />
+                              Add to Trip
+                            </Badge>
+                          </div>
                         </div>
                       </div>
                     </CardContent>
@@ -347,7 +355,14 @@ export default async function AssignedLoadsPage() {
                             )}
                           </div>
                         </div>
-                        <Badge className={status.color}>{status.label}</Badge>
+                        <div className="flex items-center gap-2">
+                          <LoadMessageBadge
+                            loadId={load.id}
+                            size="sm"
+                            href={`/dashboard/assigned-loads/${load.id}#messages-section`}
+                          />
+                          <Badge className={status.color}>{status.label}</Badge>
+                        </div>
                       </div>
                     </Link>
 
@@ -409,15 +424,22 @@ export default async function AssignedLoadsPage() {
                             </p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <Badge className="bg-green-500/20 text-green-400">
-                            Delivered
-                          </Badge>
-                          {totalValue && (
-                            <p className="text-sm text-green-500 font-medium mt-1">
-                              ${totalValue.toLocaleString()}
-                            </p>
-                          )}
+                        <div className="flex items-center gap-2">
+                          <LoadMessageBadge
+                            loadId={load.id}
+                            size="sm"
+                            href={`/dashboard/assigned-loads/${load.id}#messages-section`}
+                          />
+                          <div className="text-right">
+                            <Badge className="bg-green-500/20 text-green-400">
+                              Delivered
+                            </Badge>
+                            {totalValue && (
+                              <p className="text-sm text-green-500 font-medium mt-1">
+                                ${totalValue.toLocaleString()}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </CardContent>
