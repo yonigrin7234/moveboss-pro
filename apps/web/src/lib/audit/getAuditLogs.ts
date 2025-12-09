@@ -164,46 +164,78 @@ export async function getRecentAuditLogs(
   const supabase = await createClient();
   const limit = options?.limit ?? 50;
 
+  // Build the select query with profiles join
+  const selectWithJoin = `
+    id,
+    entity_type,
+    entity_id,
+    action,
+    performed_by_user_id,
+    performed_by_company_id,
+    source,
+    visibility,
+    previous_value,
+    new_value,
+    metadata,
+    created_at,
+    performer:profiles!performed_by_user_id(full_name, email)
+  `;
+
+  const selectWithoutJoin = `
+    id,
+    entity_type,
+    entity_id,
+    action,
+    performed_by_user_id,
+    performed_by_company_id,
+    source,
+    visibility,
+    previous_value,
+    new_value,
+    metadata,
+    created_at
+  `;
+
+  // First try with profiles join
   let query = supabase
     .from('audit_logs')
-    .select(
-      `
-      id,
-      entity_type,
-      entity_id,
-      action,
-      performed_by_user_id,
-      performed_by_company_id,
-      source,
-      visibility,
-      previous_value,
-      new_value,
-      metadata,
-      created_at,
-      performer:profiles!performed_by_user_id(full_name, email)
-    `
-    )
+    .select(selectWithJoin)
     .order('created_at', { ascending: false })
     .limit(limit);
-
-  // Note: RLS handles access control - we don't filter by user here
-  // The RLS policy should ensure users only see logs for entities they have access to
 
   if (options?.entityTypes && options.entityTypes.length > 0) {
     query = query.in('entity_type', options.entityTypes);
   }
 
-  const { data, error } = await query;
+  let { data, error } = await query;
 
+  // If join fails, try without the join (same pattern as getAuditLogsForEntity)
   if (error) {
-    console.error('[getRecentAuditLogs] Query failed:', error.code, error.message, { userId });
-    return [];
+    console.error('[getRecentAuditLogs] Query with join failed:', error.code, error.message);
+
+    let fallbackQuery = supabase
+      .from('audit_logs')
+      .select(selectWithoutJoin)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (options?.entityTypes && options.entityTypes.length > 0) {
+      fallbackQuery = fallbackQuery.in('entity_type', options.entityTypes);
+    }
+
+    const fallbackResult = await fallbackQuery;
+
+    if (fallbackResult.error) {
+      console.error('[getRecentAuditLogs] Fallback query also failed:', fallbackResult.error.code, fallbackResult.error.message, { userId });
+      return [];
+    }
+
+    data = fallbackResult.data?.map((row: any) => ({ ...row, performer: null })) ?? null;
+    console.log('[getRecentAuditLogs] Fallback succeeded, got', data?.length ?? 0, 'results');
   }
 
-  // Debug: log if no results
-  if (!data || data.length === 0) {
-    console.log('[getRecentAuditLogs] No results for userId:', userId);
-  }
+  // Debug: log results count
+  console.log('[getRecentAuditLogs] Query returned', data?.length ?? 0, 'results for userId:', userId);
 
   return (data || []).map((row: RawAuditLogRow) => {
     const performer = row.performer?.[0] ?? null;
