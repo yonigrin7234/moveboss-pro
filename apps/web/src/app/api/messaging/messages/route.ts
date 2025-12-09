@@ -6,7 +6,11 @@ import {
   sendMessage,
   sendMessageSchema,
 } from '@/data/conversations';
-import { sendPushToDriver, sendPushToUser } from '@/lib/push-notifications';
+import {
+  sendPushToDriver,
+  sendPushToUser,
+  getConversationNotificationTitle,
+} from '@/lib/push-notifications';
 
 // GET /api/messaging/messages?conversation_id=xxx
 // Get messages for a conversation
@@ -142,14 +146,19 @@ async function sendMessageNotifications(
   senderUserId: string,
   messagePreview: string
 ) {
-  // Get conversation info
+  // Get conversation info with all related data for proper titles
   const { data: conversation } = await supabase
     .from('conversations')
     .select(`
       type,
       title,
       load_id,
-      loads:load_id (load_number)
+      trip_id,
+      partner_company_id,
+      context,
+      loads:load_id (load_number),
+      trips:trip_id (trip_number),
+      partner_company:partner_company_id (name)
     `)
     .eq('id', conversationId)
     .single();
@@ -172,9 +181,27 @@ async function sendMessageNotifications(
 
   if (!participants) return;
 
+  // Extract related data (Supabase returns as arrays for FK joins)
   const load = Array.isArray(conversation?.loads) ? conversation.loads[0] : conversation?.loads;
-  const title = conversation?.title ||
-    (load?.load_number ? `Load ${load.load_number}` : 'New Message');
+  const trip = Array.isArray(conversation?.trips) ? conversation.trips[0] : conversation?.trips;
+  const partnerCompany = Array.isArray(conversation?.partner_company)
+    ? conversation.partner_company[0]
+    : conversation?.partner_company;
+
+  // Get driver name for driver_dispatch conversations from context
+  const conversationContext = conversation?.context as { driver_name?: string } | null;
+  const driverName = conversationContext?.driver_name;
+
+  // Generate notification title using the centralized helper
+  const title = getConversationNotificationTitle({
+    type: conversation?.type || 'general',
+    title: conversation?.title,
+    load_number: load?.load_number,
+    trip_number: trip?.trip_number,
+    partner_company_name: partnerCompany?.name,
+    driver_name: driverName,
+  });
+
   const preview = messagePreview.length > 100 ? messagePreview.slice(0, 100) + '...' : messagePreview;
   const notificationBody = sender?.full_name ? `${sender.full_name}: ${preview}` : preview;
 

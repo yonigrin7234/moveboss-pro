@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -37,6 +37,7 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 type NavItem = {
@@ -109,10 +110,31 @@ function isItemActive(pathname: string, item: NavItem): boolean {
 export default function Sidebar({ companyName, userName, canPostLoads = false, canHaulLoads = false, role, permissions }: SidebarProps) {
   const pathname = usePathname() ?? ""
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
+  const [unreadCounts, setUnreadCounts] = useState<{ messages: number; dispatch: number }>({ messages: 0, dispatch: 0 })
   const displayCompanyName = companyName?.trim() || "MoveBoss Pro"
   const displayUserName = userName?.trim() || "Fleet Owner"
   const workspaceInitials = getInitials(displayCompanyName)
   const roleBadge = getRoleBadge(canPostLoads, canHaulLoads, role)
+
+  // Fetch unread counts
+  const fetchUnreadCounts = useCallback(async () => {
+    try {
+      const res = await fetch('/api/messaging/unread-counts')
+      if (res.ok) {
+        const data = await res.json()
+        setUnreadCounts({ messages: data.messages || 0, dispatch: data.dispatch || 0 })
+      }
+    } catch (error) {
+      console.error('Failed to fetch unread counts:', error)
+    }
+  }, [])
+
+  // Fetch on mount and periodically refresh
+  useEffect(() => {
+    fetchUnreadCounts()
+    const interval = setInterval(fetchUnreadCounts, 30000) // Refresh every 30 seconds
+    return () => clearInterval(interval)
+  }, [fetchUnreadCounts])
 
   // If no permissions object provided, assume full access (owner/operator or admin)
   const hasFullAccess = !permissions
@@ -321,6 +343,14 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
     const hasChildren = item.children && item.children.length > 0
     const isExpanded = expandedItems.has(item.href)
 
+    // Get badge count for this item
+    const getBadgeCount = () => {
+      if (item.href === "/dashboard/messages") return unreadCounts.messages
+      if (item.href === "/dashboard/dispatch") return unreadCounts.dispatch
+      return 0
+    }
+    const badgeCount = getBadgeCount()
+
     return (
       <div key={item.href} className="space-y-0.5">
         {hasChildren ? (
@@ -339,6 +369,11 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
               <Link href={item.href}>
                 <Icon className="h-4 w-4 shrink-0 opacity-70" />
                 <span className="flex-1">{item.label}</span>
+                {badgeCount > 0 && (
+                  <Badge variant="default" className="h-5 min-w-5 flex items-center justify-center text-[10px] px-1.5">
+                    {badgeCount > 99 ? "99+" : badgeCount}
+                  </Badge>
+                )}
               </Link>
             </Button>
             <Button
@@ -374,6 +409,11 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
             <Link href={item.href}>
               <Icon className="h-4 w-4 shrink-0 opacity-70" />
               <span className="flex-1">{item.label}</span>
+              {badgeCount > 0 && (
+                <Badge variant="default" className="h-5 min-w-5 flex items-center justify-center text-[10px] px-1.5">
+                  {badgeCount > 99 ? "99+" : badgeCount}
+                </Badge>
+              )}
             </Link>
           </Button>
         )}

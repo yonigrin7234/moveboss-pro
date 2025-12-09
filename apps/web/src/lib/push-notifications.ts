@@ -1152,3 +1152,64 @@ export async function notifyCarrierRequestDeclined(
     { channelId: 'marketplace' }
   );
 }
+
+// ============================================
+// MESSAGE NOTIFICATION HELPERS
+// ============================================
+
+/**
+ * Conversation context for notification title generation
+ */
+export interface ConversationNotificationContext {
+  type: string;
+  title?: string | null;
+  load_number?: string | null;
+  trip_number?: string | number | null;
+  partner_company_name?: string | null;
+  driver_name?: string | null;
+}
+
+/**
+ * Generate a human-readable notification title for a conversation
+ * Used for push notifications when a new message is sent
+ */
+export function getConversationNotificationTitle(
+  context: ConversationNotificationContext
+): string {
+  // If conversation has an explicit title, use it
+  if (context.title) {
+    return context.title;
+  }
+
+  switch (context.type) {
+    case 'load_internal':
+      return context.load_number
+        ? `Load ${context.load_number} - Team`
+        : 'Team Discussion';
+
+    case 'load_shared':
+      if (context.load_number && context.partner_company_name) {
+        return `Load ${context.load_number} - ${context.partner_company_name}`;
+      }
+      return context.load_number
+        ? `Load ${context.load_number}`
+        : 'Shared Load Chat';
+
+    case 'trip_internal':
+      return context.trip_number
+        ? `Trip #${context.trip_number}`
+        : 'Trip Discussion';
+
+    case 'company_to_company':
+      return context.partner_company_name || 'Partner Chat';
+
+    case 'driver_dispatch':
+      return context.driver_name
+        ? `Dispatch - ${context.driver_name}`
+        : 'Dispatch Message';
+
+    case 'general':
+    default:
+      return 'New Message';
+  }
+}

@@ -91,7 +91,7 @@ export default function MessagesPage() {
         subtitle: getConversationSubtitle(conv),
         lastMessage: conv.last_message_preview,
         lastMessageAt: conv.last_message_at,
-        unreadCount: 0,
+        unreadCount: conv.unread_count ?? 0,
         isSelected: false,
         onClick: () => {},
       }));
@@ -206,10 +206,24 @@ export default function MessagesPage() {
     );
   }, [conversations, searchQuery]);
 
-  // Select a conversation
+  // Select a conversation and mark as read
   const handleSelectConversation = useCallback((id: string) => {
     setSelectedConversationId(id);
     setIsMobileThreadOpen(true);
+
+    // Mark conversation as read
+    fetch(`/api/messaging/conversations/${id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'mark_read' }),
+    }).then(() => {
+      // Update local unread count to 0
+      setConversations(prev => prev.map(conv =>
+        conv.id === id ? { ...conv, unreadCount: 0 } : conv
+      ));
+    }).catch((err) => {
+      console.error('Failed to mark conversation as read:', err);
+    });
   }, []);
 
   // Go back (mobile)

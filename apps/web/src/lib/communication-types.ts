@@ -199,6 +199,7 @@ export interface ConversationWithMessages extends Conversation {
 
 export interface ConversationWithDetails extends Conversation {
   participants: ConversationParticipantWithProfile[];
+  unread_count?: number;
   load?: {
     id: string;
     load_number: string;
