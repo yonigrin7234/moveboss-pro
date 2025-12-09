@@ -1,4 +1,9 @@
 import { createClient } from '@/lib/supabase-server';
+import {
+  logStructuredUploadEvent,
+  createPhotoUploadMetadata,
+} from '@/lib/audit';
+import { recordStructuredUploadMessage } from '@/lib/messaging';
 
 export interface LoadPhoto {
   id: string;
@@ -78,6 +83,66 @@ export async function uploadLoadPhoto(
     return { success: false, error: dbError.message };
   }
 
+  // Get load details for audit/messaging context
+  const { data: loadData } = await supabase
+    .from('loads')
+    .select('load_number, company_id, assigned_carrier_id')
+    .eq('id', loadId)
+    .single();
+
+  const effectiveCompanyId = companyId || loadData?.company_id;
+
+  // Map photo_type to more readable format
+  const photoTypeLabels: Record<PhotoType, string> = {
+    loading: 'pickup',
+    loaded: 'pickup',
+    delivery: 'delivery',
+    damage: 'damage',
+    other: 'general',
+  };
+
+  // Log audit event (non-blocking)
+  logStructuredUploadEvent(supabase, {
+    entityType: 'load',
+    entityId: loadId,
+    action: photoType === 'damage' ? 'damage_documented' : 'photo_uploaded',
+    performedByUserId: uploadedById,
+    performedByCompanyId: effectiveCompanyId,
+    source: 'web',
+    visibility: 'partner',
+    metadata: createPhotoUploadMetadata({
+      photoType: photoTypeLabels[photoType] as any,
+      fileUrl: urlData.publicUrl,
+      fileName: file.name,
+      loadNumber: loadData?.load_number,
+      uploadContext: photoType === 'loading' || photoType === 'loaded'
+        ? 'load_pickup'
+        : photoType === 'delivery'
+          ? 'load_delivery'
+          : photoType === 'damage'
+            ? 'load_damage'
+            : undefined,
+    }),
+  }).catch(() => {}); // Swallow errors
+
+  // Record system message in conversation (non-blocking)
+  if (effectiveCompanyId) {
+    recordStructuredUploadMessage(supabase, {
+      entityType: 'load',
+      entityId: loadId,
+      companyId: effectiveCompanyId,
+      action: photoType === 'damage' ? 'damage_documented' : 'photo_uploaded',
+      performerUserId: uploadedById,
+      target: 'internal', // Photos go to internal conversation
+      metadata: createPhotoUploadMetadata({
+        photoType: photoTypeLabels[photoType] as any,
+        fileUrl: urlData.publicUrl,
+        fileName: file.name,
+        loadNumber: loadData?.load_number,
+      }),
+    }).catch(() => {}); // Swallow errors
+  }
+
   return { success: true, photo };
 }
 
@@ -123,14 +188,15 @@ export async function getLoadPhotosByType(
 
 // Delete a photo
 export async function deleteLoadPhoto(
-  photoId: string
+  photoId: string,
+  deletedByUserId?: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
 
-  // Get photo to find file path
+  // Get photo to find file path and load info for audit
   const { data: photo } = await supabase
     .from('load_photos')
-    .select('file_url')
+    .select('file_url, load_id, photo_type, company_id')
     .eq('id', photoId)
     .single();
 
@@ -153,6 +219,31 @@ export async function deleteLoadPhoto(
   if (error) {
     console.error('Error deleting photo:', error);
     return { success: false, error: error.message };
+  }
+
+  // Log audit event if we have user context
+  if (deletedByUserId && photo.load_id) {
+    const photoTypeLabels: Record<string, string> = {
+      loading: 'pickup',
+      loaded: 'pickup',
+      delivery: 'delivery',
+      damage: 'damage',
+      other: 'general',
+    };
+
+    logStructuredUploadEvent(supabase, {
+      entityType: 'load',
+      entityId: photo.load_id,
+      action: 'photo_deleted',
+      performedByUserId: deletedByUserId,
+      performedByCompanyId: photo.company_id,
+      source: 'web',
+      visibility: 'partner',
+      metadata: {
+        photo_type: photoTypeLabels[photo.photo_type] || photo.photo_type,
+        file_url: photo.file_url,
+      },
+    }).catch(() => {}); // Swallow errors
   }
 
   return { success: true };

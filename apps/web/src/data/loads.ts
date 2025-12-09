@@ -1,7 +1,13 @@
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase-server';
 import { computeAndSaveLoadFinancials } from './load-financials';
-import { logAuditEvent } from '@/lib/audit';
+import {
+  logAuditEvent,
+  logStructuredUploadEvent,
+  createPhotoUploadMetadata,
+  createPaperworkMetadata,
+} from '@/lib/audit';
+import { recordStructuredUploadMessage } from '@/lib/messaging';
 
 // Enums
 export const loadStatusSchema = z.enum(['pending', 'assigned', 'in_transit', 'delivered', 'canceled']);
@@ -818,10 +824,16 @@ export async function updateLoad(
 ): Promise<Load> {
   const supabase = await createClient();
 
-  // Verify load ownership and get trip_id
+  // Verify load ownership and get trip_id + current photo fields for change detection
   const { data: loadData, error: loadError } = await supabase
     .from('loads')
-    .select('id, trip_id')
+    .select(`
+      id, trip_id, load_number, company_id, assigned_carrier_id,
+      loading_start_photo, loading_end_photo, loading_report_photo,
+      origin_paperwork_photos, contract_documents, contract_photo_url,
+      load_report_photo_url, delivery_report_photo_url, delivery_photos,
+      delivery_location_photo, signed_bol_photos, signed_inventory_photos
+    `)
     .eq('id', id)
     .eq('owner_id', userId)
     .single();
@@ -1039,6 +1051,138 @@ export async function updateLoad(
       fields_updated: Object.keys(payload).filter((k) => k !== 'updated_at'),
     },
   });
+
+  // UPLOAD TRACKING: Detect newly uploaded photos/documents and log audit events + messages
+  const companyId = loadData.company_id;
+  const partnerCompanyId = loadData.assigned_carrier_id;
+
+  // Helper to detect string field change (null/empty → set)
+  const isNewUpload = (oldVal: string | null | undefined, newVal: string | null | undefined): boolean =>
+    (!oldVal || oldVal.trim() === '') && (!!newVal && newVal.trim() !== '');
+
+  // Helper to detect array field additions (new items added)
+  const getNewArrayItems = (oldArr: string[] | null | undefined, newArr: string[] | null | undefined): string[] => {
+    const oldSet = new Set(oldArr || []);
+    return (newArr || []).filter((item) => !oldSet.has(item));
+  };
+
+  // Track single photo uploads
+  const photoUploads: Array<{
+    field: string;
+    uploadKind: string;
+    photoType: 'pickup' | 'delivery' | 'general';
+    action: 'photo_uploaded' | 'paperwork_uploaded';
+  }> = [
+    { field: 'loading_start_photo', uploadKind: 'load_loading_before_photo', photoType: 'pickup', action: 'photo_uploaded' },
+    { field: 'loading_end_photo', uploadKind: 'load_loading_after_photo', photoType: 'pickup', action: 'photo_uploaded' },
+    { field: 'loading_report_photo', uploadKind: 'load_loading_report', photoType: 'pickup', action: 'paperwork_uploaded' },
+    { field: 'contract_photo_url', uploadKind: 'load_contract', photoType: 'general', action: 'paperwork_uploaded' },
+    { field: 'load_report_photo_url', uploadKind: 'load_report', photoType: 'pickup', action: 'paperwork_uploaded' },
+    { field: 'delivery_report_photo_url', uploadKind: 'load_delivery_report', photoType: 'delivery', action: 'paperwork_uploaded' },
+    { field: 'delivery_location_photo', uploadKind: 'load_delivery_photo', photoType: 'delivery', action: 'photo_uploaded' },
+  ];
+
+  for (const upload of photoUploads) {
+    const oldVal = (loadData as any)[upload.field];
+    const newVal = (input as any)[upload.field];
+    if (isNewUpload(oldVal, newVal)) {
+      const metadata = upload.action === 'photo_uploaded'
+        ? createPhotoUploadMetadata({
+            photoType: upload.photoType,
+            fileUrl: newVal,
+            loadNumber: data.load_number,
+            uploadContext: upload.photoType === 'pickup' ? 'load_pickup' : 'load_delivery',
+          })
+        : createPaperworkMetadata({
+            documentType: upload.uploadKind.replace('load_', '') as any,
+            loadNumber: data.load_number,
+            fileUrl: newVal,
+          });
+
+      logStructuredUploadEvent(supabase, {
+        entityType: 'load',
+        entityId: id,
+        action: upload.action,
+        performedByUserId: userId,
+        performedByCompanyId: companyId,
+        source: 'web',
+        visibility: 'partner',
+        metadata: { ...metadata, upload_kind: upload.uploadKind } as Record<string, unknown>,
+      }).catch(() => {});
+
+      if (companyId) {
+        recordStructuredUploadMessage(supabase, {
+          entityType: 'load',
+          entityId: id,
+          companyId,
+          action: upload.action,
+          performerUserId: userId,
+          target: 'internal',
+          partnerCompanyId: partnerCompanyId || undefined,
+          metadata: { ...metadata, upload_kind: upload.uploadKind } as Record<string, unknown>,
+        }).catch(() => {});
+      }
+    }
+  }
+
+  // Track array photo/document uploads
+  const arrayUploads: Array<{
+    field: string;
+    uploadKind: string;
+    action: 'photo_uploaded' | 'paperwork_uploaded';
+    photoType?: 'pickup' | 'delivery' | 'general';
+    documentType?: string;
+  }> = [
+    { field: 'origin_paperwork_photos', uploadKind: 'load_origin_paperwork', action: 'paperwork_uploaded', documentType: 'origin_paperwork' },
+    { field: 'contract_documents', uploadKind: 'load_contract_documents', action: 'paperwork_uploaded', documentType: 'contract' },
+    { field: 'delivery_photos', uploadKind: 'load_delivery_photos', action: 'photo_uploaded', photoType: 'delivery' },
+    { field: 'signed_bol_photos', uploadKind: 'load_signed_bol', action: 'paperwork_uploaded', documentType: 'bol' },
+    { field: 'signed_inventory_photos', uploadKind: 'load_signed_inventory', action: 'paperwork_uploaded', documentType: 'inventory' },
+  ];
+
+  for (const upload of arrayUploads) {
+    const oldArr = (loadData as any)[upload.field];
+    const newArr = (input as any)[upload.field];
+    const newItems = getNewArrayItems(oldArr, newArr);
+
+    if (newItems.length > 0) {
+      const metadata = upload.action === 'photo_uploaded'
+        ? createPhotoUploadMetadata({
+            photoType: upload.photoType || 'general',
+            photoCount: newItems.length,
+            loadNumber: data.load_number,
+            uploadContext: upload.photoType === 'delivery' ? 'load_delivery' : 'load_pickup',
+          })
+        : createPaperworkMetadata({
+            documentType: upload.documentType as any,
+            loadNumber: data.load_number,
+          });
+
+      logStructuredUploadEvent(supabase, {
+        entityType: 'load',
+        entityId: id,
+        action: upload.action,
+        performedByUserId: userId,
+        performedByCompanyId: companyId,
+        source: 'web',
+        visibility: 'partner',
+        metadata: { ...metadata, upload_kind: upload.uploadKind, file_count: newItems.length } as Record<string, unknown>,
+      }).catch(() => {});
+
+      if (companyId) {
+        recordStructuredUploadMessage(supabase, {
+          entityType: 'load',
+          entityId: id,
+          companyId,
+          action: upload.action,
+          performerUserId: userId,
+          target: 'internal',
+          partnerCompanyId: partnerCompanyId || undefined,
+          metadata: { ...metadata, upload_kind: upload.uploadKind, file_count: newItems.length } as Record<string, unknown>,
+        }).catch(() => {});
+      }
+    }
+  }
 
   // Recalculate financials after update
   await computeAndSaveLoadFinancials(id, userId);

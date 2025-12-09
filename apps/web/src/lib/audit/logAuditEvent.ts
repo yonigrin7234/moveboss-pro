@@ -52,6 +52,15 @@ export type AuditAction =
   // Settlement actions
   | 'settlement_created'
   | 'settlement_recalculated'
+  // Upload/photo actions
+  | 'photo_uploaded'
+  | 'photo_deleted'
+  | 'damage_documented'
+  | 'paperwork_uploaded'
+  | 'odometer_photo_uploaded'
+  | 'receipt_uploaded'
+  | 'document_uploaded'
+  | 'document_version_uploaded'
   // Generic
   | 'updated'
   | 'created'

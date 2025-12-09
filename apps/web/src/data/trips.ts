@@ -4,7 +4,16 @@ import { createClient } from '@/lib/supabase-server';
 import type { Load } from '@/data/loads';
 import { computeTripFinancialsWithDriverPay, snapshotDriverCompensation, type TripFinancialResult } from '@/data/trip-financials';
 import { notifyDriverTripAssigned, notifyDriverLoadAddedToTrip, notifyDriverLoadRemovedFromTrip, notifyDriverDeliveryOrderChanged } from '@/lib/push-notifications';
-import { logAuditEvent, createStatusChangeSnapshot, createDriverAssignmentMetadata } from '@/lib/audit';
+import {
+  logAuditEvent,
+  createStatusChangeSnapshot,
+  createDriverAssignmentMetadata,
+  logStructuredUploadEvent,
+  createOdometerMetadata,
+  createReceiptMetadata,
+} from '@/lib/audit';
+import { setupLoadConversations } from '@/lib/messaging/routing';
+import { recordStructuredUploadMessage } from '@/lib/messaging';
 
 export const tripStatusSchema = z.enum(['planned', 'active', 'en_route', 'completed', 'settled', 'cancelled']);
 export const tripExpenseCategorySchema = z.enum([
@@ -902,7 +911,7 @@ export async function updateTrip(
       .eq('id', id)
       .single();
     const shareWithCompanies = tripData?.share_driver_with_companies !== false;
-    await syncTripDriverToLoads(id, input.driver_id, shareWithCompanies);
+    await syncTripDriverToLoads(id, input.driver_id, shareWithCompanies, userId);
 
     // Send push notification to the newly assigned driver
     const route = [data.origin_city, data.origin_state].filter(Boolean).join(', ') +
@@ -1029,6 +1038,91 @@ export async function updateTrip(
         old_trailer_id: (currentTrip as any).trailer_id,
       },
     });
+  }
+
+  // AUDIT LOGGING & MESSAGING: Log odometer photo uploads
+  // Check if start odometer photo was newly uploaded
+  const startPhotoUploaded =
+    input.odometer_start_photo_url &&
+    input.odometer_start_photo_url !== (currentTrip as any).odometer_start_photo_url;
+
+  // Check if end odometer photo was newly uploaded
+  const endPhotoUploaded =
+    input.odometer_end_photo_url &&
+    input.odometer_end_photo_url !== (currentTrip as any).odometer_end_photo_url;
+
+  // Get company ID for messaging
+  const { data: userMembership } = await supabase
+    .from('company_memberships')
+    .select('company_id')
+    .eq('user_id', userId)
+    .eq('is_primary', true)
+    .maybeSingle();
+
+  const companyId = userMembership?.company_id;
+
+  if (startPhotoUploaded) {
+    const metadata = createOdometerMetadata({
+      phase: 'start',
+      reading: input.odometer_start ?? data.odometer_start ?? undefined,
+      fileUrl: input.odometer_start_photo_url,
+      tripNumber: data.trip_number,
+    });
+
+    logStructuredUploadEvent(supabase, {
+      entityType: 'trip',
+      entityId: id,
+      action: 'odometer_photo_uploaded',
+      performedByUserId: userId,
+      performedByCompanyId: companyId,
+      source: 'web',
+      visibility: 'internal',
+      metadata,
+    }).catch(() => {}); // Non-blocking
+
+    if (companyId) {
+      recordStructuredUploadMessage(supabase, {
+        entityType: 'trip',
+        entityId: id,
+        companyId,
+        action: 'odometer_photo_uploaded',
+        performerUserId: userId,
+        target: 'internal',
+        metadata,
+      }).catch(() => {}); // Non-blocking
+    }
+  }
+
+  if (endPhotoUploaded) {
+    const metadata = createOdometerMetadata({
+      phase: 'end',
+      reading: input.odometer_end ?? data.odometer_end ?? undefined,
+      fileUrl: input.odometer_end_photo_url,
+      tripNumber: data.trip_number,
+    });
+
+    logStructuredUploadEvent(supabase, {
+      entityType: 'trip',
+      entityId: id,
+      action: 'odometer_photo_uploaded',
+      performedByUserId: userId,
+      performedByCompanyId: companyId,
+      source: 'web',
+      visibility: 'internal',
+      metadata,
+    }).catch(() => {}); // Non-blocking
+
+    if (companyId) {
+      recordStructuredUploadMessage(supabase, {
+        entityType: 'trip',
+        entityId: id,
+        companyId,
+        action: 'odometer_photo_uploaded',
+        performerUserId: userId,
+        target: 'internal',
+        metadata,
+      }).catch(() => {}); // Non-blocking
+    }
   }
 
   return data as Trip;
@@ -1235,6 +1329,40 @@ export async function addLoadToTrip(
     ).catch((err) => {
       console.error('Failed to send load added notification:', err);
     });
+
+    // Set up conversations for this load and add the driver
+    const { data: carrierCompany } = await supabase
+      .from('companies')
+      .select('id')
+      .eq('owner_id', userId)
+      .eq('is_workspace_company', true)
+      .single();
+
+    if (carrierCompany) {
+      // Cast to access posted_by_company_id which exists in DB but not in Load type
+      const loadData2 = data.load as Load & { posted_by_company_id?: string };
+      // Determine if there's a partner company (the broker who posted the load)
+      const partnerCompanyId = loadData2.posted_by_company_id && loadData2.posted_by_company_id !== carrierCompany.id
+        ? loadData2.posted_by_company_id
+        : loadData2.company_id !== carrierCompany.id
+          ? loadData2.company_id
+          : undefined;
+
+      try {
+        await setupLoadConversations(
+          input.load_id,
+          carrierCompany.id,
+          {
+            driverId: trip.driver_id,
+            partnerCompanyId,
+            createdByUserId: userId,
+          }
+        );
+      } catch (err) {
+        // Log but don't fail - conversation setup is non-critical
+        console.error(`Failed to setup conversations for load ${input.load_id}:`, err);
+      }
+    }
   }
 
   // AUDIT LOGGING: Log load added to trip
@@ -1559,6 +1687,55 @@ export async function createTripExpense(
     },
   });
 
+  // AUDIT LOGGING & MESSAGING: Log receipt upload (since receipts are required for expenses)
+  // Get trip number for context
+  const { data: tripData } = await supabase
+    .from('trips')
+    .select('trip_number, company_id')
+    .eq('id', input.trip_id)
+    .single();
+
+  // Get user's company for messaging
+  const { data: userMembership } = await supabase
+    .from('company_memberships')
+    .select('company_id')
+    .eq('user_id', userId)
+    .eq('is_primary', true)
+    .maybeSingle();
+
+  const companyId = userMembership?.company_id;
+
+  const receiptMetadata = createReceiptMetadata({
+    category: data.category,
+    amount: data.amount,
+    fileUrl: data.receipt_photo_url,
+    tripNumber: tripData?.trip_number,
+    expenseId: data.id,
+  });
+
+  logStructuredUploadEvent(supabase, {
+    entityType: 'trip',
+    entityId: input.trip_id,
+    action: 'receipt_uploaded',
+    performedByUserId: userId,
+    performedByCompanyId: companyId,
+    source: 'web',
+    visibility: 'internal',
+    metadata: receiptMetadata,
+  }).catch(() => {}); // Non-blocking
+
+  if (companyId) {
+    recordStructuredUploadMessage(supabase, {
+      entityType: 'trip',
+      entityId: input.trip_id,
+      companyId,
+      action: 'receipt_uploaded',
+      performerUserId: userId,
+      target: 'internal',
+      metadata: receiptMetadata,
+    }).catch(() => {}); // Non-blocking
+  }
+
   await computeTripFinancialSummary(supabase, input.trip_id, userId);
   return data as TripExpense;
 }
@@ -1702,7 +1879,8 @@ export async function getTripsForLoadAssignment(userId: string): Promise<Trip[]>
 export async function syncTripDriverToLoads(
   tripId: string,
   driverId: string,
-  shareWithCompanies: boolean = true
+  shareWithCompanies: boolean = true,
+  userId?: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
 
@@ -1720,10 +1898,34 @@ export async function syncTripDriverToLoads(
   const driverName = `${driver.first_name} ${driver.last_name}`;
   const driverPhone = driver.phone || null;
 
-  // Get all loads on this trip
+  // Get trip info for company ID
+  const { data: tripData } = await supabase
+    .from('trips')
+    .select('owner_id')
+    .eq('id', tripId)
+    .single();
+
+  const ownerId = userId || tripData?.owner_id;
+
+  // Get the carrier company (workspace company for the trip owner)
+  const { data: carrierCompany } = await supabase
+    .from('companies')
+    .select('id')
+    .eq('owner_id', ownerId)
+    .eq('is_workspace_company', true)
+    .single();
+
+  // Get all loads on this trip with their company info (for partner conversations)
   const { data: tripLoads } = await supabase
     .from('trip_loads')
-    .select('load_id')
+    .select(`
+      load_id,
+      load:loads!trip_loads_load_id_fkey(
+        id,
+        company_id,
+        posted_by_company_id
+      )
+    `)
     .eq('trip_id', tripId);
 
   if (!tripLoads || tripLoads.length === 0) {
@@ -1763,6 +1965,36 @@ export async function syncTripDriverToLoads(
     if (error) {
       console.error('Error clearing driver from loads:', error);
       return { success: false, error: error.message };
+    }
+  }
+
+  // Set up conversations for each load and add the driver as a participant
+  if (carrierCompany && ownerId) {
+    for (const tripLoad of tripLoads) {
+      const load = Array.isArray(tripLoad.load) ? tripLoad.load[0] : tripLoad.load;
+      if (!load) continue;
+
+      // Determine if there's a partner company (the broker who posted the load)
+      const partnerCompanyId = load.posted_by_company_id && load.posted_by_company_id !== carrierCompany.id
+        ? load.posted_by_company_id
+        : load.company_id !== carrierCompany.id
+          ? load.company_id
+          : undefined;
+
+      try {
+        await setupLoadConversations(
+          tripLoad.load_id,
+          carrierCompany.id,
+          {
+            driverId: driver.id,
+            partnerCompanyId,
+            createdByUserId: ownerId,
+          }
+        );
+      } catch (err) {
+        // Log but don't fail the sync - conversation setup is non-critical
+        console.error(`Failed to setup conversations for load ${tripLoad.load_id}:`, err);
+      }
     }
   }
 
@@ -1819,8 +2051,8 @@ export async function updateTripDriver(
     });
   }
 
-  // Sync to loads
-  return syncTripDriverToLoads(tripId, driverId, shareWithCompanies);
+  // Sync to loads (pass userId for conversation setup)
+  return syncTripDriverToLoads(tripId, driverId, shareWithCompanies, userId);
 }
 
 /**

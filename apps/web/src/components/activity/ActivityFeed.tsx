@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { History, ArrowRight, Package, Truck, Store, UserPlus, UserMinus, Clock, Plus, Trash2, DollarSign, Receipt, RefreshCw, CheckCircle, XCircle, Send, RotateCcw, FileText, List, Eye } from 'lucide-react';
+import { History, ArrowRight, Package, Truck, Store, UserPlus, UserMinus, Clock, Plus, Trash2, DollarSign, Receipt, RefreshCw, CheckCircle, XCircle, Send, RotateCcw, FileText, List, Eye, Camera, AlertTriangle, Upload } from 'lucide-react';
 import type { AuditLogEntry } from '@/lib/audit';
 import { getActivityQuickActions } from './getActivityQuickActions';
 
@@ -202,6 +202,57 @@ function getActionText(log: AuditLogEntry): string {
       return memberName ? `removed ${memberName} from company` : 'removed team member';
     }
 
+    // Upload/photo actions
+    case 'photo_uploaded': {
+      const photoType = metadata.photo_type || 'photo';
+      const count = typeof metadata.photo_count === 'number' ? metadata.photo_count : 0;
+      if (count > 1) {
+        return `uploaded ${count} ${photoType} photos`;
+      }
+      return `uploaded ${photoType} photo`;
+    }
+    case 'photo_deleted': {
+      const photoType = metadata.photo_type || 'photo';
+      return `deleted ${photoType} photo`;
+    }
+    case 'damage_documented': {
+      const count = typeof metadata.damage_count === 'number' ? metadata.damage_count : 0;
+      const severity = metadata.severity;
+      if (count > 1) {
+        return `documented ${count} damages`;
+      }
+      return severity ? `documented ${severity} damage` : 'documented damage';
+    }
+    case 'paperwork_uploaded': {
+      const docType = metadata.document_type || 'paperwork';
+      return `uploaded ${docType}`;
+    }
+    case 'odometer_photo_uploaded': {
+      const phase = metadata.phase; // 'start' or 'end'
+      const reading = metadata.reading;
+      if (phase && reading) {
+        return `uploaded ${phase} odometer photo (${Number(reading).toLocaleString()} mi)`;
+      }
+      return phase ? `uploaded ${phase} odometer photo` : 'uploaded odometer photo';
+    }
+    case 'receipt_uploaded': {
+      const category = metadata.category;
+      const amount = metadata.amount;
+      if (category && amount) {
+        return `uploaded receipt for ${category} ($${Number(amount).toLocaleString()})`;
+      }
+      return category ? `uploaded ${category} receipt` : 'uploaded receipt';
+    }
+    case 'document_uploaded': {
+      const docType = metadata.document_type || 'document';
+      return `uploaded ${docType}`;
+    }
+    case 'document_version_uploaded': {
+      const docType = metadata.document_type || 'document';
+      const version = metadata.version_number;
+      return version ? `uploaded ${docType} v${version}` : `uploaded new version of ${docType}`;
+    }
+
     default:
       return log.action.replace(/_/g, ' ');
   }
@@ -298,6 +349,21 @@ function getActionIcon(action: string): React.ReactNode {
       return <UserPlus className="h-3 w-3" />;
     case 'member_removed':
       return <UserMinus className="h-3 w-3" />;
+
+    // Upload/photo actions
+    case 'photo_uploaded':
+    case 'odometer_photo_uploaded':
+      return <Camera className="h-3 w-3" />;
+    case 'photo_deleted':
+      return <Trash2 className="h-3 w-3" />;
+    case 'damage_documented':
+      return <AlertTriangle className="h-3 w-3" />;
+    case 'paperwork_uploaded':
+    case 'document_uploaded':
+    case 'document_version_uploaded':
+      return <FileText className="h-3 w-3" />;
+    case 'receipt_uploaded':
+      return <Receipt className="h-3 w-3" />;
 
     default:
       return <Clock className="h-3 w-3" />;

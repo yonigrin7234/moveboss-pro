@@ -1,4 +1,109 @@
 import { createClient } from '@/lib/supabase-server';
+import { logStructuredUploadEvent, createDocumentMetadata } from '@/lib/audit';
+
+/**
+ * Send a system message to the company-to-company conversation for a partnership
+ * when compliance documents are uploaded.
+ */
+async function sendPartnershipDocumentMessage(
+  supabase: ReturnType<typeof createClient> extends Promise<infer T> ? T : never,
+  partnershipId: string,
+  ownerId: string,
+  documentTypeLabel: string,
+  isNewVersion: boolean = false
+): Promise<void> {
+  try {
+    // Get the partnership to find both company IDs
+    const { data: partnership, error: partnershipError } = await supabase
+      .from('company_partnerships')
+      .select('id, company_a_id, company_b_id')
+      .eq('id', partnershipId)
+      .single();
+
+    if (partnershipError || !partnership) {
+      console.error('[ComplianceDoc] Partnership not found:', partnershipError?.message);
+      return;
+    }
+
+    // Get the owner's company to determine which side they're on
+    const { data: ownerMembership } = await supabase
+      .from('company_memberships')
+      .select('company_id')
+      .eq('user_id', ownerId)
+      .eq('is_primary', true)
+      .maybeSingle();
+
+    if (!ownerMembership?.company_id) {
+      console.error('[ComplianceDoc] Owner company not found');
+      return;
+    }
+
+    const ownerCompanyId = ownerMembership.company_id;
+    const partnerCompanyId =
+      ownerCompanyId === partnership.company_a_id
+        ? partnership.company_b_id
+        : partnership.company_a_id;
+
+    // Find or create the company-to-company conversation
+    const { data: existingConv } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('type', 'company_to_company')
+      .or(`and(owner_company_id.eq.${ownerCompanyId},partner_company_id.eq.${partnerCompanyId}),and(owner_company_id.eq.${partnerCompanyId},partner_company_id.eq.${ownerCompanyId})`)
+      .maybeSingle();
+
+    let conversationId: string;
+
+    if (existingConv) {
+      conversationId = existingConv.id;
+    } else {
+      // Create the conversation
+      const { data: newConv, error: createError } = await supabase
+        .from('conversations')
+        .insert({
+          type: 'company_to_company',
+          owner_company_id: ownerCompanyId,
+          partner_company_id: partnerCompanyId,
+        })
+        .select('id')
+        .single();
+
+      if (createError || !newConv) {
+        console.error('[ComplianceDoc] Failed to create conversation:', createError?.message);
+        return;
+      }
+      conversationId = newConv.id;
+    }
+
+    // Get the user's profile for the message
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', ownerId)
+      .single();
+
+    const performerName = profile?.full_name || profile?.email?.split('@')[0] || 'Someone';
+    const messageBody = isNewVersion
+      ? `${performerName} uploaded a new version of ${documentTypeLabel}`
+      : `${performerName} uploaded ${documentTypeLabel}`;
+
+    // Send the system message
+    await supabase.from('messages').insert({
+      conversation_id: conversationId,
+      sender_user_id: ownerId,
+      sender_company_id: ownerCompanyId,
+      body: messageBody,
+      message_type: 'system',
+      metadata: {
+        upload_action: isNewVersion ? 'document_version_uploaded' : 'document_uploaded',
+        document_type: documentTypeLabel,
+        partnership_id: partnershipId,
+      },
+    });
+  } catch (err) {
+    console.error('[ComplianceDoc] Error sending partnership message:', err);
+  }
+}
 
 // ===========================================
 // UNIFIED COMPLIANCE ITEM TYPE
@@ -285,6 +390,44 @@ export async function createDocument(
     return { success: false, error: error.message };
   }
 
+  // Get company name for audit context
+  const { data: companyData } = await supabase
+    .from('companies')
+    .select('name')
+    .eq('id', data.company_id)
+    .single();
+
+  // Get document type label
+  const docTypeLabel = DOCUMENT_TYPES.find((t) => t.value === data.document_type)?.label || data.document_type;
+
+  // Log audit event (non-blocking)
+  logStructuredUploadEvent(supabase, {
+    entityType: 'company',
+    entityId: data.company_id,
+    action: 'document_uploaded',
+    performedByUserId: ownerId,
+    source: 'web',
+    visibility: 'internal',
+    metadata: createDocumentMetadata({
+      documentType: docTypeLabel,
+      status: 'pending_review',
+      companyName: companyData?.name,
+      expiresAt: data.expiration_date,
+      fileUrl: data.file_url,
+    }),
+  }).catch(() => {}); // Swallow errors
+
+  // Send partnership message if this document is tied to a partnership
+  if (data.partnership_id) {
+    sendPartnershipDocumentMessage(
+      supabase,
+      data.partnership_id,
+      ownerId,
+      docTypeLabel,
+      false // not a new version
+    ).catch(() => {}); // Non-blocking
+  }
+
   return { success: true, id: result.id };
 }
 
@@ -381,6 +524,45 @@ export async function uploadNewVersion(
   if (error) {
     console.error('Error creating new version:', error);
     return { success: false, error: error.message };
+  }
+
+  // Get company name for audit context
+  const { data: companyData } = await supabase
+    .from('companies')
+    .select('name')
+    .eq('id', prevDoc.company_id)
+    .single();
+
+  // Get document type label
+  const docTypeLabel = DOCUMENT_TYPES.find((t) => t.value === prevDoc.document_type)?.label || prevDoc.document_type;
+
+  // Log audit event for new version (non-blocking)
+  logStructuredUploadEvent(supabase, {
+    entityType: 'company',
+    entityId: prevDoc.company_id,
+    action: 'document_version_uploaded',
+    performedByUserId: ownerId,
+    source: 'web',
+    visibility: 'internal',
+    metadata: createDocumentMetadata({
+      documentType: docTypeLabel,
+      status: 'pending_review',
+      versionNumber: (prevDoc.version || 1) + 1,
+      companyName: companyData?.name,
+      expiresAt: data.expiration_date || prevDoc.expiration_date,
+      fileUrl: data.file_url,
+    }),
+  }).catch(() => {}); // Swallow errors
+
+  // Send partnership message if this document is tied to a partnership
+  if (prevDoc.partnership_id) {
+    sendPartnershipDocumentMessage(
+      supabase,
+      prevDoc.partnership_id,
+      ownerId,
+      docTypeLabel,
+      true // is a new version
+    ).catch(() => {}); // Non-blocking
   }
 
   return { success: true, id: result.id };
