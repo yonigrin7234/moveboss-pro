@@ -158,6 +158,7 @@ export async function getRecentAuditLogs(
   options?: {
     limit?: number;
     entityTypes?: AuditEntityType[];
+    companyId?: string;
   }
 ): Promise<AuditLogEntry[]> {
   const supabase = await createClient();
@@ -184,6 +185,17 @@ export async function getRecentAuditLogs(
     )
     .order('created_at', { ascending: false })
     .limit(limit);
+
+  // Filter by user or their company
+  // Show logs where either:
+  // - The user performed the action, OR
+  // - The action was performed by someone in their company
+  if (options?.companyId) {
+    query = query.or(`performed_by_user_id.eq.${userId},performed_by_company_id.eq.${options.companyId}`);
+  } else {
+    // If no company, just show what the user did
+    query = query.eq('performed_by_user_id', userId);
+  }
 
   if (options?.entityTypes && options.entityTypes.length > 0) {
     query = query.in('entity_type', options.entityTypes);
