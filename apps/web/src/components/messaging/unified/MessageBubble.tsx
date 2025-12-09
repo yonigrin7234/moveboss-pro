@@ -10,13 +10,20 @@ import type { MessageBubbleProps } from './types';
  * Unified message bubble component with Slack/Intercom-style design.
  * - Clean, subtle rounded rectangles (not pill bubbles)
  * - Own messages right-aligned, others left-aligned
- * - Sender name and timestamp shown unobtrusively
+ * - Sender name and company shown unobtrusively
  */
 export function MessageBubble({ message, isOwn, showSender = true }: MessageBubbleProps) {
-  const senderName = message.sender_profile?.full_name ||
+  const personName = message.sender_profile?.full_name ||
     (message.sender_driver
       ? `${message.sender_driver.first_name} ${message.sender_driver.last_name}`
-      : 'Unknown');
+      : null);
+
+  const companyName = message.sender_company?.name;
+
+  // Format: "Person Name • Company" or just "Company" or just "Person Name"
+  const senderDisplay = personName && companyName
+    ? `${personName} • ${companyName}`
+    : personName || companyName || 'Unknown';
 
   const isAI = message.message_type === 'ai_response';
   const isSystem = message.message_type === 'system';
@@ -56,7 +63,7 @@ export function MessageBubble({ message, isOwn, showSender = true }: MessageBubb
                 isAI ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'
               )}
             >
-              {isAI ? 'AI Assistant' : senderName}
+              {isAI ? 'AI Assistant' : senderDisplay}
             </span>
           </div>
         )}

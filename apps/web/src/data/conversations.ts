@@ -558,15 +558,30 @@ export async function getConversationMessages(
     }
   }
 
+  // Fetch companies for sender_company_id
+  const companyIds = [...new Set(messagesRaw.map(m => m.sender_company_id).filter(Boolean))];
+  let companiesMap = new Map<string, { id: string; name: string }>();
+  if (companyIds.length > 0) {
+    const { data: companies } = await supabase
+      .from('companies')
+      .select('id, name')
+      .in('id', companyIds);
+    if (companies) {
+      companiesMap = new Map(companies.map(c => [c.id, c]));
+    }
+  }
+
   // Transform messages with sender info
   const messages = messagesRaw.map((msg) => {
     const senderProfile = msg.sender_user_id ? profilesMap.get(msg.sender_user_id) : undefined;
     const senderDriver = msg.sender_driver_id ? driversMap.get(msg.sender_driver_id) : undefined;
+    const senderCompany = msg.sender_company_id ? companiesMap.get(msg.sender_company_id) : undefined;
 
     return {
       ...msg,
       sender_profile: senderProfile ?? undefined,
       sender_driver: senderDriver ?? undefined,
+      sender_company: senderCompany ?? undefined,
       reply_to: undefined, // Skip reply_to for now to simplify
     };
   });

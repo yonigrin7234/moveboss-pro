@@ -245,6 +245,10 @@ export interface MessageWithSender extends Message {
     first_name: string;
     last_name: string;
   };
+  sender_company?: {
+    id: string;
+    name: string;
+  };
   reply_to?: Message;
 }
 
