@@ -24,6 +24,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { TripListFilters } from './trip-list-filters';
+import { TripMessageBadge } from '@/components/messaging/TripMessageBadge';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -247,6 +248,7 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
                     <TableHead>Route</TableHead>
                     <TableHead>Dates</TableHead>
                     <TableHead>Financials</TableHead>
+                    <TableHead className="w-[60px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -303,6 +305,9 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
                           <div className="font-semibold">
                             Profit: {currencyFormatter.format(trip.profit_total || 0)}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <TripMessageBadge tripId={trip.id} />
                         </TableCell>
                       </TableRow>
                     );

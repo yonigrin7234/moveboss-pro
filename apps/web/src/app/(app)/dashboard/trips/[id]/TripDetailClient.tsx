@@ -3,7 +3,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { DollarSign, AlertTriangle, Map, GripVertical, Receipt, X } from 'lucide-react';
+import { DollarSign, AlertTriangle, Map, GripVertical, Receipt, X, MessageSquare } from 'lucide-react';
+import { useSingleEntityUnreadCount } from '@/hooks/useEntityUnreadCounts';
 import {
   DndContext,
   closestCenter,
@@ -241,6 +242,8 @@ function SortableLoadCard({
 
 export function TripDetailClient({ trip, availableLoads, availableDrivers, availableTrucks, availableTrailers, loadTripAssignments, settlementSnapshot, userId, companyId, auditLogs = [], actions }: TripDetailClientProps) {
   const { toast } = useToast();
+  const { unreadCount } = useSingleEntityUnreadCount('trip', trip.id);
+  const [activeTab, setActiveTab] = useState('overview');
   const [editingLoadId, setEditingLoadId] = useState<string | null>(null);
   const [addExpenseOpen, setAddExpenseOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -394,6 +397,20 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
           </p>
         </div>
         <div className="flex gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setActiveTab('messages')}
+            className="gap-2 relative"
+          >
+            <MessageSquare className="h-4 w-4" />
+            Messages
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </Button>
           <Button variant="outline" asChild>
             <Link href="/dashboard/trips">Back to Trips</Link>
           </Button>
@@ -423,7 +440,7 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
       </Card>
 
       {/* Tabbed Content */}
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full justify-start mb-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="loads">Loads ({trip.loads.length})</TabsTrigger>

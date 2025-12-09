@@ -10,6 +10,7 @@ import {
   X,
   Globe,
   MessageCircle,
+  MessageSquare,
   Truck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ import {
 } from '@/components/ui/table';
 import { ShareLoadModal } from '@/components/sharing/ShareLoadModal';
 import { AssignToTripModal } from '@/components/loads/AssignToTripModal';
+import { useEntityUnreadCounts } from '@/hooks/useEntityUnreadCounts';
 
 interface Load {
   id: string;
@@ -146,6 +148,9 @@ export function LoadsTableWithSharing({
   const [copiedBoardUrl, setCopiedBoardUrl] = useState(false);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [assignLoadIds, setAssignLoadIds] = useState<string[]>([]);
+
+  // Fetch unread message counts for loads
+  const { getUnreadCount } = useEntityUnreadCounts('load');
 
   // Helper to determine if a load is from the user's own company
   const isOwnCompanyLoad = (load: Load): boolean => {
@@ -431,6 +436,32 @@ export function LoadsTableWithSharing({
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
+                            {/* Messages button with unread badge */}
+                            {(() => {
+                              const unreadCount = getUnreadCount(load.id);
+                              return (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  asChild
+                                  className={`h-8 w-8 relative ${
+                                    unreadCount > 0
+                                      ? 'text-primary'
+                                      : 'text-slate-400 hover:text-slate-600'
+                                  }`}
+                                  title={unreadCount > 0 ? `${unreadCount} unread messages` : 'Messages'}
+                                >
+                                  <Link href={`/dashboard/loads/${load.id}?tab=messages`}>
+                                    <MessageSquare className="h-4 w-4" />
+                                    {unreadCount > 0 && (
+                                      <span className="absolute -top-1 -right-1 h-4 min-w-4 flex items-center justify-center bg-primary text-primary-foreground text-[10px] font-medium rounded-full px-1">
+                                        {unreadCount > 99 ? '99+' : unreadCount}
+                                      </span>
+                                    )}
+                                  </Link>
+                                </Button>
+                              );
+                            })()}
                             {isShareable && (
                               <Button
                                 variant="ghost"

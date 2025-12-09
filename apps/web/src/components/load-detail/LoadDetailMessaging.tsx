@@ -16,7 +16,7 @@ export function LoadDetailMessaging({ model }: LoadDetailMessagingProps) {
   const [activeTab, setActiveTab] = useState<'internal' | 'shared'>('internal');
 
   return (
-    <div className="space-y-4">
+    <div id="messages-section" className="space-y-4 scroll-mt-4">
       <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
         <MessageSquare className="h-5 w-5" />
         Messages

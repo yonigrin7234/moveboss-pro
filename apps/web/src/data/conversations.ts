@@ -1540,3 +1540,154 @@ export async function getDriverMessageTarget(
 
   throw new Error('Cannot determine message target for driver');
 }
+
+// ============================================================================
+// PER-ENTITY UNREAD COUNT AGGREGATION
+// ============================================================================
+
+/**
+ * Get aggregated unread message counts for loads
+ * Returns a map of load_id -> total unread count across all conversations for that load
+ */
+export async function getUnreadByLoadForUser(
+  userId: string,
+  companyId: string
+): Promise<Record<string, number>> {
+  const supabase = await createClient();
+
+  // Query conversations with load_id, joined with participant unread counts
+  const { data, error } = await supabase
+    .from('conversations')
+    .select(`
+      load_id,
+      conversation_participants!inner (
+        unread_count
+      )
+    `)
+    .not('load_id', 'is', null)
+    .eq('conversation_participants.user_id', userId)
+    .or(`owner_company_id.eq.${companyId},partner_company_id.eq.${companyId},carrier_company_id.eq.${companyId}`);
+
+  if (error) {
+    console.error('Failed to fetch unread by load:', error);
+    return {};
+  }
+
+  // Aggregate unread counts by load_id
+  const unreadByLoad: Record<string, number> = {};
+
+  for (const conv of data || []) {
+    if (!conv.load_id) continue;
+
+    const participants = Array.isArray(conv.conversation_participants)
+      ? conv.conversation_participants
+      : [conv.conversation_participants];
+
+    const totalUnread = participants.reduce(
+      (sum, p) => sum + (p?.unread_count || 0),
+      0
+    );
+
+    if (totalUnread > 0) {
+      unreadByLoad[conv.load_id] = (unreadByLoad[conv.load_id] || 0) + totalUnread;
+    }
+  }
+
+  return unreadByLoad;
+}
+
+/**
+ * Get aggregated unread message counts for trips
+ * Returns a map of trip_id -> total unread count across all conversations for that trip
+ */
+export async function getUnreadByTripForUser(
+  userId: string,
+  companyId: string
+): Promise<Record<string, number>> {
+  const supabase = await createClient();
+
+  // Query conversations with trip_id, joined with participant unread counts
+  const { data, error } = await supabase
+    .from('conversations')
+    .select(`
+      trip_id,
+      conversation_participants!inner (
+        unread_count
+      )
+    `)
+    .not('trip_id', 'is', null)
+    .eq('conversation_participants.user_id', userId)
+    .or(`owner_company_id.eq.${companyId},partner_company_id.eq.${companyId},carrier_company_id.eq.${companyId}`);
+
+  if (error) {
+    console.error('Failed to fetch unread by trip:', error);
+    return {};
+  }
+
+  // Aggregate unread counts by trip_id
+  const unreadByTrip: Record<string, number> = {};
+
+  for (const conv of data || []) {
+    if (!conv.trip_id) continue;
+
+    const participants = Array.isArray(conv.conversation_participants)
+      ? conv.conversation_participants
+      : [conv.conversation_participants];
+
+    const totalUnread = participants.reduce(
+      (sum, p) => sum + (p?.unread_count || 0),
+      0
+    );
+
+    if (totalUnread > 0) {
+      unreadByTrip[conv.trip_id] = (unreadByTrip[conv.trip_id] || 0) + totalUnread;
+    }
+  }
+
+  return unreadByTrip;
+}
+
+/**
+ * Get unread count for a specific entity (load or trip)
+ * Useful for detail pages where you only need one entity's count
+ */
+export async function getUnreadForEntity(
+  userId: string,
+  companyId: string,
+  entityType: 'load' | 'trip',
+  entityId: string
+): Promise<number> {
+  const supabase = await createClient();
+
+  const idColumn = entityType === 'load' ? 'load_id' : 'trip_id';
+
+  const { data, error } = await supabase
+    .from('conversations')
+    .select(`
+      conversation_participants!inner (
+        unread_count
+      )
+    `)
+    .eq(idColumn, entityId)
+    .eq('conversation_participants.user_id', userId)
+    .or(`owner_company_id.eq.${companyId},partner_company_id.eq.${companyId},carrier_company_id.eq.${companyId}`);
+
+  if (error) {
+    console.error(`Failed to fetch unread for ${entityType}:`, error);
+    return 0;
+  }
+
+  let totalUnread = 0;
+  for (const conv of data || []) {
+    const participants = Array.isArray(conv.conversation_participants)
+      ? conv.conversation_participants
+      : [conv.conversation_participants];
+
+    totalUnread += participants.reduce(
+      (sum, p) => sum + (p?.unread_count || 0),
+      0
+    );
+  }
+
+  return totalUnread;
+}

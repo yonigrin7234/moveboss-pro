@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Pencil } from 'lucide-react';
+import { Pencil, MessageSquare } from 'lucide-react';
+import { useSingleEntityUnreadCount } from '@/hooks/useEntityUnreadCounts';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -70,6 +71,14 @@ export function LoadDetailClient({
 }: LoadDetailClientProps) {
   const router = useRouter();
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const { unreadCount } = useSingleEntityUnreadCount('load', load.id);
+
+  const scrollToMessages = () => {
+    const messagesSection = document.getElementById('messages-section');
+    if (messagesSection) {
+      messagesSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   // Handle successful form submission - close sheet and refresh
   const handleFormSuccess = () => {
@@ -97,6 +106,22 @@ export function LoadDetailClient({
         useSidebarLayout={true}
         actionsSlot={
           <div className="flex flex-wrap items-center gap-3">
+            {/* Messages Chip */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={scrollToMessages}
+              className="gap-2 relative"
+            >
+              <MessageSquare className="h-4 w-4" />
+              Messages
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </Button>
+
             {/* Edit Button */}
             {model.permissions.canEdit && (
               <Button
