@@ -232,14 +232,50 @@ export function useConversationMessages(
         .single();
 
       // Check driver's participation
-      const { data: participant } = await supabase
+      const { data: participant, error: partError } = await supabase
         .from('conversation_participants')
         .select('can_read, can_write')
         .eq('conversation_id', conversationId)
         .eq('driver_id', driver?.id)
-        .single();
+        .maybeSingle();
 
-      if (!participant?.can_read) {
+      dataLogger.info('useConversationMessages participant check:', {
+        conversationId,
+        driverId: driver?.id,
+        participant,
+        partError: partError?.message
+      });
+
+      // If no participant record exists, create one (driver_dispatch only)
+      if (!participant) {
+        dataLogger.info('Creating participant record in useConversationMessages');
+        const { error: insertError } = await supabase.from('conversation_participants').insert({
+          conversation_id: conversationId,
+          driver_id: driver?.id,
+          role: 'driver',
+          can_read: true,
+          can_write: true,
+          is_driver: true,
+        });
+
+        if (insertError) {
+          dataLogger.error('Failed to create participant in useConversationMessages:', insertError);
+          setState((prev) => ({
+            ...prev,
+            is_loading: false,
+            error: 'You do not have access to this conversation',
+          }));
+          return;
+        }
+
+        // Set participant values for the rest of the function
+        Object.assign(participant ?? {}, { can_read: true, can_write: true });
+      }
+
+      const canRead = participant?.can_read ?? true;
+      const canWrite = participant?.can_write ?? true;
+
+      if (!canRead) {
         setState((prev) => ({
           ...prev,
           is_loading: false,
@@ -268,10 +304,13 @@ export function useConversationMessages(
       const userIds = [...new Set((messages ?? []).map(m => m.sender_user_id).filter(Boolean))] as string[];
       let profilesMap = new Map<string, { id: string; full_name: string | null }>();
       if (userIds.length > 0) {
-        const { data: profiles } = await supabase
+        const { data: profiles, error: profilesError } = await supabase
           .from('profiles')
           .select('id, full_name')
           .in('id', userIds);
+
+        dataLogger.info('Profile lookup:', { userIds, profiles, profilesError: profilesError?.message });
+
         if (profiles) {
           profiles.forEach(p => profilesMap.set(p.id, p));
         }
@@ -298,8 +337,8 @@ export function useConversationMessages(
         ...prev,
         messages: formattedMessages,
         is_loading: false,
-        can_write: participant.can_write,
-        is_read_only: !participant.can_write,
+        can_write: canWrite,
+        is_read_only: !canWrite,
       }));
 
       // Mark conversation as read
