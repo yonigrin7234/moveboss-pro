@@ -196,6 +196,7 @@ export function useDriverConversations(options: UseDriverConversationsOptions = 
 
 interface UseConversationMessagesOptions {
   limit?: number;
+  conversationType?: ConversationType;
 }
 
 export function useConversationMessages(
@@ -203,102 +204,65 @@ export function useConversationMessages(
   options: UseConversationMessagesOptions = {}
 ) {
   const { user } = useAuth();
+  // IMPORTANT: Default can_write to TRUE for driver apps - drivers should always be able to respond
   const [state, setState] = useState<ChatViewState>({
     conversation_id: conversationId,
     messages: [],
     is_loading: true,
     is_sending: false,
     error: null,
-    can_write: false,
+    can_write: true, // Default to TRUE
     is_read_only: false,
     was_routed: false,
   });
   const isFetching = useRef(false);
   const subscriptionRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const driverIdRef = useRef<string | null>(null);
+
+  // Helper function to get sender display name
+  const getSenderDisplayName = (profile: { full_name?: string | null; email?: string | null } | null | undefined): string => {
+    if (!profile) return 'Dispatcher';
+    if (profile.full_name && profile.full_name.trim()) return profile.full_name;
+    if (profile.email) return profile.email.split('@')[0];
+    return 'Dispatcher';
+  };
 
   // Fetch messages
   const fetchMessages = useCallback(async () => {
-    if (!conversationId || !user?.id || isFetching.current) return;
+    if (!conversationId || !user?.id) return;
+    if (isFetching.current) {
+      dataLogger.debug('fetchMessages skipped - already fetching');
+      return;
+    }
 
     try {
       isFetching.current = true;
       setState((prev) => ({ ...prev, is_loading: true, error: null }));
 
+      dataLogger.info('fetchMessages starting', { conversationId, userId: user.id });
+
       // Get driver ID
-      const { data: driver } = await supabase
+      const { data: driver, error: driverError } = await supabase
         .from('drivers')
         .select('id')
         .eq('auth_user_id', user.id)
         .single();
 
-      // Check driver's participation
-      const { data: participant, error: partError } = await supabase
-        .from('conversation_participants')
-        .select('can_read, can_write')
-        .eq('conversation_id', conversationId)
-        .eq('driver_id', driver?.id)
-        .maybeSingle();
-
-      dataLogger.info('useConversationMessages participant check:', {
-        conversationId,
-        driverId: driver?.id,
-        participant,
-        partError: partError?.message
-      });
-
-      // Default to true for driver_dispatch conversations
-      let canRead = true;
-      let canWrite = true;
-
-      // If no participant record exists, create one
-      if (!participant) {
-        dataLogger.info('Creating participant record in useConversationMessages');
-        const { error: insertError } = await supabase.from('conversation_participants').insert({
-          conversation_id: conversationId,
-          driver_id: driver?.id,
-          role: 'driver',
-          can_read: true,
-          can_write: true,
-          is_driver: true,
-        });
-
-        if (insertError) {
-          dataLogger.error('Failed to create participant in useConversationMessages:', insertError);
-          setState((prev) => ({
-            ...prev,
-            is_loading: false,
-            error: 'You do not have access to this conversation',
-          }));
-          return;
-        }
-        // canRead and canWrite are already true
-      } else {
-        // Participant exists - check if can_write is false and fix it
-        canRead = participant.can_read ?? true;
-        canWrite = participant.can_write ?? true;
-
-        // If can_write is false, update it to true for driver_dispatch
-        if (!canWrite) {
-          dataLogger.info('Updating participant can_write to true');
-          await supabase
-            .from('conversation_participants')
-            .update({ can_write: true })
-            .eq('conversation_id', conversationId)
-            .eq('driver_id', driver?.id);
-          canWrite = true;
-        }
-      }
-
-      if (!canRead) {
+      if (driverError || !driver) {
+        dataLogger.error('Driver lookup failed:', driverError);
         setState((prev) => ({
           ...prev,
           is_loading: false,
-          error: 'You do not have access to this conversation',
+          can_write: true, // Still allow writing even if driver lookup fails
+          error: null,
         }));
         return;
       }
 
-      // Fetch messages (without sender_user_id join since it references auth.users which PostgREST can't access)
+      driverIdRef.current = driver.id;
+      dataLogger.info('Driver found:', { driverId: driver.id });
+
+      // Fetch messages directly - don't block on participant check
       const { data: messages, error: msgError } = await supabase
         .from('messages')
         .select(`
@@ -314,94 +278,124 @@ export function useConversationMessages(
         .order('created_at', { ascending: true })
         .limit(options.limit ?? 100);
 
-      // If there are messages from users (not drivers), fetch their profiles separately
-      const userIds = [...new Set((messages ?? []).map(m => m.sender_user_id).filter(Boolean))] as string[];
-      let profilesMap = new Map<string, { id: string; full_name: string | null; email?: string | null }>();
-      if (userIds.length > 0) {
-        // First try profiles table
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, full_name, email')
-          .in('id', userIds);
-
-        dataLogger.info('Profile lookup:', { userIds, profiles, profilesError: profilesError?.message });
-
-        if (profiles) {
-          profiles.forEach(p => {
-            // Use full_name, or email as fallback, or "Dispatcher" as last resort
-            const displayName = p.full_name || (p.email ? p.email.split('@')[0] : null) || 'Dispatcher';
-            profilesMap.set(p.id, { ...p, full_name: displayName });
-          });
-        }
-
-        // If no profiles found, try company_memberships for names
-        if (!profiles || profiles.length === 0) {
-          const { data: members } = await supabase
-            .from('company_memberships')
-            .select('user_id, display_name, role')
-            .in('user_id', userIds);
-
-          if (members) {
-            members.forEach(m => {
-              if (m.user_id) {
-                const displayName = m.display_name || m.role || 'Dispatcher';
-                profilesMap.set(m.user_id, { id: m.user_id, full_name: displayName });
-              }
-            });
-          }
-        }
-      }
+      dataLogger.info('Messages fetched:', { count: messages?.length ?? 0, error: msgError?.message });
 
       if (msgError) {
-        throw msgError;
+        // Even on error, allow writing
+        setState((prev) => ({
+          ...prev,
+          is_loading: false,
+          can_write: true,
+          error: `Failed to load messages: ${msgError.message}`,
+        }));
+        return;
       }
 
+      // Get unique sender user IDs (non-driver senders)
+      const userIds = [...new Set((messages ?? []).map(m => m.sender_user_id).filter(Boolean))] as string[];
+      const profilesMap = new Map<string, { id: string; full_name: string | null }>();
+
+      // For all user senders, default to "Dispatcher" first
+      userIds.forEach(id => {
+        profilesMap.set(id, { id, full_name: 'Dispatcher' });
+      });
+
+      // Try to fetch actual profiles
+      if (userIds.length > 0) {
+        try {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, full_name, email')
+            .in('id', userIds);
+
+          dataLogger.info('Profiles fetched:', { profiles });
+
+          if (profiles && profiles.length > 0) {
+            profiles.forEach(p => {
+              const displayName = getSenderDisplayName(p);
+              profilesMap.set(p.id, { id: p.id, full_name: displayName });
+            });
+          }
+        } catch (profileErr) {
+          dataLogger.warn('Profile fetch failed, using fallback:', profileErr);
+          // Keep the "Dispatcher" fallbacks
+        }
+      }
+
+      // Format messages with sender info
       const formattedMessages: MessageWithSender[] = (messages ?? []).map((msg) => {
         const senderDriver = Array.isArray(msg.sender_driver)
           ? msg.sender_driver[0]
           : msg.sender_driver;
-        const senderProfile = msg.sender_user_id ? profilesMap.get(msg.sender_user_id) : undefined;
+
+        // Get profile from map (defaults to "Dispatcher" if not found)
+        let senderProfile = msg.sender_user_id
+          ? profilesMap.get(msg.sender_user_id) ?? { id: msg.sender_user_id, full_name: 'Dispatcher' }
+          : undefined;
 
         return {
           ...msg,
-          sender_profile: senderProfile ?? undefined,
+          sender_profile: senderProfile,
           sender_driver: senderDriver ?? undefined,
         };
       });
 
+      // Update state - ALWAYS set can_write to true for driver_dispatch
       setState((prev) => ({
         ...prev,
         messages: formattedMessages,
         is_loading: false,
-        can_write: canWrite,
-        is_read_only: !canWrite,
+        can_write: true, // ALWAYS true for driver_dispatch
+        is_read_only: false,
+        error: null,
       }));
 
-      // Mark conversation as read
-      await supabase
-        .from('conversation_participants')
-        .update({ unread_count: 0, last_read_at: new Date().toISOString() })
-        .eq('conversation_id', conversationId)
-        .eq('driver_id', driver?.id);
+      dataLogger.info(`Loaded ${formattedMessages.length} messages, can_write: true`);
 
-      dataLogger.info(`Loaded ${formattedMessages.length} messages`);
+      // Try to ensure participant exists (fire and forget, don't block UI)
+      supabase.from('conversation_participants')
+        .upsert({
+          conversation_id: conversationId,
+          driver_id: driver.id,
+          role: 'driver',
+          can_read: true,
+          can_write: true,
+          is_driver: true,
+        }, { onConflict: 'conversation_id,driver_id' })
+        .then(({ error }) => {
+          if (error) dataLogger.warn('Participant upsert failed:', error);
+          else dataLogger.debug('Participant upserted successfully');
+        });
+
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch messages';
-      dataLogger.error('Messages fetch failed', err);
-      setState((prev) => ({ ...prev, is_loading: false, error: errorMessage }));
+      dataLogger.error('Messages fetch failed:', err);
+      // Even on error, set can_write to true
+      setState((prev) => ({
+        ...prev,
+        is_loading: false,
+        can_write: true, // Keep can_write true even on error
+        error: errorMessage
+      }));
     } finally {
       isFetching.current = false;
     }
   }, [conversationId, user?.id, options.limit]);
 
-  // Subscribe to new messages
+  // Subscribe to new messages with proper status tracking
   useEffect(() => {
-    if (!conversationId) return;
+    if (!conversationId) {
+      dataLogger.debug('Realtime subscription skipped - no conversationId');
+      return;
+    }
 
     // Clean up existing subscription
     if (subscriptionRef.current) {
+      dataLogger.debug('Cleaning up existing subscription');
       subscriptionRef.current.unsubscribe();
     }
+
+    dataLogger.info('Setting up realtime subscription for:', conversationId);
 
     const channel = supabase
       .channel(`messages:${conversationId}`)
@@ -414,61 +408,83 @@ export function useConversationMessages(
           filter: `conversation_id=eq.${conversationId}`,
         },
         async (payload) => {
-          dataLogger.debug('New message received', payload);
+          dataLogger.info('🔔 Realtime INSERT received:', { messageId: payload.new.id });
 
-          // Fetch the full message with sender info (without sender_user_id join)
-          const { data: newMsg } = await supabase
-            .from('messages')
-            .select(`
-              *,
-              sender_driver:sender_driver_id (
-                id,
-                first_name,
-                last_name
-              )
-            `)
-            .eq('id', payload.new.id)
-            .single();
+          try {
+            // Fetch the full message with sender info
+            const { data: newMsg, error } = await supabase
+              .from('messages')
+              .select(`
+                *,
+                sender_driver:sender_driver_id (
+                  id,
+                  first_name,
+                  last_name
+                )
+              `)
+              .eq('id', payload.new.id)
+              .single();
 
-          if (newMsg) {
-            const senderDriver = Array.isArray(newMsg.sender_driver)
-              ? newMsg.sender_driver[0]
-              : newMsg.sender_driver;
-
-            // Fetch profile separately if sender is a user
-            let senderProfile: { id: string; full_name: string | null } | undefined;
-            if (newMsg.sender_user_id) {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('id, full_name, email')
-                .eq('id', newMsg.sender_user_id)
-                .maybeSingle();
-
-              if (profile) {
-                const displayName = profile.full_name || (profile.email ? profile.email.split('@')[0] : null) || 'Dispatcher';
-                senderProfile = { id: profile.id, full_name: displayName };
-              } else {
-                // Fallback to "Dispatcher" if no profile found
-                senderProfile = { id: newMsg.sender_user_id, full_name: 'Dispatcher' };
-              }
+            if (error) {
+              dataLogger.error('Failed to fetch new message:', error);
+              return;
             }
 
-            const formatted: MessageWithSender = {
-              ...newMsg,
-              sender_profile: senderProfile ?? undefined,
-              sender_driver: senderDriver ?? undefined,
-            };
+            if (newMsg) {
+              const senderDriver = Array.isArray(newMsg.sender_driver)
+                ? newMsg.sender_driver[0]
+                : newMsg.sender_driver;
 
-            setState((prev) => ({
-              ...prev,
-              messages: [...prev.messages, formatted],
-            }));
+              // Get sender profile with fallback
+              let senderProfile: { id: string; full_name: string | null } | undefined;
+              if (newMsg.sender_user_id) {
+                // Default to Dispatcher
+                senderProfile = { id: newMsg.sender_user_id, full_name: 'Dispatcher' };
 
-            dataLogger.debug('Realtime message added:', { id: newMsg.id, senderProfile });
+                // Try to fetch actual profile
+                try {
+                  const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, email')
+                    .eq('id', newMsg.sender_user_id)
+                    .maybeSingle();
+
+                  if (profile) {
+                    senderProfile = { id: profile.id, full_name: getSenderDisplayName(profile) };
+                  }
+                } catch {
+                  // Keep "Dispatcher" fallback
+                }
+              }
+
+              const formatted: MessageWithSender = {
+                ...newMsg,
+                sender_profile: senderProfile,
+                sender_driver: senderDriver ?? undefined,
+              };
+
+              // Check if message already exists to prevent duplicates
+              setState((prev) => {
+                const exists = prev.messages.some(m => m.id === formatted.id);
+                if (exists) {
+                  dataLogger.debug('Message already exists, skipping:', formatted.id);
+                  return prev;
+                }
+                dataLogger.info('Adding new message to state:', formatted.id);
+                return {
+                  ...prev,
+                  messages: [...prev.messages, formatted],
+                };
+              });
+            }
+          } catch (err) {
+            dataLogger.error('Error processing realtime message:', err);
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        dataLogger.info('📡 Realtime subscription status:', status);
+      });
 
     subscriptionRef.current = channel;
 
