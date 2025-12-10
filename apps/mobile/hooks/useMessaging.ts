@@ -246,7 +246,11 @@ export function useConversationMessages(
         partError: partError?.message
       });
 
-      // If no participant record exists, create one (driver_dispatch only)
+      // Default to true for driver_dispatch conversations
+      let canRead = true;
+      let canWrite = true;
+
+      // If no participant record exists, create one
       if (!participant) {
         dataLogger.info('Creating participant record in useConversationMessages');
         const { error: insertError } = await supabase.from('conversation_participants').insert({
@@ -267,13 +271,23 @@ export function useConversationMessages(
           }));
           return;
         }
+        // canRead and canWrite are already true
+      } else {
+        // Participant exists - check if can_write is false and fix it
+        canRead = participant.can_read ?? true;
+        canWrite = participant.can_write ?? true;
 
-        // Set participant values for the rest of the function
-        Object.assign(participant ?? {}, { can_read: true, can_write: true });
+        // If can_write is false, update it to true for driver_dispatch
+        if (!canWrite) {
+          dataLogger.info('Updating participant can_write to true');
+          await supabase
+            .from('conversation_participants')
+            .update({ can_write: true })
+            .eq('conversation_id', conversationId)
+            .eq('driver_id', driver?.id);
+          canWrite = true;
+        }
       }
-
-      const canRead = participant?.can_read ?? true;
-      const canWrite = participant?.can_write ?? true;
 
       if (!canRead) {
         setState((prev) => ({
@@ -302,17 +316,39 @@ export function useConversationMessages(
 
       // If there are messages from users (not drivers), fetch their profiles separately
       const userIds = [...new Set((messages ?? []).map(m => m.sender_user_id).filter(Boolean))] as string[];
-      let profilesMap = new Map<string, { id: string; full_name: string | null }>();
+      let profilesMap = new Map<string, { id: string; full_name: string | null; email?: string | null }>();
       if (userIds.length > 0) {
+        // First try profiles table
         const { data: profiles, error: profilesError } = await supabase
           .from('profiles')
-          .select('id, full_name')
+          .select('id, full_name, email')
           .in('id', userIds);
 
         dataLogger.info('Profile lookup:', { userIds, profiles, profilesError: profilesError?.message });
 
         if (profiles) {
-          profiles.forEach(p => profilesMap.set(p.id, p));
+          profiles.forEach(p => {
+            // Use full_name, or email as fallback, or "Dispatcher" as last resort
+            const displayName = p.full_name || (p.email ? p.email.split('@')[0] : null) || 'Dispatcher';
+            profilesMap.set(p.id, { ...p, full_name: displayName });
+          });
+        }
+
+        // If no profiles found, try company_memberships for names
+        if (!profiles || profiles.length === 0) {
+          const { data: members } = await supabase
+            .from('company_memberships')
+            .select('user_id, display_name, role')
+            .in('user_id', userIds);
+
+          if (members) {
+            members.forEach(m => {
+              if (m.user_id) {
+                const displayName = m.display_name || m.role || 'Dispatcher';
+                profilesMap.set(m.user_id, { id: m.user_id, full_name: displayName });
+              }
+            });
+          }
         }
       }
 
@@ -404,10 +440,17 @@ export function useConversationMessages(
             if (newMsg.sender_user_id) {
               const { data: profile } = await supabase
                 .from('profiles')
-                .select('id, full_name')
+                .select('id, full_name, email')
                 .eq('id', newMsg.sender_user_id)
-                .single();
-              senderProfile = profile ?? undefined;
+                .maybeSingle();
+
+              if (profile) {
+                const displayName = profile.full_name || (profile.email ? profile.email.split('@')[0] : null) || 'Dispatcher';
+                senderProfile = { id: profile.id, full_name: displayName };
+              } else {
+                // Fallback to "Dispatcher" if no profile found
+                senderProfile = { id: newMsg.sender_user_id, full_name: 'Dispatcher' };
+              }
             }
 
             const formatted: MessageWithSender = {
@@ -420,6 +463,8 @@ export function useConversationMessages(
               ...prev,
               messages: [...prev.messages, formatted],
             }));
+
+            dataLogger.debug('Realtime message added:', { id: newMsg.id, senderProfile });
           }
         }
       )
