@@ -9,7 +9,6 @@ import { formatRoute, type LoadLocationFields } from './formatRoute';
 import {
   getSharingTemplateType,
   getBatchTemplateType,
-  getTemplateHeader,
   type LoadTypeFields,
 } from './templateType';
 import { formatPickupWindow, type PickupDateFields } from './formatPickupWindow';
@@ -72,9 +71,13 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+// Use simple diamond bullets that render consistently across all platforms
+// These are basic Unicode symbols, not complex emojis that can have variation issues
+const BULLET = '\u25C6'; // ◆ Black diamond (renders consistently)
+
 /**
  * Builds the CF line for a load
- * Examples: "📦 1,200 CF @ $3.50/cf" or "📦 1,200 CF"
+ * Examples: "◆ 1,200 CF @ $3.50/cf" or "◆ 1,200 CF"
  */
 function buildCFLine(load: ShareableLoad, showRates: boolean): string {
   const cf = getCubicFeet(load);
@@ -83,10 +86,10 @@ function buildCFLine(load: ShareableLoad, showRates: boolean): string {
   if (!cf) return '';
 
   if (showRates && rate) {
-    return `📦 ${cf.toLocaleString()} CF @ $${rate.toFixed(2)}/cf`;
+    return `${BULLET} ${cf.toLocaleString()} CF @ $${rate.toFixed(2)}/cf`;
   }
 
-  return `📦 ${cf.toLocaleString()} CF`;
+  return `${BULLET} ${cf.toLocaleString()} CF`;
 }
 
 /**
@@ -95,7 +98,7 @@ function buildCFLine(load: ShareableLoad, showRates: boolean): string {
 function buildBalanceLine(load: ShareableLoad): string {
   const balance = getBalanceCF(load);
   if (!balance || balance <= 0) return '';
-  return `🧮 Balance left: ${balance.toLocaleString()} CF`;
+  return `${BULLET} Balance left: ${balance.toLocaleString()} CF`;
 }
 
 /**
@@ -105,7 +108,7 @@ function buildPayoutLine(load: ShareableLoad, showRates: boolean): string {
   if (!showRates) return '';
   const payout = getTotalPayout(load);
   if (!payout) return '';
-  return `💰 ${formatCurrency(payout)} payout`;
+  return `${BULLET} ${formatCurrency(payout)} payout`;
 }
 
 /**
@@ -139,8 +142,8 @@ export function buildSingleLoadMessage(
   const templateType = getSharingTemplateType(load);
   const headerText = getHeaderText(templateType);
   const header = companyName
-    ? `🚚 *${headerText}* — ${companyName}`
-    : `🚚 *${headerText}*`;
+    ? `${BULLET} *${headerText}* — ${companyName}`
+    : `${BULLET} *${headerText}*`;
   const route = formatRoute(load);
   const cfLine = buildCFLine(load, showRates);
   const balanceLine = buildBalanceLine(load);
@@ -150,16 +153,16 @@ export function buildSingleLoadMessage(
   const lines: string[] = [];
   lines.push(header);
   lines.push('');
-  lines.push(`📍 ${route}`);
+  lines.push(`${BULLET} ${route}`);
 
   if (cfLine) lines.push(cfLine);
   if (balanceLine) lines.push(balanceLine);
-  if (pickupWindow) lines.push(`📅 Pickup: ${pickupWindow}`);
+  if (pickupWindow) lines.push(`${BULLET} Pickup: ${pickupWindow}`);
   if (payoutLine) lines.push(payoutLine);
 
   if (opts.link) {
     lines.push('');
-    lines.push(`✅ Claim: ${opts.link}`);
+    lines.push(`> Claim: ${opts.link}`);
   }
 
   return lines.join('\n');
@@ -250,8 +253,8 @@ export function buildMultiLoadMessage(
         : `${loads.length} LOADS AVAILABLE`;
 
   const header = companyName
-    ? `🚚 *${batchHeaderText}* — ${companyName}`
-    : `🚚 *${batchHeaderText}*`;
+    ? `${BULLET} *${batchHeaderText}* — ${companyName}`
+    : `${BULLET} *${batchHeaderText}*`;
 
   const items = loads.map((load, i) => {
     const route = formatRoute(load);
@@ -296,7 +299,7 @@ export function buildMultiLoadMessage(
 
   if (opts.link) {
     lines.push('');
-    lines.push(`📋 View details & claim: ${opts.link}`);
+    lines.push(`> View details & claim: ${opts.link}`);
   }
 
   return lines.join('\n');
@@ -367,11 +370,11 @@ function buildMultiLoadEmailMessage(
 }
 
 /**
- * Gets the number emoji for list items (1-10)
+ * Gets the number marker for list items
+ * Uses simple text numbers that render consistently everywhere
  */
 function getNumberEmoji(n: number): string {
-  const emojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-  return emojis[Math.min(n - 1, 9)] || `${n}.`;
+  return `${n}.`;
 }
 
 /**

@@ -25,6 +25,14 @@ function getBaseUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || 'https://moveboss.pro';
 }
 
+// Generate a short token using base62 encoding (alphanumeric)
+// 8 characters = 62^8 = ~218 trillion combinations
+function generateShortToken(): string {
+  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  return Array.from(bytes).map(b => chars[b % 62]).join('');
+}
+
 // POST /api/sharing - Generate share text or create batch link
 export async function POST(request: NextRequest) {
   try {
@@ -55,7 +63,7 @@ export async function POST(request: NextRequest) {
     const showRates = companySettings?.public_board_show_rates ?? true;
 
     if (action === 'generate-text') {
-      const { loadIds, format, includeLink, linkType } = body as GenerateTextRequest;
+      const { loadIds, format, includeLink } = body as GenerateTextRequest;
 
       if (!loadIds || loadIds.length === 0) {
         return NextResponse.json({ error: 'No loads specified' }, { status: 400 });
@@ -80,7 +88,7 @@ export async function POST(request: NextRequest) {
       if (includeLink) {
         // Always create a share token for clean URLs
         const adminClient = createServiceRoleClient();
-        const token = crypto.randomUUID().replace(/-/g, '').slice(0, 24);
+        const token = generateShortToken();
 
         const { error: insertError } = await adminClient
           .from('load_share_links')
@@ -158,10 +166,10 @@ export async function POST(request: NextRequest) {
           expiresAt = null;
       }
 
-      const token = crypto.randomUUID().replace(/-/g, '').slice(0, 24);
+      const token = generateShortToken();
 
       const adminClient = createServiceRoleClient();
-      const { data: shareLink, error: insertError } = await adminClient
+      const { error: insertError } = await adminClient
         .from('load_share_links')
         .insert({
           company_id: companyId,
@@ -170,9 +178,7 @@ export async function POST(request: NextRequest) {
           token,
           expires_at: expiresAt?.toISOString() || null,
           is_active: true,
-        })
-        .select()
-        .single();
+        });
 
       if (insertError) {
         console.error('Error creating share link:', insertError);
