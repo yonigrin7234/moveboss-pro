@@ -337,17 +337,31 @@ export async function sendPushToDriver(
   // Check receipts after a short delay to verify delivery
   // Note: Receipts may not be immediately available, so this is best-effort
   if (ticketIds.length > 0) {
+    console.log('[PUSH DEBUG] Scheduling receipt check for ticket IDs:', ticketIds);
     setTimeout(async () => {
+      console.log('[PUSH DEBUG] Checking receipts now for ticket IDs:', ticketIds);
       const receipts = await checkPushReceipts(ticketIds);
       const deliveryErrors = receipts.filter((r) => r.status === 'error');
+      const deliverySuccess = receipts.filter((r) => r.status === 'ok');
+      
+      if (deliverySuccess.length > 0) {
+        console.log('[PUSH DEBUG] ✅ Receipts show successful delivery:', deliverySuccess.length, 'notifications delivered');
+      }
+      
       if (deliveryErrors.length > 0) {
-        console.warn('[PUSH DEBUG] Delivery errors detected:', deliveryErrors);
+        console.warn('[PUSH DEBUG] ⚠️ Delivery errors detected:', deliveryErrors);
         // Check for DeviceNotRegistered errors which indicate invalid tokens
         for (const receipt of deliveryErrors) {
           if (receipt.details?.error === 'DeviceNotRegistered') {
-            console.error('[PUSH DEBUG] Token is invalid - device not registered:', receipt.message);
+            console.error('[PUSH DEBUG] ❌ Token is invalid - device not registered:', receipt.message);
+          } else {
+            console.error('[PUSH DEBUG] ❌ Delivery error:', receipt.details?.error || receipt.message);
           }
         }
+      }
+      
+      if (receipts.length === 0) {
+        console.warn('[PUSH DEBUG] ⚠️ No receipts available yet - Expo may still be processing');
       }
     }, 5000); // Check after 5 seconds
   }
