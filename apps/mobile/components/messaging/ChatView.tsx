@@ -244,23 +244,6 @@ export function ChatView({
             return null;
           })()}
           {/* #endregion */}
-          {/* Debug indicator - remove after testing */}
-          {conversationType === 'driver_dispatch' && (
-            <>
-              {/* #region agent log */}
-              {(() => {
-                console.log('🟢 RENDERING GREEN DEBUG BANNER');
-                fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatView.tsx:220',message:'Rendering green debug banner',data:{canWrite,conversationType},timestamp:Date.now(),sessionId:'debug-session',runId:'run7',hypothesisId:'A'})}).catch(()=>{});
-                return null;
-              })()}
-              {/* #endregion */}
-              <View style={{ backgroundColor: 'green', padding: 10, zIndex: 9999, elevation: 9999 }}>
-                <Text style={{ color: 'white', fontSize: 14, fontWeight: 'bold' }}>
-                  🟢 DEBUG: Input should be visible (canWrite={String(canWrite)})
-                </Text>
-              </View>
-            </>
-          )}
           {/* #region agent log */}
           {(() => {
             console.log('📝 RENDERING INPUT CONTAINER');

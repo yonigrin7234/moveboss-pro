@@ -1,14 +1,17 @@
 import React, { useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { Stack, useFocusEffect } from 'expo-router';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useDispatchConversation, useConversationMessages } from '../../hooks/useMessaging';
 import { ChatView } from '../../components/messaging/ChatView';
 import { colors, typography, spacing } from '../../lib/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorState } from '../../components/ui';
 import { dataLogger } from '../../lib/logger';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function DispatchScreen() {
+  const router = useRouter();
+  
   // Get or create the dispatch conversation
   const {
     conversation,
@@ -80,6 +83,14 @@ export default function DispatchScreen() {
             title: 'Dispatch',
             headerStyle: { backgroundColor: colors.background },
             headerTintColor: colors.textPrimary,
+            headerLeft: () => (
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={{ marginLeft: 16 }}
+              >
+                <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+              </TouchableOpacity>
+            ),
           }}
         />
         <View style={[styles.container, styles.centered]}>
@@ -99,6 +110,14 @@ export default function DispatchScreen() {
             title: 'Dispatch',
             headerStyle: { backgroundColor: colors.background },
             headerTintColor: colors.textPrimary,
+            headerLeft: () => (
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={{ marginLeft: 16 }}
+              >
+                <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+              </TouchableOpacity>
+            ),
           }}
         />
         <View style={[styles.container, styles.centered]}>
@@ -118,6 +137,14 @@ export default function DispatchScreen() {
           title: 'Dispatch',
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.textPrimary,
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={{ marginLeft: 16 }}
+            >
+              <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+          ),
         }}
       />
       <View style={styles.container}>
