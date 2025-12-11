@@ -54,7 +54,7 @@ export function ChatPanel({
   });
 
   // Refs for preventing duplicate fetches
-  const conversationFetchedRef = useRef(false);
+  const conversationFetchedRef = useRef<string | null>(null); // Track which conversation/driver was fetched
   const mountedRef = useRef(true);
   const subscriptionRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
   const supabaseRef = useRef(createClient());
@@ -75,6 +75,16 @@ export function ChatPanel({
         return 'general';
     }
   }, [context, isInternal]);
+
+  // Create a unique key for the current conversation context to detect changes
+  const conversationKey = useMemo(() => {
+    if (providedConversationId) return `conv:${providedConversationId}`;
+    if (context === 'driver_dispatch' && driverId) return `driver:${driverId}`;
+    if (context === 'load' && loadId) return `load:${loadId}`;
+    if (context === 'trip' && tripId) return `trip:${tripId}`;
+    if (context === 'company' && partnerCompanyId) return `company:${partnerCompanyId}`;
+    return null;
+  }, [providedConversationId, context, driverId, loadId, tripId, partnerCompanyId]);
 
   // For company context, check if partner is a MoveBoss member
   if (context === 'company' && !isPartnerMoveBossMember) {
@@ -103,10 +113,26 @@ export function ChatPanel({
     );
   }
 
-  // Fetch or create conversation - only runs once
+  // Fetch or create conversation - resets when conversation context changes
   const fetchConversation = useCallback(async () => {
-    if (conversationFetchedRef.current) return;
-    conversationFetchedRef.current = true;
+    // If we've already fetched for this specific conversation context, skip
+    if (conversationFetchedRef.current === conversationKey) return;
+    
+    // Reset state when switching conversations
+    if (conversationFetchedRef.current !== null && conversationFetchedRef.current !== conversationKey) {
+      setState({
+        conversation: null,
+        messages: [],
+        isLoading: true,
+        isLoadingMessages: false,
+        isSending: false,
+        error: null,
+        canWrite: true,
+        isReadOnly: false,
+      });
+    }
+    
+    conversationFetchedRef.current = conversationKey || 'fetching';
 
     try {
       setState(s => ({ ...s, isLoading: true, error: null }));
@@ -187,8 +213,13 @@ export function ChatPanel({
         isLoading: false,
         error: err instanceof Error ? err.message : 'Failed to load conversation',
       }));
+    } finally {
+      // Mark as fetched for this conversation key
+      if (conversationKey) {
+        conversationFetchedRef.current = conversationKey;
+      }
     }
-  }, [context, loadId, tripId, partnerCompanyId, conversationType, isInternal, providedConversationId, onConversationChange]);
+  }, [context, loadId, tripId, driverId, partnerCompanyId, conversationType, isInternal, providedConversationId, onConversationChange, conversationKey]);
 
   // Fetch messages
   const fetchMessages = useCallback(async () => {
@@ -300,15 +331,20 @@ export function ChatPanel({
     }
   }, [state.conversation?.id, fetchMessages]);
 
-  // Initial fetch on mount
+  // Fetch conversation when context changes (driverId, conversationId, etc.)
   useEffect(() => {
     mountedRef.current = true;
-    fetchConversation();
+    if (conversationKey) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatPanel.tsx:CONVERSATION_KEY_CHANGED',message:'Conversation key changed, fetching',data:{conversationKey,driverId,providedConversationId,windowScrollY:window.scrollY,documentScrollTop:document.documentElement.scrollTop},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+      fetchConversation();
+    }
 
     return () => {
       mountedRef.current = false;
     };
-  }, [fetchConversation]);
+  }, [conversationKey, fetchConversation, driverId, providedConversationId]);
 
   // Fetch messages when conversation is loaded
   useEffect(() => {
@@ -525,10 +561,8 @@ export function ChatPanel({
   return (
     <div
       className={cn(
-        'flex flex-col border rounded-lg bg-card overflow-hidden',
-        typeof height === 'string' ? `h-[${height}]` : ''
+        'flex flex-col h-full overflow-hidden'
       )}
-      style={typeof height === 'number' ? { height } : undefined}
     >
       {/* Header */}
       {!minimal && (
@@ -542,30 +576,34 @@ export function ChatPanel({
 
       {/* Inline error */}
       {state.error && state.conversation && (
-        <Alert variant="destructive" className="mx-3 mt-2 py-2">
+        <Alert variant="destructive" className="mx-3 mt-2 py-2 shrink-0">
           <AlertDescription className="text-xs">{state.error}</AlertDescription>
         </Alert>
       )}
 
-      {/* Messages */}
-      <MessageList
-        messages={state.messages}
-        currentUserId={userId}
-        isLoading={state.isLoading || state.isLoadingMessages}
-        emptyMessage={`No messages in this ${context} chat yet`}
-      />
-
-      {/* Composer */}
-      {state.canWrite && !state.isReadOnly ? (
-        <MessageComposer
-          onSend={sendMessage}
-          disabled={state.isLoading || !state.conversation}
-          isSending={state.isSending}
-          placeholder="Type a message..."
+      {/* Messages - scrollable area */}
+      <div className="flex-1 min-h-0">
+        <MessageList
+          messages={state.messages}
+          currentUserId={userId}
+          isLoading={state.isLoading || state.isLoadingMessages}
+          emptyMessage={`No messages in this ${context} chat yet`}
         />
-      ) : (
-        <ReadOnlyComposer />
-      )}
+      </div>
+
+      {/* Composer - fixed at bottom */}
+      <div className="shrink-0">
+        {state.canWrite && !state.isReadOnly ? (
+          <MessageComposer
+            onSend={sendMessage}
+            disabled={state.isLoading || !state.conversation}
+            isSending={state.isSending}
+            placeholder="Type a message..."
+          />
+        ) : (
+          <ReadOnlyComposer />
+        )}
+      </div>
     </div>
   );
 }
