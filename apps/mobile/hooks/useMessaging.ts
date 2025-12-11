@@ -553,6 +553,9 @@ export function useConversationMessages(
         }
       )
       .subscribe(async (status, err) => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:REALTIME_SUBSCRIBE_STATUS',message:'Mobile realtime subscription status',data:{status,error:err?.message,conversationId,channelName:`messages:${conversationId}`},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
         dataLogger.info('📡 Realtime subscription status:', status);
         console.log('📡 Realtime subscription status:', status, 'for conversation:', conversationId, err ? `Error: ${err}` : '');
         // If subscription failed, log it
