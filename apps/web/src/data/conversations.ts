@@ -538,14 +538,23 @@ export async function getOrCreateDriverDispatchConversation(
 ): Promise<Conversation> {
   const supabase = await createClient();
 
-  // Check for existing conversation
-  const { data: existing } = await supabase
+  // Check for existing conversation(s)
+  // Handle multiple conversations by getting the most recent one
+  const { data: existingConvs, error: queryError } = await supabase
     .from('conversations')
     .select('*')
     .eq('type', 'driver_dispatch')
     .eq('driver_id', driverId)
     .eq('owner_company_id', companyId)
-    .maybeSingle();
+    .order('last_message_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  // #region agent log
+  const existing = existingConvs?.[0] ?? null;
+  const logData = {driverId,companyId,existingId:existing?.id,existingType:existing?.type,willCreate:!existing,foundCount:existingConvs?.length||0,queryError:queryError?.message};
+  fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'conversations.ts:getOrCreateDriverDispatchConversation:CHECK_EXISTING',message:'Checking for existing driver_dispatch conversation',data:logData,timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+  // #endregion
 
   if (existing) {
     return existing as Conversation;
