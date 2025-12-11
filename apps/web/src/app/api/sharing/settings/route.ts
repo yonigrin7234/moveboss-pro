@@ -8,8 +8,11 @@ const updateSettingsSchema = z.object({
   public_board_show_rates: z.boolean().optional(),
   public_board_show_contact: z.boolean().optional(),
   public_board_require_auth_to_claim: z.boolean().optional(),
-  public_board_custom_message: z.string().max(500).optional().nullable(),
-  public_board_logo_url: z.string().url().max(2000).optional().nullable(),
+  public_board_custom_message: z.string().max(500).optional().nullable().transform(v => v === '' ? null : v),
+  public_board_logo_url: z.string().max(2000).optional().nullable().transform(v => v === '' ? null : v).refine(
+    (v) => !v || /^https?:\/\/.+/.test(v),
+    { message: 'Must be a valid URL starting with http:// or https://' }
+  ),
 });
 
 // GET /api/sharing/settings - Get current sharing settings
