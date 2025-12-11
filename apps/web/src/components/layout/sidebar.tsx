@@ -466,7 +466,7 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
         </div>
       </div>
 
-      <nav className="flex-1 space-y-0.5 px-2.5 py-3 overflow-y-auto">
+      <nav className="flex-1 space-y-0.5 px-2.5 py-3 overflow-y-auto scrollbar-none">
         {/* Top items (Overview, Activity) */}
         {topItems.map(renderNavItem)}
 
