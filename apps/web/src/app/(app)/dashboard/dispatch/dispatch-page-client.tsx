@@ -45,15 +45,21 @@ export function DispatchPageClient({
   const selectedDriver = drivers.find((d) => d.id === selectedDriverId);
 
   // Create a map of driver IDs to conversations for quick lookup
+  // If multiple conversations exist for the same driver, use the most recent one
   const driverConversationMap = useMemo(() => {
     const map = new Map<string, ConversationListItem>();
     conversations.forEach((conv) => {
       // Prefer driver_id if available, fall back to driver_name
-      if (conv.context?.driver_id) {
-        map.set(conv.context.driver_id, conv);
-      } else if (conv.context?.driver_name) {
-        // Fall back to name-based lookup (legacy)
-        map.set(conv.context.driver_name, conv);
+      const key = conv.context?.driver_id || conv.context?.driver_name;
+      if (key) {
+        const existing = map.get(key);
+        // If no existing conversation, or this one is more recent, use this one
+        if (!existing || 
+            (conv.last_message_at && 
+             (!existing.last_message_at || 
+              new Date(conv.last_message_at) > new Date(existing.last_message_at)))) {
+          map.set(key, conv);
+        }
       }
     });
     return map;
