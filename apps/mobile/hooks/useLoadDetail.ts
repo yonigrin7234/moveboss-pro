@@ -8,21 +8,46 @@ import { realtimeManager } from '../lib/realtimeManager';
 
 export function useLoadDetail(loadId: string | null) {
   const { user } = useAuth();
-  const { ownerId, loading: driverLoading, error: driverError, isReady: driverReady } = useDriver();
+  const { driverId, ownerId, loading: driverLoading, error: driverError, isReady: driverReady } = useDriver();
   const tripIdRef = useRef<string | null>(null);
 
   const loadQuery = useQuery<Load | null>({
-    queryKey: ['loadDetail', loadId, ownerId],
-    enabled: driverReady && !!ownerId && !!loadId && !!user?.id,
+    queryKey: ['loadDetail', loadId, driverId],
+    enabled: driverReady && !!driverId && !!loadId && !!user?.id,
     queryFn: async () => {
       if (driverError) {
         throw new Error(driverError);
       }
 
-      if (!ownerId) {
+      if (!driverId) {
         throw new Error('Driver profile not found');
       }
 
+      // First check if driver has access to this load via trip assignment
+      const { data: tripLoadData, error: tripLoadError } = await supabase
+        .from('trip_loads')
+        .select(`
+          trip_id,
+          trips!inner (
+            id,
+            assigned_driver_id
+          )
+        `)
+        .eq('load_id', loadId!)
+        .eq('trips.assigned_driver_id', driverId)
+        .limit(1)
+        .maybeSingle();
+
+      if (tripLoadError) {
+        console.error('Trip load lookup error:', tripLoadError);
+      }
+
+      if (tripLoadData?.trip_id) {
+        tripIdRef.current = tripLoadData.trip_id;
+      }
+
+      // Now fetch the load - driver has access if they're assigned to a trip containing this load
+      // or if the load is owned by their company
       const { data: loadData, error: loadError } = await supabase
         .from('loads')
         .select(`
@@ -35,21 +60,18 @@ export function useLoadDetail(loadId: string | null) {
           )
         `)
         .eq('id', loadId!)
-        .eq('owner_id', ownerId)
         .single();
 
       if (loadError) {
         throw loadError;
       }
 
-      const { data: tripLoadData } = await supabase
-        .from('trip_loads')
-        .select('trip_id')
-        .eq('load_id', loadId!)
-        .single();
+      // Verify access: either through trip assignment or owner match
+      const hasTrip = !!tripLoadData?.trip_id;
+      const isOwner = loadData?.owner_id === ownerId;
 
-      if (tripLoadData) {
-        tripIdRef.current = tripLoadData.trip_id;
+      if (!hasTrip && !isOwner) {
+        throw new Error('You do not have access to this load');
       }
 
       return loadData;
