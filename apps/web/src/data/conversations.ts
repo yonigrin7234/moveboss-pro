@@ -869,6 +869,10 @@ export async function sendMessage(
   // Note: The RLS policy on messages INSERT enforces that the user must have
   // access to the conversation via their company membership
 
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'conversations.ts:sendMessage:INSERTING',message:'Inserting message into database',data:{conversationId,senderId,companyId,bodyLength:body.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+  // #endregion
+
   const { data: message, error } = await supabase
     .from('messages')
     .insert({
@@ -883,6 +887,10 @@ export async function sendMessage(
     })
     .select()
     .single();
+
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'conversations.ts:sendMessage:INSERT_RESULT',message:'Message insert result',data:{conversationId,messageId:message?.id,error:error?.message,success:!error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+  // #endregion
 
   if (error) {
     throw new Error(`Failed to send message: ${error.message}`);

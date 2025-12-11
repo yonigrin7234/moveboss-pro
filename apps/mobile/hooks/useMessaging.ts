@@ -410,8 +410,15 @@ export function useConversationMessages(
 
   // Subscribe to new messages with proper status tracking
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:REALTIME_EFFECT',message:'Realtime subscription effect triggered',data:{conversationId,hasConversationId:!!conversationId,conversationType:options.conversationType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+    // #endregion
+    
     if (!conversationId) {
       dataLogger.debug('Realtime subscription skipped - no conversationId');
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:REALTIME_SKIPPED',message:'Realtime subscription skipped - no conversationId',data:{conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
       return;
     }
 
