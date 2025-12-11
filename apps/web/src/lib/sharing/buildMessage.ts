@@ -71,13 +71,18 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-// Use simple diamond bullets that render consistently across all platforms
-// These are basic Unicode symbols, not complex emojis that can have variation issues
-const BULLET = '\u25C6'; // ◆ Black diamond (renders consistently)
+// Emoji bullets for better visual appearance in WhatsApp
+const ICONS = {
+  ROUTE: '📍',
+  BOX: '📦',
+  MONEY: '💰',
+  CALENDAR: '📅',
+  TRUCK: '🚚',
+};
 
 /**
  * Builds the CF line for a load
- * Examples: "◆ 1,200 CF @ $3.50/cf" or "◆ 1,200 CF"
+ * Examples: "📦 1,200 CF @ $3.50/cf" or "📦 1,200 CF"
  */
 function buildCFLine(load: ShareableLoad, showRates: boolean): string {
   const cf = getCubicFeet(load);
@@ -86,10 +91,10 @@ function buildCFLine(load: ShareableLoad, showRates: boolean): string {
   if (!cf) return '';
 
   if (showRates && rate) {
-    return `${BULLET} ${cf.toLocaleString()} CF @ $${rate.toFixed(2)}/cf`;
+    return `${ICONS.BOX} ${cf.toLocaleString()} CF @ $${rate.toFixed(2)}/cf`;
   }
 
-  return `${BULLET} ${cf.toLocaleString()} CF`;
+  return `${ICONS.BOX} ${cf.toLocaleString()} CF`;
 }
 
 /**
@@ -98,7 +103,7 @@ function buildCFLine(load: ShareableLoad, showRates: boolean): string {
 function buildBalanceLine(load: ShareableLoad): string {
   const balance = getBalanceCF(load);
   if (!balance || balance <= 0) return '';
-  return `${BULLET} Balance left: ${balance.toLocaleString()} CF`;
+  return `${ICONS.BOX} Balance left: ${balance.toLocaleString()} CF`;
 }
 
 /**
@@ -108,7 +113,7 @@ function buildPayoutLine(load: ShareableLoad, showRates: boolean): string {
   if (!showRates) return '';
   const payout = getTotalPayout(load);
   if (!payout) return '';
-  return `${BULLET} ${formatCurrency(payout)} payout`;
+  return `${ICONS.MONEY} ${formatCurrency(payout)} payout`;
 }
 
 /**
@@ -127,6 +132,7 @@ function getHeaderText(templateType: 'LIVE_PICKUP' | 'RFD' | 'GENERIC'): string 
 
 /**
  * Builds a single load share message (WhatsApp/Plain)
+ * IMPORTANT: Link goes at TOP for WhatsApp rich preview to show
  */
 export function buildSingleLoadMessage(
   load: ShareableLoad,
@@ -142,8 +148,8 @@ export function buildSingleLoadMessage(
   const templateType = getSharingTemplateType(load);
   const headerText = getHeaderText(templateType);
   const header = companyName
-    ? `${BULLET} *${headerText}* — ${companyName}`
-    : `${BULLET} *${headerText}*`;
+    ? `${ICONS.TRUCK} *${headerText}* — ${companyName}`
+    : `${ICONS.TRUCK} *${headerText}*`;
   const route = formatRoute(load);
   const cfLine = buildCFLine(load, showRates);
   const balanceLine = buildBalanceLine(load);
@@ -151,19 +157,21 @@ export function buildSingleLoadMessage(
   const payoutLine = buildPayoutLine(load, showRates);
 
   const lines: string[] = [];
+
+  // Link at TOP so WhatsApp shows rich Open Graph preview
+  if (opts.link) {
+    lines.push(opts.link);
+    lines.push('');
+  }
+
   lines.push(header);
   lines.push('');
-  lines.push(`${BULLET} ${route}`);
+  lines.push(`${ICONS.ROUTE} ${route}`);
 
   if (cfLine) lines.push(cfLine);
   if (balanceLine) lines.push(balanceLine);
-  if (pickupWindow) lines.push(`${BULLET} Pickup: ${pickupWindow}`);
+  if (pickupWindow) lines.push(`${ICONS.CALENDAR} Pickup: ${pickupWindow}`);
   if (payoutLine) lines.push(payoutLine);
-
-  if (opts.link) {
-    lines.push('');
-    lines.push(`> Claim: ${opts.link}`);
-  }
 
   return lines.join('\n');
 }
@@ -229,6 +237,7 @@ function buildSingleLoadEmailMessage(
 
 /**
  * Builds a multi-load share message (WhatsApp/Plain)
+ * IMPORTANT: Link goes at TOP for WhatsApp rich preview to show
  */
 export function buildMultiLoadMessage(
   loads: ShareableLoad[],
@@ -253,8 +262,8 @@ export function buildMultiLoadMessage(
         : `${loads.length} LOADS AVAILABLE`;
 
   const header = companyName
-    ? `${BULLET} *${batchHeaderText}* — ${companyName}`
-    : `${BULLET} *${batchHeaderText}*`;
+    ? `${ICONS.TRUCK} *${batchHeaderText}* — ${companyName}`
+    : `${ICONS.TRUCK} *${batchHeaderText}*`;
 
   const items = loads.map((load, i) => {
     const route = formatRoute(load);
@@ -293,14 +302,16 @@ export function buildMultiLoadMessage(
   });
 
   const lines: string[] = [];
+
+  // Link at TOP so WhatsApp shows rich Open Graph preview
+  if (opts.link) {
+    lines.push(opts.link);
+    lines.push('');
+  }
+
   lines.push(header);
   lines.push('');
   lines.push(...items);
-
-  if (opts.link) {
-    lines.push('');
-    lines.push(`> View details & claim: ${opts.link}`);
-  }
 
   return lines.join('\n');
 }
