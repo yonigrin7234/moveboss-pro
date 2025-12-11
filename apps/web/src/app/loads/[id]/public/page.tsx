@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { createServiceRoleClient } from '@/lib/supabase-admin';
 import { PublicLoadClient } from './client';
+import { formatCompanyName } from '@/lib/utils';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -38,12 +39,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     ? `${load.delivery_city}, ${load.delivery_state}`
     : load.delivery_city || 'Destination';
 
+  const formattedCompanyName = formatCompanyName(company?.name);
   return {
-    title: `${origin} to ${dest} | ${company?.name || 'Load'} | MoveBoss Pro`,
-    description: `${load.cubic_feet ? `${load.cubic_feet} CF ` : ''}moving load from ${origin} to ${dest}${company ? ` by ${company.name}` : ''}`,
+    title: `${origin} to ${dest} | ${formattedCompanyName || 'Load'} | MoveBoss Pro`,
+    description: `${load.cubic_feet ? `${load.cubic_feet} CF ` : ''}moving load from ${origin} to ${dest}${formattedCompanyName ? ` by ${formattedCompanyName}` : ''}`,
     openGraph: {
       title: `Moving Load: ${origin} → ${dest}`,
-      description: `${load.cubic_feet ? `${load.cubic_feet} CF ` : ''}${company ? `from ${company.name}` : ''}`,
+      description: `${load.cubic_feet ? `${load.cubic_feet} CF ` : ''}${formattedCompanyName ? `from ${formattedCompanyName}` : ''}`,
       type: 'website',
     },
   };
@@ -137,10 +139,11 @@ export default async function PublicLoadPage({ params }: PageProps) {
   } | null;
 
   // Check if this load is part of an active share link
+  // Use filter with cs (contains) operator for UUID array compatibility
   const { data: shareLink } = await adminClient
     .from('load_share_links')
     .select('id')
-    .contains('load_ids', [id])
+    .filter('load_ids', 'cs', `{${id}}`)
     .eq('is_active', true)
     .limit(1)
     .maybeSingle();
@@ -198,7 +201,7 @@ export default async function PublicLoadPage({ params }: PageProps) {
         description: load.description,
       }}
       company={{
-        name: company?.name ?? 'Unknown Company',
+        name: formatCompanyName(company?.name) || 'Unknown Company',
         slug: company?.public_board_slug ?? null,
         logo_url: company?.public_board_logo_url ?? null,
         require_auth_to_claim: company?.public_board_require_auth_to_claim ?? false,
