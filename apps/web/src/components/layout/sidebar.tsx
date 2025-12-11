@@ -451,7 +451,7 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
   }
 
   return (
-    <aside className="hidden border-r border-sidebar-border bg-sidebar md:flex md:w-60 md:flex-col">
+    <aside className="hidden border-r border-sidebar-border bg-sidebar md:flex md:w-60 md:flex-col fixed top-0 left-0 h-screen z-40">
       <div className="flex h-[60px] items-center border-b border-sidebar-border px-4">
         <div className="flex items-center gap-3 min-w-0">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground shadow-sm shrink-0">

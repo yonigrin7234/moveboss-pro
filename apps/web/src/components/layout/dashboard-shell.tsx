@@ -49,7 +49,7 @@ export function DashboardShell({ children, user, company, role, unreadNotificati
         role={role}
         permissions={permissions}
       />
-      <div className="flex flex-1 flex-col min-w-0 pb-16 sm:pb-0">
+      <div className="flex flex-1 flex-col min-w-0 pb-16 sm:pb-0 md:ml-60">
         <TopNav user={user} company={company} unreadNotifications={unreadNotifications} />
         <main className="flex-1 px-4 py-5 sm:px-6 lg:px-8 min-w-0 max-w-[1600px]">
           <div className="space-y-5">
