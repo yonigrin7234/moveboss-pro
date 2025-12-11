@@ -322,14 +322,35 @@ export async function sendPushToDriver(
 
   const successCount = tickets.filter((t) => t.status === 'ok').length;
   const errorCount = tickets.filter((t) => t.status === 'error').length;
+  const ticketIds = tickets.filter((t) => t.status === 'ok' && t.id).map((t) => t.id!);
+  
   console.log('[PUSH DEBUG] sendPushToDriver result:', {
     driverId,
     title,
     tokenCount: tokens.length,
     successCount,
     errorCount,
+    ticketIds,
     errors: tickets.filter(t => t.status === 'error').map(t => ({ message: t.message, details: t.details })),
   });
+
+  // Check receipts after a short delay to verify delivery
+  // Note: Receipts may not be immediately available, so this is best-effort
+  if (ticketIds.length > 0) {
+    setTimeout(async () => {
+      const receipts = await checkPushReceipts(ticketIds);
+      const deliveryErrors = receipts.filter((r) => r.status === 'error');
+      if (deliveryErrors.length > 0) {
+        console.warn('[PUSH DEBUG] Delivery errors detected:', deliveryErrors);
+        // Check for DeviceNotRegistered errors which indicate invalid tokens
+        for (const receipt of deliveryErrors) {
+          if (receipt.details?.error === 'DeviceNotRegistered') {
+            console.error('[PUSH DEBUG] Token is invalid - device not registered:', receipt.message);
+          }
+        }
+      }
+    }, 5000); // Check after 5 seconds
+  }
 
   // Log the notification
   await logNotification(undefined, driverId, data?.type || 'general', title, body, data);
@@ -413,6 +434,52 @@ export async function deactivatePushToken(token: string): Promise<void> {
     .from('push_tokens')
     .update({ is_active: false, updated_at: new Date().toISOString() })
     .eq('token', token);
+}
+
+/**
+ * Check push notification receipts to verify delivery
+ * Expo receipts are available after a short delay (usually within minutes)
+ */
+export async function checkPushReceipts(
+  ticketIds: string[]
+): Promise<ExpoPushReceipt[]> {
+  if (ticketIds.length === 0) return [];
+
+  try {
+    const response = await fetch('https://exp.host/--/api/v2/push/getReceipts', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Accept-Encoding': 'gzip, deflate',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ids: ticketIds }),
+    });
+
+    const result = await response.json();
+    const receipts: ExpoPushReceipt[] = [];
+
+    if (result.data) {
+      for (const [ticketId, receipt] of Object.entries(result.data)) {
+        receipts.push(receipt as ExpoPushReceipt);
+      }
+    }
+
+    console.log('[PUSH DEBUG] Receipt check result:', {
+      ticketIds,
+      receiptCount: receipts.length,
+      receipts: receipts.map((r) => ({
+        status: r.status,
+        message: r.message,
+        details: r.details,
+      })),
+    });
+
+    return receipts;
+  } catch (error) {
+    console.error('[PUSH DEBUG] Error checking receipts:', error);
+    return [];
+  }
 }
 
 /**

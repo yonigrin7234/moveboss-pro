@@ -184,6 +184,12 @@ export function usePushNotifications(): UsePushNotificationsResult {
 
     // Listen for incoming notifications while app is foregrounded
     notificationListener.current = Notifications.addNotificationReceivedListener((notification) => {
+      console.log('[PUSH DEBUG] Notification received in app:', {
+        title: notification.request.content.title,
+        body: notification.request.content.body,
+        data: notification.request.content.data,
+        identifier: notification.request.identifier,
+      });
       setNotification(notification);
     });
 
