@@ -24,22 +24,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const segments = useSegments();
   const { expoPushToken, notification, error } = usePushNotifications();
 
-  // Log notification state for debugging
-  useEffect(() => {
-    if (expoPushToken) {
-      console.log('[PUSH DEBUG] NotificationProvider - Token registered:', expoPushToken.substring(0, 30) + '...');
-    }
-    if (error) {
-      console.error('[PUSH DEBUG] NotificationProvider - Error:', error);
-    }
-    if (notification) {
-      console.log('[PUSH DEBUG] NotificationProvider - Notification received:', {
-        title: notification.request.content.title,
-        body: notification.request.content.body,
-      });
-    }
-  }, [expoPushToken, error, notification]);
-
   // Handle notification response (user taps notification)
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {

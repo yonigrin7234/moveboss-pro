@@ -85,9 +85,6 @@ export function usePushNotifications(): UsePushNotificationsResult {
 
       // Save token to database if user is logged in
       if (user && token) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'usePushNotifications.ts:88',message:'Saving push token to database',data:{userId:user.id,token:token.substring(0,20)+'...',platform:Platform.OS},timestamp:Date.now(),sessionId:'debug-session',runId:'push-debug',hypothesisId:'F'})}).catch(()=>{});
-        // #endregion
         await savePushToken(token);
       }
 
@@ -156,22 +153,8 @@ export function usePushNotifications(): UsePushNotificationsResult {
           }
         );
 
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'usePushNotifications.ts:152',message:'Push token upsert result',data:{userId:user.id,driverId:driver.id,error:upsertError?.message,success:!upsertError},timestamp:Date.now(),sessionId:'debug-session',runId:'push-debug',hypothesisId:'F'})}).catch(()=>{});
-      // #endregion
-
       if (upsertError) {
-        console.error('[PUSH DEBUG] Failed to save push token:', upsertError);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'usePushNotifications.ts:165',message:'Push token save failed',data:{userId:user.id,driverId:driver.id,error:upsertError.message,errorCode:upsertError.code},timestamp:Date.now(),sessionId:'debug-session',runId:'push-debug',hypothesisId:'F'})}).catch(()=>{});
-        // #endregion
-      } else {
-        console.log('[PUSH DEBUG] Push token saved successfully:', {
-          userId: user.id,
-          driverId: driver.id,
-          tokenPrefix: token.substring(0, 20) + '...',
-          platform: Platform.OS,
-        });
+        console.error('Failed to save push token:', upsertError);
       }
     } catch {
       // Silently fail - non-critical
@@ -184,12 +167,6 @@ export function usePushNotifications(): UsePushNotificationsResult {
 
     // Listen for incoming notifications while app is foregrounded
     notificationListener.current = Notifications.addNotificationReceivedListener((notification) => {
-      console.log('[PUSH DEBUG] Notification received in app:', {
-        title: notification.request.content.title,
-        body: notification.request.content.body,
-        data: notification.request.content.data,
-        identifier: notification.request.identifier,
-      });
       setNotification(notification);
     });
 

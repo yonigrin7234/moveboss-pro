@@ -98,26 +98,11 @@ export async function getUserPushTokens(userId: string): Promise<string[]> {
 export async function getDriverPushTokens(driverId: string): Promise<string[]> {
   const supabase = getAdminClient();
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'push-notifications.ts:98',message:'Fetching driver push tokens',data:{driverId},timestamp:Date.now(),sessionId:'debug-session',runId:'push-debug',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
-
   const { data, error } = await supabase
     .from('push_tokens')
     .select('token')
     .eq('driver_id', driverId)
     .eq('is_active', true);
-
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'push-notifications.ts:108',message:'Driver push tokens query result',data:{driverId,error:error?.message,tokenCount:data?.length||0,tokens:data?.map(r=>r.token)||[]},timestamp:Date.now(),sessionId:'debug-session',runId:'push-debug',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
-
-  console.log('[PUSH DEBUG] getDriverPushTokens:', {
-    driverId,
-    tokenCount: data?.length || 0,
-    tokens: data?.map(r => r.token.substring(0, 20) + '...') || [],
-    error: error?.message,
-  });
 
   if (error) {
     console.error('Error fetching driver push tokens:', error);
@@ -187,31 +172,13 @@ export async function sendPushNotifications(
 
       const result = await response.json();
 
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'push-notifications.ts:173',message:'Expo Push API response',data:{status:response.status,statusText:response.statusText,resultData:result.data?.length||0,resultErrors:result.errors?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'push-debug',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
-
-      console.log('[PUSH DEBUG] Expo Push API response:', {
-        status: response.status,
-        statusText: response.statusText,
-        resultDataCount: result.data?.length || 0,
-        resultErrorsCount: result.errors?.length || 0,
-        tickets: result.data?.map((t: any) => ({
-          status: t.status,
-          id: t.id,
-          message: t.message,
-          details: t.details,
-        })) || [],
-        errors: result.errors || [],
-      });
-
       if (result.data) {
         tickets.push(...result.data);
       }
       
       // Log any errors from Expo
       if (result.errors && result.errors.length > 0) {
-        console.error('[PUSH DEBUG] Expo Push API errors:', result.errors);
+        console.error('Expo Push API errors:', result.errors);
       }
     } catch (error) {
       console.error('Error sending push notifications:', error);
@@ -283,21 +250,9 @@ export async function sendPushToDriver(
     sound?: 'default' | null;
   }
 ): Promise<{ success: boolean; ticketCount: number }> {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'push-notifications.ts:235',message:'sendPushToDriver called',data:{driverId,title,body,dataType:data?.type},timestamp:Date.now(),sessionId:'debug-session',runId:'push-debug',hypothesisId:'B'})}).catch(()=>{});
-  // #endregion
-
   const tokens = await getDriverPushTokens(driverId);
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'push-notifications.ts:245',message:'Tokens retrieved for driver',data:{driverId,tokenCount:tokens.length,tokens:tokens.slice(0,3)},timestamp:Date.now(),sessionId:'debug-session',runId:'push-debug',hypothesisId:'B'})}).catch(()=>{});
-  // #endregion
-
   if (tokens.length === 0) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'push-notifications.ts:249',message:'No tokens found for driver',data:{driverId},timestamp:Date.now(),sessionId:'debug-session',runId:'push-debug',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
-    console.warn('[PUSH DEBUG] No push tokens found for driver:', driverId);
     return { success: true, ticketCount: 0 };
   }
 
@@ -310,58 +265,27 @@ export async function sendPushToDriver(
     channelId: options?.channelId,
   }));
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'push-notifications.ts:260',message:'Sending push notifications to Expo',data:{driverId,messageCount:messages.length,title,body},timestamp:Date.now(),sessionId:'debug-session',runId:'push-debug',hypothesisId:'D'})}).catch(()=>{});
-  // #endregion
-
   const tickets = await sendPushNotifications(messages);
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'push-notifications.ts:265',message:'Push notification tickets received',data:{driverId,ticketCount:tickets.length,successCount:tickets.filter(t=>t.status==='ok').length,errors:tickets.filter(t=>t.status==='error').map(t=>({message:t.message,details:t.details}))},timestamp:Date.now(),sessionId:'debug-session',runId:'push-debug',hypothesisId:'D'})}).catch(()=>{});
-  // #endregion
-
   const successCount = tickets.filter((t) => t.status === 'ok').length;
-  const errorCount = tickets.filter((t) => t.status === 'error').length;
   const ticketIds = tickets.filter((t) => t.status === 'ok' && t.id).map((t) => t.id!);
-  
-  console.log('[PUSH DEBUG] sendPushToDriver result:', {
-    driverId,
-    title,
-    tokenCount: tokens.length,
-    successCount,
-    errorCount,
-    ticketIds,
-    errors: tickets.filter(t => t.status === 'error').map(t => ({ message: t.message, details: t.details })),
-  });
 
-  // Check receipts after a short delay to verify delivery
+  // Check receipts after a short delay to verify delivery and handle errors
   // Note: Receipts may not be immediately available, so this is best-effort
   if (ticketIds.length > 0) {
-    console.log('[PUSH DEBUG] Scheduling receipt check for ticket IDs:', ticketIds);
     setTimeout(async () => {
-      console.log('[PUSH DEBUG] Checking receipts now for ticket IDs:', ticketIds);
       const receipts = await checkPushReceipts(ticketIds);
       const deliveryErrors = receipts.filter((r) => r.status === 'error');
-      const deliverySuccess = receipts.filter((r) => r.status === 'ok');
-      
-      if (deliverySuccess.length > 0) {
-        console.log('[PUSH DEBUG] ✅ Receipts show successful delivery:', deliverySuccess.length, 'notifications delivered');
-      }
       
       if (deliveryErrors.length > 0) {
-        console.warn('[PUSH DEBUG] ⚠️ Delivery errors detected:', deliveryErrors);
         // Check for DeviceNotRegistered errors which indicate invalid tokens
         for (const receipt of deliveryErrors) {
           if (receipt.details?.error === 'DeviceNotRegistered') {
-            console.error('[PUSH DEBUG] ❌ Token is invalid - device not registered:', receipt.message);
+            console.error('Push notification delivery failed - device not registered:', receipt.message);
           } else {
-            console.error('[PUSH DEBUG] ❌ Delivery error:', receipt.details?.error || receipt.message);
+            console.error('Push notification delivery error:', receipt.details?.error || receipt.message);
           }
         }
-      }
-      
-      if (receipts.length === 0) {
-        console.warn('[PUSH DEBUG] ⚠️ No receipts available yet - Expo may still be processing');
       }
     }, 5000); // Check after 5 seconds
   }
@@ -479,19 +403,10 @@ export async function checkPushReceipts(
       }
     }
 
-    console.log('[PUSH DEBUG] Receipt check result:', {
-      ticketIds,
-      receiptCount: receipts.length,
-      receipts: receipts.map((r) => ({
-        status: r.status,
-        message: r.message,
-        details: r.details,
-      })),
-    });
 
     return receipts;
   } catch (error) {
-    console.error('[PUSH DEBUG] Error checking receipts:', error);
+    console.error('Error checking push notification receipts:', error);
     return [];
   }
 }
@@ -652,12 +567,8 @@ export async function notifyDriverLoadAddedToTrip(
   pickupLocation: string,
   deliveryLocation: string
 ): Promise<void> {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'push-notifications.ts:524',message:'notifyDriverLoadAddedToTrip called',data:{driverId,loadNumber,loadId,tripId,tripNumber},timestamp:Date.now(),sessionId:'debug-session',runId:'push-debug',hypothesisId:'G'})}).catch(()=>{});
-  // #endregion
-  console.log('[PUSH DEBUG] notifyDriverLoadAddedToTrip called:', { driverId, loadNumber, loadId, tripId });
   const orderText = deliveryOrder ? ` (Delivery #${deliveryOrder})` : '';
-  const result = await sendPushToDriver(
+  await sendPushToDriver(
     driverId,
     '🚨 NEW LOAD ADDED',
     `Load ${loadNumber}${orderText} added to Trip #${tripNumber}: ${pickupLocation} → ${deliveryLocation}`,
@@ -668,7 +579,6 @@ export async function notifyDriverLoadAddedToTrip(
     },
     { channelId: 'trips', sound: 'default' }
   );
-  console.log('[PUSH DEBUG] notifyDriverLoadAddedToTrip result:', result);
 }
 
 /**
@@ -682,12 +592,8 @@ export async function notifyDriverLoadRemovedFromTrip(
   tripNumber: number,
   reason?: string
 ): Promise<void> {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'push-notifications.ts:552',message:'notifyDriverLoadRemovedFromTrip called',data:{driverId,loadNumber,tripId,tripNumber,reason},timestamp:Date.now(),sessionId:'debug-session',runId:'push-debug',hypothesisId:'G'})}).catch(()=>{});
-  // #endregion
-  console.log('[PUSH DEBUG] notifyDriverLoadRemovedFromTrip called:', { driverId, loadNumber, tripId });
   const reasonText = reason ? ` - ${reason}` : '';
-  const result = await sendPushToDriver(
+  await sendPushToDriver(
     driverId,
     '⚠️ LOAD REMOVED',
     `Load ${loadNumber} removed from Trip #${tripNumber}${reasonText}`,
@@ -697,7 +603,6 @@ export async function notifyDriverLoadRemovedFromTrip(
     },
     { channelId: 'trips', sound: 'default' }
   );
-  console.log('[PUSH DEBUG] notifyDriverLoadRemovedFromTrip result:', result);
 }
 
 /**

@@ -228,13 +228,6 @@ export function useConversationMessages(
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
-  
-  // #region agent log
-  // Track canWrite changes for debugging
-  useEffect(() => {
-    fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:225',message:'canWrite state changed',data:{canWrite:state.can_write,conversationId,conversationType:options.conversationType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-  }, [state.can_write, conversationId, options.conversationType]);
-  // #endregion
 
   // Helper function to get sender display name
   const getSenderDisplayName = (profile: { full_name?: string | null; email?: string | null } | null | undefined): string => {
@@ -365,9 +358,6 @@ export function useConversationMessages(
       setState((prev) => {
         // Force can_write to true for driver_dispatch, otherwise keep true (default for drivers)
         const newCanWrite = isDriverDispatch ? true : true; // Always true for mobile app drivers
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:352',message:'Setting canWrite in fetchMessages',data:{prevCanWrite:prev.can_write,newCanWrite,conversationId,conversationType:options.conversationType,isDriverDispatch},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         return {
           ...prev,
           messages: formattedMessages,
@@ -415,9 +405,6 @@ export function useConversationMessages(
   useEffect(() => {
     if (!conversationId) {
       dataLogger.debug('Realtime subscription skipped - no conversationId');
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:390',message:'Realtime subscription skipped - no conversationId',data:{conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
       return;
     }
 
@@ -429,9 +416,6 @@ export function useConversationMessages(
     }
 
     dataLogger.info('Setting up realtime subscription for:', conversationId);
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:404',message:'Setting up realtime subscription',data:{conversationId,currentMessagesCount:stateRef.current.messages.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
 
     const channel = supabase
       .channel(`messages:${conversationId}`, {
@@ -451,9 +435,6 @@ export function useConversationMessages(
         async (payload) => {
           dataLogger.info('🔔 Realtime INSERT received:', { messageId: payload.new.id, conversationId: payload.new.conversation_id });
           console.log('🔔 Realtime INSERT received:', payload.new.id, 'for conversation:', payload.new.conversation_id, 'our conversation:', conversationId);
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:446',message:'Realtime INSERT callback triggered',data:{messageId:payload.new.id,payloadConversationId:payload.new.conversation_id,subscriptionConversationId:conversationId,currentMessagesCount:stateRef.current.messages.length,match:payload.new.conversation_id===conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run6',hypothesisId:'D'})}).catch(()=>{});
-          // #endregion
           
           // Verify this message is for our conversation
           const payloadConvId = payload.new.conversation_id;
@@ -463,16 +444,10 @@ export function useConversationMessages(
               ourConversationId: conversationId
             });
             console.log('⚠️ Message conversation ID mismatch:', payloadConvId, 'vs', conversationId);
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:456',message:'Message conversation ID mismatch',data:{messageConvId:payloadConvId,ourConvId:conversationId,payload:JSON.stringify(payload.new)},timestamp:Date.now(),sessionId:'debug-session',runId:'run6',hypothesisId:'D'})}).catch(()=>{});
-            // #endregion
             return;
           }
           
           console.log('✅ Message conversation ID matches, processing message:', payload.new.id, 'sender_user_id:', payload.new.sender_user_id, 'sender_driver_id:', payload.new.sender_driver_id);
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:465',message:'Message conversation ID matches, processing',data:{conversationId:payloadConvId,messageId:payload.new.id,senderUserId:payload.new.sender_user_id,senderDriverId:payload.new.sender_driver_id,body:payload.new.body?.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'run9',hypothesisId:'D'})}).catch(()=>{});
-          // #endregion
 
           try {
             // Fetch the full message with sender info
@@ -495,9 +470,6 @@ export function useConversationMessages(
 
             if (error) {
               dataLogger.error('Failed to fetch new message:', error);
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:437',message:'Failed to fetch new message from realtime',data:{error:error.message,messageId:payload.new.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-              // #endregion
               return;
             }
 
@@ -541,9 +513,6 @@ export function useConversationMessages(
                 if (exists) {
                   dataLogger.debug('Message already exists, skipping:', formatted.id);
                   console.log('⚠️ Message already exists in state (likely optimistic), skipping:', formatted.id);
-                  // #region agent log
-                  fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:485',message:'Message duplicate detected',data:{messageId:formatted.id,currentCount:prev.messages.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-                  // #endregion
                   // Update the existing message with full data (in case optimistic was incomplete)
                   const updatedMessages = prev.messages.map(m => 
                     m.id === formatted.id ? formatted : m
@@ -555,9 +524,6 @@ export function useConversationMessages(
                 }
                 dataLogger.info('Adding new message to state:', formatted.id);
                 console.log('✅ Adding new message from real-time to state:', formatted.id, 'Previous count:', prev.messages.length, 'New count:', prev.messages.length + 1);
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:537',message:'Adding new message to state',data:{messageId:formatted.id,prevCount:prev.messages.length,newCount:prev.messages.length+1},timestamp:Date.now(),sessionId:'debug-session',runId:'run6',hypothesisId:'D'})}).catch(()=>{});
-                // #endregion
                 // Update stateRef immediately for next callback
                 const newState = {
                   ...prev,
@@ -566,32 +532,19 @@ export function useConversationMessages(
                 stateRef.current = newState;
                 return newState;
               });
-            } else {
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:503',message:'No message data returned from query',data:{messageId:payload.new.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-              // #endregion
             }
           } catch (err) {
             dataLogger.error('Error processing realtime message:', err);
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:507',message:'Error processing realtime message',data:{error:err instanceof Error ? err.message : String(err),messageId:payload.new.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-            // #endregion
           }
         }
       )
       .subscribe(async (status, err) => {
         dataLogger.info('📡 Realtime subscription status:', status);
         console.log('📡 Realtime subscription status:', status, 'for conversation:', conversationId, err ? `Error: ${err}` : '');
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:556',message:'Subscription status changed',data:{status:status,conversationId,error:err?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run9',hypothesisId:'E'})}).catch(()=>{});
-        // #endregion
         // If subscription failed, log it
         if (status === 'SUBSCRIBED') {
           dataLogger.info('✅ Realtime subscription active for:', conversationId);
           console.log('✅ Realtime subscription SUBSCRIBED for:', conversationId);
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:561',message:'Subscription SUBSCRIBED successfully',data:{conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run9',hypothesisId:'E'})}).catch(()=>{});
-          // #endregion
           // Stop polling if subscription succeeds
           if (pollingIntervalRef.current) {
             console.log('✅ Stopping fallback polling - subscription active');
@@ -601,9 +554,6 @@ export function useConversationMessages(
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED' || err) {
           dataLogger.error('❌ Realtime subscription error:', { status, conversationId, error: err });
           console.error('❌ Realtime subscription error:', status, 'for conversation:', conversationId, err);
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:566',message:'Subscription ERROR',data:{status,conversationId,error:err?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run9',hypothesisId:'E'})}).catch(()=>{});
-          // #endregion
           // Only start polling if not already polling (prevent multiple intervals)
           if (!pollingIntervalRef.current) {
             console.log('🔄 Starting fallback polling due to subscription failure');
@@ -619,15 +569,9 @@ export function useConversationMessages(
 
     // Log subscription attempt
     console.log('🔌 Attempting to subscribe to realtime channel:', `messages:${conversationId}`);
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:613',message:'Subscribing to channel',data:{channelName:`messages:${conversationId}`,conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run10',hypothesisId:'G'})}).catch(()=>{});
-    // #endregion
 
     return () => {
       dataLogger.info('Cleaning up realtime subscription for:', conversationId);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:575',message:'Cleaning up subscription',data:{conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
       // Clean up polling interval
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
@@ -658,9 +602,6 @@ export function useConversationMessages(
       }
 
       console.log('📤 Sending message:', { body, conversationId, replyToId });
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:630',message:'Sending message',data:{body,conversationId,replyToId,userId:user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run8',hypothesisId:'F'})}).catch(()=>{});
-      // #endregion
 
       try {
         setState((prev) => ({ ...prev, is_sending: true, error: null }));
@@ -750,9 +691,6 @@ export function useConversationMessages(
         }
 
         console.log('✅ Message inserted successfully:', message.id, 'to conversation:', targetConversationId);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:694',message:'Message inserted successfully',data:{messageId:message.id,targetConversationId,originalConversationId:conversationId,wasRouted},timestamp:Date.now(),sessionId:'debug-session',runId:'run8',hypothesisId:'F'})}).catch(()=>{});
-        // #endregion
 
         // Trigger push notifications for other participants
         // This ensures notifications are sent even when messages are inserted directly (bypassing API route)
@@ -825,9 +763,6 @@ export function useConversationMessages(
             }
             // Add optimistic message
             console.log('✅ Adding optimistic message to state:', optimisticMessage.id, 'Previous count:', prev.messages.length);
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:720',message:'Adding optimistic message',data:{messageId:optimisticMessage.id,prevCount:prev.messages.length,newCount:prev.messages.length+1,conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run8',hypothesisId:'F'})}).catch(()=>{});
-            // #endregion
             return {
               ...prev,
               messages: [...prev.messages, optimisticMessage],
@@ -871,9 +806,6 @@ export function useConversationMessages(
   return useMemo(() => {
     // Ensure can_write is ALWAYS true for driver_dispatch conversations
     const isDriverDispatch = conversationTypeRef.current === 'driver_dispatch';
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:675',message:'useMemo return - checking canWrite',data:{isDriverDispatch,conversationType:conversationTypeRef.current,currentCanWrite:state.can_write,conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     
     // ALWAYS force can_write to true for driver_dispatch, no matter what state says
     const finalCanWrite = isDriverDispatch ? true : state.can_write;
@@ -883,12 +815,6 @@ export function useConversationMessages(
     const finalState = (finalCanWrite !== state.can_write || finalIsReadOnly !== state.is_read_only)
       ? { ...state, can_write: finalCanWrite, is_read_only: finalIsReadOnly }
       : state;
-    
-    // #region agent log
-    if (finalCanWrite !== state.can_write) {
-      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:686',message:'FORCING canWrite to true for driver_dispatch',data:{was:state.can_write,now:finalCanWrite,conversationType:conversationTypeRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'A'})}).catch(()=>{});
-    }
-    // #endregion
     
     return {
       ...finalState,

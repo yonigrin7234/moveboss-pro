@@ -164,7 +164,6 @@ export async function POST(request: Request) {
         if (!driverId) {
           return NextResponse.json({ error: 'driverId required' }, { status: 400 });
         }
-        console.log('[PUSH DEBUG] Test push notification requested for driver:', driverId);
         const result = await sendPushToDriver(
           driverId,
           '🧪 Test Notification',
@@ -172,7 +171,6 @@ export async function POST(request: Request) {
           { type: 'general' },
           { channelId: 'default', sound: 'default' }
         );
-        console.log('[PUSH DEBUG] Test push result:', result);
         return NextResponse.json({ success: true, result });
       }
 
