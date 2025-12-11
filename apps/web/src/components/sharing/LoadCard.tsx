@@ -12,7 +12,6 @@ import {
   Zap,
   Box,
   CheckCircle2,
-  CalendarCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -35,12 +34,18 @@ export interface LoadCardData extends LoadLocationFields, PickupDateFields {
   total_rate: number | null;
   service_type: string | null;
   description: string | null;
-  // New fields
+  // Load type fields
   load_type?: string | null;
   load_subtype?: string | null;
   truck_requirement?: string | null;
   rfd_date?: string | null;
   company_verified?: boolean;
+  // Marketplace fields
+  is_open_to_counter?: boolean;
+  available_date?: string | null;
+  posting_type?: string | null;
+  pickup_date_start?: string | null;
+  pickup_date_end?: string | null;
 }
 
 interface LoadCardProps {
@@ -130,6 +135,11 @@ function isReadyNow(load: LoadCardData): boolean {
     return true;
   }
 
+  // For RFD loads with no rfd_date, it's ready now
+  if ((load.load_type === 'rfd' || load.load_subtype === 'rfd') && !load.rfd_date) {
+    return true;
+  }
+
   // For RFD loads, check if rfd_date is today or in the past
   if (load.rfd_date) {
     const rfdDate = new Date(load.rfd_date);
@@ -139,8 +149,8 @@ function isReadyNow(load: LoadCardData): boolean {
   }
 
   // For pickup type loads, check pickup_date
-  if (load.load_type === 'pickup') {
-    const pickupDate = load.pickup_window_start || load.pickup_date;
+  if (load.load_type === 'pickup' || load.posting_type === 'pickup') {
+    const pickupDate = load.pickup_window_start || load.pickup_date || load.pickup_date_start;
     if (pickupDate) {
       const date = new Date(pickupDate);
       const today = new Date();
@@ -152,12 +162,59 @@ function isReadyNow(load: LoadCardData): boolean {
   return false;
 }
 
+// Format date display based on load type - matches marketplace logic
+function formatDateDisplay(load: LoadCardData): string {
+  // For pickups, show date range
+  if (load.posting_type === 'pickup' || load.load_type === 'pickup') {
+    const start = load.pickup_date_start || load.pickup_window_start || load.pickup_date;
+    const end = load.pickup_date_end || load.pickup_window_end;
+
+    if (start && end && start !== end) {
+      const startStr = new Date(start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const endStr = new Date(end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return `${startStr}-${endStr}`;
+    }
+    if (start) {
+      return new Date(start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    return '';
+  }
+
+  // For RFD loads, show ready date
+  if (load.load_type === 'rfd' || load.load_subtype === 'rfd') {
+    if (!load.rfd_date) return 'Ready Now';
+    const rfdDate = new Date(load.rfd_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (rfdDate <= today) return 'Ready Now';
+    return `Ready ${rfdDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  }
+
+  // For live loads, show available date
+  if (load.load_type === 'live_load' || load.load_subtype === 'live') {
+    if (load.available_date) {
+      return new Date(load.available_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    return 'Available Now';
+  }
+
+  // Default: show pickup date if available
+  const pickupDate = load.pickup_window_start || load.pickup_date;
+  if (pickupDate) {
+    return new Date(pickupDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  return '';
+}
+
 export function LoadCard({ load, showRates, variant = 'default', className }: LoadCardProps) {
   const originWithZip = formatLocationWithZip(load.pickup_city, load.pickup_state, load.pickup_postal_code);
   const destWithZip = formatLocationWithZip(load.delivery_city, load.delivery_state, load.delivery_postal_code);
-  const pickupDate = formatDate(load.pickup_window_start || load.pickup_date);
-  const deliveryDate = formatDate(load.delivery_window_start || load.delivery_date);
   const serviceLabel = getServiceTypeLabel(load.service_type);
+
+  // Use smart date display based on load type (matches marketplace)
+  const dateDisplay = formatDateDisplay(load);
+  const readyNow = isReadyNow(load);
 
   // Determine load type display
   const loadTypeConfig = load.load_type ? LOAD_TYPE_CONFIG[load.load_type] :
@@ -165,7 +222,6 @@ export function LoadCard({ load, showRates, variant = 'default', className }: Lo
                          load.load_subtype === 'rfd' ? LOAD_TYPE_CONFIG['rfd'] : null;
 
   const truckLabel = load.truck_requirement ? TRUCK_REQUIREMENT_LABELS[load.truck_requirement] : null;
-  const readyNow = isReadyNow(load);
 
   return (
     <Link
@@ -198,11 +254,18 @@ export function LoadCard({ load, showRates, variant = 'default', className }: Lo
           </span>
         )}
 
-        {/* Ready now indicator */}
-        {readyNow && (
+        {/* Ready now indicator - only show if date doesn't already say "Ready Now" */}
+        {readyNow && !dateDisplay.includes('Ready') && !dateDisplay.includes('Available') && (
           <span className="text-xs font-medium px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 flex items-center gap-1">
-            <Clock className="h-3 w-3" />
+            <CheckCircle2 className="h-3 w-3" />
             Ready Now
+          </span>
+        )}
+
+        {/* Open to offers badge */}
+        {load.is_open_to_counter && (
+          <span className="text-xs font-medium px-2 py-1 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
+            Open to offers
           </span>
         )}
 
@@ -244,19 +307,15 @@ export function LoadCard({ load, showRates, variant = 'default', className }: Lo
 
       {/* Key details */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600 dark:text-slate-300 mb-4">
-        {/* Pickup date */}
-        <div className="flex items-center gap-1.5">
-          <Calendar className="h-3.5 w-3.5 text-slate-400" />
-          <span className="text-slate-400">Pick:</span>
-          <span>{pickupDate}</span>
-        </div>
-
-        {/* Delivery date if different from pickup */}
-        {deliveryDate && deliveryDate !== pickupDate && (
+        {/* Smart date display based on load type */}
+        {dateDisplay && (
           <div className="flex items-center gap-1.5">
-            <CalendarCheck className="h-3.5 w-3.5 text-slate-400" />
-            <span className="text-slate-400">Del:</span>
-            <span>{deliveryDate}</span>
+            {dateDisplay.includes('Ready') || dateDisplay.includes('Available') ? (
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+            ) : (
+              <Calendar className="h-3.5 w-3.5 text-slate-400" />
+            )}
+            <span>{dateDisplay}</span>
           </div>
         )}
 
@@ -265,22 +324,21 @@ export function LoadCard({ load, showRates, variant = 'default', className }: Lo
           <div className="flex items-center gap-1.5">
             <Package className="h-3.5 w-3.5 text-slate-400" />
             <span>{load.cubic_feet.toLocaleString()} CF</span>
+            {showRates && load.rate_per_cuft && (
+              <span className="text-slate-400">@ ${load.rate_per_cuft.toFixed(2)}/CF</span>
+            )}
           </div>
         )}
       </div>
 
-      {/* Rate */}
+      {/* Rate - matches marketplace: "Linehaul" label */}
       {showRates && load.total_rate ? (
         <div className="flex items-center justify-between">
-          <div>
-            <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+          <div className="text-right">
+            <p className="text-xs text-slate-400">Linehaul</p>
+            <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
               {formatCurrency(load.total_rate)}
-            </span>
-            {load.rate_per_cuft && (
-              <span className="ml-2 text-xs text-slate-400">
-                ({formatCurrency(load.rate_per_cuft)}/CF)
-              </span>
-            )}
+            </p>
           </div>
           <span className="text-xs text-slate-400 group-hover:text-primary transition-colors flex items-center gap-1">
             View & Claim <ExternalLink className="h-3 w-3" />
@@ -288,9 +346,12 @@ export function LoadCard({ load, showRates, variant = 'default', className }: Lo
         </div>
       ) : (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-slate-500 dark:text-slate-400">
-            {showRates ? 'Rate not set' : 'Contact for rate'}
-          </span>
+          <div className="text-right">
+            <p className="text-xs text-slate-400">Linehaul</p>
+            <p className="text-lg font-semibold text-slate-600 dark:text-slate-300">
+              {showRates ? 'Make an offer' : 'Contact for rate'}
+            </p>
+          </div>
           <span className="text-xs text-slate-400 group-hover:text-primary transition-colors flex items-center gap-1">
             View & Claim <ExternalLink className="h-3 w-3" />
           </span>

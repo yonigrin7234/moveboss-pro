@@ -98,6 +98,8 @@ export default async function PublicBoardPage({ params, searchParams }: PageProp
       load_subtype,
       truck_requirement,
       rfd_date,
+      is_open_to_counter,
+      available_date,
       created_at
     `, { count: 'exact' })
     .eq('company_id', company.id)
@@ -143,6 +145,8 @@ export default async function PublicBoardPage({ params, searchParams }: PageProp
     load_subtype: load.load_subtype,
     truck_requirement: load.truck_requirement,
     rfd_date: load.rfd_date,
+    is_open_to_counter: load.is_open_to_counter,
+    available_date: load.available_date,
     company_verified: companyVerified,
   }));
 

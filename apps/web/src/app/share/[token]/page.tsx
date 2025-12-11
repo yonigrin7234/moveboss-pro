@@ -152,7 +152,9 @@ export default async function SharePage({ params }: PageProps) {
       load_type,
       load_subtype,
       truck_requirement,
-      rfd_date
+      rfd_date,
+      is_open_to_counter,
+      available_date
     `)
     .in('id', shareLink.load_ids)
     .eq('status', 'pending');
@@ -184,6 +186,8 @@ export default async function SharePage({ params }: PageProps) {
     load_subtype: load.load_subtype,
     truck_requirement: load.truck_requirement,
     rfd_date: load.rfd_date,
+    is_open_to_counter: load.is_open_to_counter,
+    available_date: load.available_date,
     company_verified: companyVerified,
   }));
 
