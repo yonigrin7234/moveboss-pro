@@ -136,13 +136,25 @@ export default async function PublicLoadPage({ params }: PageProps) {
     primary_contact_phone: string | null;
   } | null;
 
-  // Check if public sharing is enabled
-  if (!company?.public_board_enabled) {
+  // Check if this load is part of an active share link
+  const { data: shareLink } = await adminClient
+    .from('load_share_links')
+    .select('id')
+    .contains('load_ids', [id])
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle();
+
+  const isSharedViaLink = !!shareLink;
+
+  // Allow access if: public board is enabled OR load is shared via an active share link
+  if (!company?.public_board_enabled && !isSharedViaLink) {
     notFound();
   }
 
-  const showRates = company.public_board_show_rates;
-  const showContact = company.public_board_show_contact;
+  // At this point we have access - use defaults if company settings are missing
+  const showRates = company?.public_board_show_rates ?? true;
+  const showContact = company?.public_board_show_contact ?? false;
 
   // Fetch related loads from same company
   const { data: relatedLoads } = await adminClient
@@ -186,12 +198,12 @@ export default async function PublicLoadPage({ params }: PageProps) {
         description: load.description,
       }}
       company={{
-        name: company.name,
-        slug: company.public_board_slug,
-        logo_url: company.public_board_logo_url,
-        require_auth_to_claim: company.public_board_require_auth_to_claim,
+        name: company?.name ?? 'Unknown Company',
+        slug: company?.public_board_slug ?? null,
+        logo_url: company?.public_board_logo_url ?? null,
+        require_auth_to_claim: company?.public_board_require_auth_to_claim ?? false,
         show_rates: showRates,
-        contact: showContact ? {
+        contact: showContact && company ? {
           email: company.primary_contact_email,
           phone: company.primary_contact_phone,
         } : null,
