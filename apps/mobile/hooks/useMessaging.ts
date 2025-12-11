@@ -38,7 +38,7 @@ export function useDriverConversations(options: UseDriverConversationsOptions = 
       // First get the driver record
       const { data: driver, error: driverError } = await supabase
         .from('drivers')
-        .select('id')
+        .select('id, company_id')
         .eq('auth_user_id', user.id)
         .single();
 
@@ -46,6 +46,33 @@ export function useDriverConversations(options: UseDriverConversationsOptions = 
         setError('Driver profile not found');
         setConversations([]);
         return;
+      }
+
+      // If tripId is provided, ensure the driver is a participant of any trip_internal conversation
+      // This handles cases where the conversation was created before the driver was properly added
+      if (options.tripId) {
+        // Check if trip_internal conversation exists for this trip
+        const { data: tripConvs } = await supabase
+          .from('conversations')
+          .select('id, owner_company_id')
+          .eq('trip_id', options.tripId)
+          .eq('type', 'trip_internal');
+
+        // For each trip conversation, ensure driver is a participant
+        for (const conv of tripConvs ?? []) {
+          await supabase.from('conversation_participants').upsert(
+            {
+              conversation_id: conv.id,
+              driver_id: driver.id,
+              company_id: conv.owner_company_id || driver.company_id,
+              role: 'driver',
+              can_read: true,
+              can_write: true,
+              is_driver: true,
+            },
+            { onConflict: 'conversation_id,driver_id' }
+          );
+        }
       }
 
       // Build query for conversations the driver is a participant of
@@ -693,6 +720,9 @@ export function useConversationMessages(
           driverId: driver.id,
           wasRouted 
         });
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:sendMessage:INSERTING',message:'Mobile inserting message into database',data:{targetConversationId,originalConversationId:conversationId,driverId:driver.id,wasRouted,bodyLength:body.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
+        // #endregion
         const { data: message, error: sendError } = await supabase
           .from('messages')
           .insert({
@@ -708,6 +738,10 @@ export function useConversationMessages(
           })
           .select()
           .single();
+
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:sendMessage:INSERT_RESULT',message:'Mobile message insert result',data:{targetConversationId,messageId:message?.id,error:sendError?.message,success:!sendError},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
+        // #endregion
 
         if (sendError) {
           console.error('❌ Error sending message:', sendError);
