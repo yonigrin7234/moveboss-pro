@@ -2,7 +2,6 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { createServiceRoleClient } from '@/lib/supabase-admin';
 import { SharePageClient } from './client';
-import { formatCompanyName } from '@/lib/utils';
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -16,34 +15,28 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     .from('load_share_links')
     .select(`
       load_ids,
-      companies (name, public_board_logo_url)
+      companies (name)
     `)
     .eq('token', token)
     .eq('is_active', true)
     .single();
 
-  const company = shareLink?.companies as unknown as { name: string; public_board_logo_url: string | null } | null;
+  const company = shareLink?.companies as unknown as { name: string } | null;
   const loadCount = shareLink?.load_ids?.length || 0;
-  const formattedName = formatCompanyName(company?.name);
-  const logoUrl = company?.public_board_logo_url;
 
   return {
-    title: formattedName
-      ? `${loadCount} ${loadCount === 1 ? 'Load' : 'Loads'} from ${formattedName} | MoveBoss Pro`
+    title: company
+      ? `${loadCount} ${loadCount === 1 ? 'Load' : 'Loads'} from ${company.name} | MoveBoss Pro`
       : 'Shared Loads | MoveBoss Pro',
-    description: formattedName
-      ? `View ${loadCount} available ${loadCount === 1 ? 'load' : 'loads'} shared by ${formattedName}`
+    description: company
+      ? `View ${loadCount} available ${loadCount === 1 ? 'load' : 'loads'} shared by ${company.name}`
       : 'View shared loads on MoveBoss Pro',
     openGraph: {
-      title: formattedName ? `${loadCount} Available Loads` : 'Shared Loads',
-      description: formattedName
-        ? `View ${loadCount} available ${loadCount === 1 ? 'load' : 'loads'} shared by ${formattedName}`
+      title: company ? `${loadCount} Available Loads` : 'Shared Loads',
+      description: company
+        ? `View ${loadCount} available ${loadCount === 1 ? 'load' : 'loads'} shared by ${company.name}`
         : 'View shared loads',
       type: 'website',
-      siteName: 'MoveBoss Pro',
-      ...(logoUrl && {
-        images: [{ url: logoUrl, width: 200, height: 200, alt: formattedName || 'Company Logo' }],
-      }),
     },
   };
 }
@@ -188,7 +181,7 @@ export default async function SharePage({ params }: PageProps) {
   return (
     <SharePageClient
       company={company ? {
-        name: formatCompanyName(company.name),
+        name: company.name,
         slug: company.public_board_slug,
         logo_url: company.public_board_logo_url,
         show_rates: showRates,
