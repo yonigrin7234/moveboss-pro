@@ -17,6 +17,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { MessageWithSender, ConversationType } from '../../types/messaging';
 import { format, isToday, isYesterday } from 'date-fns';
 import { dataLogger } from '../../lib/logger';
+import { supabase } from '../../lib/supabase';
 
 interface ChatViewProps {
   conversationId: string;
@@ -52,6 +53,45 @@ export function ChatView({
   const [inputText, setInputText] = useState('');
   const [replyTo, setReplyTo] = useState<MessageWithSender | null>(null);
   const flatListRef = useRef<FlatList>(null);
+  const hasMarkedReadRef = useRef(false);
+
+  // Mark conversation as read when viewing it
+  useEffect(() => {
+    if (!conversationId || !user?.id || hasMarkedReadRef.current) return;
+
+    const markAsRead = async () => {
+      try {
+        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 
+          (process.env.EXPO_PUBLIC_SUPABASE_URL?.replace('.supabase.co', '.vercel.app') || '');
+        
+        if (apiUrl) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            await fetch(`${apiUrl}/api/messaging/conversations/${conversationId}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({ action: 'mark_read' }),
+            });
+            hasMarkedReadRef.current = true;
+          }
+        }
+      } catch (error) {
+        console.error('Failed to mark conversation as read:', error);
+      }
+    };
+
+    // Mark as read after a short delay to ensure messages are loaded
+    const timer = setTimeout(markAsRead, 500);
+    return () => clearTimeout(timer);
+  }, [conversationId, user?.id]);
+
+  // Reset mark-as-read flag when conversation changes
+  useEffect(() => {
+    hasMarkedReadRef.current = false;
+  }, [conversationId]);
 
   // Debug logging
   useEffect(() => {

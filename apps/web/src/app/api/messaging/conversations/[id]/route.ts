@@ -104,7 +104,7 @@ export async function PATCH(
 }
 
 // POST /api/messaging/conversations/[id]
-// Mark conversation as read
+// Mark conversation as read (supports both users and drivers)
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -123,7 +123,32 @@ export async function POST(
     const body = await request.json();
 
     if (body.action === 'mark_read') {
-      await markConversationRead(id, user.id);
+      // Check if user is a driver
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (driver) {
+        // Mark as read for driver
+        const { error } = await supabase
+          .from('conversation_participants')
+          .update({
+            unread_count: 0,
+            last_read_at: new Date().toISOString(),
+          })
+          .eq('conversation_id', id)
+          .eq('driver_id', driver.id);
+
+        if (error) {
+          throw new Error(`Failed to mark conversation read: ${error.message}`);
+        }
+      } else {
+        // Mark as read for user
+        await markConversationRead(id, user.id);
+      }
+
       return NextResponse.json({ success: true });
     }
 

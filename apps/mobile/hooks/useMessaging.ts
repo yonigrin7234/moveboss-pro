@@ -1158,24 +1158,64 @@ export function useTotalUnreadCount() {
 
     fetchUnreadCount();
 
-    // Subscribe to changes
-    const channel = supabase
-      .channel('unread-count')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'conversation_participants',
-        },
-        () => {
-          fetchUnreadCount();
-        }
-      )
-      .subscribe();
+    // Subscribe to changes for this specific driver
+    // Listen to all conversation_participants changes and filter by driver_id in callback
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let debounceTimer: NodeJS.Timeout | null = null;
+    
+    const setupSubscription = async () => {
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!driver) return;
+
+      channel = supabase
+        .channel(`unread-count-${driver.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'conversation_participants',
+          },
+          (payload) => {
+            // Only update if this change affects our driver
+            if (payload.new && (payload.new as any).driver_id === driver.id) {
+              // Debounce rapid updates
+              if (debounceTimer) {
+                clearTimeout(debounceTimer);
+              }
+              debounceTimer = setTimeout(() => {
+                fetchUnreadCount();
+                debounceTimer = null;
+              }, 300);
+            } else if (payload.old && (payload.old as any).driver_id === driver.id) {
+              // Also handle deletes/updates where old record was for our driver
+              if (debounceTimer) {
+                clearTimeout(debounceTimer);
+              }
+              debounceTimer = setTimeout(() => {
+                fetchUnreadCount();
+                debounceTimer = null;
+              }, 300);
+            }
+          }
+        )
+        .subscribe();
+    };
+
+    setupSubscription();
 
     return () => {
-      channel.unsubscribe();
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      if (channel) {
+        channel.unsubscribe();
+      }
     };
   }, [user?.id]);
 
