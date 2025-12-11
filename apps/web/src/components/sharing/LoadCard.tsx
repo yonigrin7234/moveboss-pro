@@ -113,7 +113,7 @@ function getServiceTypeColor(serviceType: string | null): string {
   }
 }
 
-function formatLocationWithZip(city: string | null, state: string | null, zip: string | null): string {
+function formatLocationWithZip(city: string | null | undefined, state: string | null | undefined, zip: string | null | undefined): string {
   const parts: string[] = [];
   if (city) parts.push(city);
   if (state) parts.push(state);
