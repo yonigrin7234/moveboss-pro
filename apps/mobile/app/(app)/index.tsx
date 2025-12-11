@@ -20,6 +20,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { useDriverProfile } from '../../hooks/useDriverProfile';
 import { useDriverDashboard } from '../../hooks/useDriverDashboard';
 import { useVehicleDocuments } from '../../hooks/useVehicleDocuments';
+import { useTotalUnreadCount } from '../../hooks/useMessaging';
 import {
   NextActionCard,
   QuickStats,
@@ -50,6 +51,7 @@ export default function HomeScreen() {
 
   const showSkeleton = loading && !isRefreshing && nextAction.type === 'no_action' && upcomingTrips.length === 0;
   const { hasActiveTrip, truck, trailer, expiredCount } = useVehicleDocuments();
+  const unreadMessageCount = useTotalUnreadCount();
   const router = useRouter();
   const [showUpcoming, setShowUpcoming] = useState(true);
 
@@ -143,6 +145,8 @@ export default function HomeScreen() {
         <QuickActionButton
           icon="message-square"
           label="Dispatch"
+          badge={unreadMessageCount > 0 ? unreadMessageCount : undefined}
+          badgeVariant={unreadMessageCount > 0 ? 'error' : undefined}
           onPress={() => router.push('/(app)/dispatch')}
         />
         <QuickActionButton

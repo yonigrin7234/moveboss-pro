@@ -754,6 +754,41 @@ export function useConversationMessages(
         fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:694',message:'Message inserted successfully',data:{messageId:message.id,targetConversationId,originalConversationId:conversationId,wasRouted},timestamp:Date.now(),sessionId:'debug-session',runId:'run8',hypothesisId:'F'})}).catch(()=>{});
         // #endregion
 
+        // Trigger push notifications for other participants
+        // This ensures notifications are sent even when messages are inserted directly (bypassing API route)
+        try {
+          const apiUrl = process.env.EXPO_PUBLIC_API_URL || 
+            (process.env.EXPO_PUBLIC_SUPABASE_URL?.replace('.supabase.co', '.vercel.app') || '');
+          
+          if (apiUrl) {
+            const notifyUrl = `${apiUrl}/api/messaging/notify-message`;
+            
+            // Get session token for auth
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (session?.access_token) {
+              await fetch(notifyUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({
+                  conversation_id: targetConversationId,
+                  sender_driver_id: driver.id,
+                  sender_user_id: null,
+                  message_preview: body,
+                }),
+              }).catch((err) => {
+                console.warn('⚠️ Failed to trigger notifications (non-critical):', err);
+              });
+            }
+          }
+        } catch (notifyError) {
+          // Non-critical: notifications will be handled by database trigger as fallback
+          console.warn('⚠️ Failed to trigger notifications (non-critical):', notifyError);
+        }
+
           // Optimistically add message to local state immediately
         // This ensures the message appears right away, even if real-time is slow
         // IMPORTANT: Only add if message was sent to the CURRENT conversation (not routed)

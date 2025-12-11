@@ -150,8 +150,26 @@ export async function POST(request: Request) {
       }
 
       case 'message': {
-        await notifyDriverMessage(body.driverId, body.title, body.message, body.data);
-        return NextResponse.json({ success: true });
+        const result = await notifyDriverMessage(body.driverId, body.title, body.message, body.data);
+        return NextResponse.json({ success: true, result });
+      }
+      
+      case 'test_push': {
+        // Diagnostic endpoint to test push notifications
+        const { driverId } = body as { driverId: string };
+        if (!driverId) {
+          return NextResponse.json({ error: 'driverId required' }, { status: 400 });
+        }
+        console.log('[PUSH DEBUG] Test push notification requested for driver:', driverId);
+        const result = await sendPushToDriver(
+          driverId,
+          '🧪 Test Notification',
+          'This is a test push notification. If you receive this, push notifications are working!',
+          { type: 'general' },
+          { channelId: 'default', sound: 'default' }
+        );
+        console.log('[PUSH DEBUG] Test push result:', result);
+        return NextResponse.json({ success: true, result });
       }
 
       default:

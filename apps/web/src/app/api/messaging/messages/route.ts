@@ -227,15 +227,22 @@ async function sendMessageNotifications(
     .filter(p => p.driver_id)
     .map(p => p.driver_id!);
 
+  console.log('[PUSH DEBUG] sendMessageNotifications - sending to drivers:', {
+    conversationId,
+    driverIds,
+    participantCount: participants.length,
+  });
+
   for (const driverId of driverIds) {
     try {
-      await sendPushToDriver(driverId, title, notificationBody, {
+      const result = await sendPushToDriver(driverId, title, notificationBody, {
         type: 'message',
         conversation_id: conversationId,
         load_id: conversation?.load_id ?? undefined,
       });
+      console.log('[PUSH DEBUG] Message notification sent to driver:', { driverId, result });
     } catch (error) {
-      console.error(`Failed to send push to driver ${driverId}:`, error);
+      console.error(`[PUSH DEBUG] Failed to send push to driver ${driverId}:`, error);
     }
   }
 }
