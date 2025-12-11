@@ -582,7 +582,7 @@ export function ChatPanel({
       )}
 
       {/* Messages - scrollable area */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         <MessageList
           messages={state.messages}
           currentUserId={userId}

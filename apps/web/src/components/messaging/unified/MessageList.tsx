@@ -3,7 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { Loader2, MessageSquare } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+// Using native overflow-y-auto instead of ScrollArea for better scrolling control
 import { MessageBubble } from './MessageBubble';
 import type { MessageWithSender } from '@/lib/communication-types';
 import type { MessageListProps } from './types';
@@ -20,15 +20,6 @@ export function MessageList({
   onScrollToBottom,
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
-
-  // Auto-scroll to bottom when messages change
-  useEffect(() => {
-    if (endRef.current) {
-      endRef.current.scrollIntoView({ behavior: 'smooth' });
-      onScrollToBottom?.();
-    }
-  }, [messages, onScrollToBottom]);
 
   if (isLoading) {
     return (
@@ -53,8 +44,9 @@ export function MessageList({
     );
   }
 
+
   return (
-    <ScrollArea className="flex-1" ref={scrollRef}>
+    <div ref={scrollRef}>
       <div className="p-4 space-y-1">
         {messages.map((message, index) => {
           const isOwn = message.sender_user_id === currentUserId;
@@ -72,9 +64,8 @@ export function MessageList({
             </React.Fragment>
           );
         })}
-        <div ref={endRef} />
       </div>
-    </ScrollArea>
+    </div>
   );
 }
 
