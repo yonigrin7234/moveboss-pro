@@ -86,7 +86,7 @@ export default async function PublicLoadPage({ params }: PageProps) {
       status,
       company_id,
       created_at,
-      companies (
+      companies:company_id (
         id,
         name,
         public_board_enabled,
