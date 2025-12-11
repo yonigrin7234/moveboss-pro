@@ -29,6 +29,8 @@ export interface ChatPanelProps {
   height?: string | number;
   /** Whether to show minimal header */
   minimal?: boolean;
+  /** Optional: use existing conversation ID instead of creating/fetching */
+  conversationId?: string;
   /** Callback when conversation changes */
   onConversationChange?: (conversation: ConversationWithDetails | null) => void;
 }

@@ -38,6 +38,7 @@ export function ChatPanel({
   isPartnerMoveBossMember = true,
   height = '500px',
   minimal = false,
+  conversationId: providedConversationId,
   onConversationChange,
 }: ChatPanelProps) {
   // State
@@ -110,6 +111,28 @@ export function ChatPanel({
     try {
       setState(s => ({ ...s, isLoading: true, error: null }));
 
+      // If conversationId is provided, fetch that conversation directly
+      if (providedConversationId) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatPanel.tsx:fetchConversation:USING_PROVIDED_ID',message:'Using provided conversation ID',data:{conversationId:providedConversationId,context},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        
+        const res = await fetch(`/api/messaging/conversations/${providedConversationId}`);
+        if (!res.ok) {
+          throw new Error('Failed to load conversation');
+        }
+        const { conversation } = await res.json();
+        
+        if (!mountedRef.current) return;
+        setState(s => ({
+          ...s,
+          conversation,
+          isLoading: false,
+        }));
+        onConversationChange?.(conversation);
+        return;
+      }
+
       // Build request body based on context
       const body: Record<string, string> = { type: conversationType };
 
@@ -139,6 +162,10 @@ export function ChatPanel({
 
       const { conversation } = await res.json();
 
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatPanel.tsx:fetchConversation:CONVERSATION_FETCHED',message:'Conversation fetched/created',data:{conversationId:conversation?.id,conversationType:conversation?.type,driverId:conversation?.driver_id,context,requestedDriverId:driverId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+
       if (!mountedRef.current) return;
 
       setState(s => ({
@@ -156,7 +183,7 @@ export function ChatPanel({
         error: err instanceof Error ? err.message : 'Failed to load conversation',
       }));
     }
-  }, [context, loadId, tripId, partnerCompanyId, conversationType, isInternal, onConversationChange]);
+  }, [context, loadId, tripId, partnerCompanyId, conversationType, isInternal, providedConversationId, onConversationChange]);
 
   // Fetch messages
   const fetchMessages = useCallback(async () => {

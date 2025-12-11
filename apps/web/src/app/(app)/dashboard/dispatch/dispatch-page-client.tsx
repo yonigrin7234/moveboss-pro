@@ -216,6 +216,13 @@ export function DispatchPageClient({
 
               {/* Chat panel */}
               <div className="flex-1 min-h-0">
+                {/* #region agent log */}
+                {(() => {
+                  const existingConv = driverConversationMap.get(selectedDriverId);
+                  fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DispatchPageClient.tsx:RENDER_CHATPANEL',message:'Rendering ChatPanel for driver',data:{driverId:selectedDriverId,existingConversationId:existingConv?.id,existingConversationType:existingConv?.type,usingProvidedId:!!existingConv?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+                  return null;
+                })()}
+                {/* #endregion */}
                 <ChatPanel
                   context="driver_dispatch"
                   driverId={selectedDriverId}
@@ -223,6 +230,7 @@ export function DispatchPageClient({
                   userId={userId}
                   isInternal={true}
                   height="100%"
+                  conversationId={driverConversationMap.get(selectedDriverId)?.id}
                 />
               </div>
             </>
