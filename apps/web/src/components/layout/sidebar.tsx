@@ -297,6 +297,7 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
       children: [
         { label: "Account", href: "/dashboard/settings/account", icon: User },
         { label: "Company Profile", href: "/dashboard/settings/company-profile", icon: Building2 },
+        { label: "Public Board", href: "/dashboard/settings/public-board", icon: LayoutDashboard },
         { label: "Team", href: "/dashboard/settings/team", icon: Users },
         { label: "Roles & Permissions", href: "/dashboard/settings/roles", icon: ShieldCheck },
         { label: "Communications", href: "/dashboard/settings/communications", icon: MessageSquare },
