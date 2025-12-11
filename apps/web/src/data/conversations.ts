@@ -656,7 +656,22 @@ export async function getCompanyDriverDispatchConversations(
     }
   }
 
-  return (data ?? []).map((conv) => {
+  // Group by driver_id and keep only the most recent conversation per driver
+  const driverMap = new Map<string, typeof data[0]>();
+  (data ?? []).forEach((conv) => {
+    const driverId = conv.driver_id;
+    if (driverId) {
+      const existing = driverMap.get(driverId);
+      if (!existing || 
+          (conv.last_message_at && 
+           (!existing.last_message_at || 
+            new Date(conv.last_message_at) > new Date(existing.last_message_at)))) {
+        driverMap.set(driverId, conv);
+      }
+    }
+  });
+
+  return Array.from(driverMap.values()).map((conv) => {
     const driver = Array.isArray(conv.drivers) ? conv.drivers[0] : conv.drivers;
     const driverName = driver ? `${driver.first_name} ${driver.last_name}` : 'Driver';
 
