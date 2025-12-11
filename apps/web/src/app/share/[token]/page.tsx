@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { createServiceRoleClient } from '@/lib/supabase-admin';
 import { SharePageClient } from './client';
+import { formatCompanyName } from '@/lib/utils';
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -23,18 +24,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const company = shareLink?.companies as unknown as { name: string } | null;
   const loadCount = shareLink?.load_ids?.length || 0;
+  const formattedName = formatCompanyName(company?.name);
 
   return {
-    title: company
-      ? `${loadCount} ${loadCount === 1 ? 'Load' : 'Loads'} from ${company.name} | MoveBoss Pro`
+    title: formattedName
+      ? `${loadCount} ${loadCount === 1 ? 'Load' : 'Loads'} from ${formattedName} | MoveBoss Pro`
       : 'Shared Loads | MoveBoss Pro',
-    description: company
-      ? `View ${loadCount} available ${loadCount === 1 ? 'load' : 'loads'} shared by ${company.name}`
+    description: formattedName
+      ? `View ${loadCount} available ${loadCount === 1 ? 'load' : 'loads'} shared by ${formattedName}`
       : 'View shared loads on MoveBoss Pro',
     openGraph: {
-      title: company ? `${loadCount} Available Loads` : 'Shared Loads',
-      description: company
-        ? `View ${loadCount} available ${loadCount === 1 ? 'load' : 'loads'} shared by ${company.name}`
+      title: formattedName ? `${loadCount} Available Loads` : 'Shared Loads',
+      description: formattedName
+        ? `View ${loadCount} available ${loadCount === 1 ? 'load' : 'loads'} shared by ${formattedName}`
         : 'View shared loads',
       type: 'website',
     },
@@ -181,7 +183,7 @@ export default async function SharePage({ params }: PageProps) {
   return (
     <SharePageClient
       company={company ? {
-        name: company.name,
+        name: formatCompanyName(company.name),
         slug: company.public_board_slug,
         logo_url: company.public_board_logo_url,
         show_rates: showRates,

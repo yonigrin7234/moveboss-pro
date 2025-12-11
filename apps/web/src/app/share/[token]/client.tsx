@@ -3,35 +3,14 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import {
-  MapPin,
-  Calendar,
-  Package,
-  ArrowRight,
   Truck,
-  ExternalLink,
   Clock,
   AlertCircle,
   Box,
+  ExternalLink,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  getRouteLocations,
-  formatDate,
-  type LoadLocationFields,
-  type PickupDateFields,
-} from '@/lib/sharing';
-
-interface Load extends LoadLocationFields, PickupDateFields {
-  id: string;
-  load_number: string;
-  pickup_postal_code?: string | null;
-  delivery_postal_code?: string | null;
-  cubic_feet: number | null;
-  rate_per_cuft: number | null;
-  total_rate: number | null;
-  service_type: string | null;
-  description: string | null;
-}
+import { LoadCard, type LoadCardData } from '@/components/sharing/LoadCard';
 
 interface Company {
   name: string;
@@ -42,20 +21,10 @@ interface Company {
 
 interface SharePageClientProps {
   company: Company | null;
-  loads: Load[];
+  loads: LoadCardData[];
   expiresAt: string | null;
   totalLoads: number;
   availableLoads: number;
-}
-
-function formatCurrency(amount: number | null): string {
-  if (amount === null || amount === undefined) return 'Call';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
 }
 
 function formatExpiryTime(expiresAt: string): string {
@@ -73,67 +42,6 @@ function formatExpiryTime(expiresAt: string): string {
   return 'Expires soon';
 }
 
-function LoadCard({ load, showRates }: { load: Load; showRates: boolean }) {
-  const { origin, destination } = getRouteLocations(load);
-  const pickupDate = formatDate(load.pickup_window_start || load.pickup_date);
-
-  return (
-    <Link
-      href={`/loads/${load.id}/public`}
-      className="group block bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200"
-    >
-      {/* Route */}
-      <div className="mb-4">
-        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm mb-1">
-          <MapPin className="h-3.5 w-3.5" />
-          <span>{origin}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <ArrowRight className="h-4 w-4 text-primary" />
-          <span className="font-semibold text-lg text-slate-900 dark:text-white group-hover:text-primary transition-colors">
-            {destination}
-          </span>
-        </div>
-      </div>
-
-      {/* Key details row */}
-      <div className="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-300 mb-4">
-        <div className="flex items-center gap-1.5">
-          <Calendar className="h-3.5 w-3.5 text-slate-400" />
-          <span>{pickupDate}</span>
-        </div>
-        {load.cubic_feet && (
-          <div className="flex items-center gap-1.5">
-            <Package className="h-3.5 w-3.5 text-slate-400" />
-            <span>{load.cubic_feet.toLocaleString()} CF</span>
-          </div>
-        )}
-      </div>
-
-      {/* Rate */}
-      {showRates && load.total_rate ? (
-        <div className="flex items-center justify-between">
-          <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-            {formatCurrency(load.total_rate)}
-          </span>
-          <span className="text-xs text-slate-400 group-hover:text-primary transition-colors flex items-center gap-1">
-            View & Claim <ExternalLink className="h-3 w-3" />
-          </span>
-        </div>
-      ) : (
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-slate-500 dark:text-slate-400">
-            Contact for rate
-          </span>
-          <span className="text-xs text-slate-400 group-hover:text-primary transition-colors flex items-center gap-1">
-            View & Claim <ExternalLink className="h-3 w-3" />
-          </span>
-        </div>
-      )}
-    </Link>
-  );
-}
-
 export function SharePageClient({
   company,
   loads,
@@ -147,7 +55,7 @@ export function SharePageClient({
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       {/* Header */}
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center gap-4">
             {company?.logo_url ? (
               <Image
@@ -174,7 +82,7 @@ export function SharePageClient({
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Expiration Badge */}
         {expiresAt && (
           <div className="inline-flex items-center gap-2 text-sm bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-full px-4 py-2 mb-6">
@@ -200,7 +108,7 @@ export function SharePageClient({
 
         {/* Loads Grid */}
         {loads.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
             {loads.map((load) => (
               <LoadCard
                 key={load.id}
@@ -242,7 +150,7 @@ export function SharePageClient({
 
       {/* Footer */}
       <footer className="border-t border-slate-200 dark:border-slate-800 mt-auto">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-sm text-slate-400">
               Powered by <span className="font-medium text-slate-600 dark:text-slate-300">MoveBoss Pro</span>

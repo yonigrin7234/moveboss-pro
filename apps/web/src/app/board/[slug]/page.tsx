@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { createServiceRoleClient } from '@/lib/supabase-admin';
 import { PublicBoardClient } from './client';
+import { formatCompanyName } from '@/lib/utils';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -25,12 +26,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
 
+  const formattedName = formatCompanyName(company.name);
   return {
-    title: `${company.name} Load Board | MoveBoss Pro`,
-    description: company.public_board_custom_message || `View available loads from ${company.name}`,
+    title: `${formattedName} Load Board | MoveBoss Pro`,
+    description: company.public_board_custom_message || `View available loads from ${formattedName}`,
     openGraph: {
-      title: `${company.name} Load Board`,
-      description: company.public_board_custom_message || `View available loads from ${company.name}`,
+      title: `${formattedName} Load Board`,
+      description: company.public_board_custom_message || `View available loads from ${formattedName}`,
       type: 'website',
     },
   };
@@ -132,7 +134,7 @@ export default async function PublicBoardPage({ params, searchParams }: PageProp
   return (
     <PublicBoardClient
       company={{
-        name: company.name,
+        name: formatCompanyName(company.name),
         slug: company.public_board_slug!,
         logo_url: company.public_board_logo_url,
         custom_message: company.public_board_custom_message,
