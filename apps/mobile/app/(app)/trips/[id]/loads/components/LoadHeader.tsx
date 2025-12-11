@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { StatusBadge } from '../../../../../../components/StatusBadge';
 import { WorkflowActionCard } from '../../../../../../components/load';
 import { colors, typography, spacing, radius } from '../../../../../../lib/theme';
+import { formatCompanyName } from '../../../../../../lib/nameFormatting';
 import type { LoadActions, LoadDetail } from '../types';
 
 type LoadHeaderProps = {
@@ -31,7 +32,7 @@ export function LoadHeader({ load, loadId, tripId, actions, onCall, onText }: Lo
             </View>
           )}
           {!load.load_number && <Text style={styles.jobNumber}>Load</Text>}
-          {load.companies?.name && <Text style={styles.companyName}>{load.companies.name}</Text>}
+          {load.companies?.name && <Text style={styles.companyName}>{formatCompanyName(load.companies.name)}</Text>}
         </View>
         <StatusBadge status={load.load_status} />
       </View>
@@ -54,7 +55,7 @@ export function LoadHeader({ load, loadId, tripId, actions, onCall, onText }: Lo
         <View style={styles.contactCard}>
           <View style={styles.contactInfo}>
             <Text style={styles.contactLabel}>Contact Dispatcher</Text>
-            <Text style={styles.contactName}>{load.companies.name}</Text>
+            <Text style={styles.contactName}>{formatCompanyName(load.companies.name)}</Text>
             <Text style={styles.contactPhone}>{load.companies.phone}</Text>
           </View>
           <View style={styles.contactActions}>
@@ -158,5 +159,8 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
 });
+
+
+
 
 

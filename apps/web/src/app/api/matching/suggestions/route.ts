@@ -43,7 +43,7 @@ export async function GET(request: Request) {
           balance_due,
           posting_type,
           pickup_date,
-          company:companies!loads_company_id_fkey(id, company_name, name)
+          company:companies!loads_company_id_fkey(id, name)
         ),
         trip:trips(id, trip_number, origin_city, origin_state, destination_city, destination_state),
         driver:drivers(id, first_name, last_name)

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, formatName, formatFullName, formatCompanyName, formatSenderDisplay } from '@/lib/utils';
 import { Bot } from 'lucide-react';
 import type { MessageBubbleProps } from './types';
 
@@ -13,17 +13,16 @@ import type { MessageBubbleProps } from './types';
  * - Sender name and company shown unobtrusively
  */
 export function MessageBubble({ message, isOwn, showSender = true }: MessageBubbleProps) {
-  const personName = message.sender_profile?.full_name ||
-    (message.sender_driver
-      ? `${message.sender_driver.first_name} ${message.sender_driver.last_name}`
-      : null);
+  const personName = message.sender_profile?.full_name
+    ? formatName(message.sender_profile.full_name)
+    : message.sender_driver
+      ? formatFullName(message.sender_driver.first_name, message.sender_driver.last_name)
+      : null;
 
-  const companyName = message.sender_company?.name;
+  const companyName = formatCompanyName(message.sender_company?.name);
 
   // Format: "Person Name • Company" or just "Company" or just "Person Name"
-  const senderDisplay = personName && companyName
-    ? `${personName} • ${companyName}`
-    : personName || companyName || 'Unknown';
+  const senderDisplay = formatSenderDisplay(personName, companyName);
 
   const isAI = message.message_type === 'ai_response';
   const isSystem = message.message_type === 'system';

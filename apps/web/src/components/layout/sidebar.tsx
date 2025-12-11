@@ -38,7 +38,7 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
+import { cn, formatName, formatCompanyName } from "@/lib/utils"
 
 type NavItem = {
   label: string
@@ -111,8 +111,8 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
   const pathname = usePathname() ?? ""
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
   const [unreadCounts, setUnreadCounts] = useState<{ messages: number; dispatch: number }>({ messages: 0, dispatch: 0 })
-  const displayCompanyName = companyName?.trim() || "MoveBoss Pro"
-  const displayUserName = userName?.trim() || "Fleet Owner"
+  const displayCompanyName = formatCompanyName(companyName) || "MoveBoss Pro"
+  const displayUserName = formatName(userName) || "Fleet Owner"
   const workspaceInitials = getInitials(displayCompanyName)
   const roleBadge = getRoleBadge(canPostLoads, canHaulLoads, role)
 

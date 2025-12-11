@@ -15,6 +15,7 @@ import { DriverListFilters } from './driver-list-filters';
 import { DriverMessagesTab } from './driver-messages-tab';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { formatFullName } from '@/lib/utils';
 import {
   Card,
   CardContent,
@@ -260,7 +261,7 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
                               href={`/dashboard/drivers/${driver.id}`}
                               className="text-foreground hover:text-primary"
                             >
-                              {driver.first_name} {driver.last_name}
+                              {formatFullName(driver.first_name, driver.last_name)}
                             </Link>
                             <span className="text-xs text-muted-foreground">{driver.email || 'No email'}</span>
                           </div>
@@ -342,7 +343,7 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
                       const medicalWarn = isWithinDays(driver.medical_card_expiry, 30);
                       return (
                         <TableRow key={driver.id}>
-                          <TableCell className="font-medium">{driver.first_name} {driver.last_name}</TableCell>
+                          <TableCell className="font-medium">{formatFullName(driver.first_name, driver.last_name)}</TableCell>
                           <TableCell className="text-muted-foreground">{driver.license_number}</TableCell>
                           <TableCell className="text-muted-foreground">{driver.license_state || '-'}</TableCell>
                           <TableCell className={licenseWarn ? 'text-amber-600 font-medium' : 'text-muted-foreground'}>
@@ -389,7 +390,7 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
                   <TableBody>
                     {drivers.map((driver) => (
                       <TableRow key={driver.id}>
-                        <TableCell className="font-medium">{driver.first_name} {driver.last_name}</TableCell>
+                        <TableCell className="font-medium">{formatFullName(driver.first_name, driver.last_name)}</TableCell>
                         <TableCell className="text-muted-foreground">{driver.email || 'No email'}</TableCell>
                         <TableCell className="text-muted-foreground">{driver.phone}</TableCell>
                         <TableCell>
@@ -434,7 +435,7 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
                   <TableBody>
                     {drivers.map((driver) => (
                       <TableRow key={driver.id}>
-                        <TableCell className="font-medium">{driver.first_name} {driver.last_name}</TableCell>
+                        <TableCell className="font-medium">{formatFullName(driver.first_name, driver.last_name)}</TableCell>
                         <TableCell className="text-muted-foreground">{formatPayMode(driver.pay_mode)}</TableCell>
                         <TableCell className="text-muted-foreground">{formatCompensation(driver)}</TableCell>
                         <TableCell className="text-muted-foreground">{driver.pay_notes || '-'}</TableCell>

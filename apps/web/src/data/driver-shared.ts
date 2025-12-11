@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { type DriverType } from '@/data/domain-types';
+import { formatName } from '@/lib/utils';
 
 export const driverStatusSchema = z.enum(['active', 'inactive', 'suspended', 'archived']);
 export const driverPayModeSchema = z.enum([
@@ -22,8 +23,8 @@ const optionalEmailSchema = z
 
 // Base schema without cross-field refinements (used for updates)
 const driverFieldsSchema = z.object({
-  first_name: z.string().trim().min(1, 'First name is required').max(100),
-  last_name: z.string().trim().min(1, 'Last name is required').max(100),
+  first_name: z.string().trim().min(1, 'First name is required').max(100).transform(formatName),
+  last_name: z.string().trim().min(1, 'Last name is required').max(100).transform(formatName),
   phone: z.string().trim().min(1, 'Phone is required').max(50),
   email: optionalEmailSchema,
   date_of_birth: z.string().optional().transform((val) => {

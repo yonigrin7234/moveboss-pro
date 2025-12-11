@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChatPanel } from '@/components/messaging/unified';
 import type { ConversationListItem } from '@/lib/communication-types';
 import type { Driver } from '@/data/drivers';
+import { formatFullName } from '@/lib/utils';
 
 interface DispatchPageClientProps {
   drivers: Driver[];
@@ -147,7 +148,7 @@ export function DispatchPageClient({
           <ScrollArea className="flex-1 min-h-0">
             <div className="divide-y">
               {filteredDrivers.map((driver) => {
-                const fullName = `${driver.first_name} ${driver.last_name}`;
+                const fullName = formatFullName(driver.first_name, driver.last_name);
                 // Look up by driver.id first, then fall back to fullName for legacy data
                 const conversation = driverConversationMap.get(driver.id) ?? driverConversationMap.get(fullName);
                 const isSelected = selectedDriverId === driver.id;
@@ -212,7 +213,7 @@ export function DispatchPageClient({
                 </div>
                 <div className="flex-1 min-w-0">
                   <h2 className="font-semibold text-sm truncate">
-                    {selectedDriver.first_name} {selectedDriver.last_name}
+                    {formatFullName(selectedDriver.first_name, selectedDriver.last_name)}
                   </h2>
                   <p className="text-xs text-muted-foreground truncate">
                     Direct message

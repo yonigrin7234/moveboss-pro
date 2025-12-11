@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { History, ArrowRight, Package, Truck, Store, UserPlus, UserMinus, Clock, Plus, Trash2, DollarSign, Receipt, RefreshCw, CheckCircle, XCircle, Send, RotateCcw, FileText, List, Eye, Camera, AlertTriangle, Upload } from 'lucide-react';
 import type { AuditLogEntry } from '@/lib/audit';
 import { getActivityQuickActions } from './getActivityQuickActions';
+import { formatName } from '@/lib/utils';
 
 interface ActivityFeedProps {
   logs: AuditLogEntry[];
@@ -390,20 +391,20 @@ function getActionIcon(action: string): React.ReactNode {
  */
 function getPerformerName(log: AuditLogEntry): string {
   // First try the joined performer data
-  if (log.performer_name) return log.performer_name;
+  if (log.performer_name) return formatName(log.performer_name);
 
   // Then try metadata (stored at log time)
   const metadata = log.metadata || {};
   if (metadata.performer_name && typeof metadata.performer_name === 'string') {
-    return metadata.performer_name;
+    return formatName(metadata.performer_name);
   }
 
   // Try email from performer or metadata
   const email = log.performer_email || (typeof metadata.performer_email === 'string' ? metadata.performer_email : null);
   if (email) {
-    // Extract name from email (before @)
+    // Extract name from email (before @) and format it
     const name = email.split('@')[0];
-    return name.charAt(0).toUpperCase() + name.slice(1);
+    return formatName(name);
   }
 
   return 'Unknown User';

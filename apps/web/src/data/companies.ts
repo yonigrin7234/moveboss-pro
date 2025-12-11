@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase-server';
 import { companyProfileSchema, type CompanyProfileFormValues } from '@/lib/validation/companyProfileSchema';
 import { logAuditEvent } from '@/lib/audit';
+import { formatName, formatCompanyName } from '@/lib/utils';
 
 // Enums
 export const companyTypeSchema = z.enum(['customer', 'carrier', 'both']);
@@ -36,9 +37,9 @@ const optionalUrlSchema = z
 // Base schema
 export const newCompanyInputSchema = z
   .object({
-    name: z.string().trim().min(1, 'Name is required').max(200),
-    legal_name: z.string().trim().max(200).optional(),
-    dba_name: z.string().trim().max(200).optional(),
+    name: z.string().trim().min(1, 'Name is required').max(200).transform(formatCompanyName),
+    legal_name: z.string().trim().max(200).optional().transform((v) => v ? formatCompanyName(v) : v),
+    dba_name: z.string().trim().max(200).optional().transform((v) => v ? formatCompanyName(v) : v),
     company_type: companyTypeSchema,
     relationship_role: z.enum(['takes_loads_from', 'gives_loads_to', 'both']).default('both'),
     status: statusSchema.optional().default('active'),
@@ -47,12 +48,12 @@ export const newCompanyInputSchema = z
     scac_code: z.string().trim().max(50).optional(),
 
     // Primary contact
-    primary_contact_name: z.string().trim().min(1, 'Primary contact name is required').max(200),
+    primary_contact_name: z.string().trim().min(1, 'Primary contact name is required').max(200).transform(formatName),
     primary_contact_email: optionalEmailSchema,
     primary_contact_phone: z.string().trim().min(1, 'Primary contact phone is required').max(50),
 
     // Dispatch / Loading contact
-    dispatch_contact_name: z.string().trim().min(1, 'Dispatch contact name is required').max(200),
+    dispatch_contact_name: z.string().trim().min(1, 'Dispatch contact name is required').max(200).transform(formatName),
     dispatch_contact_email: optionalEmailSchema,
     dispatch_contact_phone: z.string().trim().min(1, 'Dispatch contact phone is required').max(50),
     dispatch_notes: z.string().trim().max(1000).optional(),

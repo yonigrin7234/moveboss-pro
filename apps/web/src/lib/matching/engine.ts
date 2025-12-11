@@ -192,7 +192,7 @@ export async function findMatchingLoads(
       posting_type,
       posting_status,
       pickup_date,
-      company:companies!loads_company_id_fkey(id, company_name, name)
+      company:companies!loads_company_id_fkey(id, name)
     `
     )
     .eq('posting_status', 'posted')

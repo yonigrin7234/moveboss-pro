@@ -18,6 +18,7 @@ import { MessageWithSender, ConversationType } from '../../types/messaging';
 import { format, isToday, isYesterday } from 'date-fns';
 import { dataLogger } from '../../lib/logger';
 import { supabase } from '../../lib/supabase';
+import { formatName, formatFullName } from '../../lib/nameFormatting';
 
 interface ChatViewProps {
   conversationId: string;
@@ -60,13 +61,20 @@ export function ChatView({
     if (!conversationId || !user?.id || hasMarkedReadRef.current) return;
 
     const markAsRead = async () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatView.tsx:markAsRead:ENTRY',message:'Marking conversation as read',data:{conversationId,userId:user.id,hasMarkedRead:hasMarkedReadRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       try {
         // Get driver ID if user is a driver
-        const { data: driver } = await supabase
+        const { data: driver, error: driverError } = await supabase
           .from('drivers')
           .select('id')
           .eq('auth_user_id', user.id)
           .single();
+
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatView.tsx:markAsRead:DRIVER_QUERY',message:'Driver query result',data:{driverId:driver?.id,driverError:driverError?.message,isDriver:!!driver},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
 
         if (driver) {
           // Mark as read for driver using RPC function
@@ -74,6 +82,10 @@ export function ChatView({
             p_conversation_id: conversationId,
             p_driver_id: driver.id,
           });
+
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatView.tsx:markAsRead:RPC_RESULT',message:'RPC mark_conversation_read result',data:{conversationId,driverId:driver.id,error:error?.message,success:!error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
 
           if (error) {
             console.error('Failed to mark conversation as read:', error);
@@ -87,6 +99,10 @@ export function ChatView({
             p_user_id: user.id,
           });
 
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatView.tsx:markAsRead:RPC_RESULT_USER',message:'RPC mark_conversation_read result (user)',data:{conversationId,userId:user.id,error:error?.message,success:!error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
+
           if (error) {
             console.error('Failed to mark conversation as read:', error);
           } else {
@@ -94,6 +110,9 @@ export function ChatView({
           }
         }
       } catch (error) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatView.tsx:markAsRead:ERROR',message:'Exception marking as read',data:{conversationId,error:error instanceof Error?error.message:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         console.error('Failed to mark conversation as read:', error);
       }
     };
@@ -347,10 +366,11 @@ interface MessageBubbleProps {
 }
 
 function MessageBubble({ message, isOwn, onLongPress }: MessageBubbleProps) {
-  const senderName = message.sender_profile?.full_name ||
-    (message.sender_driver
-      ? `${message.sender_driver.first_name} ${message.sender_driver.last_name}`
-      : 'Unknown');
+  const senderName = message.sender_profile?.full_name
+    ? formatName(message.sender_profile.full_name)
+    : message.sender_driver
+      ? formatFullName(message.sender_driver.first_name, message.sender_driver.last_name)
+      : 'Unknown';
 
   const isAI = message.message_type === 'ai_response';
   const isSystem = message.message_type === 'system';
