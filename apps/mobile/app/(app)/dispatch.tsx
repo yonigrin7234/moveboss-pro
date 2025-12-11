@@ -40,13 +40,6 @@ export default function DispatchScreen() {
   // Override canWrite and isReadOnly - ALWAYS allow writing for driver_dispatch
   const canWrite = true; // FORCE to true for driver_dispatch
   const isReadOnly = false; // FORCE to false for driver_dispatch
-  
-  // #region agent log
-  useEffect(() => {
-    console.log('🔧 DispatchScreen: FORCING canWrite override', { hookCanWrite: _canWrite, forcedCanWrite: canWrite, conversationId: conversation?.id });
-    fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dispatch.tsx:39',message:'FORCING canWrite override',data:{hookCanWrite:_canWrite,forcedCanWrite:canWrite,conversationId:conversation?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'A'})}).catch(()=>{});
-  }, [_canWrite, canWrite, conversation?.id]);
-  // #endregion
 
   // Refetch messages when screen comes into focus (fallback for real-time)
   useFocusEffect(
@@ -68,9 +61,6 @@ export default function DispatchScreen() {
       isReadOnly,
       messagesError,
     });
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dispatch.tsx:35',message:'DispatchScreen render with canWrite',data:{conversationId:conversation?.id,canWrite,isReadOnly,messagesCount:messages.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
   }, [conversation?.id, messagesLoading, messages.length, canWrite, isReadOnly, messagesError]);
 
   // Loading state

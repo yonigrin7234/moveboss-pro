@@ -182,9 +182,6 @@ export async function sendPushNotifications(
       }
     } catch (error) {
       console.error('Error sending push notifications:', error);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'push-notifications.ts:179',message:'Error sending push notifications',data:{error:error instanceof Error ? error.message : 'Unknown error',chunkSize:chunk.length},timestamp:Date.now(),sessionId:'debug-session',runId:'push-debug',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
       // Add error tickets for this chunk
       tickets.push(
         ...chunk.map(() => ({
@@ -446,9 +443,6 @@ export async function notifyDriverTripAssigned(
   route: string,
   startDate: string
 ): Promise<void> {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'push-notifications.ts:409',message:'notifyDriverTripAssigned called',data:{driverId,tripNumber,tripId,route,startDate},timestamp:Date.now(),sessionId:'debug-session',runId:'push-debug',hypothesisId:'G'})}).catch(()=>{});
-  // #endregion
   await sendPushToDriver(
     driverId,
     'New Trip Assigned',
@@ -471,9 +465,6 @@ export async function notifyDriverLoadAssigned(
   tripId: string,
   pickupLocation: string
 ): Promise<void> {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'push-notifications.ts:431',message:'notifyDriverLoadAssigned called',data:{driverId,loadNumber,loadId,tripId,pickupLocation},timestamp:Date.now(),sessionId:'debug-session',runId:'push-debug',hypothesisId:'G'})}).catch(()=>{});
-  // #endregion
   await sendPushToDriver(
     driverId,
     'New Load Added',

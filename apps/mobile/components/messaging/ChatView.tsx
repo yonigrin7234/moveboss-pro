@@ -150,25 +150,12 @@ export function ChatView({
 
   return (
     <View style={styles.wrapper}>
-      {/* #region agent log */}
-      {(() => {
-        console.log('🏗️ ChatView wrapper rendering');
-        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatView.tsx:149',message:'ChatView wrapper rendering',data:{canWrite,conversationType,messagesCount:messages.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run7',hypothesisId:'B'})}).catch(()=>{});
-        return null;
-      })()}
-      {/* #endregion */}
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
         enabled={true}
       >
-      {/* #region agent log */}
-      {(() => {
-        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatView.tsx:150',message:'ChatView rendering',data:{canWrite,conversationType,isReadOnly,messagesCount:messages.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'A'})}).catch(()=>{});
-        return null;
-      })()}
-      {/* #endregion */}
       {/* Read-only banner */}
       {isReadOnly && (
         <View style={styles.readOnlyBanner}>
@@ -220,37 +207,8 @@ export function ChatView({
       )}
 
       {/* Input area */}
-      {/* #region agent log */}
-      {(() => {
-        const shouldRender = canWrite || conversationType === 'driver_dispatch';
-        console.log('🔍 ChatView input rendering check:', { 
-          canWrite, 
-          conversationType, 
-          isReadOnly, 
-          shouldRender,
-          conditionResult: canWrite || conversationType === 'driver_dispatch'
-        });
-        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatView.tsx:207',message:'Rendering input area check',data:{canWrite,conversationType,isReadOnly,shouldRender,conditionResult:canWrite || conversationType === 'driver_dispatch',messagesCount:messages.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run7',hypothesisId:'A'})}).catch(()=>{});
-        return null;
-      })()}
-      {/* #endregion */}
-      {/* FORCE render input for driver_dispatch - safety override */}
       {(canWrite || conversationType === 'driver_dispatch') ? (
         <>
-          {/* #region agent log */}
-          {(() => {
-            console.log('✅ RENDERING INPUT BLOCK - green banner should appear next');
-            fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatView.tsx:217',message:'Rendering input block - condition passed',data:{canWrite,conversationType},timestamp:Date.now(),sessionId:'debug-session',runId:'run7',hypothesisId:'A'})}).catch(()=>{});
-            return null;
-          })()}
-          {/* #endregion */}
-          {/* #region agent log */}
-          {(() => {
-            console.log('📝 RENDERING INPUT CONTAINER');
-            fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatView.tsx:225',message:'Rendering input container',data:{canWrite,conversationType},timestamp:Date.now(),sessionId:'debug-session',runId:'run7',hypothesisId:'A'})}).catch(()=>{});
-            return null;
-          })()}
-          {/* #endregion */}
           <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom + 12, 24) }]}>
             <TextInput
             style={styles.textInput}
@@ -280,19 +238,6 @@ export function ChatView({
         </>
       ) : (
         <>
-          {/* #region agent log */}
-          {(() => {
-            console.log('❌ ChatView rendering read-only - canWrite is FALSE:', { canWrite, conversationType });
-            fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatView.tsx:245',message:'Rendering read-only input - canWrite is FALSE',data:{canWrite,conversationType,isReadOnly},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'A'})}).catch(()=>{});
-            return null;
-          })()}
-          {/* #endregion */}
-          {/* Show debug info if driver_dispatch */}
-          {conversationType === 'driver_dispatch' && (
-            <View style={{ padding: 10, backgroundColor: 'red' }}>
-              <Text style={{ color: 'white' }}>DEBUG: canWrite={String(canWrite)}, should show input!</Text>
-            </View>
-          )}
           <View style={styles.readOnlyInput}>
             <Ionicons name="lock-closed-outline" size={16} color="#9CA3AF" />
             <Text style={styles.readOnlyInputText}>
