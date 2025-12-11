@@ -103,8 +103,11 @@ export default async function PublicLoadPage({ params }: PageProps) {
     .single();
 
   if (loadError || !load) {
+    console.error('[PublicLoadPage] Load fetch failed:', { id, loadError, hasLoad: !!load });
     notFound();
   }
+
+  console.log('[PublicLoadPage] Load found:', { id, status: load.status, companies: load.companies });
 
   // Check if load is available
   if (load.status !== 'pending') {
@@ -152,6 +155,12 @@ export default async function PublicLoadPage({ params }: PageProps) {
 
   // Allow access if: public board is enabled OR load is shared via an active share link
   if (!company?.public_board_enabled && !isSharedViaLink) {
+    console.error('[PublicLoadPage] Access denied:', {
+      id,
+      hasCompany: !!company,
+      publicBoardEnabled: company?.public_board_enabled,
+      isSharedViaLink
+    });
     notFound();
   }
 
