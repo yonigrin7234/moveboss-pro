@@ -114,14 +114,19 @@ export function ChatPanel({
       // If conversationId is provided, fetch that conversation directly
       if (providedConversationId) {
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatPanel.tsx:fetchConversation:USING_PROVIDED_ID',message:'Using provided conversation ID',data:{conversationId:providedConversationId,context},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatPanel.tsx:fetchConversation:USING_PROVIDED_ID',message:'Using provided conversation ID',data:{conversationId:providedConversationId,context,driverId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
         // #endregion
         
         const res = await fetch(`/api/messaging/conversations/${providedConversationId}`);
         if (!res.ok) {
-          throw new Error('Failed to load conversation');
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to load conversation');
         }
         const { conversation } = await res.json();
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatPanel.tsx:fetchConversation:PROVIDED_CONV_FETCHED',message:'Provided conversation fetched',data:{conversationId:conversation?.id,conversationType:conversation?.type,driverId:conversation?.driver_id,matchesProvided:conversation?.id===providedConversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         
         if (!mountedRef.current) return;
         setState(s => ({
@@ -217,7 +222,17 @@ export function ChatPanel({
   // Send message
   const sendMessage = useCallback(async (body: string) => {
     const conversationId = state.conversation?.id;
-    if (!conversationId || !body.trim()) return;
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatPanel.tsx:sendMessage:ENTRY',message:'Sending message',data:{conversationId,hasConversation:!!state.conversation,providedConversationId,bodyLength:body.trim().length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    
+    if (!conversationId || !body.trim()) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatPanel.tsx:sendMessage:SKIPPED',message:'Message send skipped',data:{reason:!conversationId?'no_conversation_id':'empty_body',conversationId,bodyLength:body.trim().length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      return;
+    }
 
     try {
       setState(s => ({ ...s, isSending: true }));
@@ -230,6 +245,10 @@ export function ChatPanel({
           body: body.trim(),
         }),
       });
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatPanel.tsx:sendMessage:API_RESPONSE',message:'Message API response',data:{conversationId,status:res.status,ok:res.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
 
       if (!res.ok) {
         const error = await res.json();

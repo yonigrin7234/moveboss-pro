@@ -203,6 +203,13 @@ export function useConversationMessages(
   conversationId: string | null,
   options: UseConversationMessagesOptions = {}
 ) {
+  // #region agent log
+  useEffect(() => {
+    if (conversationId) {
+      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:useConversationMessages:CONVERSATION_ID',message:'useConversationMessages called with conversationId',data:{conversationId,conversationType:options.conversationType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    }
+  }, [conversationId, options.conversationType]);
+  // #endregion
   const { user } = useAuth();
   // IMPORTANT: Default can_write to TRUE for driver apps - drivers should always be able to respond
   // For driver_dispatch, ALWAYS start with can_write: true
@@ -995,6 +1002,10 @@ export function useDispatchConversation() {
 
       const existingConv = existingConvs?.[0] ?? null;
 
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:useDispatchConversation:CONVERSATION_CHECK',message:'Checking for dispatch conversation',data:{driverId:driver.id,companyId:driver.company_id,existingConvId:existingConv?.id,existingConvType:existingConv?.type,foundCount:existingConvs?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+
       dataLogger.info('Dispatch conversation check:', { existingConv, convError });
 
       // If conversation exists, check for participant separately
@@ -1044,6 +1055,10 @@ export function useDispatchConversation() {
         const participant = Array.isArray(existing.conversation_participants)
           ? existing.conversation_participants[0]
           : existing.conversation_participants;
+
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:useDispatchConversation:SETTING_CONVERSATION',message:'Setting dispatch conversation',data:{conversationId:existing.id,driverId:driver.id,companyId:driver.company_id,hasParticipant:!!participant},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
 
         setConversation({
           id: existing.id,
@@ -1136,23 +1151,39 @@ export function useTotalUnreadCount() {
     if (!user?.id) return;
 
     const fetchUnreadCount = async () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:fetchUnreadCount:ENTRY',message:'Fetching unread count',data:{userId:user.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       // Get driver ID
-      const { data: driver } = await supabase
+      const { data: driver, error: driverError } = await supabase
         .from('drivers')
         .select('id')
         .eq('auth_user_id', user.id)
         .single();
 
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:fetchUnreadCount:DRIVER_QUERY',message:'Driver query result',data:{driverId:driver?.id,driverError:driverError?.message,hasDriver:!!driver},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+
       if (!driver) return;
 
       // Sum up unread counts
-      const { data } = await supabase
+      const { data, error: queryError } = await supabase
         .from('conversation_participants')
         .select('unread_count')
         .eq('driver_id', driver.id)
         .eq('can_read', true);
 
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:fetchUnreadCount:QUERY_RESULT',message:'Unread count query result',data:{driverId:driver.id,participantCount:data?.length||0,participants:data?.map(p=>({unread_count:p.unread_count})),queryError:queryError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+
       const total = (data ?? []).reduce((sum, p) => sum + (p.unread_count ?? 0), 0);
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:fetchUnreadCount:SETTING_COUNT',message:'Setting unread count state',data:{total,previousCount:unreadCount},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      
       setUnreadCount(total);
     };
 
@@ -1182,8 +1213,14 @@ export function useTotalUnreadCount() {
             table: 'conversation_participants',
           },
           (payload) => {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:REALTIME_CALLBACK',message:'Realtime callback fired',data:{event:payload.eventType,driverId:driver.id,newDriverId:(payload.new as any)?.driver_id,oldDriverId:(payload.old as any)?.driver_id,newUnreadCount:(payload.new as any)?.unread_count,oldUnreadCount:(payload.old as any)?.unread_count,matches:payload.new?(payload.new as any).driver_id===driver.id:payload.old?(payload.old as any).driver_id===driver.id:false},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
             // Only update if this change affects our driver
             if (payload.new && (payload.new as any).driver_id === driver.id) {
+              // #region agent log
+              fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:REALTIME_MATCH_NEW',message:'Realtime match - new record',data:{driverId:driver.id,unreadCount:(payload.new as any)?.unread_count},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+              // #endregion
               // Debounce rapid updates
               if (debounceTimer) {
                 clearTimeout(debounceTimer);
@@ -1193,6 +1230,9 @@ export function useTotalUnreadCount() {
                 debounceTimer = null;
               }, 300);
             } else if (payload.old && (payload.old as any).driver_id === driver.id) {
+              // #region agent log
+              fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:REALTIME_MATCH_OLD',message:'Realtime match - old record',data:{driverId:driver.id,unreadCount:(payload.old as any)?.unread_count},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+              // #endregion
               // Also handle deletes/updates where old record was for our driver
               if (debounceTimer) {
                 clearTimeout(debounceTimer);
@@ -1201,10 +1241,18 @@ export function useTotalUnreadCount() {
                 fetchUnreadCount();
                 debounceTimer = null;
               }, 300);
+            } else {
+              // #region agent log
+              fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:REALTIME_NO_MATCH',message:'Realtime callback - no match for driver',data:{driverId:driver.id,newDriverId:(payload.new as any)?.driver_id,oldDriverId:(payload.old as any)?.driver_id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+              // #endregion
             }
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:REALTIME_SUBSCRIBE',message:'Realtime subscription status',data:{status,driverId:driver.id,channelName:`unread-count-${driver.id}`},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+          // #endregion
+        });
     };
 
     setupSubscription();
