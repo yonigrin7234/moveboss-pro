@@ -132,7 +132,6 @@ function getHeaderText(templateType: 'LIVE_PICKUP' | 'RFD' | 'GENERIC'): string 
 
 /**
  * Builds a single load share message (WhatsApp/Plain)
- * IMPORTANT: Link goes at TOP for WhatsApp rich preview to show
  */
 export function buildSingleLoadMessage(
   load: ShareableLoad,
@@ -157,13 +156,6 @@ export function buildSingleLoadMessage(
   const payoutLine = buildPayoutLine(load, showRates);
 
   const lines: string[] = [];
-
-  // Link at TOP so WhatsApp shows rich Open Graph preview
-  if (opts.link) {
-    lines.push(opts.link);
-    lines.push('');
-  }
-
   lines.push(header);
   lines.push('');
   lines.push(`${ICONS.ROUTE} ${route}`);
@@ -172,6 +164,12 @@ export function buildSingleLoadMessage(
   if (balanceLine) lines.push(balanceLine);
   if (pickupWindow) lines.push(`${ICONS.CALENDAR} Pickup: ${pickupWindow}`);
   if (payoutLine) lines.push(payoutLine);
+
+  // Link at bottom with "Claim:" prefix
+  if (opts.link) {
+    lines.push('');
+    lines.push(`${ICONS.ROUTE} Claim: ${opts.link}`);
+  }
 
   return lines.join('\n');
 }
@@ -237,7 +235,6 @@ function buildSingleLoadEmailMessage(
 
 /**
  * Builds a multi-load share message (WhatsApp/Plain)
- * IMPORTANT: Link goes at TOP for WhatsApp rich preview to show
  */
 export function buildMultiLoadMessage(
   loads: ShareableLoad[],
@@ -302,16 +299,15 @@ export function buildMultiLoadMessage(
   });
 
   const lines: string[] = [];
-
-  // Link at TOP so WhatsApp shows rich Open Graph preview
-  if (opts.link) {
-    lines.push(opts.link);
-    lines.push('');
-  }
-
   lines.push(header);
   lines.push('');
   lines.push(...items);
+
+  // Link at bottom
+  if (opts.link) {
+    lines.push('');
+    lines.push(`${ICONS.ROUTE} View details & claim: ${opts.link}`);
+  }
 
   return lines.join('\n');
 }
