@@ -6,6 +6,7 @@ import {
   type ShareableLoad,
   type ShareFormat,
 } from '@/lib/sharing';
+import { formatCompanyName } from '@/lib/utils';
 
 interface GenerateTextRequest {
   loadIds: string[];
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     const companyId = membership.company_id;
     const companySettings = membership.companies as unknown as { name: string; public_board_slug: string; public_board_show_rates: boolean } | null;
-    const companyName = companySettings?.name ?? 'Unknown Company';
+    const companyName = formatCompanyName(companySettings?.name) || 'Unknown Company';
     const showRates = companySettings?.public_board_show_rates ?? true;
 
     if (action === 'generate-text') {
