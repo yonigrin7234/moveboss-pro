@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { MessageSquare, User, Clock, Search, Radio } from 'lucide-react';
+import { MessageSquare, User, Search, Radio } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -109,9 +109,9 @@ export function DispatchPageClient({
   }
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col">
+    <div className="h-[calc(100vh-120px)] flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="border-b px-6 py-4">
+      <div className="border-b px-6 py-4 shrink-0">
         <div className="flex items-center gap-2">
           <Radio className="h-5 w-5 text-muted-foreground" />
           <h1 className="text-xl font-semibold">Dispatch Console</h1>
@@ -127,11 +127,11 @@ export function DispatchPageClient({
       </div>
 
       {/* Main content - two column layout */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Left column - Driver list */}
-        <div className="w-[320px] border-r flex flex-col bg-background">
-          {/* Search */}
-          <div className="p-3 border-b">
+        <div className="w-[320px] border-r flex flex-col bg-background shrink-0 overflow-hidden">
+          {/* Search - FIXED */}
+          <div className="p-3 border-b shrink-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -144,7 +144,7 @@ export function DispatchPageClient({
           </div>
 
           {/* Driver list */}
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0">
             <div className="divide-y">
               {filteredDrivers.map((driver) => {
                 const fullName = `${driver.first_name} ${driver.last_name}`;
@@ -202,11 +202,11 @@ export function DispatchPageClient({
         </div>
 
         {/* Right column - Chat panel */}
-        <div className="flex-1 flex flex-col bg-card">
+        <div className="flex-1 flex flex-col bg-card min-h-0 min-w-0 overflow-hidden">
           {selectedDriverId && selectedDriver ? (
             <>
               {/* Chat header */}
-              <div className="px-4 py-3 border-b flex items-center gap-3 bg-background/50">
+              <div className="px-4 py-3 border-b flex items-center gap-3 bg-background/50 shrink-0">
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <User className="h-5 w-5 text-primary" />
                 </div>
@@ -221,21 +221,14 @@ export function DispatchPageClient({
               </div>
 
               {/* Chat panel */}
-              <div className="flex-1 min-h-0">
-                {/* #region agent log */}
-                {(() => {
-                  const existingConv = driverConversationMap.get(selectedDriverId);
-                  fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DispatchPageClient.tsx:RENDER_CHATPANEL',message:'Rendering ChatPanel for driver',data:{driverId:selectedDriverId,existingConversationId:existingConv?.id,existingConversationType:existingConv?.type,usingProvidedId:!!existingConv?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-                  return null;
-                })()}
-                {/* #endregion */}
+              <div className="flex-1 min-h-0 overflow-hidden">
                 <ChatPanel
                   context="driver_dispatch"
                   driverId={selectedDriverId}
                   companyId={companyId}
                   userId={userId}
                   isInternal={true}
-                  height="100%"
+                  minimal={true}
                   conversationId={driverConversationMap.get(selectedDriverId)?.id}
                 />
               </div>
