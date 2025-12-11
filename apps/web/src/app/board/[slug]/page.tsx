@@ -57,7 +57,8 @@ export default async function PublicBoardPage({ params, searchParams }: PageProp
       public_board_custom_message,
       public_board_logo_url,
       primary_contact_email,
-      primary_contact_phone
+      primary_contact_phone,
+      fmcsa_verified
     `)
     .eq('public_board_slug', slug)
     .single();
@@ -78,11 +79,13 @@ export default async function PublicBoardPage({ params, searchParams }: PageProp
       load_number,
       pickup_city,
       pickup_state,
+      pickup_postal_code,
       pickup_date,
       pickup_window_start,
       pickup_window_end,
       delivery_city,
       delivery_state,
+      delivery_postal_code,
       delivery_date,
       delivery_window_start,
       delivery_window_end,
@@ -91,6 +94,10 @@ export default async function PublicBoardPage({ params, searchParams }: PageProp
       total_rate,
       service_type,
       description,
+      load_type,
+      load_subtype,
+      truck_requirement,
+      rfd_date,
       created_at
     `, { count: 'exact' })
     .eq('company_id', company.id)
@@ -110,17 +117,20 @@ export default async function PublicBoardPage({ params, searchParams }: PageProp
 
   const showRates = company.public_board_show_rates;
   const showContact = company.public_board_show_contact;
+  const companyVerified = company.fmcsa_verified ?? false;
 
   const sanitizedLoads = (loads || []).map(load => ({
     id: load.id,
     load_number: load.load_number,
     pickup_city: load.pickup_city,
     pickup_state: load.pickup_state,
+    pickup_postal_code: load.pickup_postal_code,
     pickup_date: load.pickup_date,
     pickup_window_start: load.pickup_window_start,
     pickup_window_end: load.pickup_window_end,
     delivery_city: load.delivery_city,
     delivery_state: load.delivery_state,
+    delivery_postal_code: load.delivery_postal_code,
     delivery_date: load.delivery_date,
     delivery_window_start: load.delivery_window_start,
     delivery_window_end: load.delivery_window_end,
@@ -129,6 +139,11 @@ export default async function PublicBoardPage({ params, searchParams }: PageProp
     total_rate: showRates ? load.total_rate : null,
     service_type: load.service_type,
     description: load.description,
+    load_type: load.load_type,
+    load_subtype: load.load_subtype,
+    truck_requirement: load.truck_requirement,
+    rfd_date: load.rfd_date,
+    company_verified: companyVerified,
   }));
 
   return (

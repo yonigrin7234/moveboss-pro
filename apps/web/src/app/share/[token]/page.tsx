@@ -67,7 +67,8 @@ export default async function SharePage({ params }: PageProps) {
         public_board_slug,
         public_board_show_rates,
         public_board_show_contact,
-        public_board_logo_url
+        public_board_logo_url,
+        fmcsa_verified
       )
     `)
     .eq('token', token)
@@ -122,6 +123,7 @@ export default async function SharePage({ params }: PageProps) {
     public_board_show_rates: boolean;
     public_board_show_contact: boolean;
     public_board_logo_url: string | null;
+    fmcsa_verified: boolean | null;
   } | null;
 
   // Fetch the loads (only pending status)
@@ -132,11 +134,13 @@ export default async function SharePage({ params }: PageProps) {
       load_number,
       pickup_city,
       pickup_state,
+      pickup_postal_code,
       pickup_date,
       pickup_window_start,
       pickup_window_end,
       delivery_city,
       delivery_state,
+      delivery_postal_code,
       delivery_date,
       delivery_window_start,
       delivery_window_end,
@@ -144,23 +148,30 @@ export default async function SharePage({ params }: PageProps) {
       rate_per_cuft,
       total_rate,
       service_type,
-      description
+      description,
+      load_type,
+      load_subtype,
+      truck_requirement,
+      rfd_date
     `)
     .in('id', shareLink.load_ids)
     .eq('status', 'pending');
 
   const showRates = company?.public_board_show_rates ?? true;
+  const companyVerified = company?.fmcsa_verified ?? false;
 
   const sanitizedLoads = (loads || []).map(load => ({
     id: load.id,
     load_number: load.load_number,
     pickup_city: load.pickup_city,
     pickup_state: load.pickup_state,
+    pickup_postal_code: load.pickup_postal_code,
     pickup_date: load.pickup_date,
     pickup_window_start: load.pickup_window_start,
     pickup_window_end: load.pickup_window_end,
     delivery_city: load.delivery_city,
     delivery_state: load.delivery_state,
+    delivery_postal_code: load.delivery_postal_code,
     delivery_date: load.delivery_date,
     delivery_window_start: load.delivery_window_start,
     delivery_window_end: load.delivery_window_end,
@@ -169,6 +180,11 @@ export default async function SharePage({ params }: PageProps) {
     total_rate: showRates ? load.total_rate : null,
     service_type: load.service_type,
     description: load.description,
+    load_type: load.load_type,
+    load_subtype: load.load_subtype,
+    truck_requirement: load.truck_requirement,
+    rfd_date: load.rfd_date,
+    company_verified: companyVerified,
   }));
 
   // Increment view count (fire and forget)

@@ -9,6 +9,9 @@ import {
   ExternalLink,
   Truck,
   Clock,
+  Zap,
+  Box,
+  CheckCircle2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -31,6 +34,12 @@ export interface LoadCardData extends LoadLocationFields, PickupDateFields {
   total_rate: number | null;
   service_type: string | null;
   description: string | null;
+  // New fields
+  load_type?: string | null;
+  load_subtype?: string | null;
+  truck_requirement?: string | null;
+  rfd_date?: string | null;
+  company_verified?: boolean;
 }
 
 interface LoadCardProps {
@@ -49,6 +58,29 @@ const SERVICE_TYPE_LABELS: Record<string, string> = {
   storage: 'Storage',
   junk_removal: 'Junk Removal',
   delivery: 'Delivery',
+};
+
+const LOAD_TYPE_CONFIG: Record<string, { label: string; color: string; icon: typeof Zap }> = {
+  live_load: {
+    label: 'Live Load',
+    color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    icon: Zap,
+  },
+  rfd: {
+    label: 'RFD',
+    color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    icon: Box,
+  },
+  pickup: {
+    label: 'Pickup',
+    color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+    icon: Package,
+  },
+};
+
+const TRUCK_REQUIREMENT_LABELS: Record<string, string> = {
+  semi_only: 'Semi Only',
+  box_truck_only: 'Box Truck Only',
 };
 
 function formatCurrency(amount: number | null): string {
@@ -81,11 +113,58 @@ function getServiceTypeColor(serviceType: string | null): string {
   }
 }
 
+function formatLocationWithZip(city: string | null, state: string | null, zip: string | null): string {
+  const parts: string[] = [];
+  if (city) parts.push(city);
+  if (state) parts.push(state);
+  const cityState = parts.join(', ');
+  if (zip && cityState) return `${cityState} ${zip}`;
+  if (zip) return zip;
+  return cityState || 'TBD';
+}
+
+function isReadyNow(load: LoadCardData): boolean {
+  // If it's a live load, it's ready now
+  if (load.load_type === 'live_load' || load.load_subtype === 'live') {
+    return true;
+  }
+
+  // For RFD loads, check if rfd_date is today or in the past
+  if (load.rfd_date) {
+    const rfdDate = new Date(load.rfd_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return rfdDate <= today;
+  }
+
+  // For pickup type loads, check pickup_date
+  if (load.load_type === 'pickup') {
+    const pickupDate = load.pickup_window_start || load.pickup_date;
+    if (pickupDate) {
+      const date = new Date(pickupDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return date <= today;
+    }
+  }
+
+  return false;
+}
+
 export function LoadCard({ load, showRates, variant = 'default', className }: LoadCardProps) {
-  const { origin, destination } = getRouteLocations(load);
+  const originWithZip = formatLocationWithZip(load.pickup_city, load.pickup_state, load.pickup_postal_code);
+  const destWithZip = formatLocationWithZip(load.delivery_city, load.delivery_state, load.delivery_postal_code);
   const pickupDate = formatDate(load.pickup_window_start || load.pickup_date);
   const deliveryDate = formatDate(load.delivery_window_start || load.delivery_date);
   const serviceLabel = getServiceTypeLabel(load.service_type);
+
+  // Determine load type display
+  const loadTypeConfig = load.load_type ? LOAD_TYPE_CONFIG[load.load_type] :
+                         load.load_subtype === 'live' ? LOAD_TYPE_CONFIG['live_load'] :
+                         load.load_subtype === 'rfd' ? LOAD_TYPE_CONFIG['rfd'] : null;
+
+  const truckLabel = load.truck_requirement ? TRUCK_REQUIREMENT_LABELS[load.truck_requirement] : null;
+  const readyNow = isReadyNow(load);
 
   return (
     <Link
@@ -95,9 +174,21 @@ export function LoadCard({ load, showRates, variant = 'default', className }: Lo
         className
       )}
     >
-      {/* Header with service type and load number */}
-      <div className="flex items-center justify-between mb-3">
-        {serviceLabel && (
+      {/* Header badges row */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        {/* Load type badge */}
+        {loadTypeConfig && (
+          <span className={cn(
+            'text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1',
+            loadTypeConfig.color
+          )}>
+            <loadTypeConfig.icon className="h-3 w-3" />
+            {loadTypeConfig.label}
+          </span>
+        )}
+
+        {/* Service type badge */}
+        {serviceLabel && !loadTypeConfig && (
           <span className={cn(
             'text-xs font-medium px-2 py-1 rounded-full',
             getServiceTypeColor(load.service_type)
@@ -105,21 +196,47 @@ export function LoadCard({ load, showRates, variant = 'default', className }: Lo
             {serviceLabel}
           </span>
         )}
-        <span className="text-xs text-slate-400 font-mono">
+
+        {/* Ready now indicator */}
+        {readyNow && (
+          <span className="text-xs font-medium px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            Ready Now
+          </span>
+        )}
+
+        {/* Truck requirement badge */}
+        {truckLabel && (
+          <span className="text-xs font-medium px-2 py-1 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 flex items-center gap-1">
+            <Truck className="h-3 w-3" />
+            {truckLabel}
+          </span>
+        )}
+
+        {/* Company verified badge */}
+        {load.company_verified && (
+          <span className="text-xs font-medium px-2 py-1 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3" />
+            Verified
+          </span>
+        )}
+
+        {/* Load number */}
+        <span className="text-xs text-slate-400 font-mono ml-auto">
           #{load.load_number}
         </span>
       </div>
 
-      {/* Route */}
+      {/* Route with ZIP codes */}
       <div className="mb-4">
         <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm mb-1">
           <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-          <span className="truncate">{origin}</span>
+          <span className="truncate">{originWithZip}</span>
         </div>
         <div className="flex items-center gap-2">
           <ArrowRight className="h-4 w-4 text-primary flex-shrink-0" />
           <span className="font-semibold text-lg text-slate-900 dark:text-white group-hover:text-primary transition-colors truncate">
-            {destination}
+            {destWithZip}
           </span>
         </div>
       </div>
