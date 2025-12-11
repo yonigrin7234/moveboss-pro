@@ -123,6 +123,11 @@ export default function MessagesPage() {
       }
 
       const { messages: data, conversation } = await res.json();
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MessagesPage.tsx:fetchMessages:MESSAGES_FETCHED',message:'Messages fetched for conversation',data:{conversationId:selectedConversationId,conversationType:conversation?.type,driverId:conversation?.driver_id,messageCount:data?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      
       setMessages(data || []);
 
       // Always set conversation even if minimal - prevent infinite loading
@@ -462,7 +467,7 @@ export default function MessagesPage() {
         {/* Right column - Thread view */}
         <div
           className={cn(
-            'flex-1 flex flex-col bg-card',
+            'flex-1 flex flex-col bg-card min-h-0 overflow-hidden',
             !isMobileThreadOpen && 'hidden md:flex'
           )}
         >
@@ -489,13 +494,15 @@ export default function MessagesPage() {
                 </div>
               </div>
 
-              {/* Messages */}
-              <MessageList
-                messages={messages}
-                currentUserId={userId || ''}
-                isLoading={isLoadingMessages}
-                emptyMessage="No messages yet"
-              />
+              {/* Messages - scrollable area */}
+              <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none">
+                <MessageList
+                  messages={messages}
+                  currentUserId={userId || ''}
+                  isLoading={isLoadingMessages}
+                  emptyMessage="No messages yet"
+                />
+              </div>
 
               {/* Input area */}
               <MessageComposer
