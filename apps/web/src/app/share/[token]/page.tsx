@@ -16,15 +16,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     .from('load_share_links')
     .select(`
       load_ids,
-      companies (name)
+      companies (name, public_board_logo_url)
     `)
     .eq('token', token)
     .eq('is_active', true)
     .single();
 
-  const company = shareLink?.companies as unknown as { name: string } | null;
+  const company = shareLink?.companies as unknown as { name: string; public_board_logo_url: string | null } | null;
   const loadCount = shareLink?.load_ids?.length || 0;
   const formattedName = formatCompanyName(company?.name);
+  const logoUrl = company?.public_board_logo_url;
 
   return {
     title: formattedName
@@ -39,6 +40,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         ? `View ${loadCount} available ${loadCount === 1 ? 'load' : 'loads'} shared by ${formattedName}`
         : 'View shared loads',
       type: 'website',
+      siteName: 'MoveBoss Pro',
+      ...(logoUrl && {
+        images: [{ url: logoUrl, width: 200, height: 200, alt: formattedName || 'Company Logo' }],
+      }),
     },
   };
 }
