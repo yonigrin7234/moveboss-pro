@@ -217,15 +217,30 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
               {formatServiceType(load.service_type)}
             </div>
 
-            {/* Info Grid */}
+            {/* Info Grid - Smart display based on load type */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4">
-                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm mb-1">
-                  <Calendar className="h-4 w-4" />
-                  <span>Pickup</span>
+              {/* First date box - changes based on load type */}
+              {(load.load_type === 'rfd' || load.load_subtype === 'rfd') ? (
+                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4">
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm mb-1">
+                    <Calendar className="h-4 w-4" />
+                    <span>Ready</span>
+                  </div>
+                  <p className="font-semibold text-slate-900 dark:text-white">
+                    {load.rfd_date
+                      ? formatDateRangeDisplay(load.rfd_date, null)
+                      : 'Now'}
+                  </p>
                 </div>
-                <p className="font-semibold text-slate-900 dark:text-white">{pickupDate}</p>
-              </div>
+              ) : (
+                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4">
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm mb-1">
+                    <Calendar className="h-4 w-4" />
+                    <span>Pickup</span>
+                  </div>
+                  <p className="font-semibold text-slate-900 dark:text-white">{pickupDate}</p>
+                </div>
+              )}
               <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4">
                 <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm mb-1">
                   <Calendar className="h-4 w-4" />
@@ -253,20 +268,34 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
                   </p>
                 </div>
               )}
-              {company.show_rates && (
-                <div className={load.total_rate ? "bg-emerald-50 dark:bg-emerald-950/30 rounded-xl p-4" : "bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4"}>
-                  <p className={`text-sm mb-1 ${load.total_rate ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 dark:text-slate-400"}`}>Linehaul</p>
-                  {load.total_rate ? (
-                    <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                      {formatCurrency(load.total_rate)}
-                    </p>
-                  ) : (
-                    <p className="text-lg font-semibold text-slate-700 dark:text-slate-300">
-                      Make an offer
-                    </p>
-                  )}
-                </div>
-              )}
+              {company.show_rates && (() => {
+                // Calculate linehaul: use total_rate, or calculate from rate_per_cuft * cubic_feet
+                const calculatedLinehaul = load.total_rate
+                  ? load.total_rate
+                  : (load.rate_per_cuft && load.cubic_feet)
+                    ? load.rate_per_cuft * load.cubic_feet
+                    : null;
+                const hasRate = calculatedLinehaul !== null;
+
+                return (
+                  <div className={hasRate ? "bg-emerald-50 dark:bg-emerald-950/30 rounded-xl p-4" : "bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4"}>
+                    <p className={`text-sm mb-1 ${hasRate ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 dark:text-slate-400"}`}>Linehaul</p>
+                    {hasRate ? (
+                      <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                        {formatCurrency(calculatedLinehaul)}
+                      </p>
+                    ) : load.is_open_to_counter ? (
+                      <p className="text-lg font-semibold text-slate-700 dark:text-slate-300">
+                        Open to offers
+                      </p>
+                    ) : (
+                      <p className="text-lg font-semibold text-slate-700 dark:text-slate-300">
+                        Make an offer
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Description */}
