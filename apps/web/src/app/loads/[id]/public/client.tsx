@@ -241,13 +241,16 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
                   <p className="font-semibold text-slate-900 dark:text-white">{pickupDate}</p>
                 </div>
               )}
-              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4">
-                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm mb-1">
-                  <Calendar className="h-4 w-4" />
-                  <span>Delivery</span>
+              {/* Delivery date - only show for non-RFD loads (RFD delivery is TBD until claimed) */}
+              {!(load.load_type === 'rfd' || load.load_subtype === 'rfd') && (
+                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4">
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm mb-1">
+                    <Calendar className="h-4 w-4" />
+                    <span>Delivery</span>
+                  </div>
+                  <p className="font-semibold text-slate-900 dark:text-white">{deliveryDate}</p>
                 </div>
-                <p className="font-semibold text-slate-900 dark:text-white">{deliveryDate}</p>
-              </div>
+              )}
             </div>
 
             {/* Size and Rate */}
