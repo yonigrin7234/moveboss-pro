@@ -152,6 +152,11 @@ export function CustomTabBar({
 }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
 
+  // Check if tab bar should be hidden for current route
+  const currentRoute = state.routes[state.index];
+  const currentRouteOptions = descriptors[currentRoute?.key]?.options;
+  const shouldHideTabBar = currentRouteOptions?.tabBarStyle?.display === 'none';
+
   // Get badge counts from somewhere (could be context or props)
   // For now, using placeholder logic
   const getBadge = (routeName: string): number | undefined => {
@@ -164,6 +169,11 @@ export function CustomTabBar({
     // Example: Show dot on earnings if there's new data
     return false;
   };
+
+  // Hide tab bar if current route has display: 'none'
+  if (shouldHideTabBar) {
+    return null;
+  }
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>

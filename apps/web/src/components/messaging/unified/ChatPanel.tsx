@@ -9,6 +9,7 @@ import { MessageList } from './MessageList';
 import { MessageComposer, ReadOnlyComposer } from './MessageComposer';
 import type { ChatPanelProps, ChatState } from './types';
 import type { ConversationType, ConversationWithDetails, MessageWithSender } from '@/lib/communication-types';
+import { createClient } from '@/lib/supabase-client';
 
 /**
  * Unified ChatPanel component.
@@ -54,6 +55,9 @@ export function ChatPanel({
   // Refs for preventing duplicate fetches
   const conversationFetchedRef = useRef(false);
   const mountedRef = useRef(true);
+  const subscriptionRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
 
   // Compute conversation type based on context
   const conversationType: ConversationType = useMemo(() => {
@@ -207,7 +211,35 @@ export function ChatPanel({
 
       if (!mountedRef.current) return;
 
-      // Refetch messages
+      // Optimistically add message to state (real-time will update it with full data)
+      const optimisticMessage: MessageWithSender = {
+        id: 'temp-' + Date.now(), // Temporary ID
+        conversation_id: conversationId,
+        sender_user_id: null, // Will be set by server
+        sender_driver_id: null,
+        sender_company_id: null,
+        message_type: 'text',
+        body: body.trim(),
+        attachments: [],
+        metadata: {},
+        reply_to_message_id: null,
+        is_edited: false,
+        edited_at: null,
+        original_body: null,
+        is_deleted: false,
+        deleted_at: null,
+        deleted_by_user_id: null,
+        created_at: new Date().toISOString(),
+        sender_profile: undefined,
+        sender_driver: undefined,
+      };
+
+      setState(s => ({
+        ...s,
+        messages: [...s.messages, optimisticMessage],
+      }));
+
+      // Refetch messages to get the real message with ID
       await fetchMessages();
     } catch (err) {
       if (!mountedRef.current) return;
@@ -238,6 +270,137 @@ export function ChatPanel({
       fetchMessages();
     }
   }, [state.conversation?.id, fetchMessages]);
+
+  // Set up real-time subscription for new messages
+  useEffect(() => {
+    const conversationId = state.conversation?.id;
+    if (!conversationId) return;
+
+    console.log('🔌 Web: Setting up realtime subscription for:', conversationId);
+
+    // Clean up existing subscription
+    if (subscriptionRef.current) {
+      console.log('🧹 Web: Cleaning up existing subscription');
+      subscriptionRef.current.unsubscribe();
+      subscriptionRef.current = null;
+    }
+
+    const channel = supabase
+      .channel(`messages:${conversationId}`, {
+        config: {
+          broadcast: { self: true },
+          presence: { key: '' },
+        },
+      })
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        async (payload) => {
+          console.log('🔔 Web: Realtime INSERT received:', {
+            messageId: payload.new.id,
+            conversationId: payload.new.conversation_id,
+            ourConversationId: conversationId,
+            senderUserId: payload.new.sender_user_id,
+            senderDriverId: payload.new.sender_driver_id,
+            body: payload.new.body?.substring(0, 50),
+          });
+          
+          // Verify this message is for our conversation
+          if (payload.new.conversation_id !== conversationId) {
+            console.log('⚠️ Web: Message conversation ID mismatch:', payload.new.conversation_id, 'vs', conversationId);
+            return;
+          }
+          
+          console.log('✅ Web: Message conversation ID matches, processing...');
+
+          // Fetch the full message with sender info
+          const { data: newMsg, error } = await supabase
+            .from('messages')
+            .select(`
+              *,
+              sender_driver:sender_driver_id (
+                id,
+                first_name,
+                last_name
+              )
+            `)
+            .eq('id', payload.new.id)
+            .single();
+
+          if (error) {
+            console.error('❌ Web: Failed to fetch new message:', error);
+            return;
+          }
+
+          if (newMsg) {
+            // Get sender profile if it's a user message
+            let senderProfile: { id: string; full_name: string | null } | undefined;
+            if (newMsg.sender_user_id) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('id, full_name, email')
+                .eq('id', newMsg.sender_user_id)
+                .maybeSingle();
+
+              if (profile) {
+                senderProfile = {
+                  id: profile.id,
+                  full_name: profile.full_name || profile.email || 'Unknown',
+                };
+              }
+            }
+
+            const senderDriver = Array.isArray(newMsg.sender_driver)
+              ? newMsg.sender_driver[0]
+              : newMsg.sender_driver;
+
+            const formatted: MessageWithSender = {
+              ...newMsg,
+              sender_profile: senderProfile,
+              sender_driver: senderDriver ?? undefined,
+            };
+
+            // Add message to state if it doesn't already exist
+            setState((prev) => {
+              const exists = prev.messages.some(m => m.id === formatted.id);
+              if (exists) {
+                console.log('⚠️ Web: Message already exists, skipping:', formatted.id);
+                return prev;
+              }
+              console.log('✅ Web: Adding new message to state:', formatted.id);
+              return {
+                ...prev,
+                messages: [...prev.messages, formatted],
+              };
+            });
+          }
+        }
+      )
+      .subscribe((status, err) => {
+        console.log('📡 Web: Realtime subscription status:', status, err ? `Error: ${err}` : '');
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Web: Realtime subscription active for:', conversationId);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED' || err) {
+          console.error('❌ Web: Realtime subscription error:', status, err);
+        }
+      });
+
+    subscriptionRef.current = channel;
+
+    return () => {
+      console.log('🧹 Web: Cleaning up realtime subscription for:', conversationId);
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+        subscriptionRef.current = null;
+      }
+      channel.unsubscribe();
+    };
+  }, [state.conversation?.id]); // Removed supabase from deps since it's stable via ref
 
   // Compute title
   const title = useMemo(() => {

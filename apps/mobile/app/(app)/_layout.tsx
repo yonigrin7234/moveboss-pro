@@ -138,6 +138,15 @@ export default function AppLayout() {
                 tabBarStyle: { display: 'none' },
               }}
             />
+            <Tabs.Screen
+              name="dispatch"
+              options={{
+                href: null,
+                headerShown: true,
+                title: 'Dispatch',
+                tabBarStyle: { display: 'none' },
+              }}
+            />
           </Tabs>
         </ErrorBoundary>
       </DriverProvider>

@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useFocusEffect } from 'expo-router';
 import { useDispatchConversation, useConversationMessages } from '../../hooks/useMessaging';
 import { ChatView } from '../../components/messaging/ChatView';
 import { colors, typography, spacing } from '../../lib/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorState } from '../../components/ui';
+import { dataLogger } from '../../lib/logger';
 
 export default function DispatchScreen() {
   // Get or create the dispatch conversation
@@ -16,18 +17,59 @@ export default function DispatchScreen() {
   } = useDispatchConversation();
 
   // Get messages for the conversation
+  // IMPORTANT: Pass conversationType to ensure can_write is always true for driver_dispatch
+  const messagesResult = useConversationMessages(conversation?.id ?? null, { conversationType: 'driver_dispatch' });
+  
+  // FORCE canWrite to always be true for driver_dispatch conversations
+  // This is a safety override in case the hook doesn't properly enforce it
   const {
     messages,
     is_loading: messagesLoading,
     is_sending: isSending,
-    can_write: canWrite,
-    is_read_only: isReadOnly,
+    can_write: _canWrite,
+    is_read_only: _isReadOnly,
     was_routed: wasRouted,
     route_reason: routeReason,
     error: messagesError,
     sendMessage,
     refetch: refetchMessages,
-  } = useConversationMessages(conversation?.id ?? null);
+  } = messagesResult;
+  
+  // Override canWrite and isReadOnly - ALWAYS allow writing for driver_dispatch
+  const canWrite = true; // FORCE to true for driver_dispatch
+  const isReadOnly = false; // FORCE to false for driver_dispatch
+  
+  // #region agent log
+  useEffect(() => {
+    console.log('🔧 DispatchScreen: FORCING canWrite override', { hookCanWrite: _canWrite, forcedCanWrite: canWrite, conversationId: conversation?.id });
+    fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dispatch.tsx:39',message:'FORCING canWrite override',data:{hookCanWrite:_canWrite,forcedCanWrite:canWrite,conversationId:conversation?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'A'})}).catch(()=>{});
+  }, [_canWrite, canWrite, conversation?.id]);
+  // #endregion
+
+  // Refetch messages when screen comes into focus (fallback for real-time)
+  useFocusEffect(
+    useCallback(() => {
+      if (conversation?.id) {
+        console.log('🔄 Screen focused, refetching messages as fallback');
+        refetchMessages();
+      }
+    }, [conversation?.id, refetchMessages])
+  );
+
+  // Debug logging
+  useEffect(() => {
+    dataLogger.info('🖥️ DispatchScreen render:', {
+      conversationId: conversation?.id,
+      messagesLoading,
+      messagesCount: messages.length,
+      canWrite,
+      isReadOnly,
+      messagesError,
+    });
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dispatch.tsx:35',message:'DispatchScreen render with canWrite',data:{conversationId:conversation?.id,canWrite,isReadOnly,messagesCount:messages.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+  }, [conversation?.id, messagesLoading, messages.length, canWrite, isReadOnly, messagesError]);
 
   // Loading state
   if (conversationLoading) {
