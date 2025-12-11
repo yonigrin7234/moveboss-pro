@@ -424,6 +424,10 @@ export function useConversationMessages(
 
     dataLogger.info('Setting up realtime subscription for:', conversationId);
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:REALTIME_SUBSCRIBE_SETUP',message:'Setting up realtime subscription',data:{conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
+
     const channel = supabase
       .channel(`messages:${conversationId}`, {
         config: {
@@ -440,6 +444,9 @@ export function useConversationMessages(
           filter: `conversation_id=eq.${conversationId}`,
         },
         async (payload) => {
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:REALTIME_INSERT_RECEIVED',message:'Mobile realtime INSERT received',data:{messageId:payload.new.id,payloadConversationId:payload.new.conversation_id,ourConversationId:conversationId,matches:payload.new.conversation_id===conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+          // #endregion
           dataLogger.info('🔔 Realtime INSERT received:', { messageId: payload.new.id, conversationId: payload.new.conversation_id });
           console.log('🔔 Realtime INSERT received:', payload.new.id, 'for conversation:', payload.new.conversation_id, 'our conversation:', conversationId);
           
