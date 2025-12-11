@@ -118,6 +118,10 @@ export async function POST(request: Request) {
       .eq('is_primary', true)
       .single();
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'messages/route.ts:POST:SENDING',message:'Sending message via API',data:{conversation_id,userId:user.id,messageBodyLength:messageBody.length,companyId:membership?.company_id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+    // #endregion
+
     const message = await sendMessage(conversation_id, user.id, messageBody, {
       message_type,
       attachments,
@@ -125,6 +129,10 @@ export async function POST(request: Request) {
       reply_to_message_id,
       sender_company_id: membership?.company_id,
     });
+
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'messages/route.ts:POST:MESSAGE_SENT',message:'Message sent successfully',data:{conversation_id,messageId:message.id,messageBodyLength:messageBody.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+    // #endregion
 
     // Send push notifications to other participants
     await sendMessageNotifications(supabase, conversation_id, user.id, messageBody);

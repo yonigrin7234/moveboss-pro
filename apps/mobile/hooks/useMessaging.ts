@@ -1074,7 +1074,7 @@ export function useDispatchConversation() {
           : existing.conversation_participants;
 
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:useDispatchConversation:SETTING_CONVERSATION',message:'Setting dispatch conversation',data:{conversationId:existing.id,driverId:driver.id,companyId:driver.company_id,hasParticipant:!!participant},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useMessaging.ts:useDispatchConversation:SETTING_CONVERSATION',message:'Setting dispatch conversation',data:{conversationId:existing.id,driverId:driver.id,companyId:driver.company_id,hasParticipant:!!participant,lastMessageAt:existing.last_message_at,messageCount:existing.message_count},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
         // #endregion
 
         setConversation({
