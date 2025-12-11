@@ -33,6 +33,7 @@ import type {
   MessageWithSender,
 } from '@/lib/communication-types';
 import type { ConversationListItemProps } from '@/components/messaging/unified';
+import { createClient } from '@/lib/supabase-client';
 
 type ConversationFilter = 'all' | 'load' | 'trip' | 'company';
 
@@ -50,6 +51,9 @@ export default function MessagesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileThreadOpen, setIsMobileThreadOpen] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const subscriptionRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
 
   // Get current user ID
   useEffect(() => {
@@ -165,6 +169,165 @@ export default function MessagesPage() {
       setSelectedConversation(null);
     }
   }, [selectedConversationId, fetchMessages]);
+
+  // Set up real-time subscription for new messages
+  useEffect(() => {
+    const conversationId = selectedConversationId;
+    if (!conversationId) {
+      console.log('⚠️ MessagesPage: No conversationId, skipping subscription setup');
+      return;
+    }
+
+    console.log('🔌 MessagesPage: Setting up realtime subscription for:', conversationId);
+
+    // Clean up existing subscription
+    if (subscriptionRef.current) {
+      console.log('🧹 MessagesPage: Cleaning up existing subscription');
+      subscriptionRef.current.unsubscribe();
+      subscriptionRef.current = null;
+    }
+
+    const channel = supabase
+      .channel(`messages:${conversationId}`, {
+        config: {
+          broadcast: { self: true },
+          presence: { key: '' },
+        },
+      })
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        async (payload) => {
+          console.log('🔔🔔🔔 MessagesPage: Realtime INSERT received!', {
+            messageId: payload.new.id,
+            conversationId: payload.new.conversation_id,
+            ourConversationId: conversationId,
+            senderUserId: payload.new.sender_user_id,
+            senderDriverId: payload.new.sender_driver_id,
+            body: payload.new.body?.substring(0, 50),
+          });
+          
+          // Verify this message is for our conversation
+          if (payload.new.conversation_id !== conversationId) {
+            console.log('⚠️ MessagesPage: Message conversation ID mismatch:', payload.new.conversation_id, 'vs', conversationId);
+            return;
+          }
+          
+          console.log('✅ MessagesPage: Message conversation ID matches, processing...');
+
+          // Fetch the full message with sender info
+          console.log('🔍 MessagesPage: Fetching message details for:', payload.new.id);
+          const { data: newMsg, error } = await supabase
+            .from('messages')
+            .select(`
+              *,
+              sender_driver:sender_driver_id (
+                id,
+                first_name,
+                last_name
+              )
+            `)
+            .eq('id', payload.new.id)
+            .single();
+
+          if (error) {
+            console.error('❌ MessagesPage: Failed to fetch new message:', error);
+            console.error('❌ MessagesPage: Error details:', JSON.stringify(error, null, 2));
+            // Try to add message with payload data directly as fallback
+            console.log('🔄 MessagesPage: Attempting fallback - using payload data directly');
+            const fallbackMessage: MessageWithSender = {
+              ...payload.new as any,
+              sender_profile: undefined,
+              sender_driver: undefined,
+            };
+            setMessages((prev) => {
+              const exists = prev.some(m => m.id === fallbackMessage.id);
+              if (exists) return prev;
+              console.log('✅ MessagesPage: Adding message via fallback');
+              return [...prev, fallbackMessage];
+            });
+            return;
+          }
+          
+          console.log('✅ MessagesPage: Message fetched successfully:', newMsg.id);
+
+          if (newMsg) {
+            // Get sender profile if it's a user message
+            let senderProfile: { id: string; full_name: string | null } | undefined;
+            if (newMsg.sender_user_id) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('id, full_name, email')
+                .eq('id', newMsg.sender_user_id)
+                .maybeSingle();
+
+              if (profile) {
+                senderProfile = {
+                  id: profile.id,
+                  full_name: profile.full_name || profile.email || 'Unknown',
+                };
+              }
+            }
+
+            const senderDriver = Array.isArray(newMsg.sender_driver)
+              ? newMsg.sender_driver[0]
+              : newMsg.sender_driver;
+
+            const formatted: MessageWithSender = {
+              ...newMsg,
+              sender_profile: senderProfile,
+              sender_driver: senderDriver ?? undefined,
+            };
+
+            // Add message to state if it doesn't already exist
+            setMessages((prev) => {
+              const exists = prev.some(m => m.id === formatted.id);
+              if (exists) {
+                console.log('⚠️ MessagesPage: Message already exists, skipping:', formatted.id, 'Current message count:', prev.length);
+                return prev;
+              }
+              console.log('✅✅✅ MessagesPage: Adding new message to state:', formatted.id, 'Previous count:', prev.length, 'New count:', prev.length + 1);
+              console.log('✅ MessagesPage: Message details:', {
+                id: formatted.id,
+                body: formatted.body?.substring(0, 50),
+                senderDriver: formatted.sender_driver,
+                senderProfile: formatted.sender_profile,
+              });
+              const newMessages = [...prev, formatted];
+              console.log('✅ MessagesPage: State updated, new message count:', newMessages.length);
+              return newMessages;
+            });
+          }
+        }
+      )
+      .subscribe((status, err) => {
+        console.log('📡 MessagesPage: Realtime subscription status:', status, err ? `Error: ${JSON.stringify(err)}` : '', 'Channel:', `messages:${conversationId}`);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ MessagesPage: Realtime subscription SUBSCRIBED successfully for:', conversationId);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED' || err) {
+          console.error('❌ MessagesPage: Realtime subscription error:', status, err);
+          console.error('❌ MessagesPage: Error details:', JSON.stringify(err, null, 2));
+        } else {
+          console.log('⚠️ MessagesPage: Unexpected subscription status:', status);
+        }
+      });
+
+    subscriptionRef.current = channel;
+
+    return () => {
+      console.log('🧹 MessagesPage: Cleaning up realtime subscription for:', conversationId);
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+        subscriptionRef.current = null;
+      }
+      channel.unsubscribe();
+    };
+  }, [selectedConversationId]);
 
   // Send message
   const handleSendMessage = useCallback(async (body: string) => {
