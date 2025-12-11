@@ -441,6 +441,13 @@ export async function getOrCreateTripConversation(
 ): Promise<Conversation> {
   const supabase = await createClient();
 
+  // Get the trip to find the assigned driver
+  const { data: trip } = await supabase
+    .from('trips')
+    .select('assigned_driver_id')
+    .eq('id', tripId)
+    .single();
+
   // Check for existing conversation
   const { data: existing } = await supabase
     .from('conversations')
@@ -451,6 +458,22 @@ export async function getOrCreateTripConversation(
     .maybeSingle();
 
   if (existing) {
+    // Ensure the assigned driver is a participant (in case driver was assigned later)
+    if (trip?.assigned_driver_id) {
+      await supabase.from('conversation_participants').upsert(
+        {
+          conversation_id: existing.id,
+          driver_id: trip.assigned_driver_id,
+          company_id: ownerCompanyId,
+          role: 'driver',
+          can_read: true,
+          can_write: true,
+          is_driver: true,
+          added_by_user_id: createdByUserId,
+        },
+        { onConflict: 'conversation_id,driver_id' }
+      );
+    }
     return existing as Conversation;
   }
 
@@ -468,6 +491,20 @@ export async function getOrCreateTripConversation(
 
   if (error) {
     throw new Error(`Failed to create conversation: ${error.message}`);
+  }
+
+  // Add the assigned driver as a participant with full read/write access
+  if (trip?.assigned_driver_id) {
+    await supabase.from('conversation_participants').insert({
+      conversation_id: newConv.id,
+      driver_id: trip.assigned_driver_id,
+      company_id: ownerCompanyId,
+      role: 'driver',
+      can_read: true,
+      can_write: true,
+      is_driver: true,
+      added_by_user_id: createdByUserId,
+    });
   }
 
   return newConv as Conversation;
@@ -540,6 +577,7 @@ export async function getOrCreateDriverDispatchConversation(
 
   // Check for existing conversation(s)
   // Handle multiple conversations by getting the most recent one
+  // IMPORTANT: Use the same ordering logic as mobile app (last_message_at DESC, created_at DESC)
   const { data: existingConvs, error: queryError } = await supabase
     .from('conversations')
     .select('*')
@@ -547,6 +585,7 @@ export async function getOrCreateDriverDispatchConversation(
     .eq('driver_id', driverId)
     .eq('owner_company_id', companyId)
     .order('last_message_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(1);
 
