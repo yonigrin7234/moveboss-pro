@@ -248,4 +248,13 @@
     background: linear-gradient(var(--card), var(--card)) padding-box,
                 linear-gradient(to bottom, oklch(1 0 0 / 12%), oklch(1 0 0 / 6%)) border-box;
   }
+
+  /* Hide scrollbar while keeping scroll functionality */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }
