@@ -12,6 +12,7 @@ import {
   Zap,
   Box,
   CheckCircle2,
+  CalendarCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -246,13 +247,15 @@ export function LoadCard({ load, showRates, variant = 'default', className }: Lo
         {/* Pickup date */}
         <div className="flex items-center gap-1.5">
           <Calendar className="h-3.5 w-3.5 text-slate-400" />
+          <span className="text-slate-400">Pick:</span>
           <span>{pickupDate}</span>
         </div>
 
         {/* Delivery date if different from pickup */}
         {deliveryDate && deliveryDate !== pickupDate && (
           <div className="flex items-center gap-1.5">
-            <Truck className="h-3.5 w-3.5 text-slate-400" />
+            <CalendarCheck className="h-3.5 w-3.5 text-slate-400" />
+            <span className="text-slate-400">Del:</span>
             <span>{deliveryDate}</span>
           </div>
         )}
@@ -269,9 +272,16 @@ export function LoadCard({ load, showRates, variant = 'default', className }: Lo
       {/* Rate */}
       {showRates && load.total_rate ? (
         <div className="flex items-center justify-between">
-          <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-            {formatCurrency(load.total_rate)}
-          </span>
+          <div>
+            <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+              {formatCurrency(load.total_rate)}
+            </span>
+            {load.rate_per_cuft && (
+              <span className="ml-2 text-xs text-slate-400">
+                ({formatCurrency(load.rate_per_cuft)}/CF)
+              </span>
+            )}
+          </div>
           <span className="text-xs text-slate-400 group-hover:text-primary transition-colors flex items-center gap-1">
             View & Claim <ExternalLink className="h-3 w-3" />
           </span>
@@ -279,7 +289,7 @@ export function LoadCard({ load, showRates, variant = 'default', className }: Lo
       ) : (
         <div className="flex items-center justify-between">
           <span className="text-sm text-slate-500 dark:text-slate-400">
-            Contact for rate
+            {showRates ? 'Rate not set' : 'Contact for rate'}
           </span>
           <span className="text-xs text-slate-400 group-hover:text-primary transition-colors flex items-center gap-1">
             View & Claim <ExternalLink className="h-3 w-3" />
