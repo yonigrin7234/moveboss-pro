@@ -61,20 +61,35 @@ export function ChatView({
 
     const markAsRead = async () => {
       try {
-        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 
-          (process.env.EXPO_PUBLIC_SUPABASE_URL?.replace('.supabase.co', '.vercel.app') || '');
-        
-        if (apiUrl) {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.access_token) {
-            await fetch(`${apiUrl}/api/messaging/conversations/${conversationId}`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session.access_token}`,
-              },
-              body: JSON.stringify({ action: 'mark_read' }),
-            });
+        // Get driver ID if user is a driver
+        const { data: driver } = await supabase
+          .from('drivers')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .single();
+
+        if (driver) {
+          // Mark as read for driver using RPC function
+          const { error } = await supabase.rpc('mark_conversation_read', {
+            p_conversation_id: conversationId,
+            p_driver_id: driver.id,
+          });
+
+          if (error) {
+            console.error('Failed to mark conversation as read:', error);
+          } else {
+            hasMarkedReadRef.current = true;
+          }
+        } else {
+          // Mark as read for user using RPC function
+          const { error } = await supabase.rpc('mark_conversation_read', {
+            p_conversation_id: conversationId,
+            p_user_id: user.id,
+          });
+
+          if (error) {
+            console.error('Failed to mark conversation as read:', error);
+          } else {
             hasMarkedReadRef.current = true;
           }
         }
