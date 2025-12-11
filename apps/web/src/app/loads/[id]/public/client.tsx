@@ -267,7 +267,7 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
                       <Link href="/login">
                         <Button size="lg">Sign In</Button>
                       </Link>
-                      <Link href="/register">
+                      <Link href="/signup">
                         <Button variant="outline" size="lg">Create Account</Button>
                       </Link>
                     </div>
