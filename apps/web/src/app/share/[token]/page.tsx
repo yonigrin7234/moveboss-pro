@@ -44,7 +44,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function SharePage({ params }: PageProps) {
   const { token } = await params;
 
-  if (!token || token.length < 16) {
+  if (!token || token.length < 6) {
     notFound();
   }
 
