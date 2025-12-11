@@ -30,11 +30,11 @@ export function useLoadDetail(loadId: string | null) {
           trip_id,
           trips!inner (
             id,
-            assigned_driver_id
+            driver_id
           )
         `)
         .eq('load_id', loadId!)
-        .eq('trips.assigned_driver_id', driverId)
+        .eq('trips.driver_id', driverId)
         .limit(1)
         .maybeSingle();
 
