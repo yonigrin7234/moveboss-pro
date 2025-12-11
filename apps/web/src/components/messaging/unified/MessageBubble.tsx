@@ -75,8 +75,8 @@ export function MessageBubble({ message, isOwn, showSender = true }: MessageBubb
         <div
           className={cn(
             'rounded-lg px-3 py-2 text-sm leading-relaxed',
-            // Own messages - primary color, right-aligned
-            isOwn && 'bg-primary text-primary-foreground',
+            // Own messages - primary color with white text
+            isOwn && 'bg-primary text-white',
             // Other messages - muted background
             !isOwn && !isAI && 'bg-muted text-foreground',
             // AI messages - subtle green tint
