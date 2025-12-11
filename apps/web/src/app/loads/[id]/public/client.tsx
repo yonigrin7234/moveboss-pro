@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
-  getRouteLocations,
   formatDateRangeDisplay,
   type LoadLocationFields,
   type PickupDateFields,
@@ -34,6 +33,11 @@ interface Load extends LoadLocationFields, PickupDateFields {
   delivery_window_start?: string | null;
   delivery_window_end?: string | null;
   delivery_date?: string | null;
+  // Load type fields
+  load_type?: string | null;
+  load_subtype?: string | null;
+  rfd_date?: string | null;
+  is_open_to_counter?: boolean;
 }
 
 interface RelatedLoad extends LoadLocationFields {
@@ -63,13 +67,23 @@ interface PublicLoadClientProps {
 }
 
 function formatCurrency(amount: number | null): string {
-  if (amount === null || amount === undefined) return 'Call for rate';
+  if (amount === null || amount === undefined) return '';
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+function formatLocationWithZip(city: string | null | undefined, state: string | null | undefined, zip: string | null | undefined): string {
+  const parts: string[] = [];
+  if (city) parts.push(city);
+  if (state) parts.push(state);
+  const cityState = parts.join(', ');
+  if (zip && cityState) return `${cityState} ${zip}`;
+  if (zip) return zip;
+  return cityState || 'TBD';
 }
 
 function formatServiceType(type: string | null): string {
@@ -87,7 +101,12 @@ function formatServiceType(type: string | null): string {
 }
 
 function RelatedLoadCard({ load, showRates }: { load: RelatedLoad; showRates: boolean }) {
-  const { origin, destination } = getRouteLocations(load);
+  const origin = load.pickup_city && load.pickup_state
+    ? `${load.pickup_city}, ${load.pickup_state}`
+    : load.pickup_city || 'Origin';
+  const destination = load.delivery_city && load.delivery_state
+    ? `${load.delivery_city}, ${load.delivery_state}`
+    : load.delivery_city || 'Destination';
 
   return (
     <Link
@@ -117,7 +136,9 @@ function RelatedLoadCard({ load, showRates }: { load: RelatedLoad; showRates: bo
 export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClientProps) {
   const [showClaimOptions, setShowClaimOptions] = useState(false);
 
-  const { origin, destination } = getRouteLocations(load);
+  // Format locations with ZIP codes
+  const origin = formatLocationWithZip(load.pickup_city, load.pickup_state, load.pickup_postal_code);
+  const destination = formatLocationWithZip(load.delivery_city, load.delivery_state, load.delivery_postal_code);
 
   const pickupDate = formatDateRangeDisplay(
     load.pickup_window_start || load.pickup_date,
@@ -222,18 +243,26 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
                     <Package className="h-4 w-4" />
                     <span>Size</span>
                   </div>
-                  <p className="font-semibold text-slate-900 dark:text-white">{load.cubic_feet.toLocaleString()} CF</p>
+                  <p className="font-semibold text-slate-900 dark:text-white">
+                    {load.cubic_feet.toLocaleString()} CF
+                    {company.show_rates && load.rate_per_cuft && (
+                      <span className="text-sm font-normal text-slate-500 dark:text-slate-400 ml-2">
+                        @ ${load.rate_per_cuft.toFixed(2)}/cf
+                      </span>
+                    )}
+                  </p>
                 </div>
               )}
-              {company.show_rates && (load.total_rate || load.rate_per_cuft) && (
-                <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-xl p-4">
-                  <p className="text-sm text-emerald-600 dark:text-emerald-400 mb-1">Payout</p>
-                  <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                    {formatCurrency(load.total_rate)}
-                  </p>
-                  {load.rate_per_cuft && (
-                    <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-1">
-                      ${load.rate_per_cuft.toFixed(2)}/cf
+              {company.show_rates && (
+                <div className={load.total_rate ? "bg-emerald-50 dark:bg-emerald-950/30 rounded-xl p-4" : "bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4"}>
+                  <p className={`text-sm mb-1 ${load.total_rate ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 dark:text-slate-400"}`}>Linehaul</p>
+                  {load.total_rate ? (
+                    <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                      {formatCurrency(load.total_rate)}
+                    </p>
+                  ) : (
+                    <p className="text-lg font-semibold text-slate-700 dark:text-slate-300">
+                      Make an offer
                     </p>
                   )}
                 </div>
