@@ -7,7 +7,6 @@ import { colors, typography, spacing } from '../../lib/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorState } from '../../components/ui';
 import { dataLogger } from '../../lib/logger';
-import { Ionicons } from '@expo/vector-icons';
 
 export default function DispatchScreen() {
   const router = useRouter();
