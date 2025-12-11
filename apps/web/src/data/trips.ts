@@ -1303,7 +1303,8 @@ export async function addLoadToTrip(
     }
   }
 
-  await computeTripFinancialSummary(supabase, tripId, userId);
+  // Recalculate trip financials including cubic feet and driver pay
+  await computeTripFinancialsWithDriverPay(supabase, tripId, userId);
 
   // Send push notification to driver if trip has one assigned
   if (trip?.driver_id && data.load) {
@@ -1505,7 +1506,8 @@ export async function removeLoadFromTrip(tripId: string, loadId: string, userId:
     .eq('id', loadId)
     .eq('owner_id', userId);
 
-  await computeTripFinancialSummary(supabase, tripId, userId);
+  // Recalculate trip financials including cubic feet and driver pay
+  await computeTripFinancialsWithDriverPay(supabase, tripId, userId);
 
   // Send push notification to driver if trip has one assigned
   if (tripData?.driver_id) {
@@ -1766,7 +1768,8 @@ export async function createTripExpense(
     }).catch(() => {}); // Non-blocking
   }
 
-  await computeTripFinancialSummary(supabase, input.trip_id, userId);
+  // Recalculate trip financials including cubic feet and driver pay
+  await computeTripFinancialsWithDriverPay(supabase, input.trip_id, userId);
   return data as TripExpense;
 }
 
@@ -1825,7 +1828,8 @@ export async function updateTripExpense(
     },
   });
 
-  await computeTripFinancialSummary(supabase, data.trip_id, userId);
+  // Recalculate trip financials including cubic feet and driver pay
+  await computeTripFinancialsWithDriverPay(supabase, data.trip_id, userId);
   return data as TripExpense;
 }
 
@@ -1870,7 +1874,8 @@ export async function deleteTripExpense(
     },
   });
 
-  await computeTripFinancialSummary(supabase, data.trip_id, userId);
+  // Recalculate trip financials including cubic feet and driver pay
+  await computeTripFinancialsWithDriverPay(supabase, data.trip_id, userId);
 }
 
 /**
