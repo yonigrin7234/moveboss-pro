@@ -12,17 +12,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { id } = await params;
   const adminClient = createServiceRoleClient();
 
+  // Fetch load
   const { data: load } = await adminClient
     .from('loads')
-    .select(`
-      load_number,
-      pickup_city,
-      pickup_state,
-      delivery_city,
-      delivery_state,
-      cubic_feet,
-      companies (name)
-    `)
+    .select('load_number, pickup_city, pickup_state, delivery_city, delivery_state, cubic_feet, company_id')
     .eq('id', id)
     .eq('status', 'pending')
     .single();
@@ -31,7 +24,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return { title: 'Load Not Found | MoveBoss Pro' };
   }
 
-  const company = load.companies as unknown as { name: string } | null;
+  // Fetch company separately
+  const { data: company } = await adminClient
+    .from('companies')
+    .select('name')
+    .eq('id', load.company_id)
+    .single();
+
   const origin = load.pickup_city && load.pickup_state
     ? `${load.pickup_city}, ${load.pickup_state}`
     : load.pickup_city || 'Origin';
@@ -62,7 +61,7 @@ export default async function PublicLoadPage({ params }: PageProps) {
 
   const adminClient = createServiceRoleClient();
 
-  // Fetch the load with company info
+  // Fetch the load (without join - more reliable)
   const { data: load, error: loadError } = await adminClient
     .from('loads')
     .select(`
@@ -85,29 +84,15 @@ export default async function PublicLoadPage({ params }: PageProps) {
       description,
       status,
       company_id,
-      created_at,
-      companies (
-        id,
-        name,
-        public_board_enabled,
-        public_board_slug,
-        public_board_show_rates,
-        public_board_show_contact,
-        public_board_require_auth_to_claim,
-        public_board_logo_url,
-        primary_contact_email,
-        primary_contact_phone
-      )
+      created_at
     `)
     .eq('id', id)
     .single();
 
   if (loadError || !load) {
-    console.error('[PublicLoadPage] Load fetch failed:', { id, loadError, hasLoad: !!load });
+    console.error('[PublicLoadPage] Load fetch failed:', { id, loadError });
     notFound();
   }
-
-  console.log('[PublicLoadPage] Load found:', { id, status: load.status, companies: load.companies });
 
   // Check if load is available
   if (load.status !== 'pending') {
@@ -128,21 +113,25 @@ export default async function PublicLoadPage({ params }: PageProps) {
     );
   }
 
-  const company = load.companies as unknown as {
-    id: string;
-    name: string;
-    public_board_enabled: boolean;
-    public_board_slug: string | null;
-    public_board_show_rates: boolean;
-    public_board_show_contact: boolean;
-    public_board_require_auth_to_claim: boolean;
-    public_board_logo_url: string | null;
-    primary_contact_email: string | null;
-    primary_contact_phone: string | null;
-  } | null;
+  // Fetch company separately (like the working board page does)
+  const { data: company } = await adminClient
+    .from('companies')
+    .select(`
+      id,
+      name,
+      public_board_enabled,
+      public_board_slug,
+      public_board_show_rates,
+      public_board_show_contact,
+      public_board_require_auth_to_claim,
+      public_board_logo_url,
+      primary_contact_email,
+      primary_contact_phone
+    `)
+    .eq('id', load.company_id)
+    .single();
 
   // Check if this load is part of an active share link
-  // Use filter with cs (contains) operator for UUID array compatibility
   const { data: shareLink } = await adminClient
     .from('load_share_links')
     .select('id')
