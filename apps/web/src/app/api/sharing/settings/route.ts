@@ -54,7 +54,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://moveboss.pro';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://moveboss.com';
 
     return NextResponse.json({
       settings: {
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://moveboss.pro';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://moveboss.com';
 
     return NextResponse.json({
       success: true,

@@ -94,7 +94,7 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
       const companyData = membership.companies as unknown as { public_board_slug: string | null; public_board_enabled: boolean } | null;
       if (companyData?.public_board_enabled && companyData?.public_board_slug) {
         publicBoardSlug = companyData.public_board_slug;
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://moveboss.pro';
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://moveboss.com';
         publicBoardUrl = `${baseUrl}/board/${publicBoardSlug}`;
       }
     }

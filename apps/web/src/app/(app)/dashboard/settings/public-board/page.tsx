@@ -53,7 +53,7 @@ export default async function PublicBoardSettingsPage() {
     public_board_logo_url: string | null;
   };
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://moveboss.pro';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://moveboss.com';
 
   return (
     <PublicBoardSettingsClient

@@ -254,7 +254,7 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
                 Carrier Login
               </Link>
               <a
-                href="https://moveboss.pro"
+                href="https://moveboss.com"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-slate-500 hover:text-primary transition-colors"

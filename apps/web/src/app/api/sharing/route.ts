@@ -22,7 +22,7 @@ interface CreateBatchLinkRequest {
 
 // Get base URL for links
 function getBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL || 'https://moveboss.pro';
+  return process.env.NEXT_PUBLIC_APP_URL || 'https://moveboss.com';
 }
 
 // Generate a short token using base62 encoding (alphanumeric)
