@@ -274,9 +274,12 @@ export function ChatPanel({
   // Set up real-time subscription for new messages
   useEffect(() => {
     const conversationId = state.conversation?.id;
-    if (!conversationId) return;
+    if (!conversationId) {
+      console.log('⚠️ Web: No conversationId, skipping subscription setup');
+      return;
+    }
 
-    console.log('🔌 Web: Setting up realtime subscription for:', conversationId);
+    console.log('🔌 Web: Setting up realtime subscription for:', conversationId, 'Supabase client:', !!supabase);
 
     // Clean up existing subscription
     if (subscriptionRef.current) {
@@ -301,13 +304,14 @@ export function ChatPanel({
           filter: `conversation_id=eq.${conversationId}`,
         },
         async (payload) => {
-          console.log('🔔 Web: Realtime INSERT received:', {
+          console.log('🔔🔔🔔 Web: Realtime INSERT received!', {
             messageId: payload.new.id,
             conversationId: payload.new.conversation_id,
             ourConversationId: conversationId,
             senderUserId: payload.new.sender_user_id,
             senderDriverId: payload.new.sender_driver_id,
             body: payload.new.body?.substring(0, 50),
+            fullPayload: payload.new,
           });
           
           // Verify this message is for our conversation
@@ -319,6 +323,7 @@ export function ChatPanel({
           console.log('✅ Web: Message conversation ID matches, processing...');
 
           // Fetch the full message with sender info
+          console.log('🔍 Web: Fetching message details for:', payload.new.id);
           const { data: newMsg, error } = await supabase
             .from('messages')
             .select(`
@@ -334,8 +339,27 @@ export function ChatPanel({
 
           if (error) {
             console.error('❌ Web: Failed to fetch new message:', error);
+            console.error('❌ Web: Error details:', JSON.stringify(error, null, 2));
+            // Try to add message with payload data directly as fallback
+            console.log('🔄 Web: Attempting fallback - using payload data directly');
+            const fallbackMessage: MessageWithSender = {
+              ...payload.new as any,
+              sender_profile: undefined,
+              sender_driver: undefined,
+            };
+            setState((prev) => {
+              const exists = prev.messages.some(m => m.id === fallbackMessage.id);
+              if (exists) return prev;
+              console.log('✅ Web: Adding message via fallback');
+              return {
+                ...prev,
+                messages: [...prev.messages, fallbackMessage],
+              };
+            });
             return;
           }
+          
+          console.log('✅ Web: Message fetched successfully:', newMsg.id);
 
           if (newMsg) {
             // Get sender profile if it's a user message
@@ -369,24 +393,37 @@ export function ChatPanel({
             setState((prev) => {
               const exists = prev.messages.some(m => m.id === formatted.id);
               if (exists) {
-                console.log('⚠️ Web: Message already exists, skipping:', formatted.id);
+                console.log('⚠️ Web: Message already exists, skipping:', formatted.id, 'Current message count:', prev.messages.length);
                 return prev;
               }
-              console.log('✅ Web: Adding new message to state:', formatted.id);
-              return {
+              console.log('✅✅✅ Web: Adding new message to state:', formatted.id, 'Previous count:', prev.messages.length, 'New count:', prev.messages.length + 1);
+              console.log('✅ Web: Message details:', {
+                id: formatted.id,
+                body: formatted.body?.substring(0, 50),
+                senderDriver: formatted.sender_driver,
+                senderProfile: formatted.sender_profile,
+              });
+              const newState = {
                 ...prev,
                 messages: [...prev.messages, formatted],
               };
+              console.log('✅ Web: State updated, new message count:', newState.messages.length);
+              return newState;
             });
           }
         }
       )
       .subscribe((status, err) => {
-        console.log('📡 Web: Realtime subscription status:', status, err ? `Error: ${err}` : '');
+        console.log('📡 Web: Realtime subscription status:', status, err ? `Error: ${JSON.stringify(err)}` : '', 'Channel:', `messages:${conversationId}`);
         if (status === 'SUBSCRIBED') {
-          console.log('✅ Web: Realtime subscription active for:', conversationId);
+          console.log('✅ Web: Realtime subscription SUBSCRIBED successfully for:', conversationId);
+          // Test: Try to manually check if we can receive events
+          console.log('🧪 Web: Subscription test - listening for INSERT events on messages table');
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED' || err) {
           console.error('❌ Web: Realtime subscription error:', status, err);
+          console.error('❌ Web: Error details:', JSON.stringify(err, null, 2));
+        } else {
+          console.log('⚠️ Web: Unexpected subscription status:', status);
         }
       });
 
