@@ -64,6 +64,10 @@ type NotificationRequest =
       title: string;
       message: string;
       data?: Record<string, string>;
+    }
+  | {
+      action: 'test_push';
+      driverId: string;
     };
 
 export async function POST(request: Request) {
