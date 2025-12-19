@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, typography, spacing, radius } from '../../../../../../lib/theme';
-import type { LoadDetail } from '../_types';
+import { colors, typography, spacing, radius } from '../../lib/theme';
+import type { LoadDetail } from '../../types';
 
 type LoadFinancialSectionProps = {
   load: LoadDetail;
@@ -69,12 +69,3 @@ const styles = StyleSheet.create({
     color: colors.success,
   },
 });
-
-
-
-
-
-
-
-
-

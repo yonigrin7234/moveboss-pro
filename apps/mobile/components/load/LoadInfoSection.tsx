@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { DamageDocumentation } from '../../../../../../components/DamageDocumentation';
-import { colors, typography, spacing, radius } from '../../../../../../lib/theme';
-import type { LoadDetail } from '../_types';
+import { DamageDocumentation } from '../DamageDocumentation';
+import { colors, typography, spacing, radius } from '../../lib/theme';
+import type { LoadDetail } from '../../types';
 
 type LoadInfoSectionProps = {
   load: LoadDetail;
@@ -189,12 +189,3 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 });
-
-
-
-
-
-
-
-
-

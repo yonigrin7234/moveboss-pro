@@ -360,3 +360,16 @@ export interface Trailer {
   inspection_photo_url: string | null;
   inspection_expiry: string | null;
 }
+
+// Extended Load type with full company details
+export type LoadDetail = Load & {
+  companies?: {
+    name?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    trust_level?: string | null;
+  } | null;
+};
+
+// Load actions type - imported from useLoadActions hook
+export type { LoadActions } from '../hooks/useLoadActions.types';

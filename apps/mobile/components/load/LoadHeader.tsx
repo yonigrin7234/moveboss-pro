@@ -1,9 +1,9 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { StatusBadge } from '../../../../../../components/StatusBadge';
-import { WorkflowActionCard } from '../../../../../../components/load';
-import { colors, typography, spacing, radius } from '../../../../../../lib/theme';
-import { formatCompanyName } from '../../../../../../lib/nameFormatting';
-import type { LoadActions, LoadDetail } from '../_types';
+import { StatusBadge } from '../StatusBadge';
+import { WorkflowActionCard } from './WorkflowActionCard';
+import { colors, typography, spacing, radius } from '../../lib/theme';
+import { formatCompanyName } from '../../lib/nameFormatting';
+import type { LoadActions, LoadDetail } from '../../types';
 
 type LoadHeaderProps = {
   load: LoadDetail;
@@ -159,12 +159,3 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
 });
-
-
-
-
-
-
-
-
-

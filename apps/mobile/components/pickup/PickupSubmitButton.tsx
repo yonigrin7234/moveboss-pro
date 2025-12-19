@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors, typography, spacing, radius } from '../../../../../../../lib/theme';
+import { colors, typography, spacing, radius } from '../../lib/theme';
 
 type PickupSubmitButtonProps = {
   canSubmit: boolean;
@@ -62,12 +62,3 @@ const styles = StyleSheet.create({
     marginTop: spacing.itemGap,
   },
 });
-
-
-
-
-
-
-
-
-

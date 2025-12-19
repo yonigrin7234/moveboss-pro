@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Image } from 'react-native';
-import { colors, typography, spacing, radius } from '../../../../../../../lib/theme';
+import { colors, typography, spacing, radius } from '../../lib/theme';
 
 type PickupLoadingSummaryProps = {
   actualCuft: number;
@@ -93,12 +93,3 @@ const styles = StyleSheet.create({
     backgroundColor: colors.borderLight,
   },
 });
-
-
-
-
-
-
-
-
-

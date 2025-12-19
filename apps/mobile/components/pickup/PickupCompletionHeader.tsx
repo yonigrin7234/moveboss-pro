@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, typography, spacing } from '../../../../../../../lib/theme';
+import { colors, typography, spacing } from '../../lib/theme';
 
 type PickupCompletionHeaderProps = {
   title: string;
@@ -29,12 +29,3 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
 });
-
-
-
-
-
-
-
-
-

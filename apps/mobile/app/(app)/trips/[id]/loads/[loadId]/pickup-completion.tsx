@@ -16,10 +16,10 @@ import {
   DeliveryScheduleSection,
   PaperworkSection,
   SummaryCard,
+  PickupCompletionHeader,
+  PickupLoadingSummary,
+  PickupSubmitButton,
 } from '../../../../../../components/pickup';
-import { PickupCompletionHeader } from './_components/PickupCompletionHeader';
-import { PickupLoadingSummary } from './_components/PickupLoadingSummary';
-import { PickupSubmitButton } from './_components/PickupSubmitButton';
 import ErrorBoundary from '../../../../../../components/ui/ErrorBoundary';
 import { colors, typography, spacing, radius } from '../../../../../../lib/theme';
 

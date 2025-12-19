@@ -11,14 +11,16 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLoadDetail } from '../../../../../hooks/useLoadDetail';
 import { useLoadActions } from '../../../../../hooks/useLoadActions';
-import { DocumentsSection } from '../../../../../components/load';
+import {
+  DocumentsSection,
+  LoadHeader,
+  LoadFinancialSection,
+  LoadInfoSection,
+  LoadTimelineSection,
+} from '../../../../../components/load';
 import { ErrorState } from '../../../../../components/ui';
 import { colors, typography, spacing, radius } from '../../../../../lib/theme';
-import { LoadFinancialSection } from './_components/LoadFinancialSection';
-import { LoadHeader } from './_components/LoadHeader';
-import { LoadInfoSection } from './_components/LoadInfoSection';
-import { LoadTimelineSection } from './_components/LoadTimelineSection';
-import type { LoadActions, LoadDetail } from './_types';
+import type { LoadActions, LoadDetail } from '../../../../../types';
 import ErrorBoundary from '../../../../../components/ui/ErrorBoundary';
 
 export default function LoadDetailScreen() {
