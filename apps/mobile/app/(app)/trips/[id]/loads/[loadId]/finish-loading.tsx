@@ -22,11 +22,14 @@ import {
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useLoadActions } from '../../../../../../hooks/useLoadActions';
 import { useLoadDetail } from '../../../../../../hooks/useLoadDetail';
 import { useImageUpload } from '../../../../../../hooks/useImageUpload';
+import { useDriver } from '../../../../../../providers/DriverProvider';
+import { useAuth } from '../../../../../../providers/AuthProvider';
 import { useToast } from '../../../../../../components/ui';
 import { colors, typography, spacing, radius } from '../../../../../../lib/theme';
 
@@ -34,7 +37,10 @@ export default function FinishLoadingScreen() {
   const { id: tripId, loadId } = useLocalSearchParams<{ id: string; loadId: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const toast = useToast();
+  const { user } = useAuth();
+  const { driverId, ownerId } = useDriver();
   const actions = useLoadActions(loadId);
   const { load } = useLoadDetail(loadId);
   const { uploading, progress, uploadLoadPhoto } = useImageUpload();
@@ -102,6 +108,13 @@ export default function FinishLoadingScreen() {
         toast.error(result.error || 'Failed to finish loading');
         return;
       }
+
+      // Invalidate queries to refresh data
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['loadDetail', loadId] }),
+        queryClient.invalidateQueries({ queryKey: ['driverTrips', user?.id, driverId, ownerId] }),
+        queryClient.invalidateQueries({ queryKey: ['driverDashboard', user?.id, driverId, ownerId] }),
+      ]);
 
       toast.success('Loading complete!');
 
