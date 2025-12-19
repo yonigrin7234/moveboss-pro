@@ -34,6 +34,10 @@ export interface NotificationData {
   tripId?: string;
   loadId?: string;
   message?: string;
+  // Message notification fields (sent from backend with snake_case)
+  conversation_id?: string;
+  load_id?: string;
+  trip_id?: string;
 }
 
 interface UsePushNotificationsResult {

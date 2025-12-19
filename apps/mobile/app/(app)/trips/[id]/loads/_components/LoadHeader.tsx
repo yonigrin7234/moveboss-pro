@@ -3,7 +3,7 @@ import { StatusBadge } from '../../../../../../components/StatusBadge';
 import { WorkflowActionCard } from '../../../../../../components/load';
 import { colors, typography, spacing, radius } from '../../../../../../lib/theme';
 import { formatCompanyName } from '../../../../../../lib/nameFormatting';
-import type { LoadActions, LoadDetail } from '../types';
+import type { LoadActions, LoadDetail } from '../_types';
 
 type LoadHeaderProps = {
   load: LoadDetail;
@@ -159,6 +159,10 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
 });
+
+
+
+
 
 
 

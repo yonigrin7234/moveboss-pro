@@ -15,6 +15,7 @@ import {
   Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../providers/AuthProvider';
 import { useDriverProfile } from '../../hooks/useDriverProfile';
@@ -36,6 +37,7 @@ import { TripWithLoads } from '../../types';
 import { dataLogger } from '../../lib/logger';
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const { signOut } = useAuth();
   const { fullName } = useDriverProfile();
   const {
@@ -76,7 +78,7 @@ export default function HomeScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.md }]}
       refreshControl={
         <RefreshControl
           refreshing={isRefreshing}

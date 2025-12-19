@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { TimelineItem } from '../../../../../../components/load';
 import { colors, typography, spacing, radius } from '../../../../../../lib/theme';
-import type { LoadDetail } from '../types';
+import type { LoadDetail } from '../_types';
 
 type LoadTimelineSectionProps = {
   load: LoadDetail;
@@ -39,6 +39,10 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
 });
+
+
+
+
 
 
 

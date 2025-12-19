@@ -59,7 +59,7 @@ export default function EarningsScreen() {
       />
       <ScrollView
         style={styles.container}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.screenPadding }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.screenPadding }]}
         refreshControl={
           <RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.primary} />
         }

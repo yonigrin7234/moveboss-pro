@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { createClient } from "@/lib/supabase-client"
 import {
   LayoutDashboard,
   Building2,
@@ -116,6 +117,19 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
   const workspaceInitials = getInitials(displayCompanyName)
   const roleBadge = getRoleBadge(canPostLoads, canHaulLoads, role)
 
+  // Supabase client ref for real-time subscriptions
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
+  const [userId, setUserId] = useState<string | null>(null)
+
+  // Get current user ID for subscriptions
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(res => res.json())
+      .then(data => setUserId(data.user?.id || null))
+      .catch(() => setUserId(null))
+  }, [])
+
   // Fetch unread counts
   const fetchUnreadCounts = useCallback(async () => {
     try {
@@ -129,12 +143,60 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
     }
   }, [])
 
-  // Fetch on mount and periodically refresh
+  // Fetch on mount, window focus, and periodically refresh
   useEffect(() => {
     fetchUnreadCounts()
-    const interval = setInterval(fetchUnreadCounts, 30000) // Refresh every 30 seconds
-    return () => clearInterval(interval)
+
+    // Refresh every 30 seconds as fallback
+    const interval = setInterval(fetchUnreadCounts, 30000)
+
+    // Refresh on window focus
+    const handleFocus = () => fetchUnreadCounts()
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [fetchUnreadCounts])
+
+  // Real-time subscription for unread count changes
+  useEffect(() => {
+    if (!userId) return
+
+    const channel = supabase
+      .channel(`unread-counts:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'conversation_participants',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          // Refetch unread counts when participant record changes
+          fetchUnreadCounts()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        () => {
+          // Also refetch when new messages arrive (covers edge cases)
+          fetchUnreadCounts()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [userId, supabase, fetchUnreadCounts])
 
   // If no permissions object provided, assume full access (owner/operator or admin)
   const hasFullAccess = !permissions

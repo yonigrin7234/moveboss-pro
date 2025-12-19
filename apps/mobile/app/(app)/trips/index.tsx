@@ -86,7 +86,7 @@ export default function TripsScreen() {
           renderItem={renderItem}
           contentContainerStyle={[
             styles.listContent,
-            { paddingBottom: insets.bottom + spacing.xxxl },
+            { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.xxxl },
           ]}
           refreshControl={
             <RefreshControl
