@@ -197,8 +197,8 @@ export default function StartLoadingScreen() {
           </View>
         </ScrollView>
 
-        {/* Submit Button - Fixed at bottom */}
-        <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+        {/* Submit Button - Fixed at bottom, above tab bar */}
+        <View style={[styles.footer, { paddingBottom: insets.bottom + 80 }]}>
           <TouchableOpacity
             style={[styles.submitButton, !canSubmit && styles.submitButtonDisabled]}
             onPress={handleSubmit}
