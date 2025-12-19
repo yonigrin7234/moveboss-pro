@@ -17,6 +17,7 @@ export function useLoadPaymentActions(context: LoadActionBaseContext) {
     paymentPhotoFrontUrl?: string | null;
     paymentPhotoBackUrl?: string | null;
     paymentNotes?: string | null;
+    authorizationName?: string | null; // For $0 balance authorization
   }): Promise<ActionResult> => {
     try {
       setLoading(true);
@@ -31,6 +32,12 @@ export function useLoadPaymentActions(context: LoadActionBaseContext) {
 
       const driver = await getDriverInfo();
 
+      // Build notes for $0 balance authorization
+      let notes = data.paymentNotes || null;
+      if (data.authorizationName && data.amountCollected === 0) {
+        notes = `$0 balance authorized by: ${data.authorizationName}`;
+      }
+
       const { error } = await supabase
         .from('loads')
         .update({
@@ -41,7 +48,7 @@ export function useLoadPaymentActions(context: LoadActionBaseContext) {
           payment_zelle_recipient: data.zelleRecipient || null,
           payment_photo_front_url: data.paymentPhotoFrontUrl || null,
           payment_photo_back_url: data.paymentPhotoBackUrl || null,
-          payment_notes: data.paymentNotes || null,
+          payment_notes: notes,
         })
         .eq('id', loadId)
         .eq('owner_id', driver.owner_id);
@@ -262,6 +269,10 @@ export function useLoadPaymentActions(context: LoadActionBaseContext) {
     completePickup,
   };
 }
+
+
+
+
 
 
 

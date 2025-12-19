@@ -61,9 +61,6 @@ export function ChatView({
     if (!conversationId || !user?.id || hasMarkedReadRef.current) return;
 
     const markAsRead = async () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatView.tsx:markAsRead:ENTRY',message:'Marking conversation as read',data:{conversationId,userId:user.id,hasMarkedRead:hasMarkedReadRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       try {
         // Get driver ID if user is a driver
         const { data: driver, error: driverError } = await supabase
@@ -72,10 +69,6 @@ export function ChatView({
           .eq('auth_user_id', user.id)
           .single();
 
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatView.tsx:markAsRead:DRIVER_QUERY',message:'Driver query result',data:{driverId:driver?.id,driverError:driverError?.message,isDriver:!!driver},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
-
         if (driver) {
           // Mark as read for driver using RPC function
           const { error } = await supabase.rpc('mark_conversation_read', {
@@ -83,12 +76,8 @@ export function ChatView({
             p_driver_id: driver.id,
           });
 
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatView.tsx:markAsRead:RPC_RESULT',message:'RPC mark_conversation_read result',data:{conversationId,driverId:driver.id,error:error?.message,success:!error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-          // #endregion
-
           if (error) {
-            console.error('Failed to mark conversation as read:', error);
+            dataLogger.error('Failed to mark conversation as read:', error);
           } else {
             hasMarkedReadRef.current = true;
           }
@@ -99,21 +88,14 @@ export function ChatView({
             p_user_id: user.id,
           });
 
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatView.tsx:markAsRead:RPC_RESULT_USER',message:'RPC mark_conversation_read result (user)',data:{conversationId,userId:user.id,error:error?.message,success:!error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-          // #endregion
-
           if (error) {
-            console.error('Failed to mark conversation as read:', error);
+            dataLogger.error('Failed to mark conversation as read:', error);
           } else {
             hasMarkedReadRef.current = true;
           }
         }
       } catch (error) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/584681c2-ae98-462f-910a-f83be0dad71e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ChatView.tsx:markAsRead:ERROR',message:'Exception marking as read',data:{conversationId,error:error instanceof Error?error.message:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
-        console.error('Failed to mark conversation as read:', error);
+        dataLogger.error('Failed to mark conversation as read:', error);
       }
     };
 

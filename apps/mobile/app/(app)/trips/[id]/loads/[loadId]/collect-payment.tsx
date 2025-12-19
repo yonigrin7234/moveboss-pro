@@ -13,6 +13,10 @@ import {
   Pressable,
   Image,
   ActivityIndicator,
+  TextInput,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, {
@@ -33,7 +37,7 @@ import { ErrorState } from '../../../../../../components/ui';
 import { colors, typography, spacing, radius, shadows } from '../../../../../../lib/theme';
 import { PaymentMethod, ZelleRecipient } from '../../../../../../types';
 
-type Step = 'select' | 'zelle' | 'photo' | 'confirm' | 'success';
+type Step = 'select' | 'zelle' | 'photo' | 'confirm' | 'success' | 'zero_balance_warning' | 'zero_balance_auth';
 
 const PAYMENT_OPTIONS: { value: PaymentMethod; label: string; icon: IconName; color: string }[] = [
   { value: 'cash', label: 'Cash', icon: 'banknote', color: '#22C55E' },
@@ -63,12 +67,19 @@ export default function CollectPaymentScreen() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // $0 balance authorization state
+  const [authorizationName, setAuthorizationName] = useState('');
+  const [authorizationProofPhoto, setAuthorizationProofPhoto] = useState<string | null>(null);
+
   // Balance calculation
   const balanceDue =
     load?.remaining_balance_for_delivery ??
     load?.balance_due_on_delivery ??
     load?.contract_balance_due ??
     0;
+
+  // Check if balance is zero - driver must confirm authorization
+  const isZeroBalance = balanceDue === 0 || balanceDue === null;
 
   const customerName = load?.customer_name || load?.companies?.name || 'Customer';
 
@@ -88,6 +99,25 @@ export default function CollectPaymentScreen() {
 
     if (!result.canceled && result.assets[0]) {
       setPhoto(result.assets[0].uri);
+    }
+  }, [toast]);
+
+  // Take authorization proof photo
+  const takeAuthProofPhoto = useCallback(async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      toast.error('Camera permission needed');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setAuthorizationProofPhoto(result.assets[0].uri);
     }
   }, [toast]);
 
@@ -166,11 +196,56 @@ export default function CollectPaymentScreen() {
     router.back();
   }, [router]);
 
+  // Handle $0 balance authorization confirmation
+  const handleZeroBalanceAuth = useCallback(async () => {
+    if (!authorizationName.trim()) {
+      toast.warning('Please enter who authorized the $0 balance');
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setSubmitting(true);
+
+    try {
+      // Upload proof photo if taken
+      let proofPhotoUrl: string | null = null;
+      if (authorizationProofPhoto) {
+        const result = await uploadLoadPhoto(authorizationProofPhoto, loadId, 'document');
+        if (result.success && result.url) {
+          proofPhotoUrl = result.url;
+        }
+      }
+
+      // Submit with authorization info and start delivery
+      const result = await actions.collectPaymentAndStartDelivery({
+        paymentMethod: 'already_paid',
+        amountCollected: 0,
+        zelleRecipient: null,
+        paymentPhotoFrontUrl: proofPhotoUrl,
+        paymentPhotoBackUrl: null,
+        authorizationName: authorizationName.trim(),
+      });
+
+      if (!result.success) {
+        toast.error(result.error || 'Failed to start delivery');
+        setSubmitting(false);
+        return;
+      }
+
+      setStep('success');
+    } catch (err) {
+      toast.error('Something went wrong');
+      setSubmitting(false);
+    }
+  }, [authorizationName, authorizationProofPhoto, actions, loadId, toast, uploadLoadPhoto]);
+
   // Go back one step
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (step === 'zelle') setStep('select');
     else if (step === 'photo') setStep('select');
+    else if (step === 'zero_balance_auth') setStep('zero_balance_warning');
+    else if (step === 'zero_balance_warning') setStep('select');
     else if (step === 'confirm') {
       if (paymentMethod === 'zelle') setStep('zelle');
       else if (photo) setStep('photo');
@@ -219,29 +294,145 @@ export default function CollectPaymentScreen() {
         }}
       />
 
-      <View style={styles.container}>
-        {/* Big Amount Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerLabel}>AMOUNT DUE</Text>
-          <Text style={styles.amount}>${balanceDue.toLocaleString()}</Text>
-          <Text style={styles.customerName}>{customerName}</Text>
-        </View>
-
-        {/* Step: Select Payment Method */}
-        {step === 'select' && (
-          <View style={styles.content}>
-            <Text style={styles.stepTitle}>How did they pay?</Text>
-            <View style={styles.paymentGrid}>
-              {PAYMENT_OPTIONS.map((option) => (
-                <PaymentButton
-                  key={option.value}
-                  {...option}
-                  onPress={() => handleSelectPayment(option.value)}
-                />
-              ))}
-            </View>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Big Amount Header */}
+          <View style={[styles.header, isZeroBalance && styles.headerWarning]}>
+            <Text style={styles.headerLabel}>
+              {isZeroBalance ? '⚠️ BALANCE SHOWS AS' : 'AMOUNT DUE'}
+            </Text>
+            <Text style={[styles.amount, isZeroBalance && styles.amountWarning]}>
+              ${balanceDue.toLocaleString()}
+            </Text>
+            <Text style={styles.customerName}>{customerName}</Text>
+            {isZeroBalance && (
+              <Text style={styles.zeroBalanceHint}>
+                Customer may have paid directly - please confirm
+              </Text>
+            )}
           </View>
-        )}
+
+          {/* Step: Select Payment Method (or $0 Warning) */}
+          {step === 'select' && (
+            <View style={styles.content}>
+              {isZeroBalance ? (
+                <>
+                  <Text style={styles.stepTitle}>Confirm Payment Status</Text>
+                  <Text style={styles.warningText}>
+                    The balance shows as $0. This may happen if the customer paid directly to the company.
+                  </Text>
+                  <View style={styles.zeroBalanceOptions}>
+                    <Pressable
+                      style={styles.zeroBalanceButton}
+                      onPress={() => setStep('zero_balance_auth')}
+                    >
+                      <Icon name="check-circle" size={24} color={colors.success} />
+                      <View style={styles.zeroBalanceButtonText}>
+                        <Text style={styles.zeroBalanceButtonTitle}>Balance is $0</Text>
+                        <Text style={styles.zeroBalanceButtonSubtitle}>
+                          Customer already paid or no balance due
+                        </Text>
+                      </View>
+                    </Pressable>
+                    <Pressable
+                      style={styles.zeroBalanceButton}
+                      onPress={() => {
+                        toast.warning('Contact dispatch to update the balance');
+                        router.back();
+                      }}
+                    >
+                      <Icon name="alert-triangle" size={24} color={colors.warning} />
+                      <View style={styles.zeroBalanceButtonText}>
+                        <Text style={styles.zeroBalanceButtonTitle}>Balance is Wrong</Text>
+                        <Text style={styles.zeroBalanceButtonSubtitle}>
+                          Contact dispatch to correct it
+                        </Text>
+                      </View>
+                    </Pressable>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.stepTitle}>How did they pay?</Text>
+                  <View style={styles.paymentGrid}>
+                    {PAYMENT_OPTIONS.map((option) => (
+                      <PaymentButton
+                        key={option.value}
+                        {...option}
+                        onPress={() => handleSelectPayment(option.value)}
+                      />
+                    ))}
+                  </View>
+                </>
+              )}
+            </View>
+          )}
+
+          {/* Step: $0 Balance Authorization */}
+          {step === 'zero_balance_auth' && (
+            <View style={styles.content}>
+              <Pressable onPress={handleBack} style={styles.backButton}>
+                <Text style={styles.backText}>← Back</Text>
+              </Pressable>
+              <Text style={styles.stepTitle}>Authorization Required</Text>
+              <Text style={styles.warningText}>
+                Please confirm who authorized that the balance is $0.
+              </Text>
+
+              <View style={styles.authForm}>
+                <Text style={styles.authLabel}>Who confirmed the $0 balance? *</Text>
+                <TextInput
+                  style={styles.authInput}
+                  placeholder="e.g., Dispatcher John, Office confirmed"
+                  placeholderTextColor={colors.textMuted}
+                  value={authorizationName}
+                  onChangeText={setAuthorizationName}
+                />
+
+                <Text style={[styles.authLabel, { marginTop: spacing.lg }]}>
+                  Screenshot or proof (optional)
+                </Text>
+                {authorizationProofPhoto ? (
+                  <View style={styles.authPhotoContainer}>
+                    <Image source={{ uri: authorizationProofPhoto }} style={styles.authPhotoPreview} />
+                    <Pressable style={styles.retakeButton} onPress={takeAuthProofPhoto}>
+                      <Text style={styles.retakeText}>Retake</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Pressable style={styles.authPhotoButton} onPress={takeAuthProofPhoto}>
+                    <Icon name="camera" size={24} color={colors.textSecondary} />
+                    <Text style={styles.authPhotoButtonText}>
+                      Take photo of message/email confirmation
+                    </Text>
+                  </Pressable>
+                )}
+
+                <Pressable
+                  style={[
+                    styles.confirmButton,
+                    (!authorizationName.trim() || submitting || uploading) && styles.confirmButtonDisabled,
+                  ]}
+                  onPress={handleZeroBalanceAuth}
+                  disabled={!authorizationName.trim() || submitting || uploading}
+                >
+                  {submitting || uploading ? (
+                    <ActivityIndicator color={colors.white} />
+                  ) : (
+                    <Text style={styles.confirmButtonText}>
+                      Confirm & Start Delivery ✓
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          )}
 
         {/* Step: Zelle Recipient */}
         {step === 'zelle' && (
@@ -355,7 +546,8 @@ export default function CollectPaymentScreen() {
             )}
           </View>
         )}
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Success Celebration */}
       {step === 'success' && (
@@ -611,5 +803,97 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
     marginTop: spacing.md,
+  },
+  // ScrollView content
+  scrollContent: {
+    flexGrow: 1,
+  },
+  // $0 Balance Warning styles
+  headerWarning: {
+    backgroundColor: `${colors.warning}15`,
+  },
+  amountWarning: {
+    color: colors.warning,
+  },
+  zeroBalanceHint: {
+    ...typography.bodySmall,
+    color: colors.warning,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+  },
+  warningText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+    lineHeight: 22,
+  },
+  zeroBalanceOptions: {
+    gap: spacing.lg,
+  },
+  zeroBalanceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: spacing.lg,
+  },
+  zeroBalanceButtonText: {
+    flex: 1,
+  },
+  zeroBalanceButtonTitle: {
+    ...typography.headline,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  zeroBalanceButtonSubtitle: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+  // Authorization form styles
+  authForm: {
+    marginTop: spacing.lg,
+  },
+  authLabel: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  authInput: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    ...typography.body,
+    color: colors.textPrimary,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  authPhotoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.xl,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: colors.border,
+    gap: spacing.md,
+  },
+  authPhotoButtonText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    flex: 1,
+  },
+  authPhotoContainer: {
+    gap: spacing.sm,
+  },
+  authPhotoPreview: {
+    width: '100%',
+    height: 150,
+    borderRadius: radius.md,
   },
 });

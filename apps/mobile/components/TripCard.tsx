@@ -17,8 +17,15 @@ import { StatusBadge } from './StatusBadge';
 import { Icon } from './ui';
 import { colors, typography, spacing, radius, shadows } from '../lib/theme';
 
+// Extended trip type that includes joined data from queries
+interface TripWithDetails extends Trip {
+  trip_loads?: { id: string }[];
+  estimated_driver_pay?: number;
+  driver_pay?: number;
+}
+
 interface TripCardProps {
-  trip: Trip;
+  trip: TripWithDetails;
   variant?: 'default' | 'compact';
 }
 
@@ -45,10 +52,10 @@ export function TripCard({ trip, variant = 'default' }: TripCardProps) {
   };
 
   // Get loads count from trip_loads
-  const loadsCount = (trip as any).trip_loads?.length || 0;
+  const loadsCount = trip.trip_loads?.length || 0;
 
   // Estimate pay (if available)
-  const estimatedPay = (trip as any).estimated_driver_pay || (trip as any).driver_pay;
+  const estimatedPay = trip.estimated_driver_pay || trip.driver_pay;
 
   const handlePress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

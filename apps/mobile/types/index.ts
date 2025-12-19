@@ -23,7 +23,12 @@ export interface DamageItem {
   sticker_number: string;
   item_description: string;
   damage_description: string;
+  /** @deprecated Use damage_photo_urls instead */
   photo_url: string | null;
+  /** Required photo of the sticker on the item */
+  sticker_photo_url: string | null;
+  /** Up to 3 damage photos */
+  damage_photo_urls: string[];
   documented_at: string;
 }
 

@@ -155,7 +155,8 @@ export function CustomTabBar({
   // Check if tab bar should be hidden for current route
   const currentRoute = state.routes[state.index];
   const currentRouteOptions = descriptors[currentRoute?.key]?.options;
-  const shouldHideTabBar = currentRouteOptions?.tabBarStyle?.display === 'none';
+  const tabBarStyle = currentRouteOptions?.tabBarStyle as { display?: string } | undefined;
+  const shouldHideTabBar = tabBarStyle?.display === 'none';
 
   // Get badge counts from somewhere (could be context or props)
   // For now, using placeholder logic

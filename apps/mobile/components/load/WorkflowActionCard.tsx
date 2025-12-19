@@ -11,13 +11,9 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
-  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
 import { useLoadActions } from '../../hooks/useLoadActions';
-import { useImageUpload } from '../../hooks/useImageUpload';
 import { useToast } from '../ui';
 import { LoadStatus } from '../../types';
 import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
@@ -67,10 +63,6 @@ export function WorkflowActionCard({
   const router = useRouter();
   const toast = useToast();
   const trustLevel = company?.trust_level || 'cod_required';
-  const [cuftInput, setCuftInput] = useState('');
-  const [photo, setPhoto] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const { uploading, progress, uploadLoadPhoto } = useImageUpload();
 
   // Delivery order check state
   const [deliveryOrderCheck, setDeliveryOrderCheck] = useState<{
@@ -101,63 +93,12 @@ export function WorkflowActionCard({
   // Check if this load requires contract details entry after loading
   const requiresContractDetails = (loadSource === 'partner' || loadSource === 'marketplace') && !requiresPickupCompletion;
 
-  const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      toast.warning('Camera permission needed');
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.7,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setPhoto(result.assets[0].uri);
-    }
-  };
-
-  const handleActionWithPhoto = async (
-    action: (photoUrl?: string) => Promise<{ success: boolean; error?: string }>,
-    photoType: 'loading-start' | 'loading-end' | 'delivery' | 'document'
-  ) => {
-    setSubmitting(true);
-    try {
-      let photoUrl: string | undefined;
-
-      if (photo) {
-        const uploadResult = await uploadLoadPhoto(photo, loadId, photoType);
-        if (!uploadResult.success) {
-          toast.error(uploadResult.error || 'Failed to upload photo');
-          return;
-        }
-        photoUrl = uploadResult.url;
-      }
-
-      const result = await action(photoUrl);
-      if (!result.success) {
-        toast.error(result.error || 'Action failed');
-      } else {
-        setPhoto(null);
-        setCuftInput('');
-      }
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleAction = async (action: () => Promise<{ success: boolean; error?: string }>) => {
     const result = await action();
     if (!result.success) {
       toast.error(result.error || 'Action failed');
     }
   };
-
-  const isLoading = actions.loading || submitting || uploading;
-  const buttonText = uploading ? `Uploading... ${progress}%` : submitting ? 'Saving...' : null;
 
   // Pending → Accept
   if (loadStatus === 'pending') {
@@ -180,121 +121,37 @@ export function WorkflowActionCard({
     );
   }
 
-  // Accepted → Start Loading
+  // Accepted → Start Loading (navigate to full-screen experience)
   if (loadStatus === 'accepted') {
     return (
       <View style={styles.actionCard}>
-        <Text style={styles.actionTitle}>Start Loading</Text>
+        <Text style={styles.actionTitle}>Ready to Load</Text>
         <Text style={styles.actionDescription}>
-          Enter starting CUFT and take a photo (optional)
+          Enter starting CUFT and take a photo of the truck
         </Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Starting CUFT"
-          placeholderTextColor={colors.textMuted}
-          value={cuftInput}
-          onChangeText={setCuftInput}
-          keyboardType="numeric"
-        />
-        <TouchableOpacity style={styles.photoButton} onPress={takePhoto} disabled={isLoading}>
-          {photo ? (
-            <Image source={{ uri: photo }} style={styles.photoPreview} />
-          ) : (
-            <Text style={styles.photoButtonText}>Take Photo</Text>
-          )}
-        </TouchableOpacity>
-        {photo && (
-          <TouchableOpacity onPress={() => setPhoto(null)} disabled={isLoading}>
-            <Text style={styles.removePhotoText}>Remove Photo</Text>
-          </TouchableOpacity>
-        )}
         <TouchableOpacity
-          style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
-          onPress={() => handleActionWithPhoto(
-            (url) => actions.startLoading(cuftInput ? parseFloat(cuftInput) : undefined, url),
-            'loading-start'
-          )}
-          disabled={isLoading}
+          style={styles.primaryButton}
+          onPress={() => router.push(`/trips/${tripId}/loads/${loadId}/start-loading`)}
         >
-          <Text style={styles.primaryButtonText}>
-            {buttonText || 'Start Loading'}
-          </Text>
+          <Text style={styles.primaryButtonText}>Start Loading</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  // Loading → Finish Loading
+  // Loading → Finish Loading (navigate to full-screen experience)
   if (loadStatus === 'loading') {
-    const handleFinishLoading = async () => {
-      setSubmitting(true);
-      try {
-        let photoUrl: string | undefined;
-
-        if (photo) {
-          const uploadResult = await uploadLoadPhoto(photo, loadId, 'loading-end');
-          if (!uploadResult.success) {
-            toast.error(uploadResult.error || 'Failed to upload photo');
-            return;
-          }
-          photoUrl = uploadResult.url;
-        }
-
-        const result = await actions.finishLoading(cuftInput ? parseFloat(cuftInput) : undefined, photoUrl);
-        if (!result.success) {
-          toast.error(result.error || 'Action failed');
-          return;
-        }
-
-        setPhoto(null);
-        setCuftInput('');
-        toast.success('Loading complete');
-
-        // Auto-navigate based on load type
-        if (requiresPickupCompletion) {
-          router.push(`/trips/${tripId}/loads/${loadId}/pickup-completion`);
-        } else if (requiresContractDetails) {
-          router.push(`/trips/${tripId}/loads/${loadId}/contract-details`);
-        }
-      } finally {
-        setSubmitting(false);
-      }
-    };
-
     return (
       <View style={styles.actionCard}>
-        <Text style={styles.actionTitle}>Finish Loading</Text>
+        <Text style={styles.actionTitle}>Loading in Progress</Text>
         <Text style={styles.actionDescription}>
-          Enter ending CUFT and take a photo (optional)
+          When done, enter ending CUFT and take a photo of the loading report
         </Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ending CUFT"
-          placeholderTextColor={colors.textMuted}
-          value={cuftInput}
-          onChangeText={setCuftInput}
-          keyboardType="numeric"
-        />
-        <TouchableOpacity style={styles.photoButton} onPress={takePhoto} disabled={isLoading}>
-          {photo ? (
-            <Image source={{ uri: photo }} style={styles.photoPreview} />
-          ) : (
-            <Text style={styles.photoButtonText}>Take Photo</Text>
-          )}
-        </TouchableOpacity>
-        {photo && (
-          <TouchableOpacity onPress={() => setPhoto(null)} disabled={isLoading}>
-            <Text style={styles.removePhotoText}>Remove Photo</Text>
-          </TouchableOpacity>
-        )}
         <TouchableOpacity
-          style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
-          onPress={handleFinishLoading}
-          disabled={isLoading}
+          style={styles.primaryButton}
+          onPress={() => router.push(`/trips/${tripId}/loads/${loadId}/finish-loading`)}
         >
-          <Text style={styles.primaryButtonText}>
-            {buttonText || 'Finish Loading'}
-          </Text>
+          <Text style={styles.primaryButtonText}>Finish Loading</Text>
         </TouchableOpacity>
         {requiresPickupCompletion && (
           <Text style={styles.contractDetailsHint}>
@@ -310,7 +167,7 @@ export function WorkflowActionCard({
     );
   }
 
-  // Loaded → Start Delivery (collect payment first if balance due)
+  // Loaded → Start Delivery (ALWAYS go through payment screen first)
   if (loadStatus === 'loaded') {
     const effectiveBalanceDue = balanceDue || 0;
     const hasBalanceDue = effectiveBalanceDue > 0;
@@ -346,45 +203,22 @@ export function WorkflowActionCard({
       );
     }
 
-    if (hasBalanceDue) {
-      return (
-        <View style={styles.actionCard}>
-          <Text style={styles.actionTitle}>Collect Payment & Start Delivery</Text>
-          {deliveryOrderBadge}
-          <TrustLevelBadge trustLevel={trustLevel} />
-          <Text style={styles.actionDescription}>
-            Balance due: ${effectiveBalanceDue.toFixed(2)}
-          </Text>
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={() => router.push(`/trips/${tripId}/loads/${loadId}/collect-payment`)}
-          >
-            <Text style={styles.primaryButtonText}>
-              Collect Payment
-            </Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
-    const handleStartDelivery = async () => {
-      if (trustLevel === 'cod_required') {
-        toast.warning(`Verify ${company?.name || 'company'} has settled before unloading`);
-      }
-      await handleAction(() => actions.startDelivery());
-    };
-
+    // ALWAYS go through payment screen - even if balance is $0, driver needs to confirm
     return (
       <View style={styles.actionCard}>
-        <Text style={styles.actionTitle}>Start Delivery</Text>
+        <Text style={styles.actionTitle}>
+          {hasBalanceDue ? 'Collect Payment & Start Delivery' : 'Confirm Payment & Start Delivery'}
+        </Text>
         {deliveryOrderBadge}
         <TrustLevelBadge trustLevel={trustLevel} />
         <Text style={styles.actionDescription}>
-          No payment to collect - ready to deliver
+          {hasBalanceDue
+            ? `Balance due: $${effectiveBalanceDue.toFixed(2)}`
+            : 'Confirm payment status before starting delivery'}
         </Text>
         <TouchableOpacity
-          style={[styles.primaryButton, actions.loading && styles.buttonDisabled]}
-          onPress={handleStartDelivery}
+          style={styles.primaryButton}
+          onPress={() => router.push(`/trips/${tripId}/loads/${loadId}/collect-payment`)}
           disabled={actions.loading}
         >
           <Text style={styles.primaryButtonText}>

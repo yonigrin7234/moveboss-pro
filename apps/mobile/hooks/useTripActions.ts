@@ -18,6 +18,16 @@ export interface CompleteTripData {
   odometerEndPhotoUrl: string;
 }
 
+// Type for trip_loads query result with nested load data
+// Supabase returns joined data as arrays even for single relations
+interface TripLoadWithStatus {
+  load_id: string;
+  loads: Array<{
+    id: string;
+    load_status: string;
+  }>;
+}
+
 type ActionResult = { success: boolean; error?: string };
 
 export function useTripActions(tripId: string, onSuccess?: () => void) {
@@ -109,8 +119,9 @@ export function useTripActions(tripId: string, onSuccess?: () => void) {
         throw loadsError;
       }
 
-      const hasUndelivered = (tripLoads || []).some((tl) => {
-        const status = (tl as any).loads?.load_status;
+      const hasUndelivered = (tripLoads as TripLoadWithStatus[] || []).some((tl) => {
+        // Supabase returns joined data as array - get first element
+        const status = tl.loads?.[0]?.load_status;
         return status !== 'delivered' && status !== 'storage_completed';
       });
 
