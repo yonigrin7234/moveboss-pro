@@ -2440,7 +2440,7 @@ export async function createMissingPartnerships(userId: string): Promise<{
       carrier_id,
       carrier_owner_id,
       creates_partnership,
-      load:loads(
+      load:loads!load_id(
         id,
         owner_id,
         company_id,
