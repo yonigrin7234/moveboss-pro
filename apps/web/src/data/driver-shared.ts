@@ -126,8 +126,16 @@ const driverFieldsSchema = z.object({
   pay_notes: z.string().trim().max(1000).optional(),
   notes: z.string().trim().max(5000).optional(),
   // Location & capacity settings
-  location_sharing_enabled: z.boolean().optional().default(false),
-  auto_post_capacity: z.boolean().optional().default(false),
+  // Use z.preprocess to handle string-to-boolean coercion and ensure proper defaults
+  // This is needed because .partial() doesn't play well with .optional().default()
+  location_sharing_enabled: z.preprocess(
+    (val) => val === true || val === 'true' || val === 'on',
+    z.boolean()
+  ).optional().default(false),
+  auto_post_capacity: z.preprocess(
+    (val) => val === true || val === 'true' || val === 'on',
+    z.boolean()
+  ).optional().default(false),
   capacity_visibility: z.enum(['private', 'partners_only', 'public']).optional().default('private'),
 });
 
