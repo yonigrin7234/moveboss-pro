@@ -309,7 +309,27 @@ export interface EarningsSummary {
 }
 
 // Vehicle document types
-export type DocumentType = 'registration' | 'insurance' | 'ifta' | 'inspection' | 'permit';
+export type DocumentType =
+  // Vehicle documents
+  | 'registration'
+  | 'insurance'
+  | 'ifta'
+  | 'inspection'
+  | 'permit'
+  // Driver compliance documents
+  | 'license'
+  | 'medical'
+  | 'mvr'
+  | 'drug_test'
+  | 'twic'
+  | 'hazmat'
+  // Company documents
+  | 'cargo_insurance'
+  | 'liability_insurance'
+  | 'workers_comp'
+  | 'authority'
+  | 'ucr'
+  | 'boc3';
 export type DocumentStatus = 'valid' | 'expiring' | 'expired' | 'missing';
 
 export interface VehicleDocument {

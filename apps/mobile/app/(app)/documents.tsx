@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVehicleDocuments } from '../../hooks/useVehicleDocuments';
 import { VehicleDocument, DocumentStatus } from '../../types';
 import { Icon, ErrorState } from '../../components/ui';
-import { DocumentViewerModal, VehicleDocumentsCard } from '../../components/documents';
+import { DocumentViewerModal, VehicleDocumentsCard, DocumentRow } from '../../components/documents';
 import { colors, typography, spacing, radius } from '../../lib/theme';
 
 const STATUS_COLORS: Record<DocumentStatus, string> = {
@@ -37,10 +37,14 @@ export default function DocumentsScreen() {
     trailer,
     driver,
     company,
+    driverDocuments,
+    companyDocuments,
     isLoading,
     error,
     hasActiveTrip,
+    hasPlannedTrip,
     tripNumber,
+    tripStatus,
     refetch,
     expiringCount,
     expiredCount,
@@ -183,7 +187,7 @@ export default function DocumentsScreen() {
           </View>
         )}
 
-        {!hasActiveTrip && !isLoading ? (
+        {!hasActiveTrip && !hasPlannedTrip && !isLoading ? (
           <View style={styles.emptyState}>
             <Icon name="clipboard-list" size={48} color={colors.textMuted} />
             <Text style={styles.emptyStateTitle}>No Active Trip</Text>
@@ -191,11 +195,33 @@ export default function DocumentsScreen() {
               Vehicle documents will appear here when you're assigned to a trip with a truck/trailer.
             </Text>
           </View>
-        ) : hasActiveTrip && (
+        ) : (hasActiveTrip || hasPlannedTrip) && (
           <>
+            {/* Planned Trip Banner */}
+            {hasPlannedTrip && !hasActiveTrip && (
+              <View style={styles.plannedBanner}>
+                <Icon name="calendar" size="sm" color={colors.info} />
+                <Text style={styles.plannedBannerText}>
+                  Viewing planned trip - Read only
+                </Text>
+              </View>
+            )}
+
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.headerTitle}>Vehicle Documents</Text>
+              <View style={styles.headerTitleRow}>
+                <Text style={styles.headerTitle}>Vehicle Documents</Text>
+                {tripStatus && (
+                  <View style={[
+                    styles.tripStatusBadge,
+                    { backgroundColor: tripStatus === 'planned' ? colors.info : colors.success }
+                  ]}>
+                    <Text style={styles.tripStatusText}>
+                      {tripStatus === 'planned' ? 'Planned' : 'Active'}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.headerSubtitle}>
                 Trip #{tripNumber}
                 {truck && ` • ${truck.unit_number}`}
@@ -251,6 +277,54 @@ export default function DocumentsScreen() {
                 <Text style={styles.emptyStateText}>
                   No truck or trailer has been assigned to this trip yet.
                 </Text>
+              </View>
+            )}
+
+            {/* Driver Compliance Documents Section */}
+            {driverDocuments.length > 0 && (
+              <View style={styles.documentsSection}>
+                <View style={styles.sectionHeader}>
+                  <Icon name="user" size="lg" color={colors.primary} />
+                  <View style={styles.sectionHeaderInfo}>
+                    <Text style={styles.sectionTitle}>Driver Compliance</Text>
+                    <Text style={styles.sectionSubtitle}>
+                      {driver?.first_name} {driver?.last_name}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.documentsList}>
+                  {driverDocuments.map((doc) => (
+                    <DocumentRow
+                      key={doc.type}
+                      document={doc}
+                      onPress={() => handleDocumentPress(doc, 'Driver Document')}
+                    />
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Company Documents Section */}
+            {companyDocuments.length > 0 && (
+              <View style={styles.documentsSection}>
+                <View style={styles.sectionHeader}>
+                  <Icon name="shield-check" size="lg" color={colors.primary} />
+                  <View style={styles.sectionHeaderInfo}>
+                    <Text style={styles.sectionTitle}>Company Documents</Text>
+                    <Text style={styles.sectionSubtitle}>
+                      {company?.name}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.documentsList}>
+                  {companyDocuments.map((doc) => (
+                    <DocumentRow
+                      key={doc.type}
+                      document={doc}
+                      onPress={() => handleDocumentPress(doc, 'Company Document')}
+                    />
+                  ))}
+                </View>
               </View>
             )}
           </>
@@ -392,5 +466,65 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textPrimary,
     fontWeight: '500',
+  },
+  plannedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.infoSoft,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  plannedBannerText: {
+    ...typography.body,
+    color: colors.info,
+    fontWeight: '500',
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  tripStatusBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: radius.sm,
+  },
+  tripStatusText: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  documentsSection: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    marginBottom: spacing.lg,
+    overflow: 'hidden',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.cardPadding,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+    gap: spacing.sm,
+  },
+  sectionHeaderInfo: {
+    flex: 1,
+  },
+  sectionTitle: {
+    ...typography.headline,
+    color: colors.textPrimary,
+  },
+  sectionSubtitle: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  documentsList: {
+    paddingHorizontal: spacing.cardPadding,
   },
 });
