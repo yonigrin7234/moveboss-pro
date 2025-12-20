@@ -31,6 +31,7 @@ import { useImageUpload } from '../../../../../../hooks/useImageUpload';
 import { useDriver } from '../../../../../../providers/DriverProvider';
 import { useAuth } from '../../../../../../providers/AuthProvider';
 import { useToast } from '../../../../../../components/ui';
+import { DamageDocumentation } from '../../../../../../components/DamageDocumentation';
 import { colors, typography, spacing, radius } from '../../../../../../lib/theme';
 
 export default function FinishLoadingScreen() {
@@ -182,19 +183,59 @@ export default function FinishLoadingScreen() {
             </View>
             <Text style={styles.title}>Finish Loading</Text>
             <Text style={styles.subtitle}>
-              Enter where you finished and take a photo of the loading report
+              Document damages, enter ending CUFT, and take a photo
             </Text>
           </View>
 
-          {/* Starting CUFT Display (if available) */}
-          {startingCuft && (
-            <View style={styles.infoCard}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Started at</Text>
-                <Text style={styles.infoValue}>{startingCuft} CUFT</Text>
+          {/* Load Info Card */}
+          <View style={styles.loadInfoCard}>
+            <Text style={styles.loadInfoTitle}>Load Details</Text>
+            {load?.customer_name && (
+              <View style={styles.loadInfoRow}>
+                <Text style={styles.loadInfoLabel}>Customer</Text>
+                <Text style={styles.loadInfoValue}>{load.customer_name}</Text>
               </View>
-            </View>
-          )}
+            )}
+            {(load?.delivery_city || load?.dropoff_city) && (
+              <View style={styles.loadInfoRow}>
+                <Text style={styles.loadInfoLabel}>Delivery</Text>
+                <Text style={styles.loadInfoValue}>
+                  {load.delivery_city || load.dropoff_city}, {load.delivery_state || load.dropoff_state}
+                </Text>
+              </View>
+            )}
+            {load?.balance_due_on_delivery != null && load.balance_due_on_delivery > 0 && (
+              <View style={styles.loadInfoRow}>
+                <Text style={styles.loadInfoLabel}>Balance Due</Text>
+                <Text style={[styles.loadInfoValue, styles.balanceDue]}>
+                  ${load.balance_due_on_delivery.toLocaleString()}
+                </Text>
+              </View>
+            )}
+            {load?.rate_per_cuft != null && (
+              <View style={styles.loadInfoRow}>
+                <Text style={styles.loadInfoLabel}>Rate</Text>
+                <Text style={styles.loadInfoValue}>${load.rate_per_cuft}/cuft</Text>
+              </View>
+            )}
+            {load?.cubic_feet != null && (
+              <View style={styles.loadInfoRow}>
+                <Text style={styles.loadInfoLabel}>Est. CUFT</Text>
+                <Text style={styles.loadInfoValue}>{load.cubic_feet}</Text>
+              </View>
+            )}
+            {startingCuft != null && (
+              <View style={styles.loadInfoRow}>
+                <Text style={styles.loadInfoLabel}>Started at</Text>
+                <Text style={[styles.loadInfoValue, styles.startingCuft]}>{startingCuft} CUFT</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Pre-existing Damages */}
+          <View style={styles.section}>
+            <DamageDocumentation loadId={loadId} />
+          </View>
 
           {/* Ending CUFT Input */}
           <View style={styles.section}>
@@ -361,6 +402,42 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     paddingHorizontal: spacing.lg,
+  },
+  // Load Info Card styles
+  loadInfoCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    marginBottom: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  loadInfoTitle: {
+    ...typography.headline,
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+  loadInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  loadInfoLabel: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+  loadInfoValue: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: '500',
+  },
+  balanceDue: {
+    color: colors.warning,
+    fontWeight: '700',
+  },
+  startingCuft: {
+    color: colors.primary,
   },
   infoCard: {
     backgroundColor: colors.surface,
