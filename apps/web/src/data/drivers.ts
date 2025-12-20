@@ -390,10 +390,9 @@ export async function createDriver(
     if (vehicleType && vehicleType !== 'tractor') {
       // Non-tractor (box truck): force default_trailer_id to null
       finalDefaultTrailerId = null;
-    } else if (vehicleType === 'tractor' && !finalDefaultTrailerId) {
-      // Tractor requires a default trailer
-      throw new Error('Tractor defaults require a trailer. Please select a default trailer.');
     }
+    // Note: Tractors can have optional default trailers - no need to require one
+    // The trip creation can use whatever defaults are available
   } else {
     // No default truck means no default trailer either
     finalDefaultTrailerId = null;
@@ -579,10 +578,9 @@ export async function updateDriver(
     if (vehicleType && vehicleType !== 'tractor') {
       // Non-tractor (box truck): force default_trailer_id to null
       finalDefaultTrailerId = null;
-    } else if (vehicleType === 'tractor' && !finalDefaultTrailerId) {
-      // Tractor requires a default trailer
-      throw new Error('Tractor defaults require a trailer. Please select a default trailer.');
     }
+    // Note: Tractors can have optional default trailers - no need to require one
+    // The trip creation can use whatever defaults are available
   } else {
     // No default truck means no default trailer either
     finalDefaultTrailerId = null;
