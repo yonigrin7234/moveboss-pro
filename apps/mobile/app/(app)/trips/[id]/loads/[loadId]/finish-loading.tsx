@@ -167,6 +167,14 @@ export default function FinishLoadingScreen() {
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Step Indicator */}
+          <View style={styles.stepIndicator}>
+            <View style={[styles.stepDot, styles.stepDotCompleted]} />
+            <View style={[styles.stepLine, styles.stepLineCompleted]} />
+            <View style={[styles.stepDot, styles.stepDotActive]} />
+          </View>
+          <Text style={styles.stepText}>Step 2 of 2</Text>
+
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.iconContainer}>
@@ -294,6 +302,40 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.screenPadding,
+  },
+  stepIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  stepDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.border,
+  },
+  stepDotActive: {
+    backgroundColor: colors.primary,
+  },
+  stepDotCompleted: {
+    backgroundColor: colors.success,
+  },
+  stepLine: {
+    width: 40,
+    height: 2,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.sm,
+  },
+  stepLineCompleted: {
+    backgroundColor: colors.success,
+  },
+  stepText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.md,
   },
   header: {
     alignItems: 'center',

@@ -109,7 +109,8 @@ export default function StartLoadingScreen() {
       ]);
 
       toast.success('Loading started!');
-      router.back();
+      // Continue to finish loading - wizard flow
+      router.replace(`/(app)/trips/${tripId}/loads/${loadId}/finish-loading`);
     } catch (error) {
       toast.error('Something went wrong. Please try again.');
     } finally {
@@ -139,6 +140,14 @@ export default function StartLoadingScreen() {
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Step Indicator */}
+          <View style={styles.stepIndicator}>
+            <View style={[styles.stepDot, styles.stepDotActive]} />
+            <View style={styles.stepLine} />
+            <View style={styles.stepDot} />
+          </View>
+          <Text style={styles.stepText}>Step 1 of 2</Text>
+
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.iconContainer}>
@@ -223,7 +232,7 @@ export default function StartLoadingScreen() {
               </Text>
             ) : (
               <>
-                <Text style={styles.submitButtonText}>Start Loading</Text>
+                <Text style={styles.submitButtonText}>Continue</Text>
                 <Ionicons name="arrow-forward" size={20} color={colors.background} />
               </>
             )}
@@ -244,6 +253,34 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.screenPadding,
+  },
+  stepIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  stepDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.border,
+  },
+  stepDotActive: {
+    backgroundColor: colors.primary,
+  },
+  stepLine: {
+    width: 40,
+    height: 2,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.sm,
+  },
+  stepText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.md,
   },
   header: {
     alignItems: 'center',
