@@ -231,12 +231,21 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
       const { updateDriverInputSchema } = await import('@/data/drivers');
       const validated = updateDriverInputSchema.parse(cleanedData);
 
+      // CRITICAL FIX: Zod's .partial() strips boolean fields from output
+      // Explicitly preserve boolean values from cleanedData (before Zod)
+      const validatedWithBooleans = {
+        ...validated,
+        location_sharing_enabled: cleanedData.location_sharing_enabled === true,
+        auto_post_capacity: cleanedData.auto_post_capacity === true,
+      };
+
       // DEBUG: Log validated data AFTER validation
       console.log('POST_VALIDATION_DEBUG', {
         validated_location_sharing: validated.location_sharing_enabled,
         validated_auto_post: validated.auto_post_capacity,
+        fixed_location_sharing: validatedWithBooleans.location_sharing_enabled,
+        fixed_auto_post: validatedWithBooleans.auto_post_capacity,
         validated_keys: Object.keys(validated),
-        validated_full: JSON.stringify(validated),
       });
 
       // Derive effectiveHasLogin ONLY from validated value
@@ -250,13 +259,12 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
         login_method: loginMethod,
         email,
         phone,
-        // Location settings after validation
-        validated_location_sharing: validated.location_sharing_enabled,
-        validated_auto_post: validated.auto_post_capacity,
-        validated_capacity_visibility: validated.capacity_visibility,
+        // Location settings after fix
+        fixed_location_sharing: validatedWithBooleans.location_sharing_enabled,
+        fixed_auto_post: validatedWithBooleans.auto_post_capacity,
       });
 
-      await updateDriver(id, validated, user.id, companyId, {
+      await updateDriver(id, validatedWithBooleans, user.id, companyId, {
         effectiveHasLogin,
         login_method: loginMethod as 'email' | 'phone',
         email: email?.trim() || null,
