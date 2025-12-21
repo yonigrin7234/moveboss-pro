@@ -20,8 +20,8 @@ interface LoadRequest {
   carrier_id: string;
   status: string;
   created_at: string;
-  carrier_rate: number | null;
-  carrier_rate_type: string | null;
+  offered_rate: number | null;
+  offered_rate_type: string | null;
   load: {
     id: string;
     load_number: string;
@@ -61,8 +61,8 @@ export default function RequestsScreen() {
           carrier_id,
           status,
           created_at,
-          carrier_rate,
-          carrier_rate_type,
+          offered_rate,
+          offered_rate_type,
           load:loads!load_requests_load_id_fkey(
             id,
             load_number,
@@ -120,8 +120,8 @@ export default function RequestsScreen() {
                 requestId: request.id,
                 loadId: request.load_id,
                 carrierId: request.carrier_id,
-                carrierRate: request.carrier_rate,
-                carrierRateType: request.carrier_rate_type || undefined,
+                carrierRate: request.offered_rate,
+                carrierRateType: request.offered_rate_type || undefined,
                 cubicFeetEstimate: request.load?.cubic_feet,
               });
               haptics.success();
@@ -223,9 +223,9 @@ export default function RequestsScreen() {
                 <Text style={styles.detailText}>
                   {request.load?.cubic_feet} CF
                 </Text>
-                {request.carrier_rate && (
+                {request.offered_rate && (
                   <Text style={styles.rateText}>
-                    ${request.carrier_rate}{request.carrier_rate_type === 'per_cuft' ? '/cf' : ' flat'}
+                    ${request.offered_rate}{request.offered_rate_type === 'per_cuft' ? '/cf' : ' flat'}
                   </Text>
                 )}
               </View>
