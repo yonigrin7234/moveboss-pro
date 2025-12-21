@@ -1216,14 +1216,24 @@ export async function confirmLoadAssignment(
 
   // Safety check: Ensure partnership exists (fallback if acceptLoadRequest failed to create it)
   try {
-    const { data: request } = await supabase
+    const { data: request, error: requestErr } = await supabase
       .from('load_requests')
-      .select('id, carrier_id, carrier_owner_id, creates_partnership')
+      .select('id, carrier_id, carrier_owner_id, creates_partnership, is_partner')
       .eq('load_id', loadId)
       .eq('status', 'accepted')
-      .single();
+      .maybeSingle();
 
-    if (request?.creates_partnership) {
+    console.log('[confirmLoadAssignment] Partnership fallback check:', {
+      requestFound: !!request,
+      requestError: requestErr?.message,
+      creates_partnership: request?.creates_partnership,
+      is_partner: request?.is_partner,
+      carrier_id: request?.carrier_id,
+      carrier_owner_id: request?.carrier_owner_id,
+    });
+
+    // Create partnership if needed (either creates_partnership is true, or is_partner is false)
+    if (request && (request.creates_partnership || request.is_partner === false)) {
       const { data: loadData } = await supabase
         .from('loads')
         .select('owner_id, company_id')
@@ -1231,19 +1241,27 @@ export async function confirmLoadAssignment(
         .single();
 
       if (loadData && request.carrier_id && request.carrier_owner_id) {
-        // Check if broker partnership exists
-        const { data: existingBrokerPartnership } = await supabase
+        // Check if broker partnership exists (use maybeSingle - no error if not found)
+        const { data: existingBrokerPartnership, error: brokerCheckErr } = await supabase
           .from('company_partnerships')
           .select('id')
           .eq('owner_id', loadData.owner_id)
           .eq('company_a_id', loadData.company_id)
           .eq('company_b_id', request.carrier_id)
-          .single();
+          .maybeSingle();
+
+        console.log('[confirmLoadAssignment] Broker partnership check:', {
+          exists: !!existingBrokerPartnership,
+          error: brokerCheckErr?.message,
+          owner_id: loadData.owner_id,
+          company_a_id: loadData.company_id,
+          company_b_id: request.carrier_id,
+        });
 
         if (!existingBrokerPartnership) {
           console.log('[confirmLoadAssignment] Creating missing broker partnership');
           const serviceClient = createServiceRoleClient();
-          await serviceClient.from('company_partnerships').insert({
+          const { error: insertErr } = await serviceClient.from('company_partnerships').insert({
             owner_id: loadData.owner_id,
             company_a_id: loadData.company_id,
             company_b_id: request.carrier_id,
@@ -1252,21 +1270,34 @@ export async function confirmLoadAssignment(
             status: 'active',
             approved_at: new Date().toISOString(),
           });
+          if (insertErr) {
+            console.error('[confirmLoadAssignment] Failed to create broker partnership:', insertErr);
+          } else {
+            console.log('[confirmLoadAssignment] Broker partnership created successfully');
+          }
         }
 
-        // Check if carrier partnership exists
-        const { data: existingCarrierPartnership } = await supabase
+        // Check if carrier partnership exists (use maybeSingle - no error if not found)
+        const { data: existingCarrierPartnership, error: carrierCheckErr } = await supabase
           .from('company_partnerships')
           .select('id')
           .eq('owner_id', request.carrier_owner_id)
           .eq('company_a_id', request.carrier_id)
           .eq('company_b_id', loadData.company_id)
-          .single();
+          .maybeSingle();
+
+        console.log('[confirmLoadAssignment] Carrier partnership check:', {
+          exists: !!existingCarrierPartnership,
+          error: carrierCheckErr?.message,
+          owner_id: request.carrier_owner_id,
+          company_a_id: request.carrier_id,
+          company_b_id: loadData.company_id,
+        });
 
         if (!existingCarrierPartnership) {
           console.log('[confirmLoadAssignment] Creating missing carrier partnership');
           const serviceClient = createServiceRoleClient();
-          await serviceClient.from('company_partnerships').insert({
+          const { error: insertErr } = await serviceClient.from('company_partnerships').insert({
             owner_id: request.carrier_owner_id,
             company_a_id: request.carrier_id,
             company_b_id: loadData.company_id,
@@ -1275,6 +1306,11 @@ export async function confirmLoadAssignment(
             status: 'active',
             approved_at: new Date().toISOString(),
           });
+          if (insertErr) {
+            console.error('[confirmLoadAssignment] Failed to create carrier partnership:', insertErr);
+          } else {
+            console.log('[confirmLoadAssignment] Carrier partnership created successfully');
+          }
         }
       }
     }
