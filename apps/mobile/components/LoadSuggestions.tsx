@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { MapPin, Truck, DollarSign, Star, ArrowRight, Bell } from 'lucide-react-native';
+import { MapPin, Truck, DollarSign, Star, ArrowRight } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { colors, typography, spacing } from '../lib/theme';
 import { useLoadSuggestions, LoadSuggestion } from '../hooks/useLoadSuggestions';
@@ -40,7 +40,7 @@ const SUGGESTION_TYPE_COLORS: Record<LoadSuggestion['suggestion_type'], string> 
 };
 
 export function LoadSuggestions({ tripId, onSuggestionPress }: LoadSuggestionsProps) {
-  const { suggestions, isLoading, error, refresh, markAsViewed, notifyDispatcher } =
+  const { suggestions, isLoading, error, refresh, markAsViewed } =
     useLoadSuggestions(tripId);
 
   const handlePress = useCallback(
@@ -57,18 +57,6 @@ export function LoadSuggestions({ tripId, onSuggestionPress }: LoadSuggestionsPr
       }
     },
     [markAsViewed, onSuggestionPress]
-  );
-
-  const handleNotifyDispatcher = useCallback(
-    async (suggestion: LoadSuggestion) => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      try {
-        await notifyDispatcher(suggestion.id);
-      } catch {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
-    },
-    [notifyDispatcher]
   );
 
   const renderSuggestion = useCallback(
@@ -138,28 +126,11 @@ export function LoadSuggestions({ tripId, onSuggestionPress }: LoadSuggestionsPr
 
             {/* Company */}
             <Text style={styles.companyText}>{companyName}</Text>
-
-            {/* Action */}
-            {item.status !== 'interested' && (
-              <TouchableOpacity
-                style={styles.notifyButton}
-                onPress={() => handleNotifyDispatcher(item)}
-              >
-                <Bell size={16} color={colors.primary} />
-                <Text style={styles.notifyButtonText}>Notify Dispatcher</Text>
-              </TouchableOpacity>
-            )}
-
-            {item.status === 'interested' && (
-              <View style={styles.interestedBadge}>
-                <Text style={styles.interestedText}>Dispatcher Notified</Text>
-              </View>
-            )}
           </TouchableOpacity>
         </Animated.View>
       );
     },
-    [handlePress, handleNotifyDispatcher]
+    [handlePress]
   );
 
   if (isLoading) {
@@ -311,30 +282,6 @@ const styles = StyleSheet.create({
   companyText: {
     ...typography.caption,
     color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  notifyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.primarySoft,
-    borderRadius: 8,
-  },
-  notifyButtonText: {
-    ...typography.button,
-    color: colors.primary,
-  },
-  interestedBadge: {
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.successSoft,
-    borderRadius: 8,
-  },
-  interestedText: {
-    ...typography.button,
-    color: colors.success,
   },
   loadingContainer: {
     alignItems: 'center',

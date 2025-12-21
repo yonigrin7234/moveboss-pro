@@ -53,7 +53,6 @@ interface UseLoadSuggestionsReturn {
   error: string | null;
   refresh: () => Promise<void>;
   markAsViewed: (suggestionId: string) => Promise<void>;
-  notifyDispatcher: (suggestionId: string) => Promise<void>;
 }
 
 export function useLoadSuggestions(tripId?: string): UseLoadSuggestionsReturn {
@@ -133,35 +132,11 @@ export function useLoadSuggestions(tripId?: string): UseLoadSuggestionsReturn {
     }
   }, []);
 
-  const notifyDispatcher = useCallback(async (suggestionId: string) => {
-    try {
-      await supabase
-        .from('load_suggestions')
-        .update({
-          status: 'interested',
-          actioned_at: new Date().toISOString(),
-        })
-        .eq('id', suggestionId);
-
-      // Update local state
-      setSuggestions(prev =>
-        prev.map(s =>
-          s.id === suggestionId ? { ...s, status: 'interested' as const } : s
-        )
-      );
-
-      // TODO: Send push notification to owner/dispatcher
-    } catch (e) {
-      throw e;
-    }
-  }, []);
-
   return {
     suggestions,
     isLoading,
     error,
     refresh: fetchSuggestions,
     markAsViewed,
-    notifyDispatcher,
   };
 }

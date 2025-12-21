@@ -24,6 +24,7 @@ export type PushNotificationType =
   | 'load_status_changed'
   | 'payment_received'
   | 'settlement_approved'
+  | 'load_suggestion'
   | 'message'
   | 'general';
 
@@ -963,6 +964,44 @@ export async function notifyOwnerExpenseAdded(
       tripId,
     },
     { channelId: 'activity' }
+  );
+}
+
+/**
+ * Notify owner when load suggestions are found for a driver's trip
+ * This is called automatically when the matching engine finds good matches
+ */
+export async function notifyOwnerLoadSuggestions(
+  tripId: string,
+  suggestionCount: number,
+  topMatch?: {
+    loadNumber: string;
+    pickupLocation: string;
+    matchScore: number;
+    profitEstimate: number;
+    capacityFitPercent: number;
+  }
+): Promise<void> {
+  const { ownerId, tripNumber, driverName } = await getTripOwnerInfo(tripId);
+
+  if (!ownerId) return;
+
+  let body: string;
+  if (topMatch) {
+    body = `${driverName} (Trip #${tripNumber}): ${suggestionCount} load match${suggestionCount > 1 ? 'es' : ''} found. Best: ${topMatch.loadNumber} at ${topMatch.pickupLocation} (${topMatch.matchScore}% match, $${topMatch.profitEstimate.toFixed(0)} est. profit)`;
+  } else {
+    body = `${driverName} (Trip #${tripNumber}): ${suggestionCount} load match${suggestionCount > 1 ? 'es' : ''} found based on location and capacity`;
+  }
+
+  await sendPushToUser(
+    ownerId,
+    '🎯 Load Matches Found',
+    body,
+    {
+      type: 'load_suggestion',
+      tripId,
+    },
+    { channelId: 'matching' }
   );
 }
 

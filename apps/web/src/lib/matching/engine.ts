@@ -10,6 +10,7 @@ import {
   type GeoCoordinates,
 } from '@/lib/geocoding';
 import { estimateLoadCosts, estimateDaysForLoad, type DriverPayConfig } from './cost-calculator';
+import { notifyOwnerLoadSuggestions } from '@/lib/push-notifications';
 
 // Types
 export type SuggestionType =
@@ -523,6 +524,25 @@ export async function saveSuggestions(
   if (error) {
     console.error('Error saving suggestions:', error);
     return { success: false, count: 0, error: error.message };
+  }
+
+  // Notify owner automatically when suggestions are found
+  if (suggestions.length > 0) {
+    const topSuggestion = suggestions[0]; // Already sorted by score
+    const topMatch = topSuggestion.load
+      ? {
+          loadNumber: topSuggestion.load.id.slice(0, 8), // Use first 8 chars if no load_number
+          pickupLocation: `${topSuggestion.load.pickup_city || ''}, ${topSuggestion.load.pickup_state || ''}`.trim(),
+          matchScore: topSuggestion.matchScore,
+          profitEstimate: topSuggestion.profitEstimate,
+          capacityFitPercent: topSuggestion.capacityFitPercent,
+        }
+      : undefined;
+
+    // Send notification to owner (fire and forget - don't block on this)
+    notifyOwnerLoadSuggestions(tripId, suggestions.length, topMatch).catch((err) => {
+      console.error('Error sending load suggestion notification:', err);
+    });
   }
 
   return { success: true, count: suggestions.length };
