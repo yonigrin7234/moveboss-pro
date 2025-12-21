@@ -72,7 +72,7 @@ export default function MoreScreen() {
           </View>
           <View style={styles.companyInfo}>
             <Text style={styles.companyName}>
-              {company?.dba_name || company?.name}
+              {company?.name}
             </Text>
             <Text style={styles.companyRole}>
               {role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Member'}

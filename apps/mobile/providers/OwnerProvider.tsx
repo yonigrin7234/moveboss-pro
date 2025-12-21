@@ -5,7 +5,6 @@ import { useAuth } from './AuthProvider';
 type CompanyRecord = {
   id: string;
   name: string;
-  dba_name: string | null;
   is_broker: boolean;
   is_carrier: boolean;
   owner_id: string;
@@ -72,7 +71,6 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
           company:companies!inner(
             id,
             name,
-            dba_name,
             is_broker,
             is_carrier,
             owner_id

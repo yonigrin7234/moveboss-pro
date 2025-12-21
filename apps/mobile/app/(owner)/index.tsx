@@ -53,7 +53,7 @@ export default function OwnerDashboardScreen() {
     signOut();
   }, [signOut]);
 
-  const companyName = company?.dba_name || company?.name || 'Your Company';
+  const companyName = company?.name || 'Your Company';
 
   return (
     <ScrollView
@@ -188,14 +188,14 @@ export default function OwnerDashboardScreen() {
             >
               <View style={styles.requestInfo}>
                 <Text style={styles.requestCarrier}>
-                  {request.carrier?.dba_name || request.carrier?.name || 'Unknown Carrier'}
+                  {request.carrier?.name || 'Unknown Carrier'}
                 </Text>
                 <Text style={styles.requestLoad}>
-                  {request.load?.origin_city}, {request.load?.origin_state} →{' '}
-                  {request.load?.destination_city}, {request.load?.destination_state}
+                  {request.load?.pickup_city}, {request.load?.pickup_state} →{' '}
+                  {request.load?.delivery_city}, {request.load?.delivery_state}
                 </Text>
                 <Text style={styles.requestDetails}>
-                  {request.load?.cuft} CF • {formatAge(request.created_at)}
+                  {request.load?.cubic_feet} CF • {formatAge(request.created_at)}
                 </Text>
               </View>
               <Icon name="chevron-right" size="md" color={colors.textMuted} />

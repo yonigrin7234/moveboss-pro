@@ -28,7 +28,6 @@ interface LoadRequest {
   };
   carrier: {
     name: string;
-    dba_name: string | null;
   };
 }
 
@@ -185,8 +184,7 @@ export function useOwnerDashboardData() {
             rate_per_cuft
           ),
           carrier:companies!load_requests_carrier_id_fkey(
-            name,
-            dba_name
+            name
           )
         `)
         .in('load_id', loadIds)

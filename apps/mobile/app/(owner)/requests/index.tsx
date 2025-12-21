@@ -36,7 +36,6 @@ interface LoadRequest {
   carrier: {
     id: string;
     name: string;
-    dba_name: string | null;
   };
 }
 
@@ -77,8 +76,7 @@ export default function RequestsScreen() {
           ),
           carrier:companies!load_requests_carrier_id_fkey(
             id,
-            name,
-            dba_name
+            name
           )
         `)
         .eq('status', 'pending')
@@ -106,7 +104,7 @@ export default function RequestsScreen() {
 
   const handleAccept = async (request: LoadRequest) => {
     haptics.selection();
-    const carrierName = request.carrier?.dba_name || request.carrier?.name || 'this carrier';
+    const carrierName = request.carrier?.name || 'this carrier';
 
     Alert.alert(
       'Accept Request',
@@ -142,7 +140,7 @@ export default function RequestsScreen() {
 
   const handleDecline = async (request: LoadRequest) => {
     haptics.selection();
-    const carrierName = request.carrier?.dba_name || request.carrier?.name || 'this carrier';
+    const carrierName = request.carrier?.name || 'this carrier';
 
     Alert.alert(
       'Decline Request',
@@ -203,7 +201,7 @@ export default function RequestsScreen() {
             >
               <View style={styles.requestHeader}>
                 <Text style={styles.carrierName}>
-                  {request.carrier?.dba_name || request.carrier?.name || 'Unknown Carrier'}
+                  {request.carrier?.name || 'Unknown Carrier'}
                 </Text>
                 <Text style={styles.timeAgo}>{formatAge(request.created_at)}</Text>
               </View>
