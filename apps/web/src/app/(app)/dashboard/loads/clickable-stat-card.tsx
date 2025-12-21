@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { LucideIcon } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 export type FilterType = 'status' | 'rfdUrgency';
 
@@ -27,16 +27,16 @@ export function ClickableStatCard({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Check if this card's filter is currently active
-  const currentStatus = searchParams.get('status') || 'all';
-  const currentRfdUrgency = searchParams.get('rfdUrgency') || '';
+  // Safely get search params (handle null case during SSR)
+  const currentStatus = searchParams?.get('status') ?? 'all';
+  const currentRfdUrgency = searchParams?.get('rfdUrgency') ?? '';
 
   const isActive = filterType === 'status'
     ? currentStatus === filterValue
     : currentRfdUrgency === filterValue;
 
   const handleClick = () => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(searchParams?.toString() ?? '');
 
     if (filterType === 'status') {
       // Clear rfdUrgency when selecting a status filter

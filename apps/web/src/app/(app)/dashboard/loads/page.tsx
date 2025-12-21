@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Suspense } from 'react';
 import { getCurrentUser, createClient } from '@/lib/supabase-server';
 import {
   getLoadsForUser,
@@ -148,80 +147,76 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
       </div>
 
       {/* Stats Cards - Status Based */}
-      <Suspense fallback={<div className="grid gap-4 md:grid-cols-4 animate-pulse"><div className="h-24 bg-muted rounded-lg" /><div className="h-24 bg-muted rounded-lg" /><div className="h-24 bg-muted rounded-lg" /><div className="h-24 bg-muted rounded-lg" /></div>}>
-        <div className="grid gap-4 md:grid-cols-4">
-          <ClickableStatCard
-            label="Total Loads"
-            value={stats.totalLoads}
-            icon={Package}
-            iconClassName="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-            filterType="status"
-            filterValue="all"
-          />
-          <ClickableStatCard
-            label="Pending"
-            value={stats.pending}
-            icon={Clock}
-            iconClassName="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400"
-            filterType="status"
-            filterValue="pending"
-          />
-          <ClickableStatCard
-            label="In Transit"
-            value={stats.inTransit}
-            icon={Truck}
-            iconClassName="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-            filterType="status"
-            filterValue="in_transit"
-          />
-          <ClickableStatCard
-            label="Delivered"
-            value={stats.delivered}
-            icon={CheckCircle}
-            iconClassName="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
-            filterType="status"
-            filterValue="delivered"
-          />
-        </div>
-      </Suspense>
+      <div className="grid gap-4 md:grid-cols-4">
+        <ClickableStatCard
+          label="Total Loads"
+          value={stats.totalLoads}
+          icon={Package}
+          iconClassName="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+          filterType="status"
+          filterValue="all"
+        />
+        <ClickableStatCard
+          label="Pending"
+          value={stats.pending}
+          icon={Clock}
+          iconClassName="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400"
+          filterType="status"
+          filterValue="pending"
+        />
+        <ClickableStatCard
+          label="In Transit"
+          value={stats.inTransit}
+          icon={Truck}
+          iconClassName="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+          filterType="status"
+          filterValue="in_transit"
+        />
+        <ClickableStatCard
+          label="Delivered"
+          value={stats.delivered}
+          icon={CheckCircle}
+          iconClassName="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
+          filterType="status"
+          filterValue="delivered"
+        />
+      </div>
 
       {/* RFD Urgency Stats Cards */}
-      <Suspense fallback={<div className="grid gap-4 md:grid-cols-4 animate-pulse"><div className="h-24 bg-muted rounded-lg" /><div className="h-24 bg-muted rounded-lg" /><div className="h-24 bg-muted rounded-lg" /><div className="h-24 bg-muted rounded-lg" /></div>}>
-        <div className="grid gap-4 md:grid-cols-4">
-          <ClickableStatCard
-            label="Critical RFD"
-            value={rfdCounts.critical}
-            icon={AlertCircle}
-            iconClassName="bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400"
-            filterType="rfdUrgency"
-            filterValue="critical"
-          />
-          <ClickableStatCard
-            label="Urgent RFD"
-            value={rfdCounts.urgent}
-            icon={Clock}
-            iconClassName="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
-            filterType="rfdUrgency"
-            filterValue="urgent"
-          />
-          <ClickableStatCard
-            label="Approaching"
-            value={rfdCounts.approaching}
-            icon={CalendarClock}
-            iconClassName="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400"
-            filterType="rfdUrgency"
-            filterValue="approaching"
-          />
-          <ClickableStatCard
-            label="RFD TBD"
-            value={rfdCounts.tbd}
-            icon={HelpCircle}
-            iconClassName="bg-muted text-muted-foreground"
-            filterType="rfdUrgency"
-            filterValue="tbd"
-          />
-        </div>
-      </Suspense>
+      <div className="grid gap-4 md:grid-cols-4">
+        <ClickableStatCard
+          label="Critical RFD"
+          value={rfdCounts.critical}
+          icon={AlertCircle}
+          iconClassName="bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400"
+          filterType="rfdUrgency"
+          filterValue="critical"
+        />
+        <ClickableStatCard
+          label="Urgent RFD"
+          value={rfdCounts.urgent}
+          icon={Clock}
+          iconClassName="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+          filterType="rfdUrgency"
+          filterValue="urgent"
+        />
+        <ClickableStatCard
+          label="Approaching"
+          value={rfdCounts.approaching}
+          icon={CalendarClock}
+          iconClassName="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400"
+          filterType="rfdUrgency"
+          filterValue="approaching"
+        />
+        <ClickableStatCard
+          label="RFD TBD"
+          value={rfdCounts.tbd}
+          icon={HelpCircle}
+          iconClassName="bg-muted text-muted-foreground"
+          filterType="rfdUrgency"
+          filterValue="tbd"
+        />
+      </div>
 
       {/* Filters */}
       <LoadListFilters initialFilters={filters} companies={companies} />
