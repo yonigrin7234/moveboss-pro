@@ -9,6 +9,7 @@ import {
 } from '@/lib/audit';
 import { recordStructuredUploadMessage } from '@/lib/messaging';
 import { calculateDeliveryDeadline, formatDateForDB } from '@/lib/business-days';
+import { calculateRFDUrgency } from '@/lib/rfd-urgency';
 
 // Enums
 export const loadStatusSchema = z.enum(['pending', 'assigned', 'in_transit', 'delivered', 'canceled']);
@@ -499,6 +500,7 @@ export interface LoadFilters {
   search?: string;
   status?: LoadStatus | 'all';
   companyId?: string;
+  rfdUrgency?: 'critical' | 'urgent' | 'approaching' | 'normal' | 'tbd';
 }
 
 // Helper function to normalize date values
@@ -557,7 +559,22 @@ export async function getLoadsForUser(
     throw new Error(`Failed to fetch loads: ${error.message}`);
   }
 
-  return (data || []) as Load[];
+  let loads = (data || []) as Load[];
+
+  // Apply RFD urgency filter (post-filtering since urgency is calculated)
+  if (filters?.rfdUrgency) {
+    loads = loads.filter((load) => {
+      const urgency = calculateRFDUrgency({
+        rfd_date: load.rfd_date ?? null,
+        rfd_date_tbd: load.rfd_date_tbd ?? null,
+        rfd_delivery_deadline: load.rfd_delivery_deadline ?? null,
+        trip_id: load.trip_id ?? null,
+      });
+      return urgency.level === filters.rfdUrgency;
+    });
+  }
+
+  return loads;
 }
 
 export async function getLoadStatsForUser(userId: string): Promise<{
