@@ -8,6 +8,7 @@
 import { Tabs } from 'expo-router';
 import { CustomTabBar } from '../../components/CustomTabBar';
 import { ErrorBoundary } from '../../components/ui/ErrorBoundary';
+import { LocationTrackingManager } from '../../components/LocationTrackingManager';
 import { colors } from '../../lib/theme';
 import { DriverProvider } from '../../providers/DriverProvider';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
@@ -18,6 +19,8 @@ export default function AppLayout() {
     <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: asyncStoragePersister }}>
       <DriverProvider>
         <ErrorBoundary>
+          {/* Automatic location tracking for drivers with active trips */}
+          <LocationTrackingManager />
           <Tabs
             tabBar={(props) => <CustomTabBar {...props} />}
             screenOptions={{

@@ -146,14 +146,14 @@ export default function HomeScreen() {
         />
         <QuickActionButton
           icon="message-square"
-          label="Dispatch"
+          label="Chat"
           badge={unreadMessageCount > 0 ? unreadMessageCount : undefined}
           badgeVariant={unreadMessageCount > 0 ? 'error' : undefined}
           onPress={() => router.push('/(app)/dispatch')}
         />
         <QuickActionButton
           icon="dollar"
-          label="Earnings"
+          label="Pay"
           onPress={() => router.push('/(app)/earnings')}
         />
       </View>

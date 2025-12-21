@@ -6,22 +6,24 @@ import {
   RefreshControl,
   TouchableOpacity,
   Linking,
+  Pressable,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLoadDetail } from '../../../../../hooks/useLoadDetail';
-import { useLoadActions } from '../../../../../hooks/useLoadActions';
+import { Ionicons } from '@expo/vector-icons';
+import { useLoadDetail } from '../../../../../../hooks/useLoadDetail';
+import { useLoadActions } from '../../../../../../hooks/useLoadActions';
 import {
   DocumentsSection,
   LoadHeader,
   LoadFinancialSection,
   LoadInfoSection,
   LoadTimelineSection,
-} from '../../../../../components/load';
-import { ErrorState } from '../../../../../components/ui';
-import { colors, typography, spacing, radius } from '../../../../../lib/theme';
-import type { LoadActions, LoadDetail } from '../../../../../types';
-import ErrorBoundary from '../../../../../components/ui/ErrorBoundary';
+} from '../../../../../../components/load';
+import { ErrorState } from '../../../../../../components/ui';
+import { colors, typography, spacing, radius } from '../../../../../../lib/theme';
+import type { LoadActions, LoadDetail } from '../../../../../../types';
+import ErrorBoundary from '../../../../../../components/ui/ErrorBoundary';
 
 export default function LoadDetailScreen() {
   const { id: tripId, loadId } = useLocalSearchParams<{ id: string; loadId: string }>();
@@ -30,10 +32,21 @@ export default function LoadDetailScreen() {
   const { load, loading, error, refetch } = useLoadDetail(loadId);
   const actions = useLoadActions(loadId, refetch);
 
+  const headerOptions = {
+    title: load?.load_number || 'Load Details',
+    headerStyle: { backgroundColor: colors.background },
+    headerTintColor: colors.textPrimary,
+    headerLeft: () => (
+      <Pressable onPress={() => router.back()} style={{ paddingRight: 16 }}>
+        <Ionicons name="chevron-back" size={28} color={colors.textPrimary} />
+      </Pressable>
+    ),
+  };
+
   if (error) {
     return (
       <>
-        <Stack.Screen options={{ title: 'Load Details' }} />
+        <Stack.Screen options={headerOptions} />
         <View style={styles.container}>
           <ErrorState title="Unable to load details" message={error} actionLabel="Retry" onAction={refetch} />
         </View>
@@ -44,7 +57,7 @@ export default function LoadDetailScreen() {
   if (!load && !loading) {
     return (
       <>
-        <Stack.Screen options={{ title: 'Load Details' }} />
+        <Stack.Screen options={headerOptions} />
         <View style={styles.container}>
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateTitle}>Load not found</Text>
@@ -115,13 +128,7 @@ export default function LoadDetailScreen() {
   return (
     <ErrorBoundary fallback={<FallbackView />}>
       <>
-        <Stack.Screen
-          options={{
-            title: load?.load_number || 'Load Details',
-            headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.textPrimary,
-          }}
-        />
+        <Stack.Screen options={headerOptions} />
         <ScrollView
           style={styles.container}
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.sectionGap }]}

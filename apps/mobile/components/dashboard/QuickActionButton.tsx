@@ -51,7 +51,7 @@ export function QuickActionButton({
           </View>
         )}
       </View>
-      <Text style={styles.quickActionLabel}>{label}</Text>
+      <Text style={styles.quickActionLabel} numberOfLines={1} adjustsFontSizeToFit>{label}</Text>
     </Pressable>
   );
 }
