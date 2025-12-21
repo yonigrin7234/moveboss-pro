@@ -14,6 +14,23 @@ export interface PartnerCompany {
   compliance_status: string;
   city: string | null;
   state: string | null;
+  // FMCSA verification fields
+  fmcsa_verified?: boolean;
+  fmcsa_verified_at?: string | null;
+  fmcsa_last_checked?: string | null;
+  fmcsa_legal_name?: string | null;
+  fmcsa_dba_name?: string | null;
+  fmcsa_status_code?: string | null;
+  fmcsa_allowed_to_operate?: boolean;
+  fmcsa_common_authority?: string | null;
+  fmcsa_contract_authority?: string | null;
+  fmcsa_broker_authority?: string | null;
+  fmcsa_bipd_insurance_on_file?: number | null;
+  fmcsa_total_drivers?: number | null;
+  fmcsa_total_power_units?: number | null;
+  fmcsa_operation_type?: string | null;
+  fmcsa_hhg_authorized?: boolean;
+  fmcsa_cargo_carried?: Array<{ cargoCarriedId: number; cargoCarriedDesc: string }>;
 }
 
 /**

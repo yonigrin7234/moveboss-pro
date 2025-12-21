@@ -7,6 +7,7 @@ import {
   BadgeCheck,
   CheckCircle,
   AlertCircle,
+  AlertTriangle,
   Loader2,
   Shield,
   Truck,
@@ -44,6 +45,8 @@ interface FMCSAVerificationData {
 
 interface DOTVerificationCardProps {
   companyId: string;
+  /** Company's display name (used for mismatch detection) */
+  companyDisplayName: string;
   currentDotNumber: string | null;
   fmcsaData: FMCSAVerificationData | null;
   readOnly?: boolean;
@@ -76,6 +79,7 @@ interface VerifyResponse {
 
 export function DOTVerificationCard({
   companyId,
+  companyDisplayName,
   currentDotNumber,
   fmcsaData,
   readOnly = false,
@@ -88,6 +92,12 @@ export function DOTVerificationCard({
   const [verifyResult, setVerifyResult] = useState<VerifyResponse | null>(null);
 
   const isVerified = fmcsaData?.verified ?? false;
+
+  // Check for name mismatch (case-insensitive, trimmed)
+  const hasNameMismatch =
+    isVerified &&
+    fmcsaData?.legalName &&
+    companyDisplayName.trim().toLowerCase() !== fmcsaData.legalName.trim().toLowerCase();
 
   const handleVerify = async () => {
     if (!dotNumber.trim()) {
@@ -129,7 +139,7 @@ export function DOTVerificationCard({
       }
 
       router.refresh(); // Refresh to update the page with new data
-    } catch (err) {
+    } catch {
       setError('Failed to verify DOT number. Please try again.');
     } finally {
       setIsVerifying(false);
@@ -176,6 +186,21 @@ export function DOTVerificationCard({
               </Button>
             )}
           </div>
+
+          {/* Name Mismatch Warning */}
+          {hasNameMismatch && (
+            <Alert className="py-2 border-amber-500/30 bg-amber-500/10">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <AlertDescription className="text-amber-600 dark:text-amber-400">
+                <span className="font-medium">Name Mismatch</span>
+                <br />
+                <span className="text-sm">
+                  Your company name &quot;{companyDisplayName}&quot; differs from FMCSA legal name &quot;
+                  {fmcsaData?.legalName}&quot;. Consider updating your display name or using this as your DBA.
+                </span>
+              </AlertDescription>
+            </Alert>
+          )}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1">

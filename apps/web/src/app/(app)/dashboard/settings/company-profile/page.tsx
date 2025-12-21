@@ -128,6 +128,7 @@ export default async function CompanyProfilePage() {
       {/* FMCSA Verification Card */}
       <DOTVerificationCard
         companyId={company.id}
+        companyDisplayName={company.name}
         currentDotNumber={company.dot_number ?? null}
         fmcsaData={fmcsaData}
         readOnly={readOnly}

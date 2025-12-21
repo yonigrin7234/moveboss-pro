@@ -16,7 +16,6 @@ import {
   CheckCircle,
   Clock,
   ExternalLink,
-  Upload,
 } from 'lucide-react';
 
 import { getCurrentUser, createClient } from '@/lib/supabase-server';
@@ -46,6 +45,7 @@ import { Separator } from '@/components/ui/separator';
 import { RequestDocumentsButton } from '@/components/partnerships/RequestDocumentsButton';
 import { ChatPanel } from '@/components/messaging/unified';
 import { ActivityFeed } from '@/components/activity/ActivityFeed';
+import { FMCSAComplianceCard } from '@/components/FMCSAComplianceCard';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   active: { label: 'Active', color: 'bg-green-500/20 text-green-600 dark:text-green-400' },
@@ -71,6 +71,28 @@ export default async function PartnershipDetailPage({
 
   const partner = partnership.company_b;
   const status = statusConfig[partnership.status] || statusConfig.pending;
+
+  // Build FMCSA data object for the compliance card
+  const fmcsaData = partner?.fmcsa_last_checked
+    ? {
+        verified: partner.fmcsa_verified ?? false,
+        verifiedAt: partner.fmcsa_verified_at ?? null,
+        lastChecked: partner.fmcsa_last_checked,
+        legalName: partner.fmcsa_legal_name ?? null,
+        dbaName: partner.fmcsa_dba_name ?? null,
+        statusCode: partner.fmcsa_status_code ?? null,
+        allowedToOperate: partner.fmcsa_allowed_to_operate ?? false,
+        commonAuthority: partner.fmcsa_common_authority ?? null,
+        contractAuthority: partner.fmcsa_contract_authority ?? null,
+        brokerAuthority: partner.fmcsa_broker_authority ?? null,
+        bipdInsurance: partner.fmcsa_bipd_insurance_on_file ?? null,
+        totalDrivers: partner.fmcsa_total_drivers ?? null,
+        totalPowerUnits: partner.fmcsa_total_power_units ?? null,
+        operationType: partner.fmcsa_operation_type ?? null,
+        hhgAuthorized: partner.fmcsa_hhg_authorized ?? false,
+        cargoCarried: partner.fmcsa_cargo_carried ?? [],
+      }
+    : null;
 
   // Get user's company for messaging
   const myCompany = await getWorkspaceCompanyForUser(user.id);
@@ -348,6 +370,17 @@ export default async function PartnershipDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      {/* FMCSA Compliance Card */}
+      {partner && (
+        <FMCSAComplianceCard
+          displayName={partner.name}
+          dotNumber={partner.dot_number}
+          fmcsaData={fmcsaData}
+          companyId={partner.id}
+          showRefresh={true}
+        />
+      )}
 
       {/* Compliance Documents */}
       <Card className={complianceRequests.some(r => r.status !== 'approved') ? 'border-orange-500/30' : ''}>
