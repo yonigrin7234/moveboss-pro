@@ -18,6 +18,9 @@ import { NotificationBell } from "@/components/notification-bell"
 import { createClient } from "@/lib/supabase-client"
 import { cn } from "@/lib/utils"
 import { FMCSAVerificationBadge } from "@/components/FMCSAVerificationBadge"
+import { Logo } from "@/components/ui/logo"
+import { Badge } from "@/components/ui/badge"
+import Link from "next/link"
 
 // Convert string to Title Case (proper capitalization)
 function toTitleCase(str: string): string {
@@ -116,7 +119,17 @@ export function TopNav({ user, company, unreadNotifications = 0 }: TopNavProps) 
   return (
     <header className="sticky top-0 z-30 border-b border-border/50 bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80">
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
-        <div className="flex min-w-0 flex-col gap-0.5">
+        {/* Mobile logo - only visible when sidebar is hidden */}
+        <Link href="/dashboard" className="flex items-center gap-2 md:hidden">
+          <Logo size={28} className="shrink-0 text-primary" />
+          <div className="flex items-center gap-1">
+            <span className="text-sm font-bold text-foreground">MoveBoss</span>
+            <Badge variant="secondary" className="h-4 px-1 text-[9px] font-semibold bg-primary text-primary-foreground">
+              PRO
+            </Badge>
+          </div>
+        </Link>
+        <div className="hidden min-w-0 flex-col gap-0.5 md:flex">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-lg font-semibold text-foreground tracking-tight">{title}</h1>
             {companyStatusLabel && (

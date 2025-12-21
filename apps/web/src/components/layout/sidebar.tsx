@@ -39,7 +39,8 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { cn, formatName, formatCompanyName } from "@/lib/utils"
+import { Logo } from "@/components/ui/logo"
+import { cn } from "@/lib/utils"
 
 type NavItem = {
   label: string
@@ -58,36 +59,9 @@ type UserPermissions = {
 }
 
 type SidebarProps = {
-  companyName?: string | null
-  userName?: string | null
   canPostLoads?: boolean
   canHaulLoads?: boolean
-  role?: string | null
   permissions?: UserPermissions | null
-}
-
-function getInitials(label: string): string {
-  const initials = label
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0])
-    .join("")
-    .toUpperCase()
-
-  if (initials.length > 0) {
-    return initials
-  }
-
-  return label.slice(0, 2).toUpperCase() || "MB"
-}
-
-function getRoleBadge(canPostLoads: boolean, canHaulLoads: boolean, role?: string | null): string {
-  if (role === "owner_operator") return "Owner-Operator"
-  if (canPostLoads && canHaulLoads) return "Moving Company"
-  if (canPostLoads) return "Broker"
-  if (canHaulLoads) return "Carrier"
-  return "Company"
 }
 
 function isChildActive(pathname: string, child: NavItem): boolean {
@@ -108,14 +82,10 @@ function isItemActive(pathname: string, item: NavItem): boolean {
   return false
 }
 
-export default function Sidebar({ companyName, userName, canPostLoads = false, canHaulLoads = false, role, permissions }: SidebarProps) {
+export default function Sidebar({ canPostLoads = false, canHaulLoads = false, permissions }: SidebarProps) {
   const pathname = usePathname() ?? ""
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
   const [unreadCounts, setUnreadCounts] = useState<{ messages: number; dispatch: number }>({ messages: 0, dispatch: 0 })
-  const displayCompanyName = formatCompanyName(companyName) || "MoveBoss Pro"
-  const displayUserName = formatName(userName) || "Fleet Owner"
-  const workspaceInitials = getInitials(displayCompanyName)
-  const roleBadge = getRoleBadge(canPostLoads, canHaulLoads, role)
 
   // Supabase client ref for real-time subscriptions
   const supabaseRef = useRef(createClient())
@@ -516,17 +486,15 @@ export default function Sidebar({ companyName, userName, canPostLoads = false, c
   return (
     <aside className="hidden border-r border-sidebar-border bg-sidebar md:flex md:w-60 md:flex-col fixed top-0 left-0 h-screen z-40">
       <div className="flex h-[60px] items-center border-b border-sidebar-border px-4">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground shadow-sm shrink-0">
-            {workspaceInitials}
+        <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0">
+          <Logo size={32} className="shrink-0 text-primary" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-base font-bold text-sidebar-foreground">MoveBoss</span>
+            <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-semibold bg-primary text-primary-foreground">
+              PRO
+            </Badge>
           </div>
-          <div className="space-y-0 min-w-0">
-            <p className="max-w-[145px] truncate text-sm font-semibold text-sidebar-foreground leading-tight">
-              {displayCompanyName}
-            </p>
-            <p className="max-w-[145px] truncate text-[11px] text-sidebar-foreground/60">{roleBadge}</p>
-          </div>
-        </div>
+        </Link>
       </div>
 
       <nav className="flex-1 space-y-0.5 px-2.5 py-3 overflow-y-auto scrollbar-none">
