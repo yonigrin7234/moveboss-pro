@@ -1,87 +1,67 @@
-'use client';
-
-import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import type { LucideIcon } from 'lucide-react';
+import {
+  Package,
+  Clock,
+  Truck,
+  CheckCircle2,
+  AlertCircle,
+  CalendarClock,
+  HelpCircle,
+} from 'lucide-react';
 
 export type FilterType = 'status' | 'rfdUrgency';
 
 interface ClickableStatCardProps {
   label: string;
   value: number;
-  icon: LucideIcon;
+  iconName: 'package' | 'clock' | 'truck' | 'checkCircle' | 'alertCircle' | 'calendarClock' | 'helpCircle';
   iconClassName?: string;
-  filterType: FilterType;
-  filterValue: string;
+  href: string;
+  isActive?: boolean;
 }
+
+const iconMap = {
+  package: Package,
+  clock: Clock,
+  truck: Truck,
+  checkCircle: CheckCircle2,
+  alertCircle: AlertCircle,
+  calendarClock: CalendarClock,
+  helpCircle: HelpCircle,
+};
 
 export function ClickableStatCard({
   label,
   value,
-  icon: Icon,
+  iconName,
   iconClassName,
-  filterType,
-  filterValue,
+  href,
+  isActive = false,
 }: ClickableStatCardProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  // Safely get search params (handle null case during SSR)
-  const currentStatus = searchParams?.get('status') ?? 'all';
-  const currentRfdUrgency = searchParams?.get('rfdUrgency') ?? '';
-
-  const isActive = filterType === 'status'
-    ? currentStatus === filterValue
-    : currentRfdUrgency === filterValue;
-
-  const handleClick = () => {
-    const params = new URLSearchParams(searchParams?.toString() ?? '');
-
-    if (filterType === 'status') {
-      // Clear rfdUrgency when selecting a status filter
-      params.delete('rfdUrgency');
-
-      if (isActive) {
-        // If already active, reset to 'all'
-        params.set('status', 'all');
-      } else {
-        params.set('status', filterValue);
-      }
-    } else if (filterType === 'rfdUrgency') {
-      // Clear status filter when selecting an RFD urgency filter
-      params.set('status', 'all');
-
-      if (isActive) {
-        // If already active, clear the filter
-        params.delete('rfdUrgency');
-      } else {
-        params.set('rfdUrgency', filterValue);
-      }
-    }
-
-    router.push(`/dashboard/loads?${params.toString()}`);
-  };
+  const Icon = iconMap[iconName];
 
   return (
-    <Card
-      className={cn(
-        'cursor-pointer transition-all hover:shadow-md hover:border-primary/50',
-        isActive && 'ring-2 ring-primary border-primary bg-primary/5'
-      )}
-      onClick={handleClick}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          <div className={cn('p-2 rounded-lg', iconClassName)}>
-            <Icon className="h-5 w-5" />
+    <Link href={href}>
+      <Card
+        className={cn(
+          'cursor-pointer transition-all hover:shadow-md hover:border-primary/50',
+          isActive && 'ring-2 ring-primary border-primary bg-primary/5'
+        )}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <div className={cn('p-2 rounded-lg', iconClassName)}>
+              <Icon className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{value.toLocaleString()}</p>
+              <p className="text-sm text-muted-foreground">{label}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-2xl font-bold">{value.toLocaleString()}</p>
-            <p className="text-sm text-muted-foreground">{label}</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }

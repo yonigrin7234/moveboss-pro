@@ -10,20 +10,25 @@ import {
 } from '@/data/loads';
 import { getCompaniesForUser, type Company } from '@/data/companies';
 import { getTripsForLoadAssignment, addLoadToTrip, addTripLoadInputSchema, type Trip } from '@/data/trips';
-import { countByUrgencyLevel } from '@/lib/rfd-urgency';
+import { countByUrgencyLevel, type RFDUrgencyLevel } from '@/lib/rfd-urgency';
 import { LoadListFilters } from './load-list-filters';
 import { LoadsTableWithSharing } from './loads-table-with-sharing';
+import { ClickableStatCard } from './clickable-stat-card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, Clock, CalendarClock, HelpCircle } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface LoadsPageProps {
   searchParams: Promise<{
     search?: string;
     status?: string;
     companyId?: string;
+    rfdUrgency?: string;
   }>;
 }
+
+const RFD_URGENCY_LEVELS: readonly RFDUrgencyLevel[] = ['critical', 'urgent', 'approaching', 'normal', 'tbd'] as const;
+const isRfdUrgencyLevel = (value: string | undefined): value is RFDUrgencyLevel =>
+  value !== undefined && (RFD_URGENCY_LEVELS as readonly string[]).includes(value);
 
 const LOAD_STATUSES: readonly LoadStatus[] = ['pending', 'assigned', 'in_transit', 'delivered', 'canceled'] as const;
 const isLoadStatus = (value: string | undefined): value is LoadStatus =>
@@ -42,6 +47,30 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
     search: params.search,
     status: isLoadStatus(params.status) ? params.status : 'all',
     companyId: params.companyId,
+    rfdUrgency: isRfdUrgencyLevel(params.rfdUrgency) ? params.rfdUrgency : undefined,
+  };
+
+  // Helper to build filter URLs
+  const buildFilterUrl = (filterType: 'status' | 'rfdUrgency', value: string) => {
+    const urlParams = new URLSearchParams();
+    if (params.search) urlParams.set('search', params.search);
+    if (params.companyId) urlParams.set('companyId', params.companyId);
+
+    if (filterType === 'status') {
+      // Toggle status filter
+      const isCurrentlyActive = filters.status === value;
+      urlParams.set('status', isCurrentlyActive ? 'all' : value);
+      // Clear rfdUrgency when selecting status
+    } else {
+      // Toggle rfdUrgency filter
+      const isCurrentlyActive = filters.rfdUrgency === value;
+      urlParams.set('status', 'all'); // Reset status when filtering by urgency
+      if (!isCurrentlyActive) {
+        urlParams.set('rfdUrgency', value);
+      }
+    }
+
+    return `/dashboard/loads?${urlParams.toString()}`;
   };
 
   let loads: Load[] = [];
@@ -137,94 +166,74 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Loads</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-foreground">{stats.totalLoads}</div>
-            <p className="text-xs text-muted-foreground mt-1">All loads in your system</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{stats.pending}</div>
-            <p className="text-xs text-muted-foreground mt-1">Awaiting assignment</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">In Transit</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.inTransit}</div>
-            <p className="text-xs text-muted-foreground mt-1">Currently in transit</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Delivered</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{stats.delivered}</div>
-            <p className="text-xs text-muted-foreground mt-1">Successfully delivered</p>
-          </CardContent>
-        </Card>
+        <ClickableStatCard
+          label="Total Loads"
+          value={stats.totalLoads}
+          iconName="package"
+          iconClassName="bg-muted text-foreground"
+          href="/dashboard/loads?status=all"
+          isActive={filters.status === 'all' && !filters.rfdUrgency}
+        />
+        <ClickableStatCard
+          label="Pending"
+          value={stats.pending}
+          iconName="clock"
+          iconClassName="bg-yellow-500/10 text-yellow-600"
+          href={buildFilterUrl('status', 'pending')}
+          isActive={filters.status === 'pending'}
+        />
+        <ClickableStatCard
+          label="In Transit"
+          value={stats.inTransit}
+          iconName="truck"
+          iconClassName="bg-blue-500/10 text-blue-600"
+          href={buildFilterUrl('status', 'in_transit')}
+          isActive={filters.status === 'in_transit'}
+        />
+        <ClickableStatCard
+          label="Delivered"
+          value={stats.delivered}
+          iconName="checkCircle"
+          iconClassName="bg-emerald-500/10 text-emerald-600"
+          href={buildFilterUrl('status', 'delivered')}
+          isActive={filters.status === 'delivered'}
+        />
       </div>
 
       {/* RFD Urgency Stats */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className={rfdCounts.critical > 0 ? 'border-rose-500/50 bg-rose-500/5' : ''}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-rose-500" />
-              Critical RFD
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-rose-600 dark:text-rose-400">{rfdCounts.critical}</div>
-            <p className="text-xs text-muted-foreground mt-1">Today or overdue</p>
-          </CardContent>
-        </Card>
-        <Card className={rfdCounts.urgent > 0 ? 'border-amber-500/50 bg-amber-500/5' : ''}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Clock className="h-4 w-4 text-amber-500" />
-              Urgent RFD
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">{rfdCounts.urgent}</div>
-            <p className="text-xs text-muted-foreground mt-1">Within 48 hours</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <CalendarClock className="h-4 w-4 text-yellow-500" />
-              Approaching
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{rfdCounts.approaching}</div>
-            <p className="text-xs text-muted-foreground mt-1">Within 7 days</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <HelpCircle className="h-4 w-4 text-muted-foreground" />
-              RFD TBD
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-muted-foreground">{rfdCounts.tbd}</div>
-            <p className="text-xs text-muted-foreground mt-1">Date not set</p>
-          </CardContent>
-        </Card>
+        <ClickableStatCard
+          label="Critical RFD"
+          value={rfdCounts.critical}
+          iconName="alertCircle"
+          iconClassName="bg-rose-500/10 text-rose-600"
+          href={buildFilterUrl('rfdUrgency', 'critical')}
+          isActive={filters.rfdUrgency === 'critical'}
+        />
+        <ClickableStatCard
+          label="Urgent RFD"
+          value={rfdCounts.urgent}
+          iconName="clock"
+          iconClassName="bg-amber-500/10 text-amber-600"
+          href={buildFilterUrl('rfdUrgency', 'urgent')}
+          isActive={filters.rfdUrgency === 'urgent'}
+        />
+        <ClickableStatCard
+          label="Approaching"
+          value={rfdCounts.approaching}
+          iconName="calendarClock"
+          iconClassName="bg-yellow-500/10 text-yellow-600"
+          href={buildFilterUrl('rfdUrgency', 'approaching')}
+          isActive={filters.rfdUrgency === 'approaching'}
+        />
+        <ClickableStatCard
+          label="RFD TBD"
+          value={rfdCounts.tbd}
+          iconName="helpCircle"
+          iconClassName="bg-muted text-muted-foreground"
+          href={buildFilterUrl('rfdUrgency', 'tbd')}
+          isActive={filters.rfdUrgency === 'tbd'}
+        />
       </div>
 
       {/* Filters */}
