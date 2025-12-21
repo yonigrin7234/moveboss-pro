@@ -80,7 +80,7 @@ function formatCurrency(amount: number): string {
  * Format pickup window dates
  */
 function formatPickupWindow(load: ShareableLoad): string | null {
-  const start = load.pickup_window_start;
+  const start = load.pickup_window_start || load.rfd_date;
   const end = load.pickup_window_end;
 
   if (!start && !end) return null;
@@ -110,6 +110,48 @@ function getTemplateType(load: ShareableLoad): 'LIVE_PICKUP' | 'RFD' | 'GENERIC'
     return 'RFD';
   }
   return 'GENERIC';
+}
+
+/**
+ * Checks if a date is today or in the future
+ */
+function isDateTodayOrFuture(dateString: string | null | undefined): boolean {
+  if (!dateString) return false;
+  const date = new Date(dateString);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+  return date >= today;
+}
+
+/**
+ * Gets the primary date for a load
+ */
+function getPrimaryDate(load: ShareableLoad): string | null {
+  return load.rfd_date || load.pickup_window_start || null;
+}
+
+/**
+ * Gets the date label based on template type
+ */
+function getDateLabel(templateType: 'LIVE_PICKUP' | 'RFD' | 'GENERIC'): string {
+  return templateType === 'RFD' ? 'RFD date' : 'Pickup';
+}
+
+/**
+ * Determines if date should be shown for a load
+ * For RFD loads, only show if date is today or in the future
+ */
+function shouldShowDate(load: ShareableLoad, templateType: 'LIVE_PICKUP' | 'RFD' | 'GENERIC'): boolean {
+  const dateStr = formatPickupWindow(load);
+  if (!dateStr) return false;
+
+  if (templateType === 'RFD') {
+    const primaryDate = getPrimaryDate(load);
+    return isDateTodayOrFuture(primaryDate);
+  }
+
+  return true;
 }
 
 /**
@@ -171,6 +213,8 @@ export function buildSingleLoadMessage(
   const cfLine = buildCFLine(load, showRates);
   const pickupWindow = formatPickupWindow(load);
   const payoutLine = buildPayoutLine(load, showRates);
+  const dateLabel = getDateLabel(templateType);
+  const showDate = shouldShowDate(load, templateType);
 
   const lines: string[] = [];
   lines.push(header);
@@ -178,7 +222,7 @@ export function buildSingleLoadMessage(
   lines.push(`→ ${route}`);
 
   if (cfLine) lines.push(cfLine);
-  if (pickupWindow) lines.push(`• Pickup: ${pickupWindow}`);
+  if (showDate && pickupWindow) lines.push(`• ${dateLabel}: ${pickupWindow}`);
   if (payoutLine) lines.push(payoutLine);
 
   if (opts.link) {

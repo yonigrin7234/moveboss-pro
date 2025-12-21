@@ -10,6 +10,7 @@ import {
   getSharingTemplateType,
   getBatchTemplateType,
   type LoadTypeFields,
+  type SharingTemplateType,
 } from './templateType';
 import { formatPickupWindow, type PickupDateFields } from './formatPickupWindow';
 
@@ -69,6 +70,59 @@ function formatCurrency(amount: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+/**
+ * Checks if a date is today or in the future
+ */
+function isDateTodayOrFuture(dateString: string | null | undefined): boolean {
+  if (!dateString) return false;
+  const date = new Date(dateString);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+  return date >= today;
+}
+
+/**
+ * Gets the primary date for a load based on its type
+ * For RFD loads, uses rfd_date
+ * For other loads, uses pickup date fields
+ */
+function getPrimaryDate(load: ShareableLoad): string | null {
+  // Check for RFD date first
+  if (load.rfd_date) return load.rfd_date;
+  // Then pickup dates
+  return load.pickup_window_start ||
+    load.pickup_date_start ||
+    load.pickup_date ||
+    load.first_available_date ||
+    null;
+}
+
+/**
+ * Gets the date label based on template type
+ */
+function getDateLabel(templateType: SharingTemplateType): string {
+  return templateType === 'RFD' ? 'RFD date' : 'Pickup';
+}
+
+/**
+ * Determines if date should be shown for a load
+ * For RFD loads, only show if date is today or in the future
+ * For other loads, always show if available
+ */
+function shouldShowDate(load: ShareableLoad, templateType: SharingTemplateType): boolean {
+  const dateStr = formatPickupWindow(load);
+  if (!dateStr) return false;
+
+  // For RFD loads, only show future dates
+  if (templateType === 'RFD') {
+    const primaryDate = getPrimaryDate(load);
+    return isDateTodayOrFuture(primaryDate);
+  }
+
+  return true;
 }
 
 /**
@@ -145,6 +199,8 @@ export function buildSingleLoadMessage(
   const balanceLine = buildBalanceLine(load);
   const pickupWindow = formatPickupWindow(load);
   const payoutLine = buildPayoutLine(load, showRates);
+  const dateLabel = getDateLabel(templateType);
+  const showDate = shouldShowDate(load, templateType);
 
   const lines: string[] = [];
   lines.push(header);
@@ -153,7 +209,7 @@ export function buildSingleLoadMessage(
 
   if (cfLine) lines.push(cfLine);
   if (balanceLine) lines.push(balanceLine);
-  if (pickupWindow) lines.push(`• Pickup: ${pickupWindow}`);
+  if (showDate && pickupWindow) lines.push(`• ${dateLabel}: ${pickupWindow}`);
   if (payoutLine) lines.push(payoutLine);
 
   if (opts.link) {
@@ -183,6 +239,8 @@ function buildSingleLoadEmailMessage(
   const balance = getBalanceCF(load);
   const pickup = formatPickupWindow(load);
   const payout = getTotalPayout(load);
+  const dateLabel = getDateLabel(templateType);
+  const showDate = shouldShowDate(load, templateType);
 
   const details: string[] = [];
   if (cf) {
@@ -195,8 +253,8 @@ function buildSingleLoadEmailMessage(
   if (balance && balance > 0) {
     details.push(`Balance: ${balance.toLocaleString()} CF`);
   }
-  if (pickup) {
-    details.push(`Pickup: ${pickup}`);
+  if (showDate && pickup) {
+    details.push(`${dateLabel}: ${pickup}`);
   }
   if (showRates && payout) {
     details.push(`Payout: ${formatCurrency(payout)}`);
@@ -259,6 +317,9 @@ export function buildMultiLoadMessage(
     const balance = getBalanceCF(load);
     const pickup = formatPickupWindow(load);
     const payout = getTotalPayout(load);
+    const loadTemplateType = getSharingTemplateType(load);
+    const dateLabel = getDateLabel(loadTemplateType);
+    const showDate = shouldShowDate(load, loadTemplateType);
 
     const parts: string[] = [];
 
@@ -274,8 +335,8 @@ export function buildMultiLoadMessage(
       parts.push(`Balance: ${balance.toLocaleString()} CF`);
     }
 
-    if (pickup) {
-      parts.push(`Pickup: ${pickup}`);
+    if (showDate && pickup) {
+      parts.push(`${dateLabel}: ${pickup}`);
     }
 
     if (showRates && payout) {
@@ -318,12 +379,15 @@ function buildMultiLoadEmailMessage(
         ? `${loads.length} RFD Loads Available`
         : `${loads.length} Loads Available`;
   const headerText = companyName ? `${batchHeaderText} — ${companyName}` : batchHeaderText;
+  const dateColumnHeader = batchType === 'RFD' ? 'RFD Date' : 'Pickup';
 
   const loadRows = loads
     .map((load) => {
       const route = formatRoute(load);
       const cf = getCubicFeet(load);
-      const pickup = formatPickupWindow(load) || 'TBD';
+      const loadTemplateType = getSharingTemplateType(load);
+      const showDate = shouldShowDate(load, loadTemplateType);
+      const pickup = showDate ? (formatPickupWindow(load) || 'TBD') : 'TBD';
       const payout = showRates ? getTotalPayout(load) : null;
 
       return `
@@ -345,7 +409,7 @@ function buildMultiLoadEmailMessage(
       <tr style="background: #f5f5f5;">
         <th style="padding: 12px; text-align: left;">Route</th>
         <th style="padding: 12px; text-align: left;">Size</th>
-        <th style="padding: 12px; text-align: left;">Pickup</th>
+        <th style="padding: 12px; text-align: left;">${dateColumnHeader}</th>
         <th style="padding: 12px; text-align: left;">Payout</th>
       </tr>
     </thead>
