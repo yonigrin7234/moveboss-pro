@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Clock, CalendarClock, FileWarning, ArrowRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { type CriticalAlertsData, formatRequestAge } from '@/data/critical-alerts';
+import type { CriticalAlertsData } from '@/types/critical-alerts';
+import { formatRequestAge } from '@/lib/format-utils';
 import { useTabNotification } from '@/hooks/use-tab-notification';
 
 interface CriticalAlertsBannerProps {

@@ -1,31 +1,10 @@
 import { createClient } from '@/lib/supabase-server';
 import { getWorkspaceCompanyForUser } from './companies';
-import { countByUrgencyLevel, type RFDUrgencyLevel } from '@/lib/rfd-urgency';
+import { countByUrgencyLevel } from '@/lib/rfd-urgency';
+import type { CriticalAlertsData } from '@/types/critical-alerts';
 
-export interface CriticalAlertsData {
-  pendingLoadRequests: {
-    count: number;
-    oldestRequestAge: number | null; // in minutes
-    items: Array<{
-      id: string;
-      loadNumber: string;
-      carrierName: string;
-      createdAt: string;
-    }>;
-  };
-  criticalRFD: {
-    criticalCount: number;
-    urgentCount: number;
-    approachingCount: number;
-    totalNeedingAttention: number;
-  };
-  complianceAlerts: {
-    expiredCount: number;
-    criticalCount: number;
-    totalCount: number;
-  };
-  hasAnyAlerts: boolean;
-}
+// Re-export type for backwards compatibility
+export type { CriticalAlertsData } from '@/types/critical-alerts';
 
 /**
  * Get critical alerts data for the user's workspace
@@ -183,17 +162,5 @@ async function getComplianceAlertCounts(
   };
 }
 
-/**
- * Format the oldest request age for display
- */
-export function formatRequestAge(minutes: number): string {
-  if (minutes < 60) {
-    return `${minutes}m ago`;
-  }
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) {
-    return `${hours}h ago`;
-  }
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
+// Re-export from shared utils for backwards compatibility
+export { formatRequestAge } from '@/lib/format-utils';

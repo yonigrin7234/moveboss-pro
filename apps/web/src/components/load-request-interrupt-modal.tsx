@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useNotificationSound, useNotificationSoundPreference } from '@/hooks/use-notification-sound';
-import { formatRequestAge } from '@/data/critical-alerts';
+import { formatRequestAge } from '@/lib/format-utils';
 
 interface LoadRequestItem {
   id: string;
