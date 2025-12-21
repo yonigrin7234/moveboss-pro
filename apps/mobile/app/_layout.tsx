@@ -16,19 +16,25 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
 import { NotificationProvider } from '../providers/NotificationProvider';
+import { OwnerProvider, useOwner } from '../providers/OwnerProvider';
 import { ToastProvider } from '../components/ui/Toast';
 import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 import { colors } from '../lib/theme';
 
 function RootLayoutNav() {
-  const { session, loading } = useAuth();
+  const { session, loading: authLoading } = useAuth();
+  const { isOwnerRole, loading: ownerLoading } = useOwner();
   const segments = useSegments();
   const router = useRouter();
+
+  const loading = authLoading || (session && ownerLoading);
 
   useEffect(() => {
     if (loading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const inOwnerGroup = segments[0] === '(owner)';
+    const inDriverGroup = segments[0] === '(app)';
     const isResetPassword = (segments as string[]).includes('reset-password');
     const isAuthenticated = !!session;
 
@@ -36,11 +42,19 @@ function RootLayoutNav() {
       // Redirect to login if not authenticated
       router.replace('/(auth)/login');
     } else if (isAuthenticated && inAuthGroup && !isResetPassword) {
-      // Redirect to home if authenticated but on auth screen (except reset-password)
-      router.replace('/(app)');
+      // Redirect to appropriate home based on role
+      if (isOwnerRole) {
+        router.replace('/(owner)');
+      } else {
+        router.replace('/(app)');
+      }
+    } else if (isAuthenticated && isOwnerRole && inDriverGroup) {
+      // Owner/admin/dispatcher accessing driver section - redirect to owner
+      // (They should use the owner app unless explicitly switching)
+      router.replace('/(owner)');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user?.id, loading, segments]);
+  }, [session?.user?.id, loading, segments, isOwnerRole]);
 
   if (loading) {
     return (
@@ -79,15 +93,17 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.gestureRoot}>
       <SafeAreaProvider>
         <AuthProvider>
-          <NotificationProvider>
-            <BottomSheetModalProvider>
-              <ToastProvider>
-                <ErrorBoundary>
-                  <RootLayoutNav />
-                </ErrorBoundary>
-              </ToastProvider>
-            </BottomSheetModalProvider>
-          </NotificationProvider>
+          <OwnerProvider>
+            <NotificationProvider>
+              <BottomSheetModalProvider>
+                <ToastProvider>
+                  <ErrorBoundary>
+                    <RootLayoutNav />
+                  </ErrorBoundary>
+                </ToastProvider>
+              </BottomSheetModalProvider>
+            </NotificationProvider>
+          </OwnerProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

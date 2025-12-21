@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase-server';
+import { shouldSendNotification, NotificationType } from './notification-policies';
 
 export interface Notification {
   id: string;
@@ -115,6 +116,65 @@ export async function createNotification(data: {
   return { success: true };
 }
 
+/**
+ * Create a notification with policy checks
+ * Checks workspace policies and user overrides before sending
+ */
+export async function createNotificationWithPolicy(data: {
+  user_id: string;
+  company_id: string;
+  type: NotificationType;
+  title: string;
+  message?: string;
+  load_id?: string;
+  request_id?: string;
+  partnership_id?: string;
+  user_role?: string;
+}): Promise<{
+  success: boolean;
+  error?: string;
+  channels: { inApp: boolean; push: boolean; email: boolean };
+}> {
+  // Check policy to determine which channels should be used
+  const { shouldSend, channels } = await shouldSendNotification(
+    data.user_id,
+    data.company_id,
+    data.type,
+    data.user_role
+  );
+
+  // If no channels are enabled for this user/notification type, skip
+  if (!shouldSend) {
+    return {
+      success: true, // Not an error, just filtered by policy
+      channels: { inApp: false, push: false, email: false },
+    };
+  }
+
+  // Create in-app notification if enabled
+  if (channels.inApp) {
+    const result = await createNotification({
+      user_id: data.user_id,
+      company_id: data.company_id,
+      type: data.type,
+      title: data.title,
+      message: data.message,
+      load_id: data.load_id,
+      request_id: data.request_id,
+      partnership_id: data.partnership_id,
+    });
+
+    if (!result.success) {
+      return { ...result, channels };
+    }
+  }
+
+  // TODO: Future - send push notification if channels.push is true
+  // TODO: Future - send email notification if channels.email is true
+
+  return { success: true, channels };
+}
+
 // ============================================
 // NOTIFICATION CREATORS FOR SPECIFIC EVENTS
 // ============================================
@@ -127,9 +187,10 @@ export async function notifyLoadRequested(
   requestId: string,
   carrierName: string,
   loadNumber: string,
-  route: string
+  route: string,
+  userRole?: string
 ): Promise<void> {
-  await createNotification({
+  await createNotificationWithPolicy({
     user_id: companyOwnerId,
     company_id: companyId,
     type: 'load_request_received',
@@ -137,6 +198,7 @@ export async function notifyLoadRequested(
     message: `${loadNumber}: ${route}`,
     load_id: loadId,
     request_id: requestId,
+    user_role: userRole,
   });
 }
 
@@ -148,16 +210,18 @@ export async function notifyRequestAccepted(
   requestId: string,
   companyName: string,
   loadNumber: string,
-  route: string
+  route: string,
+  userRole?: string
 ): Promise<void> {
-  await createNotification({
+  await createNotificationWithPolicy({
     user_id: carrierOwnerId,
     company_id: carrierId,
-    type: 'request_accepted',
+    type: 'load_request_accepted',
     title: `Request accepted by ${companyName}`,
     message: `${loadNumber}: ${route} - Confirm load details to proceed`,
     load_id: loadId,
     request_id: requestId,
+    user_role: userRole,
   });
 }
 
@@ -168,16 +232,18 @@ export async function notifyRequestDeclined(
   loadId: string,
   requestId: string,
   companyName: string,
-  loadNumber: string
+  loadNumber: string,
+  userRole?: string
 ): Promise<void> {
-  await createNotification({
+  await createNotificationWithPolicy({
     user_id: carrierOwnerId,
     company_id: carrierId,
-    type: 'request_declined',
+    type: 'load_request_declined',
     title: `Request declined by ${companyName}`,
     message: `${loadNumber} - You can request other loads`,
     load_id: loadId,
     request_id: requestId,
+    user_role: userRole,
   });
 }
 
