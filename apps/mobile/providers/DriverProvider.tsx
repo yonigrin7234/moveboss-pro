@@ -47,11 +47,19 @@ export function DriverProvider({ children }: { children: ReactNode }) {
         .from('drivers')
         .select('id, owner_id, first_name, last_name, phone, email, status, location_sharing_enabled')
         .eq('auth_user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (driverError || !data) {
+      if (driverError) {
+        console.error('Error fetching driver:', driverError);
         setDriver(null);
-        setError('Driver profile not found');
+        setError(driverError.message);
+        return;
+      }
+
+      if (!data) {
+        // User is not a driver - this is normal for owner/admin users
+        setDriver(null);
+        setError(null);
         return;
       }
 

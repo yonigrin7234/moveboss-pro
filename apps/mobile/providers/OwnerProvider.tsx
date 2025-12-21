@@ -5,11 +5,9 @@ import { useAuth } from './AuthProvider';
 type CompanyRecord = {
   id: string;
   name: string;
-  dba_name?: string | null;
   is_broker: boolean;
   is_carrier: boolean;
   owner_id: string;
-  status: string | null;
 };
 
 type CompanyMembershipRecord = {
@@ -17,7 +15,6 @@ type CompanyMembershipRecord = {
   user_id: string;
   company_id: string;
   role: 'owner' | 'admin' | 'dispatcher' | 'driver' | 'viewer';
-  status: string;
   company: CompanyRecord;
 };
 
@@ -71,18 +68,15 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
           user_id,
           company_id,
           role,
-          status,
           company:companies!inner(
             id,
             name,
             is_broker,
             is_carrier,
-            owner_id,
-            status
+            owner_id
           )
         `)
         .eq('user_id', user.id)
-        .eq('status', 'active')
         .in('role', OWNER_ROLES)
         .limit(1)
         .single();
@@ -113,7 +107,6 @@ export function OwnerProvider({ children }: { children: ReactNode }) {
         user_id: data.user_id,
         company_id: data.company_id,
         role: data.role as 'owner' | 'admin' | 'dispatcher',
-        status: data.status,
         company: companyData,
       });
     } catch (err) {

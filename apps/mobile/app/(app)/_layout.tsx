@@ -20,7 +20,8 @@ export default function AppLayout() {
       <DriverProvider>
         <ErrorBoundary>
           {/* Automatic location tracking for drivers with active trips */}
-          <LocationTrackingManager />
+          {/* TODO: Re-enable after creating development build - requires native modules */}
+          {/* <LocationTrackingManager /> */}
           <Tabs
             tabBar={(props) => <CustomTabBar {...props} />}
             screenOptions={{

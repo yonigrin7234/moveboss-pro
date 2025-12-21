@@ -45,7 +45,7 @@ export default function LoginScreen() {
     <ScreenContainer keyboardAvoiding edges={['top', 'bottom']}>
       <View style={[styles.inner, { paddingTop: insets.top + spacing.xxxl }]}>
         <Text style={styles.title}>MoveBoss</Text>
-        <Text style={styles.subtitle}>Driver Portal</Text>
+        <Text style={styles.subtitle}>Pro</Text>
 
         <View style={styles.form}>
           {error && (

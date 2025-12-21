@@ -127,6 +127,13 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
     error = err instanceof Error ? err.message : 'Failed to load loads';
   }
 
+  // Compute RFD urgency counts from all loads (unfiltered)
+  const rfdCounts = countByUrgencyLevel(allLoads.map(l => ({
+    rfd_date: l.rfd_date ?? null,
+    rfd_date_tbd: l.rfd_date_tbd ?? null,
+    trip_id: l.trip_id ?? null,
+  })));
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -179,52 +186,42 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
       </Suspense>
 
       {/* RFD Urgency Stats Cards */}
-      {(() => {
-        const rfdCounts = countByUrgencyLevel(allLoads.map(l => ({
-          rfd_date: l.rfd_date ?? null,
-          rfd_date_tbd: l.rfd_date_tbd ?? null,
-          trip_id: l.trip_id ?? null,
-        })));
-
-        return (
-          <Suspense fallback={<div className="grid gap-4 md:grid-cols-4 animate-pulse"><div className="h-24 bg-muted rounded-lg" /><div className="h-24 bg-muted rounded-lg" /><div className="h-24 bg-muted rounded-lg" /><div className="h-24 bg-muted rounded-lg" /></div>}>
-            <div className="grid gap-4 md:grid-cols-4">
-              <ClickableStatCard
-                label="Critical RFD"
-                value={rfdCounts.critical}
-                icon={AlertCircle}
-                iconClassName="bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400"
-                filterType="rfdUrgency"
-                filterValue="critical"
-              />
-              <ClickableStatCard
-                label="Urgent RFD"
-                value={rfdCounts.urgent}
-                icon={Clock}
-                iconClassName="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
-                filterType="rfdUrgency"
-                filterValue="urgent"
-              />
-              <ClickableStatCard
-                label="Approaching"
-                value={rfdCounts.approaching}
-                icon={CalendarClock}
-                iconClassName="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400"
-                filterType="rfdUrgency"
-                filterValue="approaching"
-              />
-              <ClickableStatCard
-                label="RFD TBD"
-                value={rfdCounts.tbd}
-                icon={HelpCircle}
-                iconClassName="bg-muted text-muted-foreground"
-                filterType="rfdUrgency"
-                filterValue="tbd"
-              />
-            </div>
-          </Suspense>
-        );
-      })()}
+      <Suspense fallback={<div className="grid gap-4 md:grid-cols-4 animate-pulse"><div className="h-24 bg-muted rounded-lg" /><div className="h-24 bg-muted rounded-lg" /><div className="h-24 bg-muted rounded-lg" /><div className="h-24 bg-muted rounded-lg" /></div>}>
+        <div className="grid gap-4 md:grid-cols-4">
+          <ClickableStatCard
+            label="Critical RFD"
+            value={rfdCounts.critical}
+            icon={AlertCircle}
+            iconClassName="bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400"
+            filterType="rfdUrgency"
+            filterValue="critical"
+          />
+          <ClickableStatCard
+            label="Urgent RFD"
+            value={rfdCounts.urgent}
+            icon={Clock}
+            iconClassName="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+            filterType="rfdUrgency"
+            filterValue="urgent"
+          />
+          <ClickableStatCard
+            label="Approaching"
+            value={rfdCounts.approaching}
+            icon={CalendarClock}
+            iconClassName="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400"
+            filterType="rfdUrgency"
+            filterValue="approaching"
+          />
+          <ClickableStatCard
+            label="RFD TBD"
+            value={rfdCounts.tbd}
+            icon={HelpCircle}
+            iconClassName="bg-muted text-muted-foreground"
+            filterType="rfdUrgency"
+            filterValue="tbd"
+          />
+        </div>
+      </Suspense>
 
       {/* Filters */}
       <LoadListFilters initialFilters={filters} companies={companies} />
