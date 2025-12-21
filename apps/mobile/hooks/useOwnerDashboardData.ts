@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useOwner } from '../providers/OwnerProvider';
+import { useAuth } from '../providers/AuthProvider';
 
 interface DashboardStats {
   pendingRequests: number;
@@ -18,11 +19,11 @@ interface LoadRequest {
   created_at: string;
   load: {
     load_number: string;
-    origin_city: string;
-    origin_state: string;
-    destination_city: string;
-    destination_state: string;
-    cuft: number;
+    pickup_city: string | null;
+    pickup_state: string | null;
+    delivery_city: string | null;
+    delivery_state: string | null;
+    cubic_feet: number | null;
     rate_per_cuft: number | null;
   };
   carrier: {
@@ -34,12 +35,12 @@ interface LoadRequest {
 interface CriticalLoad {
   id: string;
   load_number: string;
-  origin_city: string;
-  origin_state: string;
-  destination_city: string;
-  destination_state: string;
+  pickup_city: string | null;
+  pickup_state: string | null;
+  delivery_city: string | null;
+  delivery_state: string | null;
   rfd_date: string | null;
-  cuft: number;
+  cubic_feet: number | null;
   status: string;
   days_until_rfd: number | null;
 }
@@ -58,13 +59,15 @@ interface ActiveTrip {
 
 export function useOwnerDashboardData() {
   const { company } = useOwner();
+  const { user } = useAuth();
   const companyId = company?.id;
+  const userId = user?.id;
 
   // Fetch dashboard stats
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['owner-dashboard-stats', companyId],
+    queryKey: ['owner-dashboard-stats', companyId, userId],
     queryFn: async (): Promise<DashboardStats> => {
-      if (!companyId) {
+      if (!companyId || !userId) {
         return {
           pendingRequests: 0,
           criticalRfd: 0,
@@ -74,12 +77,24 @@ export function useOwnerDashboardData() {
         };
       }
 
-      // Get pending request count
-      const { count: requestCount } = await supabase
-        .from('load_requests')
-        .select('*', { count: 'exact', head: true })
-        .eq('company_id', companyId)
-        .eq('status', 'pending');
+      // Get pending request count - load_requests filtered through loads
+      // First get loads owned by this company, then count pending requests on them
+      const { data: companyLoads } = await supabase
+        .from('loads')
+        .select('id')
+        .eq('posted_by_company_id', companyId);
+
+      const loadIds = companyLoads?.map(l => l.id) || [];
+
+      let requestCount = 0;
+      if (loadIds.length > 0) {
+        const { count } = await supabase
+          .from('load_requests')
+          .select('*', { count: 'exact', head: true })
+          .in('load_id', loadIds)
+          .eq('status', 'pending');
+        requestCount = count || 0;
+      }
 
       // Get critical RFD count (RFD within 2 days or overdue)
       const twoDaysFromNow = new Date();
@@ -88,16 +103,16 @@ export function useOwnerDashboardData() {
       const { count: rfdCount } = await supabase
         .from('loads')
         .select('*', { count: 'exact', head: true })
-        .eq('company_id', companyId)
+        .eq('posted_by_company_id', companyId)
         .in('status', ['pending', 'assigned', 'in_transit'])
         .not('rfd_date', 'is', null)
         .lte('rfd_date', twoDaysFromNow.toISOString().split('T')[0]);
 
-      // Get active trips count
+      // Get active trips count (trips use owner_id which is user ID)
       const { count: tripCount } = await supabase
         .from('trips')
         .select('*', { count: 'exact', head: true })
-        .eq('company_id', companyId)
+        .eq('owner_id', userId)
         .in('status', ['scheduled', 'in_progress']);
 
       // Get today's delivered loads
@@ -105,34 +120,34 @@ export function useOwnerDashboardData() {
       const { count: deliveredCount } = await supabase
         .from('loads')
         .select('*', { count: 'exact', head: true })
-        .eq('company_id', companyId)
+        .eq('posted_by_company_id', companyId)
         .eq('status', 'delivered')
         .gte('delivered_at', today);
 
       // Get today's revenue (sum of delivered loads)
       const { data: revenueData } = await supabase
         .from('loads')
-        .select('cuft, rate_per_cuft')
-        .eq('company_id', companyId)
+        .select('cubic_feet, rate_per_cuft')
+        .eq('posted_by_company_id', companyId)
         .eq('status', 'delivered')
         .gte('delivered_at', today);
 
       const revenue = revenueData?.reduce((sum, load) => {
-        if (load.cuft && load.rate_per_cuft) {
-          return sum + (load.cuft * load.rate_per_cuft);
+        if (load.cubic_feet && load.rate_per_cuft) {
+          return sum + (load.cubic_feet * load.rate_per_cuft);
         }
         return sum;
       }, 0) || 0;
 
       return {
-        pendingRequests: requestCount || 0,
+        pendingRequests: requestCount,
         criticalRfd: rfdCount || 0,
         activeTrips: tripCount || 0,
         loadsDeliveredToday: deliveredCount || 0,
         revenueToday: revenue,
       };
     },
-    enabled: !!companyId,
+    enabled: !!companyId && !!userId,
     staleTime: 30000, // 30 seconds
     refetchInterval: 60000, // Refetch every minute
   });
@@ -143,6 +158,15 @@ export function useOwnerDashboardData() {
     queryFn: async (): Promise<LoadRequest[]> => {
       if (!companyId) return [];
 
+      // First get loads for this company
+      const { data: companyLoads } = await supabase
+        .from('loads')
+        .select('id')
+        .eq('posted_by_company_id', companyId);
+
+      const loadIds = companyLoads?.map(l => l.id) || [];
+      if (loadIds.length === 0) return [];
+
       const { data, error } = await supabase
         .from('load_requests')
         .select(`
@@ -151,13 +175,13 @@ export function useOwnerDashboardData() {
           carrier_id,
           status,
           created_at,
-          load:loads!inner(
+          load:loads!load_requests_load_id_fkey(
             load_number,
-            origin_city,
-            origin_state,
-            destination_city,
-            destination_state,
-            cuft,
+            pickup_city,
+            pickup_state,
+            delivery_city,
+            delivery_state,
+            cubic_feet,
             rate_per_cuft
           ),
           carrier:companies!load_requests_carrier_id_fkey(
@@ -165,7 +189,7 @@ export function useOwnerDashboardData() {
             dba_name
           )
         `)
-        .eq('company_id', companyId)
+        .in('load_id', loadIds)
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
         .limit(10);
@@ -201,15 +225,15 @@ export function useOwnerDashboardData() {
         .select(`
           id,
           load_number,
-          origin_city,
-          origin_state,
-          destination_city,
-          destination_state,
+          pickup_city,
+          pickup_state,
+          delivery_city,
+          delivery_state,
           rfd_date,
-          cuft,
+          cubic_feet,
           status
         `)
-        .eq('company_id', companyId)
+        .eq('posted_by_company_id', companyId)
         .in('status', ['pending', 'assigned', 'in_transit'])
         .not('rfd_date', 'is', null)
         .lte('rfd_date', twoDaysFromNow.toISOString().split('T')[0])
@@ -239,9 +263,9 @@ export function useOwnerDashboardData() {
 
   // Fetch active trips
   const { data: activeTrips, isLoading: tripsLoading } = useQuery({
-    queryKey: ['owner-active-trips', companyId],
+    queryKey: ['owner-active-trips', userId],
     queryFn: async (): Promise<ActiveTrip[]> => {
-      if (!companyId) return [];
+      if (!userId) return [];
 
       const { data, error } = await supabase
         .from('trips')
@@ -253,10 +277,9 @@ export function useOwnerDashboardData() {
           driver:drivers(
             first_name,
             last_name
-          ),
-          trip_loads(count)
+          )
         `)
-        .eq('company_id', companyId)
+        .eq('owner_id', userId)
         .in('status', ['scheduled', 'in_progress'])
         .order('start_date', { ascending: true })
         .limit(5);
@@ -272,10 +295,10 @@ export function useOwnerDashboardData() {
         status: trip.status,
         start_date: trip.start_date,
         driver: Array.isArray(trip.driver) ? trip.driver[0] : trip.driver,
-        loads_count: Array.isArray(trip.trip_loads) ? trip.trip_loads.length : 0,
+        loads_count: 0, // Simplified - removed trip_loads count query
       }));
     },
-    enabled: !!companyId,
+    enabled: !!userId,
     staleTime: 30000,
   });
 
