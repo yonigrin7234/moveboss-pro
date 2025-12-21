@@ -102,8 +102,10 @@ export function FMCSAComplianceCard({
       }
 
       toast({
-        title: 'FMCSA data refreshed',
-        description: 'Compliance data has been updated from FMCSA records.',
+        title: data.verified ? 'FMCSA Verified' : 'FMCSA data retrieved',
+        description: data.verified
+          ? 'Carrier compliance data has been verified with FMCSA.'
+          : 'FMCSA data retrieved but carrier may not meet verification requirements.',
       });
 
       onRefresh?.();
@@ -135,18 +137,40 @@ export function FMCSAComplianceCard({
             FMCSA Compliance
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
             <XCircle className="h-5 w-5 text-muted-foreground mt-0.5" />
             <div className="flex-1">
               <p className="font-medium text-muted-foreground">Not Verified</p>
               <p className="text-sm text-muted-foreground">
                 {dotNumber
-                  ? 'This company has not completed FMCSA verification.'
+                  ? `DOT #${dotNumber} has not been verified with FMCSA yet.`
                   : 'No DOT number on file for this company.'}
               </p>
             </div>
           </div>
+          {/* Show verify button if DOT number exists */}
+          {dotNumber && companyId && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="w-full"
+            >
+              {isRefreshing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                <>
+                  <BadgeCheck className="h-4 w-4 mr-2" />
+                  Verify with FMCSA
+                </>
+              )}
+            </Button>
+          )}
         </CardContent>
       </Card>
     );
