@@ -186,8 +186,10 @@ export function TopNav({ user, company, unreadNotifications = 0 }: TopNavProps) 
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem disabled className="text-muted-foreground">
-                Account settings coming soon
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/settings/account">
+                  Account settings
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
