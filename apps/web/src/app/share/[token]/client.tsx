@@ -55,8 +55,8 @@ export function SharePageClient({
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       {/* Header */}
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-4">
+        <div className="max-w-lg mx-auto px-4 sm:px-6 py-6">
+          <div className="flex items-center gap-4 justify-center">
             {company?.logo_url ? (
               <Image
                 src={company.logo_url}
@@ -82,12 +82,14 @@ export function SharePageClient({
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-lg mx-auto px-4 sm:px-6 py-8">
         {/* Expiration Badge */}
         {expiresAt && (
-          <div className="inline-flex items-center gap-2 text-sm bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-full px-4 py-2 mb-6">
-            <Clock className="h-4 w-4" />
-            <span>{formatExpiryTime(expiresAt)}</span>
+          <div className="flex justify-center mb-6">
+            <div className="inline-flex items-center gap-2 text-sm bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-full px-4 py-2">
+              <Clock className="h-4 w-4" />
+              <span>{formatExpiryTime(expiresAt)}</span>
+            </div>
           </div>
         )}
 
@@ -108,13 +110,7 @@ export function SharePageClient({
 
         {/* Loads Grid */}
         {loads.length > 0 ? (
-          <div className={
-            loads.length === 1
-              ? 'max-w-lg mx-auto mb-8'
-              : loads.length === 2
-                ? 'grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto mb-8'
-                : 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8'
-          }>
+          <div className="space-y-4 mb-8">
             {loads.map((load) => (
               <LoadCard
                 key={load.id}
@@ -137,7 +133,7 @@ export function SharePageClient({
 
         {/* View Full Board CTA */}
         {company?.slug && (
-          <div className="max-w-lg mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 text-center">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 text-center">
             <h3 className="font-semibold text-slate-900 dark:text-white mb-2">
               Looking for more loads?
             </h3>
@@ -156,8 +152,8 @@ export function SharePageClient({
 
       {/* Footer */}
       <footer className="border-t border-slate-200 dark:border-slate-800 mt-auto">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="max-w-lg mx-auto px-4 sm:px-6 py-6">
+          <div className="flex flex-col items-center gap-3 text-center">
             <p className="text-sm text-slate-400">
               Powered by <span className="font-medium text-slate-600 dark:text-slate-300">MoveBoss Pro</span>
             </p>
