@@ -25,23 +25,19 @@ interface LoadDetail {
   load_number: string;
   pickup_city: string | null;
   pickup_state: string | null;
-  pickup_address: string | null;
-  pickup_zip: string | null;
+  pickup_address_line1: string | null;
   delivery_city: string | null;
   delivery_state: string | null;
-  delivery_address: string | null;
-  delivery_zip: string | null;
+  delivery_address_line1: string | null;
   cubic_feet: number | null;
-  weight_lbs: number | null;
+  estimated_weight_lbs: number | null;
   rate_per_cuft: number | null;
-  total_rate: number | null;
   status: string;
   rfd_date: string | null;
-  pickup_date: string | null;
-  delivery_date: string | null;
   created_at: string;
   notes: string | null;
-  special_instructions: string | null;
+  pickup_instructions: string | null;
+  delivery_instructions: string | null;
   posting_status: string | null;
   is_marketplace_visible: boolean | null;
   customer: {
@@ -71,23 +67,19 @@ export default function LoadDetailScreen() {
           load_number,
           pickup_city,
           pickup_state,
-          pickup_address,
-          pickup_zip,
+          pickup_address_line1,
           delivery_city,
           delivery_state,
-          delivery_address,
-          delivery_zip,
+          delivery_address_line1,
           cubic_feet,
-          weight_lbs,
+          estimated_weight_lbs,
           rate_per_cuft,
-          total_rate,
           status,
           rfd_date,
-          pickup_date,
-          delivery_date,
           created_at,
           notes,
-          special_instructions,
+          pickup_instructions,
+          delivery_instructions,
           posting_status,
           is_marketplace_visible,
           customer:customer_id(
@@ -248,14 +240,8 @@ export default function LoadDetailScreen() {
                 <Text style={styles.locationCity}>
                   {load.pickup_city}, {load.pickup_state}
                 </Text>
-                {load.pickup_address && (
-                  <Text style={styles.locationAddress}>{load.pickup_address}</Text>
-                )}
-                {load.pickup_zip && (
-                  <Text style={styles.locationZip}>{load.pickup_zip}</Text>
-                )}
-                {load.pickup_date && (
-                  <Text style={styles.locationDate}>📅 {formatDate(load.pickup_date)}</Text>
+                {load.pickup_address_line1 && (
+                  <Text style={styles.locationAddress}>{load.pickup_address_line1}</Text>
                 )}
               </View>
             </View>
@@ -273,14 +259,8 @@ export default function LoadDetailScreen() {
                 <Text style={styles.locationCity}>
                   {load.delivery_city}, {load.delivery_state}
                 </Text>
-                {load.delivery_address && (
-                  <Text style={styles.locationAddress}>{load.delivery_address}</Text>
-                )}
-                {load.delivery_zip && (
-                  <Text style={styles.locationZip}>{load.delivery_zip}</Text>
-                )}
-                {load.delivery_date && (
-                  <Text style={styles.locationDate}>📅 {formatDate(load.delivery_date)}</Text>
+                {load.delivery_address_line1 && (
+                  <Text style={styles.locationAddress}>{load.delivery_address_line1}</Text>
                 )}
               </View>
             </View>
@@ -297,17 +277,17 @@ export default function LoadDetailScreen() {
               <Text style={styles.detailValue}>{load.cubic_feet ?? '-'} CF</Text>
             </View>
             <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Weight</Text>
-              <Text style={styles.detailValue}>{load.weight_lbs ? `${load.weight_lbs.toLocaleString()} lbs` : '-'}</Text>
+              <Text style={styles.detailLabel}>Est. Weight</Text>
+              <Text style={styles.detailValue}>{load.estimated_weight_lbs ? `${load.estimated_weight_lbs.toLocaleString()} lbs` : '-'}</Text>
             </View>
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Rate/CF</Text>
               <Text style={styles.detailValue}>{load.rate_per_cuft ? `$${load.rate_per_cuft}` : '-'}</Text>
             </View>
             <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Total Rate</Text>
+              <Text style={styles.detailLabel}>Total</Text>
               <Text style={[styles.detailValue, styles.detailValueHighlight]}>
-                {formatCurrency(load.total_rate || (load.cubic_feet && load.rate_per_cuft ? load.cubic_feet * load.rate_per_cuft : null))}
+                {formatCurrency(load.cubic_feet && load.rate_per_cuft ? load.cubic_feet * load.rate_per_cuft : null)}
               </Text>
             </View>
           </View>
@@ -369,20 +349,26 @@ export default function LoadDetailScreen() {
           </View>
         </View>
 
-        {/* Notes */}
-        {(load.notes || load.special_instructions) && (
+        {/* Notes & Instructions */}
+        {(load.notes || load.pickup_instructions || load.delivery_instructions) && (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Notes</Text>
+            <Text style={styles.cardTitle}>Notes & Instructions</Text>
             {load.notes && (
               <View style={styles.notesSection}>
                 <Text style={styles.notesLabel}>General Notes</Text>
                 <Text style={styles.notesText}>{load.notes}</Text>
               </View>
             )}
-            {load.special_instructions && (
+            {load.pickup_instructions && (
               <View style={styles.notesSection}>
-                <Text style={styles.notesLabel}>Special Instructions</Text>
-                <Text style={styles.notesText}>{load.special_instructions}</Text>
+                <Text style={styles.notesLabel}>Pickup Instructions</Text>
+                <Text style={styles.notesText}>{load.pickup_instructions}</Text>
+              </View>
+            )}
+            {load.delivery_instructions && (
+              <View style={styles.notesSection}>
+                <Text style={styles.notesLabel}>Delivery Instructions</Text>
+                <Text style={styles.notesText}>{load.delivery_instructions}</Text>
               </View>
             )}
           </View>
@@ -517,15 +503,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     marginTop: spacing.xxs,
-  },
-  locationZip: {
-    ...typography.caption,
-    color: colors.textMuted,
-  },
-  locationDate: {
-    ...typography.caption,
-    color: colors.primary,
-    marginTop: spacing.xs,
   },
   routeLine: {
     position: 'absolute',
