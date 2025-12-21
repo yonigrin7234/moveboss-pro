@@ -108,7 +108,13 @@ export function SharePageClient({
 
         {/* Loads Grid */}
         {loads.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
+          <div className={
+            loads.length === 1
+              ? 'max-w-lg mx-auto mb-8'
+              : loads.length === 2
+                ? 'grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto mb-8'
+                : 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8'
+          }>
             {loads.map((load) => (
               <LoadCard
                 key={load.id}
@@ -131,7 +137,7 @@ export function SharePageClient({
 
         {/* View Full Board CTA */}
         {company?.slug && (
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 text-center">
+          <div className="max-w-lg mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 text-center">
             <h3 className="font-semibold text-slate-900 dark:text-white mb-2">
               Looking for more loads?
             </h3>

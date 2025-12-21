@@ -25,12 +25,13 @@ interface LoadRequest {
   load: {
     id: string;
     load_number: string;
-    origin_city: string;
-    origin_state: string;
-    destination_city: string;
-    destination_state: string;
-    cuft: number;
+    pickup_city: string | null;
+    pickup_state: string | null;
+    delivery_city: string | null;
+    delivery_state: string | null;
+    cubic_feet: number | null;
     rate_per_cuft: number | null;
+    posted_by_company_id: string | null;
   };
   carrier: {
     id: string;
@@ -51,6 +52,8 @@ export default function RequestsScreen() {
     queryFn: async (): Promise<LoadRequest[]> => {
       if (!company?.id) return [];
 
+      // Fetch all pending requests with load details
+      // Filter by company happens in JS since load_requests doesn't have company_id
       const { data, error } = await supabase
         .from('load_requests')
         .select(`
@@ -61,15 +64,16 @@ export default function RequestsScreen() {
           created_at,
           carrier_rate,
           carrier_rate_type,
-          load:loads!inner(
+          load:loads!load_requests_load_id_fkey(
             id,
             load_number,
-            origin_city,
-            origin_state,
-            destination_city,
-            destination_state,
-            cuft,
-            rate_per_cuft
+            pickup_city,
+            pickup_state,
+            delivery_city,
+            delivery_state,
+            cubic_feet,
+            rate_per_cuft,
+            posted_by_company_id
           ),
           carrier:companies!load_requests_carrier_id_fkey(
             id,
@@ -77,7 +81,6 @@ export default function RequestsScreen() {
             dba_name
           )
         `)
-        .eq('company_id', company.id)
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
@@ -86,11 +89,16 @@ export default function RequestsScreen() {
         return [];
       }
 
-      return (data || []).map(item => ({
-        ...item,
-        load: Array.isArray(item.load) ? item.load[0] : item.load,
-        carrier: Array.isArray(item.carrier) ? item.carrier[0] : item.carrier,
-      })) as LoadRequest[];
+      // Filter to only show requests for loads owned by this company
+      const companyRequests = (data || [])
+        .map(item => ({
+          ...item,
+          load: Array.isArray(item.load) ? item.load[0] : item.load,
+          carrier: Array.isArray(item.carrier) ? item.carrier[0] : item.carrier,
+        }))
+        .filter(item => item.load?.posted_by_company_id === company.id) as LoadRequest[];
+
+      return companyRequests;
     },
     enabled: !!company?.id,
     refetchInterval: 30000,
@@ -116,7 +124,7 @@ export default function RequestsScreen() {
                 carrierId: request.carrier_id,
                 carrierRate: request.carrier_rate,
                 carrierRateType: request.carrier_rate_type || undefined,
-                cubicFeetEstimate: request.load?.cuft,
+                cubicFeetEstimate: request.load?.cubic_feet,
               });
               haptics.success();
             } catch (error) {
@@ -205,17 +213,17 @@ export default function RequestsScreen() {
               <View style={styles.routeRow}>
                 <Icon name="map-pin" size="sm" color={colors.textMuted} />
                 <Text style={styles.routeText}>
-                  {request.load?.origin_city}, {request.load?.origin_state}
+                  {request.load?.pickup_city}, {request.load?.pickup_state}
                 </Text>
                 <Icon name="arrow-right" size="sm" color={colors.textMuted} />
                 <Text style={styles.routeText}>
-                  {request.load?.destination_city}, {request.load?.destination_state}
+                  {request.load?.delivery_city}, {request.load?.delivery_state}
                 </Text>
               </View>
 
               <View style={styles.detailsRow}>
                 <Text style={styles.detailText}>
-                  {request.load?.cuft} CF
+                  {request.load?.cubic_feet} CF
                 </Text>
                 {request.carrier_rate && (
                   <Text style={styles.rateText}>

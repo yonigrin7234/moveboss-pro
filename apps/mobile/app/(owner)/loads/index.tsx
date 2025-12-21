@@ -24,11 +24,11 @@ type FilterType = 'all' | 'pending' | 'assigned' | 'in_transit' | 'critical';
 interface LoadData {
   id: string;
   load_number: string;
-  origin_city: string | null;
-  origin_state: string | null;
-  destination_city: string | null;
-  destination_state: string | null;
-  cuft: number | null;
+  pickup_city: string | null;
+  pickup_state: string | null;
+  delivery_city: string | null;
+  delivery_state: string | null;
+  cubic_feet: number | null;
   rate_per_cuft: number | null;
   status: string;
   rfd_date: string | null;
@@ -59,11 +59,11 @@ export default function LoadsScreen() {
         .select(`
           id,
           load_number,
-          origin_city,
-          origin_state,
-          destination_city,
-          destination_state,
-          cuft,
+          pickup_city,
+          pickup_state,
+          delivery_city,
+          delivery_state,
+          cubic_feet,
           rate_per_cuft,
           status,
           rfd_date,
@@ -71,7 +71,7 @@ export default function LoadsScreen() {
           posting_status,
           is_marketplace_visible
         `)
-        .eq('company_id', company.id)
+        .eq('posted_by_company_id', company.id)
         .order('created_at', { ascending: false });
 
       if (filter === 'critical') {
@@ -117,11 +117,11 @@ export default function LoadsScreen() {
     const shareableLoad: ShareableLoad = {
       id: load.id,
       load_number: load.load_number,
-      pickup_city: load.origin_city,
-      pickup_state: load.origin_state,
-      delivery_city: load.destination_city,
-      delivery_state: load.destination_state,
-      cuft: load.cuft,
+      pickup_city: load.pickup_city,
+      pickup_state: load.pickup_state,
+      delivery_city: load.delivery_city,
+      delivery_state: load.delivery_state,
+      cuft: load.cubic_feet,
       rate_per_cuft: load.rate_per_cuft,
       rfd_date: load.rfd_date,
       status: load.status,
@@ -212,12 +212,12 @@ export default function LoadsScreen() {
               <View style={styles.routeRow}>
                 <Icon name="map-pin" size="sm" color={colors.textMuted} />
                 <Text style={styles.routeText}>
-                  {load.origin_city}, {load.origin_state} → {load.destination_city}, {load.destination_state}
+                  {load.pickup_city}, {load.pickup_state} → {load.delivery_city}, {load.delivery_state}
                 </Text>
               </View>
 
               <View style={styles.detailsRow}>
-                <Text style={styles.detailText}>{load.cuft} CF</Text>
+                <Text style={styles.detailText}>{load.cubic_feet} CF</Text>
                 {load.rate_per_cuft && (
                   <Text style={styles.detailText}>${load.rate_per_cuft}/cf</Text>
                 )}

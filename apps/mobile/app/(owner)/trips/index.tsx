@@ -18,7 +18,7 @@ export default function TripsScreen() {
   const { company } = useOwner();
 
   const { data: trips, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['trips', company?.id],
+    queryKey: ['owner-trips', company?.id],
     queryFn: async () => {
       if (!company?.id) return [];
 
