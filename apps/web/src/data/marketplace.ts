@@ -738,8 +738,10 @@ export async function acceptLoadRequest(
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
 
+  console.log('[acceptLoadRequest] Starting for request:', requestId);
+
   // Get the request details
-  const { data: request } = await supabase
+  const { data: request, error: requestFetchError } = await supabase
     .from('load_requests')
     .select(`
       *,
@@ -751,9 +753,21 @@ export async function acceptLoadRequest(
     .eq('id', requestId)
     .single();
 
+  if (requestFetchError) {
+    console.error('[acceptLoadRequest] Error fetching request:', requestFetchError);
+  }
+
   if (!request) {
     return { success: false, error: 'Request not found' };
   }
+
+  console.log('[acceptLoadRequest] Request data:', {
+    id: request.id,
+    carrier_id: request.carrier_id,
+    carrier_owner_id: request.carrier_owner_id,
+    is_partner: request.is_partner,
+    status: request.status,
+  });
 
   const loadData = request.load as Record<string, unknown>;
 
