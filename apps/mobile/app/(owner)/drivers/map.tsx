@@ -203,7 +203,7 @@ export default function DriverMapScreen() {
         </Pressable>
         <Text style={styles.title}>Driver Map</Text>
         <Pressable style={styles.refreshButton} onPress={() => refetch()}>
-          <Icon name="refresh-cw" size="md" color={colors.primary} />
+          <Icon name="refresh" size="md" color={colors.primary} />
         </Pressable>
       </View>
 

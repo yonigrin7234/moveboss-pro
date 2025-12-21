@@ -35,7 +35,7 @@ const OWNER_TABS: TabConfig[] = [
   { name: 'index', icon: 'home', label: 'Dashboard' },
   { name: 'requests/index', icon: 'bell', label: 'Requests' },
   { name: 'loads/index', icon: 'package', label: 'Loads' },
-  { name: 'drivers/index', icon: 'users', label: 'Drivers' },
+  { name: 'messages/index', icon: 'message-circle', label: 'Messages' },
   { name: 'more', icon: 'menu', label: 'More' },
 ];
 
@@ -149,6 +149,8 @@ interface OwnerTabBarProps extends BottomTabBarProps {
   requestCount?: number;
   /** Number of critical RFD loads */
   criticalRfdCount?: number;
+  /** Number of unread messages */
+  messageCount?: number;
 }
 
 export function OwnerTabBar({
@@ -157,6 +159,7 @@ export function OwnerTabBar({
   navigation,
   requestCount = 0,
   criticalRfdCount = 0,
+  messageCount = 0,
 }: OwnerTabBarProps) {
   const insets = useSafeAreaInsets();
 
@@ -173,6 +176,9 @@ export function OwnerTabBar({
     }
     if (routeName === 'loads/index') {
       return criticalRfdCount > 0 ? criticalRfdCount : undefined;
+    }
+    if (routeName === 'messages/index') {
+      return messageCount > 0 ? messageCount : undefined;
     }
     return undefined;
   };

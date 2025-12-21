@@ -2,20 +2,31 @@
  * Drivers Screen - View driver statuses and locations
  */
 
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 import { useOwner } from '../../../providers/OwnerProvider';
+import { useGetOrCreateDriverConversation } from '../../../hooks/useOwnerMessaging';
 import { Icon } from '../../../components/ui/Icon';
 import { colors, typography, spacing, radius, shadows } from '../../../lib/theme';
+import { haptics } from '../../../lib/haptics';
 
 export default function DriversScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { company } = useOwner();
+  const { getOrCreate, loading: messageLoading, loadingDriverId } = useGetOrCreateDriverConversation();
+
+  const handleMessageDriver = useCallback(async (driverId: string) => {
+    haptics.selection();
+    const conversationId = await getOrCreate(driverId);
+    if (conversationId) {
+      router.push(`/(owner)/messages/${conversationId}`);
+    }
+  }, [getOrCreate, router]);
 
   const { data: drivers, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['drivers', company?.id],
@@ -131,6 +142,22 @@ export default function DriversScreen() {
                 <Icon name="map-pin" size="sm" color={colors.primary} />
               )}
             </View>
+
+            {/* Message button */}
+            <Pressable
+              style={styles.messageButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleMessageDriver(driver.id);
+              }}
+              disabled={messageLoading && loadingDriverId === driver.id}
+            >
+              {messageLoading && loadingDriverId === driver.id ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Icon name="message-circle" size="sm" color={colors.primary} />
+              )}
+            </Pressable>
           </Pressable>
         ))}
 
@@ -280,6 +307,15 @@ const styles = StyleSheet.create({
   statusText: {
     ...typography.caption,
     fontWeight: '600',
+  },
+  messageButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    backgroundColor: colors.primarySoft,
+    marginLeft: spacing.sm,
   },
   emptyState: {
     alignItems: 'center',

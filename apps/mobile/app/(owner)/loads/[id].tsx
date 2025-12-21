@@ -2,7 +2,7 @@
  * Load Detail Screen - View full load information
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
+import { useGetOrCreateLoadConversation } from '../../../hooks/useOwnerMessaging';
 import { Icon } from '../../../components/ui/Icon';
 import { colors, typography, spacing, radius, shadows } from '../../../lib/theme';
 import { haptics } from '../../../lib/haptics';
@@ -146,6 +147,17 @@ export default function LoadDetailScreen() {
 
   const daysUntilRfd = getDaysUntilRfd();
 
+  // Messaging
+  const { getOrCreate, loading: messageLoading } = useGetOrCreateLoadConversation(id || null);
+
+  const handleMessage = useCallback(async () => {
+    haptics.selection();
+    const conversationId = await getOrCreate();
+    if (conversationId) {
+      router.push(`/(owner)/messages/${conversationId}`);
+    }
+  }, [getOrCreate, router]);
+
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
@@ -180,7 +192,17 @@ export default function LoadDetailScreen() {
           <Icon name="chevron-left" size="md" color={colors.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle}>Load Details</Text>
-        <View style={{ width: 44 }} />
+        <Pressable
+          style={styles.messageButton}
+          onPress={handleMessage}
+          disabled={messageLoading}
+        >
+          {messageLoading ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Icon name="message-circle" size="md" color={colors.primary} />
+          )}
+        </Pressable>
       </View>
 
       <ScrollView
@@ -408,6 +430,14 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  messageButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    backgroundColor: colors.primarySoft,
   },
   headerTitle: {
     ...typography.headline,

@@ -1,7 +1,7 @@
 /**
  * Owner Layout - Tab navigation for owner/dispatcher experience
  *
- * Main tabs: Dashboard, Requests, Loads, Drivers, More
+ * Main tabs: Dashboard, Requests, Loads, Messages, More
  * Detail screens: Hide tab bar for focused experience
  */
 
@@ -13,9 +13,11 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { queryClient, asyncStoragePersister } from '../../lib/queryClient';
 import { useOwnerDashboardData } from '../../hooks/useOwnerDashboardData';
 import { useOwnerRealtime } from '../../hooks/useOwnerRealtime';
+import { useOwnerUnreadCount } from '../../hooks/useOwnerMessaging';
 
 function OwnerTabBarWithBadges(props: any) {
   const { requestCount, criticalRfdCount } = useOwnerDashboardData();
+  const messageCount = useOwnerUnreadCount();
 
   // Enable real-time subscriptions for the owner experience
   useOwnerRealtime();
@@ -25,6 +27,7 @@ function OwnerTabBarWithBadges(props: any) {
       {...props}
       requestCount={requestCount}
       criticalRfdCount={criticalRfdCount}
+      messageCount={messageCount}
     />
   );
 }
@@ -74,9 +77,9 @@ export default function OwnerLayout() {
             }}
           />
           <Tabs.Screen
-            name="drivers/index"
+            name="messages/index"
             options={{
-              title: 'Drivers',
+              title: 'Messages',
               headerShown: false,
             }}
           />
@@ -175,6 +178,23 @@ export default function OwnerLayout() {
               href: null,
               headerShown: true,
               title: 'Notifications',
+              tabBarStyle: { display: 'none' },
+            }}
+          />
+          <Tabs.Screen
+            name="messages/[id]"
+            options={{
+              href: null,
+              headerShown: false,
+              title: 'Chat',
+              tabBarStyle: { display: 'none' },
+            }}
+          />
+          <Tabs.Screen
+            name="drivers/index"
+            options={{
+              href: null,
+              headerShown: false,
               tabBarStyle: { display: 'none' },
             }}
           />

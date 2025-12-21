@@ -43,10 +43,12 @@ import {
   Settings,
   User,
   Users,
+  UserX,
   Bell,
   BellOff,
   Mail,
   MessageSquare,
+  MessageCircle,
   Send,
   Upload,
   Download,
@@ -138,6 +140,7 @@ import {
   Scan,
   Rocket,
   Route,
+  Building2,
   type LucideIcon,
 } from 'lucide-react-native';
 import { colors } from '../../lib/theme';
@@ -217,6 +220,7 @@ const iconMap = {
   phone: Phone,
   mail: Mail,
   'message-square': MessageSquare,
+  'message-circle': MessageCircle,
   send: Send,
   bell: Bell,
   'bell-off': BellOff,
@@ -258,6 +262,7 @@ const iconMap = {
   // User & Auth
   user: User,
   users: Users,
+  'user-x': UserX,
   'log-out': LogOut,
   'log-in': LogIn,
   eye: Eye,
@@ -306,6 +311,9 @@ const iconMap = {
   circle: Circle,
   triangle: Triangle,
   hexagon: Hexagon,
+
+  // Buildings
+  building: Building2,
 } as const;
 
 export type IconName = keyof typeof iconMap;
