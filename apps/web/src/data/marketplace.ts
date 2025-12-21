@@ -1215,8 +1215,11 @@ export async function confirmLoadAssignment(
   }
 
   // Safety check: Ensure partnership exists (fallback if acceptLoadRequest failed to create it)
+  // Use service role client to bypass RLS for all partnership operations
   try {
-    const { data: request, error: requestErr } = await supabase
+    const adminClient = createServiceRoleClient();
+
+    const { data: request, error: requestErr } = await adminClient
       .from('load_requests')
       .select('id, carrier_id, carrier_owner_id, creates_partnership, is_partner')
       .eq('load_id', loadId)
@@ -1234,15 +1237,21 @@ export async function confirmLoadAssignment(
 
     // Create partnership if needed (either creates_partnership is true, or is_partner is false)
     if (request && (request.creates_partnership || request.is_partner === false)) {
-      const { data: loadData } = await supabase
+      const { data: loadData } = await adminClient
         .from('loads')
         .select('owner_id, company_id')
         .eq('id', loadId)
         .single();
 
+      console.log('[confirmLoadAssignment] Load data for partnership:', {
+        loadFound: !!loadData,
+        owner_id: loadData?.owner_id,
+        company_id: loadData?.company_id,
+      });
+
       if (loadData && request.carrier_id && request.carrier_owner_id) {
         // Check if broker partnership exists (use maybeSingle - no error if not found)
-        const { data: existingBrokerPartnership, error: brokerCheckErr } = await supabase
+        const { data: existingBrokerPartnership, error: brokerCheckErr } = await adminClient
           .from('company_partnerships')
           .select('id')
           .eq('owner_id', loadData.owner_id)
@@ -1260,8 +1269,7 @@ export async function confirmLoadAssignment(
 
         if (!existingBrokerPartnership) {
           console.log('[confirmLoadAssignment] Creating missing broker partnership');
-          const serviceClient = createServiceRoleClient();
-          const { error: insertErr } = await serviceClient.from('company_partnerships').insert({
+          const { error: insertErr } = await adminClient.from('company_partnerships').insert({
             owner_id: loadData.owner_id,
             company_a_id: loadData.company_id,
             company_b_id: request.carrier_id,
@@ -1278,7 +1286,7 @@ export async function confirmLoadAssignment(
         }
 
         // Check if carrier partnership exists (use maybeSingle - no error if not found)
-        const { data: existingCarrierPartnership, error: carrierCheckErr } = await supabase
+        const { data: existingCarrierPartnership, error: carrierCheckErr } = await adminClient
           .from('company_partnerships')
           .select('id')
           .eq('owner_id', request.carrier_owner_id)
@@ -1296,8 +1304,7 @@ export async function confirmLoadAssignment(
 
         if (!existingCarrierPartnership) {
           console.log('[confirmLoadAssignment] Creating missing carrier partnership');
-          const serviceClient = createServiceRoleClient();
-          const { error: insertErr } = await serviceClient.from('company_partnerships').insert({
+          const { error: insertErr } = await adminClient.from('company_partnerships').insert({
             owner_id: request.carrier_owner_id,
             company_a_id: request.carrier_id,
             company_b_id: loadData.company_id,
