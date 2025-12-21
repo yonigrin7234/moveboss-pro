@@ -1,7 +1,7 @@
 // IMPORTANT: react-native-reanimated must be the first import
 import 'react-native-reanimated';
 
-import { Slot, useRouter, useSegments } from 'expo-router';
+import { Slot, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import {
@@ -26,11 +26,16 @@ function RootLayoutNav() {
   const { isOwnerRole, loading: ownerLoading } = useOwner();
   const segments = useSegments();
   const router = useRouter();
+  const navigationState = useRootNavigationState();
 
   const loading = authLoading || (session && ownerLoading);
 
+  // Check if the navigation state is ready
+  const navigationReady = navigationState?.key != null;
+
   useEffect(() => {
-    if (loading) return;
+    // Wait for both data loading and navigation to be ready
+    if (loading || !navigationReady) return;
 
     const inAuthGroup = segments[0] === '(auth)';
     const inOwnerGroup = segments[0] === '(owner)';
@@ -54,9 +59,9 @@ function RootLayoutNav() {
       router.replace('/(owner)');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user?.id, loading, segments, isOwnerRole]);
+  }, [session?.user?.id, loading, segments, isOwnerRole, navigationReady]);
 
-  if (loading) {
+  if (loading || !navigationReady) {
     return (
       <View style={styles.loadingContainer}>
         <View style={styles.logoContainer}>
