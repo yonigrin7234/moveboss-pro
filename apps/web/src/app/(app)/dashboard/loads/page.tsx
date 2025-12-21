@@ -10,10 +10,12 @@ import {
 } from '@/data/loads';
 import { getCompaniesForUser, type Company } from '@/data/companies';
 import { getTripsForLoadAssignment, addLoadToTrip, addTripLoadInputSchema, type Trip } from '@/data/trips';
+import { countByUrgencyLevel, getLoadsNeedingAttention, type RFDUrgencyLevel } from '@/lib/rfd-urgency';
 import { LoadListFilters } from './load-list-filters';
 import { LoadsTableWithSharing } from './loads-table-with-sharing';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AlertCircle, Clock, CalendarClock, HelpCircle } from 'lucide-react';
 
 interface LoadsPageProps {
   searchParams: Promise<{
@@ -165,6 +167,73 @@ export default async function LoadsPage({ searchParams }: LoadsPageProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* RFD Urgency Stats */}
+      {(() => {
+        const rfdCounts = countByUrgencyLevel(loads.map(l => ({
+          rfd_date: l.rfd_date ?? null,
+          rfd_date_tbd: l.rfd_date_tbd ?? null,
+          trip_id: l.trip_id ?? null,
+        })));
+        const needsAttention = getLoadsNeedingAttention(loads.map(l => ({
+          rfd_date: l.rfd_date ?? null,
+          rfd_date_tbd: l.rfd_date_tbd ?? null,
+          trip_id: l.trip_id ?? null,
+        }))).length;
+
+        return (
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card className={rfdCounts.critical > 0 ? 'border-rose-500/50 bg-rose-500/5' : ''}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-rose-500" />
+                  Critical RFD
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-rose-600 dark:text-rose-400">{rfdCounts.critical}</div>
+                <p className="text-xs text-muted-foreground mt-1">Today or overdue</p>
+              </CardContent>
+            </Card>
+            <Card className={rfdCounts.urgent > 0 ? 'border-amber-500/50 bg-amber-500/5' : ''}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-amber-500" />
+                  Urgent RFD
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">{rfdCounts.urgent}</div>
+                <p className="text-xs text-muted-foreground mt-1">Within 48 hours</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <CalendarClock className="h-4 w-4 text-yellow-500" />
+                  Approaching
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{rfdCounts.approaching}</div>
+                <p className="text-xs text-muted-foreground mt-1">Within 7 days</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                  RFD TBD
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-muted-foreground">{rfdCounts.tbd}</div>
+                <p className="text-xs text-muted-foreground mt-1">Date not set</p>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
 
       {/* Filters */}
       <LoadListFilters initialFilters={filters} companies={companies} />

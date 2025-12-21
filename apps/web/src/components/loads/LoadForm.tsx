@@ -28,9 +28,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DatePicker } from '@/components/ui/date-picker';
+import { RFDDatePicker } from '@/components/ui/rfd-date-picker';
 
 // Helper component for Select with hidden input
 function SelectWithHiddenInput({
@@ -527,6 +528,27 @@ export function LoadForm({
                     />
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Ready For Delivery (RFD) <span className="text-destructive">*</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <RFDDatePicker
+                  name="rfd"
+                  defaultRfdDate={(initialData as any)?.rfd_date || undefined}
+                  defaultTbd={(initialData as any)?.rfd_date_tbd || false}
+                  defaultDaysToDeliver={(initialData as any)?.rfd_days_to_deliver || undefined}
+                  defaultUseBusinessDays={(initialData as any)?.rfd_use_business_days ?? true}
+                  required
+                  error={state?.errors?.rfd_date}
+                  compact
+                />
               </CardContent>
             </Card>
           </div>

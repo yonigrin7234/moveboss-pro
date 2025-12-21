@@ -12,6 +12,9 @@ import {
   MessageCircle,
   MessageSquare,
   Truck,
+  AlertCircle,
+  Clock,
+  CalendarClock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +31,7 @@ import {
 import { ShareLoadModal } from '@/components/sharing/ShareLoadModal';
 import { AssignToTripModal } from '@/components/loads/AssignToTripModal';
 import { useEntityUnreadCounts } from '@/hooks/useEntityUnreadCounts';
+import { calculateRFDUrgency, getUrgencyBadgeLabel } from '@/lib/rfd-urgency';
 
 interface Load {
   id: string;
@@ -53,6 +57,10 @@ interface Load {
   posting_type?: string | null;
   company_id?: string | null;
   company?: { id?: string; name: string } | { id?: string; name: string }[] | null;
+  // RFD tracking fields
+  rfd_date?: string | null;
+  rfd_date_tbd?: boolean | null;
+  trip_id?: string | null;
 }
 
 interface Trip {
@@ -386,8 +394,36 @@ export function LoadsTableWithSharing({
                         <TableCell className="text-right text-sm">
                           {cuft ? cuft.toLocaleString() : '—'}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {formatDate(load.delivery_date || load.first_available_date || null)}
+                        <TableCell className="text-sm">
+                          {(() => {
+                            const urgency = calculateRFDUrgency({
+                              rfd_date: load.rfd_date ?? null,
+                              rfd_date_tbd: load.rfd_date_tbd ?? null,
+                              trip_id: load.trip_id ?? null,
+                            });
+                            const label = getUrgencyBadgeLabel(urgency);
+                            const Icon = urgency.level === 'critical' ? AlertCircle
+                              : urgency.level === 'urgent' ? Clock
+                              : urgency.level === 'approaching' ? CalendarClock
+                              : null;
+
+                            return (
+                              <div className="flex items-center gap-1.5">
+                                <Badge
+                                  variant={urgency.badgeVariant}
+                                  className={`${urgency.colorClass} text-[10px] px-1.5 py-0 h-5`}
+                                >
+                                  {Icon && <Icon className="h-3 w-3 mr-1" />}
+                                  {label}
+                                </Badge>
+                                {urgency.level !== 'tbd' && load.rfd_date && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatDate(load.rfd_date)}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell className="text-right">
                           {ratePerCuft ? (

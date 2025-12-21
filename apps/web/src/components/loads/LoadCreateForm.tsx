@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Warehouse, X, Building2, User } from 'lucide-react'
+import { Plus, Warehouse, X, Building2, User, Calendar } from 'lucide-react'
 
 import type { Company } from '@/data/companies'
 import type { Driver } from '@/data/drivers'
@@ -32,6 +32,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { useSetupProgress } from '@/hooks/use-setup-progress'
+import { RFDDatePicker } from '@/components/ui/rfd-date-picker'
 
 const serviceTypeOptions = [
   { value: 'hhg_local', label: 'HHG Local' },
@@ -148,6 +149,21 @@ export function LoadCreateForm({
   const [customer, setCustomer] = useState({ name: '', phone: '', deliveryZip: '', deliveryCity: '', deliveryState: '', deliveryAddress1: '', deliveryAddress2: '' })
   const [selectedTripId, setSelectedTripId] = useState('')
   const [loadOrder, setLoadOrder] = useState('1')
+
+  // RFD (Ready For Delivery) state
+  const [rfdValues, setRfdValues] = useState<{
+    rfdDate: string | null
+    isTbd: boolean
+    daysToDeliver: number | null
+    useBusinessDays: boolean
+    deliveryDeadline: string | null
+  }>({
+    rfdDate: null,
+    isTbd: false,
+    daysToDeliver: null,
+    useBusinessDays: true,
+    deliveryDeadline: null,
+  })
 
   // Storage location state
   const [storageLocationId, setStorageLocationId] = useState('')
@@ -958,6 +974,30 @@ export function LoadCreateForm({
             <Label htmlFor="notes">Notes</Label>
             <Textarea id="notes" name="notes" rows={3} placeholder="Driver-facing notes" />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* RFD (Ready For Delivery) Date */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Ready For Delivery (RFD) <span className="text-destructive">*</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <RFDDatePicker
+            name="rfd"
+            onChange={setRfdValues}
+            required
+            error={state?.errors?.rfd_date}
+          />
+          {/* Hidden inputs for form submission */}
+          <input type="hidden" name="rfd_date" value={rfdValues.rfdDate || ''} />
+          <input type="hidden" name="rfd_date_tbd" value={rfdValues.isTbd ? 'true' : 'false'} />
+          <input type="hidden" name="rfd_days_to_deliver" value={rfdValues.daysToDeliver || ''} />
+          <input type="hidden" name="rfd_use_business_days" value={rfdValues.useBusinessDays ? 'true' : 'false'} />
+          <input type="hidden" name="rfd_delivery_deadline" value={rfdValues.deliveryDeadline || ''} />
         </CardContent>
       </Card>
 

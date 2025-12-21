@@ -8,6 +8,7 @@ import {
   createPaperworkMetadata,
 } from '@/lib/audit';
 import { recordStructuredUploadMessage } from '@/lib/messaging';
+import { calculateDeliveryDeadline, formatDateForDB } from '@/lib/business-days';
 
 // Enums
 export const loadStatusSchema = z.enum(['pending', 'assigned', 'in_transit', 'delivered', 'canceled']);
@@ -181,6 +182,12 @@ export const newLoadInputSchema = z
     storage_days_billed: z.coerce.number().int().nonnegative().optional(),
     storage_notes: optionalTrimmedString(1000),
     company_approved_exception_delivery: z.boolean().optional(),
+    // RFD (Ready For Delivery) tracking fields
+    rfd_date: optionalDateSchema,
+    rfd_date_tbd: z.boolean().optional().default(false),
+    rfd_days_to_deliver: z.coerce.number().int().min(1).max(365).optional(),
+    rfd_use_business_days: z.boolean().optional().default(true),
+    rfd_delivery_deadline: optionalDateSchema,
   })
   .superRefine((data, ctx) => {
     // Validation based on load_source
@@ -275,6 +282,23 @@ export const newLoadInputSchema = z
           }
         });
       }
+    }
+
+    // RFD validation: Either rfd_date must be set OR rfd_date_tbd must be true
+    if (!data.rfd_date && !data.rfd_date_tbd) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Either RFD date or TBD must be selected',
+        path: ['rfd_date'],
+      });
+    }
+    // If rfd_date_tbd is true, rfd_date should not be set (clear it if both are set)
+    if (data.rfd_date_tbd && data.rfd_date) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'RFD date should be empty when TBD is selected',
+        path: ['rfd_date'],
+      });
     }
   });
 
@@ -462,6 +486,12 @@ export interface Load {
   trip?: { id: string; trip_number: string } | null;
   // Load flow type - how the load was created (controls wizard step visibility)
   load_flow_type?: LoadFlowType | null;
+  // RFD (Ready For Delivery) tracking
+  rfd_date?: string | null;
+  rfd_date_tbd?: boolean | null;
+  rfd_days_to_deliver?: number | null;
+  rfd_use_business_days?: boolean | null;
+  rfd_delivery_deadline?: string | null;
 }
 
 // Filter interface
@@ -703,6 +733,15 @@ export async function createLoad(input: NewLoadInput, userId: string): Promise<L
   const packing = Number(input.packing_rate ?? 0);
   const materials = Number(input.materials_rate ?? 0);
 
+  // Calculate RFD delivery deadline if rfd_date and days_to_deliver are set
+  let rfdDeliveryDeadline: string | null = null;
+  if (input.rfd_date && input.rfd_days_to_deliver && !input.rfd_date_tbd) {
+    const rfdDate = new Date(input.rfd_date);
+    const useBusinessDays = input.rfd_use_business_days ?? true;
+    const deadline = calculateDeliveryDeadline(rfdDate, input.rfd_days_to_deliver, useBusinessDays);
+    rfdDeliveryDeadline = formatDateForDB(deadline);
+  }
+
   const payload = {
     owner_id: userId,
     load_type: input.load_type,
@@ -768,6 +807,12 @@ export async function createLoad(input: NewLoadInput, userId: string): Promise<L
     status: input.status ?? 'pending',
     notes: nullable(input.notes),
     marketplace_listed: input.marketplace_listed ?? false,
+    // RFD tracking fields
+    rfd_date: input.rfd_date_tbd ? null : normalizeDate(input.rfd_date),
+    rfd_date_tbd: input.rfd_date_tbd ?? false,
+    rfd_days_to_deliver: nullable(input.rfd_days_to_deliver),
+    rfd_use_business_days: input.rfd_use_business_days ?? true,
+    rfd_delivery_deadline: rfdDeliveryDeadline,
   };
 
   const { data, error } = await supabase
@@ -1006,6 +1051,43 @@ export async function updateLoad(
   if (input.storage_notes !== undefined) payload.storage_notes = nullable(input.storage_notes);
   if (input.company_approved_exception_delivery !== undefined)
     payload.company_approved_exception_delivery = input.company_approved_exception_delivery;
+
+  // RFD tracking fields
+  if (input.rfd_date !== undefined) {
+    payload.rfd_date = input.rfd_date_tbd ? null : normalizeDate(input.rfd_date);
+  }
+  if (input.rfd_date_tbd !== undefined) {
+    payload.rfd_date_tbd = input.rfd_date_tbd;
+    // Clear rfd_date if TBD is set
+    if (input.rfd_date_tbd) {
+      payload.rfd_date = null;
+      payload.rfd_delivery_deadline = null;
+    }
+  }
+  if (input.rfd_days_to_deliver !== undefined) {
+    payload.rfd_days_to_deliver = nullable(input.rfd_days_to_deliver);
+  }
+  if (input.rfd_use_business_days !== undefined) {
+    payload.rfd_use_business_days = input.rfd_use_business_days;
+  }
+
+  // Recalculate delivery deadline if relevant RFD fields are updated
+  const shouldRecalculateDeadline =
+    input.rfd_date !== undefined ||
+    input.rfd_days_to_deliver !== undefined ||
+    input.rfd_use_business_days !== undefined;
+
+  if (shouldRecalculateDeadline && !input.rfd_date_tbd) {
+    // We need to fetch current values to calculate if not all are provided
+    const rfdDate = input.rfd_date;
+    const daysToDeliver = input.rfd_days_to_deliver;
+    const useBusinessDays = input.rfd_use_business_days ?? true;
+
+    if (rfdDate && daysToDeliver) {
+      const deadline = calculateDeliveryDeadline(new Date(rfdDate), daysToDeliver, useBusinessDays);
+      payload.rfd_delivery_deadline = formatDateForDB(deadline);
+    }
+  }
 
   const { data, error } = await supabase
     .from('loads')
