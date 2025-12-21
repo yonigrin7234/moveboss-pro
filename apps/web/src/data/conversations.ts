@@ -335,6 +335,130 @@ export async function getConversation(
 }
 
 /**
+ * Helper function to ensure participants exist for load_shared conversations.
+ * This handles both new conversations and existing ones that may be missing participants.
+ */
+async function ensureLoadSharedParticipants(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  conversationId: string,
+  loadOwnerId: string | null,
+  loadOwnerCompanyId: string,
+  carrierCompanyId: string | null,
+  addedByUserId?: string
+): Promise<void> {
+  const participantsToAdd = [];
+
+  // Add the load owner (broker) as a participant
+  if (loadOwnerId) {
+    participantsToAdd.push({
+      conversation_id: conversationId,
+      user_id: loadOwnerId,
+      company_id: loadOwnerCompanyId,
+      role: 'broker' as const,
+      can_read: true,
+      can_write: true,
+      notifications_enabled: true,
+      added_by_user_id: addedByUserId,
+    });
+  }
+
+  // Add the carrier owner as a participant
+  if (carrierCompanyId && carrierCompanyId !== loadOwnerCompanyId) {
+    const { data: carrierOwner } = await supabase
+      .from('company_memberships')
+      .select('user_id')
+      .eq('company_id', carrierCompanyId)
+      .eq('role', 'owner')
+      .maybeSingle();
+
+    if (carrierOwner?.user_id) {
+      participantsToAdd.push({
+        conversation_id: conversationId,
+        user_id: carrierOwner.user_id,
+        company_id: carrierCompanyId,
+        role: 'partner_rep' as const,
+        can_read: true,
+        can_write: true,
+        notifications_enabled: true,
+        added_by_user_id: addedByUserId,
+      });
+    }
+  }
+
+  // Upsert participants (handles both new and missing participants)
+  if (participantsToAdd.length > 0) {
+    await supabase.from('conversation_participants').upsert(participantsToAdd, {
+      onConflict: 'conversation_id,user_id',
+      ignoreDuplicates: true,
+    });
+  }
+}
+
+/**
+ * Helper function to ensure participants exist for company_to_company conversations.
+ * This handles both new conversations and existing ones that may be missing participants.
+ */
+async function ensureCompanyToCompanyParticipants(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  conversationId: string,
+  callerCompanyId: string,
+  otherCompanyId: string,
+  addedByUserId?: string
+): Promise<void> {
+  const participantsToAdd = [];
+
+  // Add the caller company's owner as a participant
+  const { data: callerOwner } = await supabase
+    .from('company_memberships')
+    .select('user_id')
+    .eq('company_id', callerCompanyId)
+    .eq('role', 'owner')
+    .maybeSingle();
+
+  if (callerOwner?.user_id) {
+    participantsToAdd.push({
+      conversation_id: conversationId,
+      user_id: callerOwner.user_id,
+      company_id: callerCompanyId,
+      role: 'owner' as const,
+      can_read: true,
+      can_write: true,
+      notifications_enabled: true,
+      added_by_user_id: addedByUserId,
+    });
+  }
+
+  // Add the other company's owner as a participant
+  const { data: otherCompanyOwner } = await supabase
+    .from('company_memberships')
+    .select('user_id')
+    .eq('company_id', otherCompanyId)
+    .eq('role', 'owner')
+    .maybeSingle();
+
+  if (otherCompanyOwner?.user_id) {
+    participantsToAdd.push({
+      conversation_id: conversationId,
+      user_id: otherCompanyOwner.user_id,
+      company_id: otherCompanyId,
+      role: 'partner_rep' as const,
+      can_read: true,
+      can_write: true,
+      notifications_enabled: true,
+      added_by_user_id: addedByUserId,
+    });
+  }
+
+  // Upsert participants (handles both new and missing participants)
+  if (participantsToAdd.length > 0) {
+    await supabase.from('conversation_participants').upsert(participantsToAdd, {
+      onConflict: 'conversation_id,user_id',
+      ignoreDuplicates: true,
+    });
+  }
+}
+
+/**
  * Get or create a conversation for a load (internal or shared)
  *
  * IMPORTANT: Load conversations are keyed by load_id and type, NOT by the viewing company.
@@ -387,6 +511,17 @@ export async function getOrCreateLoadConversation(
   const { data: existing } = await query.maybeSingle();
 
   if (existing) {
+    // Ensure participants exist for load_shared conversations (handles pre-fix conversations)
+    if (type === 'load_shared') {
+      await ensureLoadSharedParticipants(
+        supabase,
+        existing.id,
+        load.owner_id,
+        loadOwnerCompanyId,
+        assignedCarrierId,
+        createdByUserId
+      );
+    }
     return existing as Conversation;
   }
 
@@ -426,6 +561,18 @@ export async function getOrCreateLoadConversation(
 
   if (error) {
     throw new Error(`Failed to create conversation: ${error.message}`);
+  }
+
+  // For load_shared conversations, add participants from both companies
+  if (type === 'load_shared' && newConv) {
+    await ensureLoadSharedParticipants(
+      supabase,
+      newConv.id,
+      load.owner_id,
+      loadOwnerCompanyId,
+      assignedCarrierId,
+      createdByUserId
+    );
   }
 
   return newConv as Conversation;
@@ -537,6 +684,14 @@ export async function getOrCreateCompanyConversation(
     .maybeSingle();
 
   if (existing) {
+    // Ensure participants exist (handles pre-fix conversations)
+    await ensureCompanyToCompanyParticipants(
+      supabase,
+      existing.id,
+      existing.carrier_company_id || callerCompanyId,
+      existing.partner_company_id || otherCompanyId,
+      createdByUserId
+    );
     return existing as Conversation;
   }
 
@@ -556,6 +711,17 @@ export async function getOrCreateCompanyConversation(
 
   if (error) {
     throw new Error(`Failed to create conversation: ${error.message}`);
+  }
+
+  // Add participants from both companies
+  if (newConv) {
+    await ensureCompanyToCompanyParticipants(
+      supabase,
+      newConv.id,
+      callerCompanyId,
+      otherCompanyId,
+      createdByUserId
+    );
   }
 
   return newConv as Conversation;
