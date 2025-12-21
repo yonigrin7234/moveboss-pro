@@ -1214,6 +1214,75 @@ export async function confirmLoadAssignment(
     return { success: false, error: error.message };
   }
 
+  // Safety check: Ensure partnership exists (fallback if acceptLoadRequest failed to create it)
+  try {
+    const { data: request } = await supabase
+      .from('load_requests')
+      .select('id, carrier_id, carrier_owner_id, creates_partnership')
+      .eq('load_id', loadId)
+      .eq('status', 'accepted')
+      .single();
+
+    if (request?.creates_partnership) {
+      const { data: loadData } = await supabase
+        .from('loads')
+        .select('owner_id, company_id')
+        .eq('id', loadId)
+        .single();
+
+      if (loadData && request.carrier_id && request.carrier_owner_id) {
+        // Check if broker partnership exists
+        const { data: existingBrokerPartnership } = await supabase
+          .from('company_partnerships')
+          .select('id')
+          .eq('owner_id', loadData.owner_id)
+          .eq('company_a_id', loadData.company_id)
+          .eq('company_b_id', request.carrier_id)
+          .single();
+
+        if (!existingBrokerPartnership) {
+          console.log('[confirmLoadAssignment] Creating missing broker partnership');
+          const serviceClient = createServiceRoleClient();
+          await serviceClient.from('company_partnerships').insert({
+            owner_id: loadData.owner_id,
+            company_a_id: loadData.company_id,
+            company_b_id: request.carrier_id,
+            initiated_by_id: loadData.company_id,
+            relationship_type: 'gives_loads',
+            status: 'active',
+            approved_at: new Date().toISOString(),
+          });
+        }
+
+        // Check if carrier partnership exists
+        const { data: existingCarrierPartnership } = await supabase
+          .from('company_partnerships')
+          .select('id')
+          .eq('owner_id', request.carrier_owner_id)
+          .eq('company_a_id', request.carrier_id)
+          .eq('company_b_id', loadData.company_id)
+          .single();
+
+        if (!existingCarrierPartnership) {
+          console.log('[confirmLoadAssignment] Creating missing carrier partnership');
+          const serviceClient = createServiceRoleClient();
+          await serviceClient.from('company_partnerships').insert({
+            owner_id: request.carrier_owner_id,
+            company_a_id: request.carrier_id,
+            company_b_id: loadData.company_id,
+            initiated_by_id: loadData.company_id,
+            relationship_type: 'receives_loads',
+            status: 'active',
+            approved_at: new Date().toISOString(),
+          });
+        }
+      }
+    }
+  } catch (partnershipError) {
+    // Don't fail the confirmation if partnership check fails - just log it
+    console.error('[confirmLoadAssignment] Partnership check failed:', partnershipError);
+  }
+
   // Get load details for notification
   const { data: loadDetails } = await supabase
     .from('loads')
