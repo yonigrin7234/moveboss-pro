@@ -76,6 +76,7 @@ export default async function DashboardLayout({
       }}
     >
       <DashboardShell
+        userId={user.id}
         user={{ email: user?.email, fullName }}
         company={companySummary}
         role={onboardingState?.role}
