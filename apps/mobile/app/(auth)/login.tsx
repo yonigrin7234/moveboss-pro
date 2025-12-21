@@ -24,7 +24,10 @@ export default function LoginScreen() {
   const insets = useSafeAreaInsets();
 
   const handleLogin = async () => {
-    if (!email || !password) {
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedPassword = password;
+
+    if (!trimmedEmail || !trimmedPassword) {
       setError('Please enter email and password');
       haptics.warning();
       return;
@@ -32,12 +35,28 @@ export default function LoginScreen() {
 
     setError(null);
     setLoading(true);
-    const { error: signInError } = await signIn(email, password);
-    setLoading(false);
 
-    if (signInError) {
-      setError(signInError.message);
+    try {
+      const { error: signInError } = await signIn(trimmedEmail, trimmedPassword);
+
+      if (signInError) {
+        console.log('Login error:', signInError.message);
+        // Provide more user-friendly error messages
+        if (signInError.message.includes('Invalid login credentials')) {
+          setError('Invalid email or password. Please check your credentials and try again.');
+        } else if (signInError.message.includes('Network')) {
+          setError('Network error. Please check your internet connection.');
+        } else {
+          setError(signInError.message);
+        }
+        haptics.error();
+      }
+    } catch (err) {
+      console.error('Login exception:', err);
+      setError('An unexpected error occurred. Please try again.');
       haptics.error();
+    } finally {
+      setLoading(false);
     }
   };
 

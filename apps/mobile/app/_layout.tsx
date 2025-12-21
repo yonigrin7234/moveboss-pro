@@ -43,20 +43,32 @@ function RootLayoutNav() {
     const isResetPassword = (segments as string[]).includes('reset-password');
     const isAuthenticated = !!session;
 
+    // Wrap navigation in try-catch and setTimeout to ensure router is fully mounted
+    const navigate = (route: string) => {
+      setTimeout(() => {
+        try {
+          router.replace(route as any);
+        } catch (err) {
+          // Navigation might fail on initial mount, which is okay
+          console.log('Navigation deferred:', route);
+        }
+      }, 0);
+    };
+
     if (!isAuthenticated && !inAuthGroup) {
       // Redirect to login if not authenticated
-      router.replace('/(auth)/login');
+      navigate('/(auth)/login');
     } else if (isAuthenticated && inAuthGroup && !isResetPassword) {
       // Redirect to appropriate home based on role
       if (isOwnerRole) {
-        router.replace('/(owner)');
+        navigate('/(owner)');
       } else {
-        router.replace('/(app)');
+        navigate('/(app)');
       }
     } else if (isAuthenticated && isOwnerRole && inDriverGroup) {
       // Owner/admin/dispatcher accessing driver section - redirect to owner
       // (They should use the owner app unless explicitly switching)
-      router.replace('/(owner)');
+      navigate('/(owner)');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.id, loading, segments, isOwnerRole, navigationReady]);
