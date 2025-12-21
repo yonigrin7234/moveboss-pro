@@ -1,37 +1,31 @@
 /**
- * Driver Map Screen - Real-time driver locations
- * Shows last known locations for all drivers with location sharing enabled
+ * Driver Map Screen - Real-time driver locations on an actual map
+ * Shows driver markers with their current positions
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Pressable,
-  RefreshControl,
-  Linking,
-  Alert,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import MapView, { Marker, PROVIDER_GOOGLE, Callout } from 'react-native-maps';
 import { supabase } from '../../../lib/supabase';
 import { Icon } from '../../../components/ui/Icon';
-import { colors, typography, spacing, radius, shadows } from '../../../lib/theme';
-import { haptics } from '../../../lib/haptics';
-
-type FilterType = 'all' | 'available' | 'on_trip';
+import { colors, typography, spacing, radius } from '../../../lib/theme';
 
 interface DriverLocation {
   id: string;
   first_name: string;
   last_name: string;
-  phone: string | null;
   status: string | null;
   location_sharing_enabled: boolean;
-  // Latest trip location data
   current_trip?: {
     id: string;
     trip_number: string;
@@ -40,22 +34,27 @@ interface DriverLocation {
     current_location_city: string | null;
     current_location_state: string | null;
     current_location_updated_at: string | null;
-    origin_city: string | null;
-    origin_state: string | null;
-    destination_city: string | null;
-    destination_state: string | null;
   } | null;
 }
+
+// Default to continental US center
+const DEFAULT_REGION = {
+  latitude: 39.8283,
+  longitude: -98.5795,
+  latitudeDelta: 30,
+  longitudeDelta: 30,
+};
 
 export default function DriverMapScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [filter, setFilter] = useState<FilterType>('all');
+  const mapRef = useRef<MapView>(null);
+  const [selectedDriver, setSelectedDriver] = useState<DriverLocation | null>(null);
 
   // Fetch drivers with their current locations
-  const { data: drivers, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['driver-locations'],
+  const { data: drivers, isLoading, refetch } = useQuery({
+    queryKey: ['driver-locations-map'],
     queryFn: async (): Promise<DriverLocation[]> => {
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) return [];
@@ -67,7 +66,6 @@ export default function DriverMapScreen() {
           id,
           first_name,
           last_name,
-          phone,
           status,
           location_sharing_enabled
         `)
@@ -79,13 +77,12 @@ export default function DriverMapScreen() {
         return [];
       }
 
-      // For each driver with location sharing, get their active trip
+      // For each driver, get their active trip with location
       const driversWithLocations: DriverLocation[] = await Promise.all(
         (driversData || []).map(async (driver) => {
           let currentTrip = null;
 
           if (driver.status === 'on_trip' || driver.location_sharing_enabled) {
-            // Get the driver's active trip with location
             const { data: tripData } = await supabase
               .from('trips')
               .select(`
@@ -95,14 +92,10 @@ export default function DriverMapScreen() {
                 current_location_lng,
                 current_location_city,
                 current_location_state,
-                current_location_updated_at,
-                origin_city,
-                origin_state,
-                destination_city,
-                destination_state
+                current_location_updated_at
               `)
               .eq('driver_id', driver.id)
-              .in('status', ['active', 'en_route'])
+              .in('status', ['active', 'en_route', 'in_progress'])
               .order('created_at', { ascending: false })
               .limit(1)
               .maybeSingle();
@@ -124,14 +117,14 @@ export default function DriverMapScreen() {
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 
-  // Set up real-time subscription for trip location updates
+  // Set up real-time subscription
   useEffect(() => {
     const setupSubscription = async () => {
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) return;
 
       const channel = supabase
-        .channel('driver-location-updates')
+        .channel('driver-map-updates')
         .on(
           'postgres_changes',
           {
@@ -141,8 +134,7 @@ export default function DriverMapScreen() {
             filter: `owner_id=eq.${user.user.id}`,
           },
           () => {
-            // Refetch data when a trip is updated
-            queryClient.invalidateQueries({ queryKey: ['driver-locations'] });
+            queryClient.invalidateQueries({ queryKey: ['driver-locations-map'] });
           }
         )
         .subscribe();
@@ -155,19 +147,40 @@ export default function DriverMapScreen() {
     setupSubscription();
   }, [queryClient]);
 
-  const filteredDrivers = drivers?.filter((driver) => {
-    if (filter === 'all') return true;
-    if (filter === 'available') return driver.status === 'available';
-    if (filter === 'on_trip') return driver.status === 'on_trip';
-    return true;
-  });
+  // Drivers with valid locations
+  const driversWithLocation = drivers?.filter(
+    (d) => d.current_trip?.current_location_lat != null && d.current_trip?.current_location_lng != null
+  ) || [];
 
-  const driversWithLocation = filteredDrivers?.filter(
-    (d) => d.current_trip?.current_location_lat != null
-  ).length || 0;
+  // Fit map to show all drivers
+  useEffect(() => {
+    if (driversWithLocation.length > 0 && mapRef.current) {
+      const coordinates = driversWithLocation.map((d) => ({
+        latitude: d.current_trip!.current_location_lat!,
+        longitude: d.current_trip!.current_location_lng!,
+      }));
+
+      // Small delay to ensure map is ready
+      setTimeout(() => {
+        mapRef.current?.fitToCoordinates(coordinates, {
+          edgePadding: { top: 100, right: 50, bottom: 100, left: 50 },
+          animated: true,
+        });
+      }, 500);
+    }
+  }, [driversWithLocation.length]);
+
+  const getStatusColor = (status: string | null): string => {
+    switch (status) {
+      case 'available': return colors.success;
+      case 'on_trip': return colors.primary;
+      case 'off_duty': return colors.textMuted;
+      default: return colors.textMuted;
+    }
+  };
 
   const formatTimeAgo = (dateString: string | null): string => {
-    if (!dateString) return '';
+    if (!dateString) return 'Unknown';
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -181,20 +194,6 @@ export default function DriverMapScreen() {
     return `${diffDays}d ago`;
   };
 
-  const openInMaps = (lat: number, lng: number, label: string) => {
-    haptics.selection();
-    const url = `https://maps.google.com/?q=${lat},${lng}&label=${encodeURIComponent(label)}`;
-    Linking.openURL(url).catch(() => {
-      Alert.alert('Error', 'Could not open maps');
-    });
-  };
-
-  const filters: { key: FilterType; label: string }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'available', label: 'Available' },
-    { key: 'on_trip', label: 'On Trip' },
-  ];
-
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
@@ -202,190 +201,122 @@ export default function DriverMapScreen() {
         <Pressable style={styles.backButton} onPress={() => router.back()}>
           <Icon name="chevron-left" size="md" color={colors.textPrimary} />
         </Pressable>
-        <Text style={styles.title}>Driver Locations</Text>
-        <View style={{ width: 44 }} />
+        <Text style={styles.title}>Driver Map</Text>
+        <Pressable style={styles.refreshButton} onPress={() => refetch()}>
+          <Icon name="refresh-cw" size="md" color={colors.primary} />
+        </Pressable>
       </View>
 
-      {/* Stats */}
+      {/* Stats Bar */}
       <View style={styles.statsBar}>
         <View style={styles.statItem}>
-          <Icon name="map-pin" size="sm" color={colors.success} />
+          <View style={[styles.statDot, { backgroundColor: colors.success }]} />
           <Text style={styles.statText}>
-            {driversWithLocation} tracking
+            {driversWithLocation.length} tracking
           </Text>
         </View>
         <View style={styles.statItem}>
-          <Icon name="users" size="sm" color={colors.textMuted} />
+          <View style={[styles.statDot, { backgroundColor: colors.textMuted }]} />
           <Text style={styles.statText}>
-            {filteredDrivers?.length || 0} drivers
+            {(drivers?.length || 0) - driversWithLocation.length} offline
           </Text>
         </View>
       </View>
 
-      {/* Filters */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterRow}
-        contentContainerStyle={styles.filterContent}
-      >
-        {filters.map((f) => (
-          <Pressable
-            key={f.key}
-            style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
-            onPress={() => setFilter(f.key)}
+      {/* Map */}
+      <View style={styles.mapContainer}>
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Loading driver locations...</Text>
+          </View>
+        ) : (
+          <MapView
+            ref={mapRef}
+            style={styles.map}
+            provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+            initialRegion={DEFAULT_REGION}
+            showsUserLocation={false}
+            showsMyLocationButton={false}
+            showsCompass={true}
+            mapType="standard"
           >
-            <Text style={[
-              styles.filterText,
-              filter === f.key && styles.filterTextActive,
-            ]}>
-              {f.label}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-
-      {/* Driver List */}
-      <ScrollView
-        style={styles.list}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={() => refetch()}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        {filteredDrivers?.map((driver) => {
-          const hasLocation = driver.current_trip?.current_location_lat != null;
-          const location = hasLocation
-            ? {
-                lat: driver.current_trip!.current_location_lat!,
-                lng: driver.current_trip!.current_location_lng!,
-                city: driver.current_trip!.current_location_city,
-                state: driver.current_trip!.current_location_state,
-                updatedAt: driver.current_trip!.current_location_updated_at,
-              }
-            : null;
-
-          return (
-            <View key={driver.id} style={styles.driverCard}>
-              <View style={styles.driverHeader}>
-                <View style={styles.avatarContainer}>
-                  <Text style={styles.avatarText}>
-                    {driver.first_name?.[0]}{driver.last_name?.[0]}
-                  </Text>
-                </View>
-                <View style={styles.driverInfo}>
-                  <Text style={styles.driverName}>
-                    {driver.first_name} {driver.last_name}
-                  </Text>
-                  <View style={[
-                    styles.statusBadge,
-                    { backgroundColor: getStatusColor(driver.status) + '20' },
-                  ]}>
-                    <View style={[
-                      styles.statusDot,
-                      { backgroundColor: getStatusColor(driver.status) },
-                    ]} />
-                    <Text style={[
-                      styles.statusText,
-                      { color: getStatusColor(driver.status) },
-                    ]}>
-                      {formatStatus(driver.status)}
+            {driversWithLocation.map((driver) => (
+              <Marker
+                key={driver.id}
+                coordinate={{
+                  latitude: driver.current_trip!.current_location_lat!,
+                  longitude: driver.current_trip!.current_location_lng!,
+                }}
+                onPress={() => setSelectedDriver(driver)}
+              >
+                {/* Custom Marker */}
+                <View style={styles.markerContainer}>
+                  <View style={[styles.marker, { backgroundColor: getStatusColor(driver.status) }]}>
+                    <Text style={styles.markerText}>
+                      {driver.first_name?.[0]}{driver.last_name?.[0]}
                     </Text>
                   </View>
+                  <View style={[styles.markerArrow, { borderTopColor: getStatusColor(driver.status) }]} />
                 </View>
-                {hasLocation && (
-                  <Pressable
-                    style={styles.mapButton}
-                    onPress={() => openInMaps(
-                      location!.lat,
-                      location!.lng,
-                      `${driver.first_name} ${driver.last_name}`
-                    )}
-                  >
-                    <Icon name="external-link" size="sm" color={colors.primary} />
-                  </Pressable>
-                )}
-              </View>
 
-              {driver.current_trip && (
-                <View style={styles.tripInfo}>
-                  <View style={styles.tripRow}>
-                    <Icon name="truck" size="sm" color={colors.primary} />
-                    <Text style={styles.tripNumber}>{driver.current_trip.trip_number}</Text>
-                    {driver.current_trip.origin_city && driver.current_trip.destination_city && (
-                      <Text style={styles.tripRoute}>
-                        {driver.current_trip.origin_city}, {driver.current_trip.origin_state} → {driver.current_trip.destination_city}, {driver.current_trip.destination_state}
+                {/* Callout */}
+                <Callout tooltip>
+                  <View style={styles.callout}>
+                    <Text style={styles.calloutName}>
+                      {driver.first_name} {driver.last_name}
+                    </Text>
+                    {driver.current_trip?.current_location_city && (
+                      <Text style={styles.calloutLocation}>
+                        {driver.current_trip.current_location_city}, {driver.current_trip.current_location_state}
+                      </Text>
+                    )}
+                    <Text style={styles.calloutTime}>
+                      Updated {formatTimeAgo(driver.current_trip?.current_location_updated_at || null)}
+                    </Text>
+                    {driver.current_trip?.trip_number && (
+                      <Text style={styles.calloutTrip}>
+                        Trip: {driver.current_trip.trip_number}
                       </Text>
                     )}
                   </View>
-                </View>
-              )}
-
-              {hasLocation ? (
-                <View style={styles.locationInfo}>
-                  <View style={styles.locationRow}>
-                    <Icon name="map-pin" size="sm" color={colors.success} />
-                    <Text style={styles.locationText}>
-                      {location!.city && location!.state
-                        ? `${location!.city}, ${location!.state}`
-                        : `${location!.lat.toFixed(4)}, ${location!.lng.toFixed(4)}`}
-                    </Text>
-                  </View>
-                  <Text style={styles.locationTime}>
-                    Updated {formatTimeAgo(location!.updatedAt)}
-                  </Text>
-                </View>
-              ) : driver.location_sharing_enabled ? (
-                <View style={styles.noLocationInfo}>
-                  <Icon name="map-pin" size="sm" color={colors.textMuted} />
-                  <Text style={styles.noLocationText}>
-                    Location sharing enabled, no recent location
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.noLocationInfo}>
-                  <Icon name="map-pin" size="sm" color={colors.textMuted} />
-                  <Text style={styles.noLocationText}>
-                    Location sharing disabled
-                  </Text>
-                </View>
-              )}
-            </View>
-          );
-        })}
-
-        {!isLoading && (!filteredDrivers || filteredDrivers.length === 0) && (
-          <View style={styles.emptyState}>
-            <Icon name="map-pin" size={48} color={colors.textMuted} />
-            <Text style={styles.emptyTitle}>No Drivers Found</Text>
-            <Text style={styles.emptySubtitle}>
-              {filter !== 'all' ? 'Try a different filter' : 'Add drivers from the web dashboard'}
-            </Text>
-          </View>
+                </Callout>
+              </Marker>
+            ))}
+          </MapView>
         )}
 
-        <View style={{ height: insets.bottom + 80 }} />
-      </ScrollView>
+        {/* No drivers message */}
+        {!isLoading && driversWithLocation.length === 0 && (
+          <View style={styles.noDriversOverlay}>
+            <View style={styles.noDriversCard}>
+              <Icon name="map-pin" size={32} color={colors.textMuted} />
+              <Text style={styles.noDriversTitle}>No Active Locations</Text>
+              <Text style={styles.noDriversText}>
+                Drivers will appear on the map when they have active trips with location tracking enabled.
+              </Text>
+            </View>
+          </View>
+        )}
+      </View>
+
+      {/* Legend */}
+      <View style={[styles.legend, { paddingBottom: insets.bottom + spacing.md }]}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: colors.success }]} />
+          <Text style={styles.legendText}>Available</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
+          <Text style={styles.legendText}>On Trip</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: colors.textMuted }]} />
+          <Text style={styles.legendText}>Off Duty</Text>
+        </View>
+      </View>
     </View>
   );
-}
-
-function getStatusColor(status: string | null): string {
-  switch (status) {
-    case 'available': return colors.success;
-    case 'on_trip': return colors.primary;
-    case 'off_duty': return colors.textMuted;
-    default: return colors.textMuted;
-  }
-}
-
-function formatStatus(status: string | null): string {
-  if (!status) return 'Unknown';
-  return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 }
 
 const styles = StyleSheet.create({
@@ -399,8 +330,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.screenPadding,
     paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    backgroundColor: colors.background,
+    zIndex: 10,
   },
   backButton: {
     width: 44,
@@ -412,11 +343,17 @@ const styles = StyleSheet.create({
     ...typography.headline,
     color: colors.textPrimary,
   },
+  refreshButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   statsBar: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: spacing.xl,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.screenPadding,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
@@ -427,172 +364,150 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
+  statDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   statText: {
     ...typography.caption,
     color: colors.textSecondary,
   },
-  filterRow: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+  mapContainer: {
+    flex: 1,
+    position: 'relative',
   },
-  filterContent: {
-    paddingHorizontal: spacing.screenPadding,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  filterChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.full,
-    backgroundColor: colors.surface,
-  },
-  filterChipActive: {
-    backgroundColor: colors.primary,
-  },
-  filterText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  filterTextActive: {
-    color: colors.white,
-    fontWeight: '600',
-  },
-  list: {
+  map: {
     flex: 1,
   },
-  listContent: {
-    padding: spacing.screenPadding,
-    paddingTop: spacing.md,
-  },
-  driverCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    ...shadows.sm,
-  },
-  driverHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  avatarContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primarySoft,
+  loadingContainer: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+    backgroundColor: colors.surface,
   },
-  avatarText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.primary,
+  loadingText: {
+    ...typography.caption,
+    color: colors.textMuted,
+    marginTop: spacing.md,
   },
-  driverInfo: {
-    flex: 1,
+  markerContainer: {
+    alignItems: 'center',
   },
-  driverName: {
+  marker: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: colors.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  markerText: {
+    ...typography.caption,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  markerArrow: {
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderLeftWidth: 8,
+    borderRightWidth: 8,
+    borderTopWidth: 10,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    marginTop: -2,
+  },
+  callout: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    minWidth: 150,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  calloutName: {
     ...typography.body,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.xxs,
   },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    borderRadius: radius.sm,
-    gap: spacing.xxs,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statusText: {
-    ...typography.caption,
-    fontWeight: '600',
-  },
-  mapButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tripInfo: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  tripRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  tripNumber: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  tripRoute: {
+  calloutLocation: {
     ...typography.caption,
     color: colors.textSecondary,
-    marginLeft: spacing.sm,
   },
-  locationInfo: {
-    backgroundColor: colors.successSoft,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.xxs,
-  },
-  locationText: {
-    ...typography.body,
-    color: colors.success,
-    fontWeight: '600',
-  },
-  locationTime: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginLeft: 20,
-  },
-  noLocationInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  noLocationText: {
-    ...typography.caption,
-    color: colors.textMuted,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: spacing.xxxl,
-  },
-  emptyTitle: {
-    ...typography.headline,
-    color: colors.textSecondary,
-    marginTop: spacing.md,
-  },
-  emptySubtitle: {
+  calloutTime: {
     ...typography.caption,
     color: colors.textMuted,
     marginTop: spacing.xs,
+  },
+  calloutTrip: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '600',
+    marginTop: spacing.xs,
+  },
+  noDriversOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  noDriversCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.xl,
+    alignItems: 'center',
+    marginHorizontal: spacing.xl,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  noDriversTitle: {
+    ...typography.headline,
+    color: colors.textPrimary,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  noDriversText: {
+    ...typography.caption,
+    color: colors.textMuted,
     textAlign: 'center',
+  },
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.screenPadding,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  legendDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  legendText: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
 });
