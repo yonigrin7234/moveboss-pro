@@ -12,6 +12,7 @@
 
 import React, { useCallback, useMemo, forwardRef, useImperativeHandle, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import GorhomBottomSheet, {
   BottomSheetView,
   BottomSheetBackdrop,
@@ -129,6 +130,10 @@ export const BottomSheet = forwardRef<BottomSheetRef, BottomSheetProps>(
     ref
   ) => {
     const bottomSheetRef = useRef<GorhomBottomSheet>(null);
+    const insets = useSafeAreaInsets();
+
+    // Extra padding for tab bar (approx 60px) + safe area bottom
+    const bottomPadding = Math.max(insets.bottom, 20) + 60;
 
     // Default snap points
     const snapPoints = useMemo(
@@ -226,7 +231,7 @@ export const BottomSheet = forwardRef<BottomSheetRef, BottomSheetProps>(
           )}
 
           {/* Content */}
-          <View style={styles.content}>{children}</View>
+          <View style={[styles.content, { paddingBottom: bottomPadding }]}>{children}</View>
         </BottomSheetView>
       </GorhomBottomSheet>
     );
@@ -297,7 +302,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.xxl,
+    // paddingBottom is set dynamically to account for tab bar
   },
 });
 

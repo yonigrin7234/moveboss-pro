@@ -25,7 +25,10 @@
         "NSLocationAlwaysAndWhenInUseUsageDescription": "MoveBoss needs your location to find matching loads near your deliveries and help your dispatcher optimize routes.",
         "NSLocationAlwaysUsageDescription": "MoveBoss needs background location access to track your route and find matching loads even when the app is closed.",
         "NSLocationWhenInUseUsageDescription": "MoveBoss needs your location to show nearby loads and help with navigation.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "LSApplicationQueriesSchemes": [
+          "whatsapp"
+        ]
       }
     },
     "android": {
