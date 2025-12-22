@@ -267,7 +267,7 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
         fixed_auto_post: validatedWithBooleans.auto_post_capacity,
       });
 
-      await updateDriver(id, validatedWithBooleans, user.id, companyId, {
+      const savedDriver = await updateDriver(id, validatedWithBooleans, user.id, companyId, {
         effectiveHasLogin,
         login_method: loginMethod as 'email' | 'phone',
         email: email?.trim() || null,
@@ -275,7 +275,7 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
         password: password || null,
         resetPassword: reset,
       });
-      // TEMPORARY DEBUG: Return what was sent to help debug
+      // TEMPORARY DEBUG: Return what was ACTUALLY SAVED to help debug
       return {
         success: true,
         _debug: {
@@ -283,8 +283,9 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
           form_auto_post: formData.get('auto_post_capacity'),
           validated_location_sharing: validated.location_sharing_enabled,
           validated_auto_post: validated.auto_post_capacity,
-          validated_default_truck: validated.default_truck_id,
-          validated_default_trailer: validated.default_trailer_id,
+          // CRITICAL: What the database actually returned after the update
+          saved_location_sharing: (savedDriver as any).location_sharing_enabled,
+          saved_auto_post: (savedDriver as any).auto_post_capacity,
         }
       } as { errors?: Record<string, string>; success?: boolean; _debug?: Record<string, unknown> };
     } catch (error) {
