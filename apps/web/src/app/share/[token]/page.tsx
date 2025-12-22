@@ -24,6 +24,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const company = shareLink?.companies as unknown as { name: string } | null;
   const loadCount = shareLink?.load_ids?.length || 0;
 
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.moveboss.com';
+
   return {
     title: company
       ? `${loadCount} ${loadCount === 1 ? 'Load' : 'Loads'} from ${company.name} | MoveBoss Pro`
@@ -32,11 +34,25 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       ? `View ${loadCount} available ${loadCount === 1 ? 'load' : 'loads'} shared by ${company.name}`
       : 'View shared loads on MoveBoss Pro',
     openGraph: {
-      title: company ? `${loadCount} Available Loads` : 'Shared Loads',
+      title: company ? `${loadCount} Available ${loadCount === 1 ? 'Load' : 'Loads'}` : 'Shared Loads',
       description: company
         ? `View ${loadCount} available ${loadCount === 1 ? 'load' : 'loads'} shared by ${company.name}`
         : 'View shared loads',
       type: 'website',
+      siteName: 'MoveBoss',
+      images: [{
+        url: `${baseUrl}/opengraph-image`,
+        width: 1200,
+        height: 630,
+        alt: 'MoveBoss Pro',
+      }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: company ? `${loadCount} Available ${loadCount === 1 ? 'Load' : 'Loads'}` : 'Shared Loads',
+      description: company
+        ? `View ${loadCount} available ${loadCount === 1 ? 'load' : 'loads'} shared by ${company.name}`
+        : 'View shared loads',
     },
   };
 }
