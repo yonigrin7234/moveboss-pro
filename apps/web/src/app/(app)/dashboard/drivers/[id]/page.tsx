@@ -10,6 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getPrimaryCompanyForUser } from '@/data/companies';
 
+// Force dynamic rendering to ensure fresh data after updates
+export const dynamic = 'force-dynamic';
+
 function formatStatus(status: Driver['status']): string {
   switch (status) {
     case 'active':

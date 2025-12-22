@@ -9,6 +9,9 @@ import {
   type DriverFilters,
   type DriverStatus,
 } from '@/data/drivers';
+
+// Force dynamic rendering to ensure fresh data after updates
+export const dynamic = 'force-dynamic';
 import { getPrimaryCompanyForUser } from '@/data/companies';
 import { getCompanyDriverDispatchConversations } from '@/data/conversations';
 import { DriverListFilters } from './driver-list-filters';
