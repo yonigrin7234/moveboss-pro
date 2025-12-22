@@ -5,7 +5,8 @@
  * Detail screens: Hide tab bar for focused experience
  */
 
-import { Tabs } from 'expo-router';
+import { useCallback } from 'react';
+import { Tabs, useRouter } from 'expo-router';
 import { OwnerTabBar } from '../../components/OwnerTabBar';
 import { ErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { colors } from '../../lib/theme';
@@ -13,14 +14,45 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { queryClient, asyncStoragePersister } from '../../lib/queryClient';
 import { useOwnerDashboardData } from '../../hooks/useOwnerDashboardData';
 import { useOwnerRealtime } from '../../hooks/useOwnerRealtime';
-import { useOwnerUnreadCount } from '../../hooks/useOwnerMessaging';
+import { useOwnerUnreadCount, useIncomingMessageNotifications } from '../../hooks/useOwnerMessaging';
+import { useToast } from '../../components/ui/Toast';
+import { haptics } from '../../lib/haptics';
 
 function OwnerTabBarWithBadges(props: any) {
   const { requestCount, criticalRfdCount } = useOwnerDashboardData();
   const messageCount = useOwnerUnreadCount();
+  const router = useRouter();
+  const toast = useToast();
 
   // Enable real-time subscriptions for the owner experience
   useOwnerRealtime();
+
+  // Handle incoming message notifications with toasts
+  const handleIncomingMessage = useCallback((message: {
+    conversationId: string;
+    senderName: string;
+    preview: string;
+    conversationType: string;
+  }) => {
+    // Play haptic feedback for incoming message
+    haptics.attention();
+
+    // Show toast notification with action to open the conversation
+    toast.showToast(`${message.senderName}: ${message.preview}`, 'info', {
+      duration: 5000,
+      action: {
+        label: 'View',
+        onPress: () => {
+          router.push(`/(owner)/messages/${message.conversationId}`);
+        },
+      },
+    });
+  }, [toast, router]);
+
+  // Subscribe to incoming messages for notifications
+  useIncomingMessageNotifications({
+    onNewMessage: handleIncomingMessage,
+  });
 
   return (
     <OwnerTabBar

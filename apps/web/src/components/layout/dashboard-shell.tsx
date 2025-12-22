@@ -5,6 +5,7 @@ import { TopNav } from "./top-nav"
 import { MobileNav } from "./mobile-nav"
 import { CriticalAlertsBanner } from "@/components/critical-alerts-banner"
 import { LoadRequestInterruptModal } from "@/components/load-request-interrupt-modal"
+import { IncomingMessageNotifications } from "@/components/incoming-message-notifications"
 
 interface UserPermissions {
   can_manage_drivers?: boolean
@@ -63,6 +64,8 @@ export function DashboardShell({ children, userId, user, company, role, unreadNo
       {company?.isBroker && (
         <LoadRequestInterruptModal userId={userId} />
       )}
+      {/* Global incoming message notifications */}
+      <IncomingMessageNotifications userId={userId} companyId={company?.id} />
     </div>
   )
 }

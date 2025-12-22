@@ -799,3 +799,183 @@ export function useMarkAsRead() {
 
   return markAsRead;
 }
+
+// ============================================================================
+// INCOMING MESSAGE NOTIFICATIONS HOOK
+// ============================================================================
+
+interface IncomingMessageNotificationOptions {
+  /** Called when a new message arrives with details for showing a toast */
+  onNewMessage?: (message: {
+    conversationId: string;
+    senderName: string;
+    preview: string;
+    conversationType: string;
+  }) => void;
+  /** Whether to skip notifications (e.g., when on a chat screen) */
+  skipNotifications?: boolean;
+  /** Current conversation ID to exclude from notifications */
+  currentConversationId?: string | null;
+}
+
+/**
+ * Hook that listens for incoming messages and triggers notifications.
+ * Use this at the layout level to show toast notifications for new messages.
+ */
+export function useIncomingMessageNotifications(options: IncomingMessageNotificationOptions = {}) {
+  const { user } = useAuth();
+  const { company } = useOwner();
+  const subscriptionRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const participantConversationsRef = useRef<Set<string>>(new Set());
+
+  // Fetch the conversations the user participates in
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const fetchParticipantConversations = async () => {
+      const { data } = await supabase
+        .from('conversation_participants')
+        .select('conversation_id')
+        .eq('user_id', user.id)
+        .eq('can_read', true);
+
+      if (data) {
+        participantConversationsRef.current = new Set(data.map(p => p.conversation_id));
+      }
+    };
+
+    fetchParticipantConversations();
+
+    // Also subscribe to participant changes to update the set
+    const channel = supabase
+      .channel(`user-participants-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversation_participants',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchParticipantConversations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
+  // Subscribe to messages for notifications
+  useEffect(() => {
+    if (!user?.id || !company?.id || options.skipNotifications) return;
+
+    // Clean up existing subscription
+    if (subscriptionRef.current) {
+      supabase.removeChannel(subscriptionRef.current);
+      subscriptionRef.current = null;
+    }
+
+    const channel = supabase
+      .channel(`owner-message-notifications-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        async (payload) => {
+          const newMessage = payload.new as {
+            id: string;
+            conversation_id: string;
+            sender_user_id: string | null;
+            sender_driver_id: string | null;
+            body: string;
+            created_at: string;
+          };
+
+          // Skip if this message is from the current user
+          if (newMessage.sender_user_id === user.id) {
+            return;
+          }
+
+          // Skip if not in a conversation the user participates in
+          if (!participantConversationsRef.current.has(newMessage.conversation_id)) {
+            return;
+          }
+
+          // Skip if viewing this conversation currently
+          if (options.currentConversationId === newMessage.conversation_id) {
+            return;
+          }
+
+          // Fetch conversation details and sender info
+          try {
+            const { data: conv } = await supabase
+              .from('conversations')
+              .select(`
+                type,
+                title,
+                driver:driver_id (first_name, last_name)
+              `)
+              .eq('id', newMessage.conversation_id)
+              .single();
+
+            let senderName = 'Someone';
+
+            if (newMessage.sender_driver_id) {
+              const { data: driver } = await supabase
+                .from('drivers')
+                .select('first_name, last_name')
+                .eq('id', newMessage.sender_driver_id)
+                .single();
+
+              if (driver) {
+                senderName = `${driver.first_name} ${driver.last_name}`;
+              }
+            } else if (newMessage.sender_user_id) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('full_name, email')
+                .eq('id', newMessage.sender_user_id)
+                .single();
+
+              if (profile) {
+                senderName = profile.full_name || profile.email?.split('@')[0] || 'User';
+              }
+            }
+
+            // Truncate preview
+            const preview = newMessage.body.length > 50
+              ? newMessage.body.substring(0, 50) + '...'
+              : newMessage.body;
+
+            // Trigger the callback
+            if (options.onNewMessage) {
+              options.onNewMessage({
+                conversationId: newMessage.conversation_id,
+                senderName,
+                preview,
+                conversationType: conv?.type || 'general',
+              });
+            }
+          } catch (err) {
+            console.error('Failed to process incoming message notification:', err);
+          }
+        }
+      )
+      .subscribe();
+
+    subscriptionRef.current = channel;
+
+    return () => {
+      if (subscriptionRef.current) {
+        supabase.removeChannel(subscriptionRef.current);
+        subscriptionRef.current = null;
+      }
+    };
+  }, [user?.id, company?.id, options.skipNotifications, options.currentConversationId, options.onNewMessage]);
+}
