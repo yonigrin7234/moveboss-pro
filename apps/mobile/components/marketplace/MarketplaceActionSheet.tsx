@@ -74,7 +74,7 @@ export const MarketplaceActionSheet = forwardRef<BottomSheetRef, MarketplaceActi
       <BottomSheet
         ref={ref}
         title={isCurrentlyPosted ? 'Remove from Marketplace' : 'Post to Marketplace'}
-        snapPoints={['50%']}
+        snapPoints={['65%']}
         onClose={onClose}
       >
         <View style={styles.container}>

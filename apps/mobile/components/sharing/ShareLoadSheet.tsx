@@ -97,7 +97,7 @@ export const ShareLoadSheet = forwardRef<BottomSheetRef, ShareLoadSheetProps>(
       <BottomSheet
         ref={ref}
         title="Share Load"
-        snapPoints={['55%']}
+        snapPoints={['70%']}
         onClose={onClose}
       >
         <View style={styles.container}>

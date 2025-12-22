@@ -274,7 +274,7 @@ export const AssignToTripSheet = forwardRef<BottomSheetRef, AssignToTripSheetPro
       <BottomSheet
         ref={ref}
         title="Assign to Trip"
-        snapPoints={['60%']}
+        snapPoints={['75%']}
         onClose={onClose}
       >
         <View style={styles.container}>
