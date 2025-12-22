@@ -129,27 +129,24 @@ export function usePushNotifications(): UsePushNotificationsResult {
     if (!user) return;
 
     try {
-      // Get driver record
+      // Try to get driver record (optional - user may be an owner/dispatcher without driver record)
       const { data: driver } = await supabase
         .from('drivers')
         .select('id')
         .eq('auth_user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (!driver) return;
-
-      // Upsert push token
-      // Explicitly set is_active to true to ensure tokens are active
+      // Upsert push token - works for both drivers and non-drivers (owners/dispatchers)
       const { error: upsertError } = await supabase
         .from('push_tokens')
         .upsert(
           {
             user_id: user.id,
-            driver_id: driver.id,
+            driver_id: driver?.id || null, // Optional - only set if user is a driver
             token,
             platform: Platform.OS,
             device_name: Device.deviceName || undefined,
-            is_active: true, // Explicitly set to ensure token is active
+            is_active: true,
             updated_at: new Date().toISOString(),
           },
           {
