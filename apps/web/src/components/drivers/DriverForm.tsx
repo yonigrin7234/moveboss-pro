@@ -149,6 +149,8 @@ export function DriverForm({
   const [autoPostCapacity, setAutoPostCapacity] = useState(
     (initialData as any)?.auto_post_capacity || false
   );
+  // Track if form is submitting to prevent checkbox reset
+  const isSubmittingRef = useRef(false);
 
   // DEBUG: Log initial values when component mounts
   useEffect(() => {
@@ -328,6 +330,8 @@ export function DriverForm({
   // On successful server action, show toast then navigate.
   useEffect(() => {
     if (state?.success) {
+      // Reset submitting flag
+      isSubmittingRef.current = false;
       // Mark setup progress for first driver
       markComplete('first_driver_added');
       // TEMPORARY DEBUG: Show what was sent AND what was saved
@@ -343,6 +347,13 @@ export function DriverForm({
       router.refresh();
     }
   }, [state?.success, router, toast, markComplete]);
+
+  // Reset submitting flag on error
+  useEffect(() => {
+    if (state?.errors) {
+      isSubmittingRef.current = false;
+    }
+  }, [state?.errors]);
 
   // When errors occur, navigate to the step containing the first error field
   useEffect(() => {
@@ -573,6 +584,9 @@ export function DriverForm({
       state_auto_post: autoPostCapacity,
       all_keys: Array.from(formData.keys()),
     });
+
+    // Mark as submitting to prevent checkbox reset
+    isSubmittingRef.current = true;
 
     // If there are equipment conflicts and user hasn't confirmed, show confirmation dialog
     if (hasEquipmentConflicts && !confirmedReassignmentRef.current) {
@@ -1401,6 +1415,11 @@ export function DriverForm({
                       id="location_sharing_enabled"
                       checked={locationSharingEnabled}
                       onCheckedChange={(checked) => {
+                        // Guard against reset during form submission
+                        if (isSubmittingRef.current && checked === false) {
+                          console.log('LOCATION_CHECKBOX_BLOCKED', { checked, isSubmitting: true });
+                          return;
+                        }
                         console.log('LOCATION_CHECKBOX_CHANGE', { checked, newValue: checked === true });
                         setLocationSharingEnabled(checked === true);
                       }}
@@ -1418,6 +1437,11 @@ export function DriverForm({
                       id="auto_post_capacity"
                       checked={autoPostCapacity}
                       onCheckedChange={(checked) => {
+                        // Guard against reset during form submission
+                        if (isSubmittingRef.current && checked === false) {
+                          console.log('AUTO_POST_CHECKBOX_BLOCKED', { checked, isSubmitting: true });
+                          return;
+                        }
                         console.log('AUTO_POST_CHECKBOX_CHANGE', { checked, newValue: checked === true });
                         setAutoPostCapacity(checked === true);
                       }}
