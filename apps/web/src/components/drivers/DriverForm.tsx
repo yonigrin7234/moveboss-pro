@@ -149,7 +149,18 @@ export function DriverForm({
   const [autoPostCapacity, setAutoPostCapacity] = useState(
     (initialData as any)?.auto_post_capacity || false
   );
-  
+
+  // DEBUG: Log initial values when component mounts
+  useEffect(() => {
+    console.log('DRIVER_FORM_INIT_DEBUG', {
+      initialData_location_sharing: (initialData as any)?.location_sharing_enabled,
+      initialData_auto_post: (initialData as any)?.auto_post_capacity,
+      state_location_sharing: locationSharingEnabled,
+      state_auto_post: autoPostCapacity,
+      initialData_keys: initialData ? Object.keys(initialData) : [],
+    });
+  }, []); // Only on mount
+
   // Disable portal access if service role key is missing
   useEffect(() => {
     if (!hasServiceRoleKey && hasLogin) {
@@ -551,6 +562,16 @@ export function DriverForm({
       }
     });
     setSavedFormData(values);
+
+    // DEBUG: Log what's being submitted
+    console.log('FORM_SUBMIT_DEBUG', {
+      location_sharing_enabled: formData.get('location_sharing_enabled'),
+      auto_post_capacity: formData.get('auto_post_capacity'),
+      capacity_visibility: formData.get('capacity_visibility'),
+      state_location_sharing: locationSharingEnabled,
+      state_auto_post: autoPostCapacity,
+      all_keys: Array.from(formData.keys()),
+    });
 
     // If there are equipment conflicts and user hasn't confirmed, show confirmation dialog
     if (hasEquipmentConflicts && !confirmedReassignmentRef.current) {
@@ -1378,7 +1399,10 @@ export function DriverForm({
                     <Checkbox
                       id="location_sharing_enabled"
                       checked={locationSharingEnabled}
-                      onCheckedChange={(checked) => setLocationSharingEnabled(checked === true)}
+                      onCheckedChange={(checked) => {
+                        console.log('LOCATION_CHECKBOX_CHANGE', { checked, newValue: checked === true });
+                        setLocationSharingEnabled(checked === true);
+                      }}
                     />
                     <input type="hidden" name="location_sharing_enabled" value={locationSharingEnabled ? 'true' : 'false'} />
                   </div>
@@ -1392,7 +1416,10 @@ export function DriverForm({
                     <Checkbox
                       id="auto_post_capacity"
                       checked={autoPostCapacity}
-                      onCheckedChange={(checked) => setAutoPostCapacity(checked === true)}
+                      onCheckedChange={(checked) => {
+                        console.log('AUTO_POST_CHECKBOX_CHANGE', { checked, newValue: checked === true });
+                        setAutoPostCapacity(checked === true);
+                      }}
                     />
                     <input type="hidden" name="auto_post_capacity" value={autoPostCapacity ? 'true' : 'false'} />
                   </div>
