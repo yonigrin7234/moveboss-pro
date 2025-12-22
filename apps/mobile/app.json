@@ -25,11 +25,13 @@
         "NSLocationAlwaysAndWhenInUseUsageDescription": "MoveBoss needs your location to find matching loads near your deliveries and help your dispatcher optimize routes.",
         "NSLocationAlwaysUsageDescription": "MoveBoss needs background location access to track your route and find matching loads even when the app is closed.",
         "NSLocationWhenInUseUsageDescription": "MoveBoss needs your location to show nearby loads and help with navigation.",
+        "NSFaceIDUsageDescription": "Use Face ID for faster, more secure sign in to MoveBoss",
         "ITSAppUsesNonExemptEncryption": false,
         "LSApplicationQueriesSchemes": [
           "whatsapp"
         ]
-      }
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -45,7 +47,9 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_LOCATION"
+        "FOREGROUND_SERVICE_LOCATION",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
       ]
     },
     "plugins": [
@@ -67,7 +71,15 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-secure-store",
+      "expo-apple-authentication",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow MoveBoss to use Face ID for faster sign in"
+        }
+      ]
     ],
     "web": {
       "favicon": "./assets/favicon.png"
