@@ -26,12 +26,18 @@ interface LoadData {
   load_number: string;
   pickup_city: string | null;
   pickup_state: string | null;
+  pickup_postal_code: string | null;
   delivery_city: string | null;
   delivery_state: string | null;
+  delivery_postal_code: string | null;
   cubic_feet: number | null;
   rate_per_cuft: number | null;
+  total_rate: number | null;
+  balance_cf: number | null;
   status: string;
   rfd_date: string | null;
+  pickup_window_start: string | null;
+  pickup_window_end: string | null;
   created_at: string;
   posting_status: string | null;
   is_marketplace_visible: boolean | null;
@@ -61,12 +67,18 @@ export default function LoadsScreen() {
           load_number,
           pickup_city,
           pickup_state,
+          pickup_postal_code,
           delivery_city,
           delivery_state,
+          delivery_postal_code,
           cubic_feet,
           rate_per_cuft,
+          total_rate,
+          balance_cf,
           status,
           rfd_date,
+          pickup_window_start,
+          pickup_window_end,
           created_at,
           posting_status,
           is_marketplace_visible
@@ -113,17 +125,23 @@ export default function LoadsScreen() {
 
   const handleShare = (load: LoadData) => {
     haptics.selection();
-    // Convert to ShareableLoad format
+    // Convert to ShareableLoad format with all required fields
     const shareableLoad: ShareableLoad = {
       id: load.id,
       load_number: load.load_number,
       pickup_city: load.pickup_city,
       pickup_state: load.pickup_state,
+      pickup_postal_code: load.pickup_postal_code,
       delivery_city: load.delivery_city,
       delivery_state: load.delivery_state,
-      cuft: load.cubic_feet,
+      delivery_postal_code: load.delivery_postal_code,
+      cubic_feet: load.cubic_feet,
       rate_per_cuft: load.rate_per_cuft,
+      total_rate: load.total_rate,
+      balance_cf: load.balance_cf,
       rfd_date: load.rfd_date,
+      pickup_window_start: load.pickup_window_start,
+      pickup_window_end: load.pickup_window_end,
       status: load.status,
     };
     setSelectedLoad(shareableLoad);

@@ -51,6 +51,18 @@ export const ShareLoadSheet = forwardRef<BottomSheetRef, ShareLoadSheetProps>(
 
       setLoading(true);
       try {
+        console.log('[ShareLoadSheet] Calling API:', `${API_URL}/api/sharing`);
+        console.log('[ShareLoadSheet] Load data:', JSON.stringify({
+          id: load.id,
+          pickup_city: load.pickup_city,
+          pickup_state: load.pickup_state,
+          pickup_postal_code: load.pickup_postal_code,
+          delivery_city: load.delivery_city,
+          delivery_state: load.delivery_state,
+          delivery_postal_code: load.delivery_postal_code,
+          balance_cf: load.balance_cf,
+        }));
+
         const response = await fetch(`${API_URL}/api/sharing`, {
           method: 'POST',
           headers: {
@@ -66,11 +78,17 @@ export const ShareLoadSheet = forwardRef<BottomSheetRef, ShareLoadSheetProps>(
           }),
         });
 
+        console.log('[ShareLoadSheet] API response status:', response.status);
+
         if (response.ok) {
           const data = await response.json();
+          console.log('[ShareLoadSheet] API success, text:', data.text?.substring(0, 100) + '...');
+          console.log('[ShareLoadSheet] API link:', data.link);
           setMessage(data.text);
           setShareLink(data.link);
         } else {
+          const errorText = await response.text();
+          console.log('[ShareLoadSheet] API error:', response.status, errorText);
           // Fallback to local generation
           const localMessage = buildShareMessage([load], {
             showRates,
@@ -79,9 +97,10 @@ export const ShareLoadSheet = forwardRef<BottomSheetRef, ShareLoadSheetProps>(
           setMessage(localMessage);
         }
       } catch (error) {
-        console.error('Failed to generate share text:', error);
+        console.error('[ShareLoadSheet] API exception:', error);
         // Fallback to local generation
         if (load) {
+          console.log('[ShareLoadSheet] Using local fallback');
           const localMessage = buildShareMessage([load], {
             showRates,
             companyName,

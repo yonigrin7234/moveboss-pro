@@ -70,15 +70,16 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'No loads specified' }, { status: 400 });
       }
 
-      // Fetch loads
+      // Fetch loads - allow sharing any load owned by the company
+      // Check both company_id and posted_by_company_id as either could be set
       const { data: loads, error: loadsError } = await supabase
         .from('loads')
         .select('*')
         .in('id', loadIds)
-        .eq('company_id', companyId)
-        .eq('status', 'pending');
+        .or(`company_id.eq.${companyId},posted_by_company_id.eq.${companyId}`);
 
       if (loadsError || !loads || loads.length === 0) {
+        console.log('[Sharing API] Loads not found:', { loadIds, companyId, error: loadsError });
         return NextResponse.json({ error: 'Loads not found or not available' }, { status: 404 });
       }
 
