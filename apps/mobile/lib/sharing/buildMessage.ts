@@ -11,19 +11,33 @@ export interface ShareableLoad {
   // Location fields
   pickup_city?: string | null;
   pickup_state?: string | null;
+  pickup_postal_code?: string | null;
+  pickup_zip?: string | null;
   dropoff_city?: string | null;
   dropoff_state?: string | null;
+  dropoff_postal_code?: string | null;
   delivery_city?: string | null;
   delivery_state?: string | null;
+  delivery_postal_code?: string | null;
+  // Loading location (for RFD loads)
+  loading_city?: string | null;
+  loading_state?: string | null;
+  loading_postal_code?: string | null;
   // Pricing
   cubic_feet?: number | null;
   cuft?: number | null;
+  cubic_feet_estimate?: number | null;
   rate_per_cuft?: number | null;
   total_rate?: number | null;
   linehaul_amount?: number | null;
+  balance_cf?: number | null;
+  remaining_cf?: number | null;
   // Pickup dates
   pickup_window_start?: string | null;
   pickup_window_end?: string | null;
+  pickup_date_start?: string | null;
+  pickup_date?: string | null;
+  first_available_date?: string | null;
   rfd_date?: string | null;
   // Status
   status?: string | null;
@@ -36,25 +50,79 @@ export interface BuildMessageOptions {
 }
 
 /**
- * Format a route string
+ * Formats a location string: "City, ST ZIP" | "City, ST" | "City" | "Unknown"
+ */
+function formatLocation(
+  city?: string | null,
+  state?: string | null,
+  zip?: string | null
+): string {
+  const parts: string[] = [];
+
+  if (city?.trim()) {
+    parts.push(city.trim());
+  }
+
+  if (state?.trim()) {
+    if (parts.length > 0) {
+      parts[0] = `${parts[0]}, ${state.trim().toUpperCase()}`;
+    } else {
+      parts.push(state.trim().toUpperCase());
+    }
+  }
+
+  if (zip?.trim()) {
+    if (parts.length > 0) {
+      parts[0] = `${parts[0]} ${zip.trim()}`;
+    } else {
+      parts.push(zip.trim());
+    }
+  }
+
+  return parts.length > 0 ? parts[0] : 'Unknown';
+}
+
+/**
+ * Format a route string with ZIP codes: "City, ST ZIP → City, ST ZIP"
  */
 function formatRoute(load: ShareableLoad): string {
-  const originCity = load.pickup_city || 'Unknown';
-  const originState = load.pickup_state || '';
-  const destCity = load.delivery_city || load.dropoff_city || 'Unknown';
-  const destState = load.delivery_state || load.dropoff_state || '';
+  // Get origin location
+  const originCity = load.pickup_city || load.loading_city;
+  const originState = load.pickup_state || load.loading_state;
+  const originZip = load.pickup_postal_code || load.pickup_zip || load.loading_postal_code;
 
-  const origin = originState ? `${originCity}, ${originState}` : originCity;
-  const dest = destState ? `${destCity}, ${destState}` : destCity;
+  // Get destination location (prefer delivery_*, fallback to dropoff_*)
+  const destCity = load.delivery_city || load.dropoff_city;
+  const destState = load.delivery_state || load.dropoff_state;
+  const destZip = load.delivery_postal_code || load.dropoff_postal_code;
 
-  return `${origin} → ${dest}`;
+  const origin = formatLocation(originCity, originState, originZip);
+  const destination = formatLocation(destCity, destState, destZip);
+
+  return `${origin} → ${destination}`;
 }
 
 /**
  * Get cubic feet value
  */
 function getCubicFeet(load: ShareableLoad): number | null {
-  return load.cubic_feet || load.cuft || null;
+  return load.cubic_feet || load.cuft || load.cubic_feet_estimate || null;
+}
+
+/**
+ * Get balance CF left
+ */
+function getBalanceCF(load: ShareableLoad): number | null {
+  return load.balance_cf || load.remaining_cf || null;
+}
+
+/**
+ * Builds balance line if applicable
+ */
+function buildBalanceLine(load: ShareableLoad): string {
+  const balance = getBalanceCF(load);
+  if (!balance || balance <= 0) return '';
+  return `• Balance left: ${balance.toLocaleString()} CF`;
 }
 
 /**
@@ -216,12 +284,15 @@ export function buildSingleLoadMessage(
   const dateLabel = getDateLabel(templateType);
   const showDate = shouldShowDate(load, templateType);
 
+  const balanceLine = buildBalanceLine(load);
+
   const lines: string[] = [];
   lines.push(header);
   lines.push('');
   lines.push(`→ ${route}`);
 
   if (cfLine) lines.push(cfLine);
+  if (balanceLine) lines.push(balanceLine);
   if (showDate && pickupWindow) lines.push(`• ${dateLabel}: ${pickupWindow}`);
   if (payoutLine) lines.push(payoutLine);
 

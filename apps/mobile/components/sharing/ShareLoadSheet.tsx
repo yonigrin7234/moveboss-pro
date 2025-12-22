@@ -5,35 +5,113 @@
  * - Share to WhatsApp with formatted message
  * - Copy to clipboard
  * - Toggle rate visibility
- * - Message preview
+ * - Message preview with shareable link
  */
 
-import React, { forwardRef, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, Linking, Share, Alert } from 'react-native';
+import React, { forwardRef, useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, Pressable, Linking, Share, Alert, ActivityIndicator } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { BottomSheet, BottomSheetRef } from '../ui/BottomSheet';
 import { Icon } from '../ui/Icon';
 import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
 import { haptics } from '../../lib/haptics';
 import { buildShareMessage, type ShareableLoad } from '../../lib/sharing';
+import { useAuth } from '../../providers/AuthProvider';
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL || '';
 
 interface ShareLoadSheetProps {
   load: ShareableLoad | null;
   companyName?: string;
   onClose?: () => void;
+  isOpen?: boolean;
 }
 
 export const ShareLoadSheet = forwardRef<BottomSheetRef, ShareLoadSheetProps>(
-  ({ load, companyName, onClose }, ref) => {
+  ({ load, companyName, onClose, isOpen }, ref) => {
     const [showRates, setShowRates] = useState(true);
+    const [message, setMessage] = useState('');
+    const [shareLink, setShareLink] = useState('');
+    const [loading, setLoading] = useState(false);
+    const { session } = useAuth();
 
-    const message = useMemo(() => {
-      if (!load) return '';
-      return buildShareMessage([load], {
-        showRates,
-        companyName,
-      });
-    }, [load, showRates, companyName]);
+    // Generate share text with link from API
+    const generateShareText = useCallback(async () => {
+      if (!load?.id || !session?.access_token) {
+        // Fallback to local generation without link
+        if (load) {
+          const localMessage = buildShareMessage([load], {
+            showRates,
+            companyName,
+          });
+          setMessage(localMessage);
+        }
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const response = await fetch(`${API_URL}/api/sharing`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            action: 'generate-text',
+            loadIds: [load.id],
+            format: 'whatsapp',
+            includeLink: true,
+            linkType: 'single',
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setMessage(data.text);
+          setShareLink(data.link);
+        } else {
+          // Fallback to local generation
+          const localMessage = buildShareMessage([load], {
+            showRates,
+            companyName,
+          });
+          setMessage(localMessage);
+        }
+      } catch (error) {
+        console.error('Failed to generate share text:', error);
+        // Fallback to local generation
+        if (load) {
+          const localMessage = buildShareMessage([load], {
+            showRates,
+            companyName,
+          });
+          setMessage(localMessage);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }, [load, session?.access_token, showRates, companyName]);
+
+    // Generate message when sheet opens or showRates changes
+    useEffect(() => {
+      if (load && isOpen !== false) {
+        generateShareText();
+      }
+    }, [load?.id, isOpen, showRates, generateShareText]);
+
+    // Update message locally when toggling rates (re-generate with API)
+    useEffect(() => {
+      if (load && shareLink) {
+        // If we have a link, regenerate the message locally with the existing link
+        const localMessage = buildShareMessage([load], {
+          showRates,
+          companyName,
+          link: shareLink,
+        });
+        setMessage(localMessage);
+      }
+    }, [showRates, load, companyName, shareLink]);
 
     const handleShareWhatsApp = async () => {
       if (!message) return;
@@ -115,30 +193,40 @@ export const ShareLoadSheet = forwardRef<BottomSheetRef, ShareLoadSheetProps>(
           {/* Message Preview */}
           <View style={styles.previewCard}>
             <Text style={styles.previewLabel}>Preview</Text>
-            <Text style={styles.previewText}>{message}</Text>
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color={colors.primary} />
+                <Text style={styles.loadingText}>Generating share link...</Text>
+              </View>
+            ) : (
+              <Text style={styles.previewText}>{message}</Text>
+            )}
           </View>
 
           {/* Share Buttons */}
           <View style={styles.shareButtons}>
             <Pressable
-              style={[styles.shareButton, styles.whatsappButton]}
+              style={[styles.shareButton, styles.whatsappButton, loading && styles.disabledButton]}
               onPress={handleShareWhatsApp}
+              disabled={loading}
             >
               <Icon name="message-square" size="md" color={colors.white} />
               <Text style={styles.shareButtonText}>WhatsApp</Text>
             </Pressable>
 
             <Pressable
-              style={[styles.shareButton, styles.copyButton]}
+              style={[styles.shareButton, styles.copyButton, loading && styles.disabledButton]}
               onPress={handleCopyToClipboard}
+              disabled={loading}
             >
               <Icon name="copy" size="md" color={colors.textPrimary} />
               <Text style={[styles.shareButtonText, styles.copyButtonText]}>Copy</Text>
             </Pressable>
 
             <Pressable
-              style={[styles.shareButton, styles.moreButton]}
+              style={[styles.shareButton, styles.moreButton, loading && styles.disabledButton]}
               onPress={handleSystemShare}
+              disabled={loading}
             >
               <Icon name="share" size="md" color={colors.textPrimary} />
               <Text style={[styles.shareButtonText, styles.moreButtonText]}>More</Text>
@@ -191,7 +279,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.lg,
     marginBottom: spacing.xl,
-    maxHeight: 160,
+    minHeight: 120,
+    maxHeight: 180,
   },
   previewLabel: {
     ...typography.label,
@@ -202,6 +291,16 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textSecondary,
     lineHeight: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  loadingText: {
+    ...typography.caption,
+    color: colors.textMuted,
   },
   shareButtons: {
     flexDirection: 'row',
@@ -229,6 +328,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
   shareButtonText: {
     ...typography.buttonSmall,
