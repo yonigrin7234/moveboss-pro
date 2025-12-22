@@ -60,7 +60,6 @@ export const ShareLoadSheet = forwardRef<BottomSheetRef, ShareLoadSheetProps>(
           delivery_city: load.delivery_city,
           delivery_state: load.delivery_state,
           delivery_postal_code: load.delivery_postal_code,
-          balance_cf: load.balance_cf,
         }));
 
         const response = await fetch(`${API_URL}/api/sharing`, {

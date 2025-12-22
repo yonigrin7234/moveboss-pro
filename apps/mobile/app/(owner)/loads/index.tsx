@@ -33,7 +33,6 @@ interface LoadData {
   cubic_feet: number | null;
   rate_per_cuft: number | null;
   total_rate: number | null;
-  balance_cf: number | null;
   status: string;
   rfd_date: string | null;
   pickup_window_start: string | null;
@@ -74,7 +73,6 @@ export default function LoadsScreen() {
           cubic_feet,
           rate_per_cuft,
           total_rate,
-          balance_cf,
           status,
           rfd_date,
           pickup_window_start,
@@ -138,7 +136,6 @@ export default function LoadsScreen() {
       cubic_feet: load.cubic_feet,
       rate_per_cuft: load.rate_per_cuft,
       total_rate: load.total_rate,
-      balance_cf: load.balance_cf,
       rfd_date: load.rfd_date,
       pickup_window_start: load.pickup_window_start,
       pickup_window_end: load.pickup_window_end,
