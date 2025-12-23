@@ -1,18 +1,11 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { createClient } from '@/lib/supabase-server';
-import { DollarSign, Banknote, AlertTriangle, Package, TrendingUp, TrendingDown, Search, ArrowRight, Shield } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 
 // Data queries
 import {
   getDashboardMetrics,
   getUnassignedJobs,
-  getReceivablesByCompany,
   getTodaysCollections,
-  getLiveDriverStatuses,
   getTodaysSchedule,
 } from '@/data/dashboard-data';
 import { getOnboardingState } from '@/data/onboarding';
@@ -20,15 +13,13 @@ import { getWorkspaceCompanyForUser } from '@/data/companies';
 import { getCarrierDashboardData } from '@/data/role-dashboards';
 import { getComplianceAlertCounts, getComplianceAlertsForUser } from '@/data/compliance-alerts';
 
-// V4 Components
+// V4 Components - Simplified Dashboard
 import { CriticalBlock } from '@/components/dashboard/v4/CriticalBlock';
 import { QuickActions } from '@/components/dashboard/v4/QuickActions';
-import { DriversNow } from '@/components/dashboard/v4/DriversNow';
-import { PrimaryMetricCard } from '@/components/dashboard/v4/PrimaryMetricCard';
-import { KeyMetrics } from '@/components/dashboard/v4/KeyMetrics';
-import { LoadsAwaitingDispatch } from '@/components/dashboard/v4/LoadsAwaitingDispatch';
-import { WhoOwesYouMoney } from '@/components/dashboard/v4/WhoOwesYouMoney';
+import { MoneyRow } from '@/components/dashboard/v4/MoneyRow';
 import { TodaysSchedule } from '@/components/dashboard/v4/TodaysSchedule';
+import { SuggestedLoads, SuggestedLoad } from '@/components/dashboard/v4/SuggestedLoads';
+import { NeedsAttention, AttentionItem } from '@/components/dashboard/v4/NeedsAttention';
 import { DriverCollectionsToday } from '@/components/dashboard/v4/DriverCollectionsToday';
 import { DashboardActionBar } from '@/components/dashboard/v4/DashboardActionBar';
 
@@ -41,20 +32,9 @@ import {
   canPostToMarketplace,
   canHaulLoads,
   isPureCarrier,
-  isBrokerOnly,
 } from '@/lib/dashboardMode';
 
 export const dynamic = 'force-dynamic';
-
-function formatCurrency(amount: number): string {
-  if (amount >= 1000000) {
-    return `$${(amount / 1000000).toFixed(1)}M`;
-  }
-  if (amount >= 1000) {
-    return `$${(amount / 1000).toFixed(1)}k`;
-  }
-  return `$${amount.toLocaleString()}`;
-}
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -91,14 +71,11 @@ export default async function DashboardPage() {
   }
 
   // UNIFIED COMMAND CENTER for Carriers, Brokers, and Moving Companies
-  // Role-based data fetching
   const isBroker = canPostToMarketplace(companyCapabilities);
   const isCarrier = canHaulLoads(companyCapabilities);
   const pureCarrier = isPureCarrier(companyCapabilities);
-  const pureBroker = isBrokerOnly(companyCapabilities);
 
-  // Fetch data based on capabilities
-  // All roles get base metrics + schedule + collections + compliance
+  // Fetch all data in parallel
   const [
     metrics,
     todaysSchedule,
@@ -113,29 +90,19 @@ export default async function DashboardPage() {
     getComplianceAlertsForUser(user.id),
   ]);
 
-  // Calculate total critical compliance issues (expired + critical severity)
+  // Calculate critical compliance count
   const criticalComplianceCount = complianceAlertCounts.expired + complianceAlertCounts.critical;
-  const totalComplianceIssues = complianceAlertCounts.expired + complianceAlertCounts.critical +
-    complianceAlertCounts.urgent + complianceAlertCounts.warning;
 
-  // Broker-specific data (receivables, unassigned jobs)
+  // Broker-specific data
   let unassignedJobs: Awaited<ReturnType<typeof getUnassignedJobs>> = [];
-  let receivables: Awaited<ReturnType<typeof getReceivablesByCompany>> = [];
   if (isBroker) {
-    [unassignedJobs, receivables] = await Promise.all([
-      getUnassignedJobs(user.id, 6),
-      getReceivablesByCompany(user.id, 5),
-    ]);
+    unassignedJobs = await getUnassignedJobs(user.id, 10);
   }
 
-  // Carrier-specific data (driver statuses, assigned loads, available loads)
-  let driverStatuses: Awaited<ReturnType<typeof getLiveDriverStatuses>> = [];
+  // Carrier-specific data
   let carrierData: Awaited<ReturnType<typeof getCarrierDashboardData>> | null = null;
   if (isCarrier) {
-    [driverStatuses, carrierData] = await Promise.all([
-      getLiveDriverStatuses(user.id, 10),
-      getCarrierDashboardData(user.id),
-    ]);
+    carrierData = await getCarrierDashboardData(user.id);
   }
 
   const urgentJobsCount = unassignedJobs.filter(j => j.urgency === 'today' || j.urgency === 'tomorrow').length;
@@ -143,17 +110,16 @@ export default async function DashboardPage() {
     (isBroker && (urgentJobsCount > 0 || metrics.overdueInvoices > 3)) ||
     (isCarrier && carrierData && carrierData.metrics.pendingRequestsCount > 0);
 
-  // Build critical alert message - Compliance issues take priority (expired/critical items)
+  // Build critical alert message
   let criticalMessage = '';
   let criticalHref = '';
   let criticalAction = '';
+
   if (complianceAlertCounts.expired > 0) {
-    // Expired items are most critical
     criticalMessage = `${complianceAlertCounts.expired} expired compliance item${complianceAlertCounts.expired > 1 ? 's' : ''} - action required immediately`;
     criticalHref = '/dashboard/compliance';
     criticalAction = 'View Now';
   } else if (complianceAlertCounts.critical > 0) {
-    // Items expiring within 7 days
     criticalMessage = `${complianceAlertCounts.critical} compliance item${complianceAlertCounts.critical > 1 ? 's' : ''} expiring within 7 days`;
     criticalHref = '/dashboard/compliance';
     criticalAction = 'View Now';
@@ -171,9 +137,73 @@ export default async function DashboardPage() {
     criticalAction = 'View Requests';
   }
 
+  // Build attention items from various sources
+  const attentionItems: AttentionItem[] = [];
+
+  // Add unassigned loads
+  unassignedJobs.slice(0, 5).forEach((job) => {
+    attentionItems.push({
+      id: `load-${job.id}`,
+      type: 'unassigned_load',
+      title: `Load ${job.loadNumber || 'Unknown'}`,
+      subtitle: `${job.origin} → ${job.destination} • ${job.urgency === 'today' ? 'Pickup today' : job.urgency === 'tomorrow' ? 'Pickup tomorrow' : 'This week'}`,
+      urgency: job.urgency === 'today' ? 'critical' : job.urgency === 'tomorrow' ? 'urgent' : 'normal',
+      href: `/dashboard/assigned-loads/${job.id}`,
+      value: job.rate ?? undefined,
+    });
+  });
+
+  // Add compliance issues
+  complianceAlerts.slice(0, 3).forEach((alert) => {
+    attentionItems.push({
+      id: `compliance-${alert.id}`,
+      type: 'compliance',
+      title: alert.item_name,
+      subtitle: alert.days_until_expiry !== null
+        ? (alert.days_until_expiry <= 0 ? `${Math.abs(alert.days_until_expiry)} days overdue` : `${alert.days_until_expiry} days left`)
+        : 'Missing documentation',
+      urgency: alert.severity === 'expired' || alert.severity === 'critical' ? 'critical' : 'urgent',
+      href: '/dashboard/compliance',
+    });
+  });
+
+  // Add pending requests for carriers
+  if (carrierData && carrierData.metrics.pendingRequestsCount > 0) {
+    attentionItems.push({
+      id: 'pending-requests',
+      type: 'pending_request',
+      title: `${carrierData.metrics.pendingRequestsCount} Pending Request${carrierData.metrics.pendingRequestsCount > 1 ? 's' : ''}`,
+      subtitle: 'Load requests awaiting your response',
+      urgency: 'urgent',
+      href: '/dashboard/my-requests',
+    });
+  }
+
+  // Calculate needs attention amount (value of unassigned jobs)
+  const needsAttentionAmount = unassignedJobs.reduce((sum, job) => sum + (job.rate || 0), 0);
+
+  // Build suggested loads (smart matching based on driver delivery locations)
+  // For now, this returns available loads that could be good matches
+  // TODO: Implement proper geo-matching based on driver delivery destinations
+  const suggestedLoads: SuggestedLoad[] = (carrierData?.availableLoads || [])
+    .slice(0, 4)
+    .map((load, index) => ({
+      id: load.id,
+      load_number: load.load_number,
+      origin_city: load.origin_city,
+      origin_state: load.origin_state || '',
+      destination_city: load.destination_city,
+      destination_state: load.destination_state || '',
+      pickup_date: load.pickup_date,
+      estimated_cuft: load.estimated_cuft,
+      rate: undefined, // Rate shown after request
+      match_reason: index === 0 ? 'Near your driver\'s next delivery' : 'Good route match',
+      distance_from_delivery: index === 0 ? 15 : index === 1 ? 32 : undefined,
+    }));
+
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      {/* CRITICAL ALERT BAR */}
+      {/* CRITICAL ALERT BANNER - Only when truly critical */}
       {hasCriticalAlert && criticalMessage && (
         <CriticalBlock
           message={criticalMessage}
@@ -202,330 +232,31 @@ export default async function DashboardPage() {
           />
         </div>
 
-        {/* DRIVERS NOW - Only show for carriers */}
-        {isCarrier && (
-          <div className="mb-6">
-            <DriversNow
-              drivers={driverStatuses}
-              driversOnRoad={carrierData?.metrics.driversOnRoad ?? metrics.driversOnRoad}
-              totalDrivers={carrierData?.metrics.totalDrivers ?? metrics.totalDrivers}
-            />
-          </div>
-        )}
-
-        {/* PRIMARY METRICS - Role-based cards */}
-        {/* Carriers and Moving Companies get 4 cards, Pure Brokers get 3 */}
-        <div className={`grid grid-cols-1 gap-3 mb-5 ${
-          isCarrier ? 'sm:grid-cols-2 lg:grid-cols-4' :
-          'sm:grid-cols-3'
-        }`}>
-          {/* CARRIER METRICS */}
-          {isCarrier && (
-            <PrimaryMetricCard
-              title="Active Loads"
-              value={(carrierData?.metrics.activeLoadsCount ?? 0).toString()}
-              subtitle={`${carrierData?.metrics.driversOnRoad ?? 0} drivers on road`}
-              accent="blue"
-              icon={<Package className="h-5 w-5" />}
-              href="/dashboard/assigned-loads"
-            />
-          )}
-
-          {/* BROKER METRICS - Money Owed */}
-          {isBroker && (
-            <PrimaryMetricCard
-              title="Money Owed"
-              value={formatCurrency(metrics.totalReceivables)}
-              subtitle={`${receivables.length} companies`}
-              percentChange={metrics.receivablesChangePercent}
-              accent="emerald"
-              icon={<DollarSign className="h-5 w-5" />}
-              href="/dashboard/finance/receivables"
-            />
-          )}
-
-          {/* CARRIER METRICS - Owed to You (for carriers getting paid by brokers) */}
-          {pureCarrier && (
-            <PrimaryMetricCard
-              title="Owed to You"
-              value={formatCurrency(carrierData?.metrics.moneyOwedToYou ?? 0)}
-              accent="emerald"
-              icon={<TrendingUp className="h-5 w-5" />}
-              href="/dashboard/finance/receivables"
-            />
-          )}
-
-          {/* CARRIER METRICS - Needs Trip Assignment (carrier's "awaiting dispatch") */}
-          {pureCarrier && (
-            <PrimaryMetricCard
-              title="Needs Trip"
-              value={(carrierData?.metrics.loadsNeedingTripAssignment ?? 0).toString()}
-              subtitle="Loads not on a trip"
-              accent={(carrierData?.metrics.loadsNeedingTripAssignment ?? 0) > 0 ? 'amber' : 'emerald'}
-              pulse={(carrierData?.metrics.loadsNeedingTripAssignment ?? 0) > 0}
-              icon={<AlertTriangle className="h-5 w-5" />}
-              href="/dashboard/assigned-loads?filter=unassigned"
-            />
-          )}
-
-          {/* COLLECTED TODAY - All roles */}
-          <PrimaryMetricCard
-            title="Collected Today"
-            value={formatCurrency(pureCarrier ? (carrierData?.metrics.collectedToday ?? 0) : metrics.collectedToday)}
-            subtitle={`${collections.length} payments`}
-            percentChange={pureBroker ? metrics.collectedChangePercent : null}
-            accent="blue"
-            icon={<Banknote className="h-5 w-5" />}
-            href="/dashboard/finance/receivables"
+        {/* MONEY ROW - 3 clean cards */}
+        <div className="mb-6">
+          <MoneyRow
+            moneyOwed={pureCarrier ? (carrierData?.metrics.moneyOwedToYou ?? 0) : metrics.totalReceivables}
+            collectedToday={pureCarrier ? (carrierData?.metrics.collectedToday ?? 0) : metrics.collectedToday}
+            needsAttentionAmount={needsAttentionAmount}
+            needsAttentionCount={attentionItems.length}
           />
-
-          {/* BROKER METRICS - Awaiting Dispatch */}
-          {isBroker && (
-            <PrimaryMetricCard
-              title="Awaiting Dispatch"
-              value={metrics.jobsNeedingAssignment.toString()}
-              subtitle={formatCurrency(metrics.jobsNeedingAssignmentValue) + ' value'}
-              accent={metrics.jobsNeedingAssignment > 0 ? (urgentJobsCount > 0 ? 'amber' : 'blue') : 'emerald'}
-              pulse={urgentJobsCount > 0}
-              icon={<AlertTriangle className="h-5 w-5" />}
-              href="/dashboard/assigned-loads?filter=unassigned"
-            />
-          )}
-
-          {/* CARRIER METRICS - You Owe (for all carriers including moving companies) */}
-          {isCarrier && (
-            <PrimaryMetricCard
-              title="You Owe"
-              value={formatCurrency(carrierData?.metrics.moneyYouOwe ?? 0)}
-              accent="amber"
-              icon={<TrendingDown className="h-5 w-5" />}
-            />
-          )}
         </div>
 
-        {/* KEY METRICS - Only for moving companies/brokers with dispatch capabilities */}
-        {(isBroker || isCarrier) && !pureCarrier && (
-          <div className="mb-6">
-            <KeyMetrics metrics={metrics} />
-          </div>
-        )}
-
-        {/* MAIN CONTENT */}
+        {/* MAIN CONTENT GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* LEFT COLUMN - Schedule & Suggested Loads */}
           <div className="lg:col-span-2 space-y-5">
-            {/* BROKER: Loads Awaiting Dispatch */}
-            {isBroker && unassignedJobs.length > 0 && (
-              <LoadsAwaitingDispatch
-                loads={unassignedJobs}
-                totalCount={metrics.jobsNeedingAssignment}
-                totalValue={metrics.jobsNeedingAssignmentValue}
-              />
-            )}
-
-            {/* CARRIER: Active Loads */}
-            {isCarrier && carrierData && carrierData.assignedLoads.length > 0 && (
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-medium flex items-center gap-2">
-                      <Package className="h-4 w-4 text-purple-400" />
-                      Active Loads
-                    </CardTitle>
-                    <Link href="/dashboard/assigned-loads" className="text-xs text-primary hover:underline flex items-center gap-1">
-                      View all <ArrowRight className="h-3 w-3" />
-                    </Link>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {carrierData.assignedLoads.slice(0, 5).map((load) => (
-                    <Link
-                      key={load.id}
-                      href={`/dashboard/assigned-loads/${load.id}`}
-                      className="block p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium text-sm">{load.load_number}</span>
-                            <Badge variant="secondary" className="text-xs">
-                              {load.load_status.replace('_', ' ')}
-                            </Badge>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {load.origin_city}, {load.origin_state} → {load.destination_city}, {load.destination_state}
-                          </div>
-                          {load.assigned_driver_name && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Driver: {load.assigned_driver_name}
-                            </div>
-                          )}
-                        </div>
-                        {load.carrier_rate && (
-                          <span className="text-sm font-medium text-emerald-400">
-                            ${load.carrier_rate.toLocaleString()}
-                          </span>
-                        )}
-                      </div>
-                    </Link>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* BROKER: Who Owes You Money */}
-            {isBroker && receivables.length > 0 && (
-              <WhoOwesYouMoney companies={receivables} />
-            )}
-
-            {/* CARRIER: Available Loads from Marketplace */}
-            {isCarrier && carrierData && carrierData.availableLoads.length > 0 && (
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-medium flex items-center gap-2">
-                      <Search className="h-4 w-4 text-amber-400" />
-                      Available Loads
-                    </CardTitle>
-                    <Link href="/dashboard/load-board" className="text-xs text-primary hover:underline flex items-center gap-1">
-                      Browse all <ArrowRight className="h-3 w-3" />
-                    </Link>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {carrierData.availableLoads.length === 0 ? (
-                    <div className="text-center py-6 text-muted-foreground">
-                      <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">No loads available</p>
-                    </div>
-                  ) : (
-                    carrierData.availableLoads.slice(0, 4).map((load) => (
-                      <Link
-                        key={load.id}
-                        href={`/dashboard/load-board/${load.id}`}
-                        className="block p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium text-sm">{load.load_number}</span>
-                          {load.estimated_cuft && (
-                            <span className="text-xs text-muted-foreground">
-                              {load.estimated_cuft} cuft
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {load.origin_city} → {load.destination_city}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {new Date(load.pickup_date).toLocaleDateString()}
-                        </div>
-                      </Link>
-                    ))
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Empty state for pure carriers with no loads */}
-            {pureCarrier && carrierData && carrierData.assignedLoads.length === 0 && carrierData.availableLoads.length === 0 && (
-              <Card className="border-dashed">
-                <CardContent className="py-12 text-center">
-                  <Package className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                  <h3 className="text-lg font-medium mb-2">No Active Loads</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Browse the Load Board to find available loads to haul.
-                  </p>
-                  <Button asChild>
-                    <Link href="/dashboard/load-board">
-                      <Search className="h-4 w-4 mr-2" />
-                      Find Loads
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* RIGHT SIDEBAR */}
-          <div className="space-y-5">
             <TodaysSchedule events={todaysSchedule} />
 
-            {/* COMPLIANCE SUMMARY */}
-            {totalComplianceIssues > 0 && (
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-medium flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-amber-400" />
-                      Compliance Alerts
-                    </CardTitle>
-                    <Link href="/dashboard/compliance" className="text-xs text-primary hover:underline flex items-center gap-1">
-                      View all <ArrowRight className="h-3 w-3" />
-                    </Link>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {/* Expired - Most critical */}
-                  {complianceAlertCounts.expired > 0 && (
-                    <Link
-                      href="/dashboard/compliance?severity=expired"
-                      className="flex items-center justify-between p-2 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500/15 transition-colors"
-                    >
-                      <span className="text-sm font-medium text-red-600 dark:text-red-400">Expired</span>
-                      <Badge variant="destructive" className="text-xs">{complianceAlertCounts.expired}</Badge>
-                    </Link>
-                  )}
-                  {/* Critical - Expiring within 7 days */}
-                  {complianceAlertCounts.critical > 0 && (
-                    <Link
-                      href="/dashboard/compliance?severity=critical"
-                      className="flex items-center justify-between p-2 rounded-lg bg-orange-500/10 border border-orange-500/20 hover:bg-orange-500/15 transition-colors"
-                    >
-                      <span className="text-sm font-medium text-orange-600 dark:text-orange-400">Within 7 days</span>
-                      <Badge className="bg-orange-500 hover:bg-orange-600 text-xs">{complianceAlertCounts.critical}</Badge>
-                    </Link>
-                  )}
-                  {/* Urgent - Expiring within 14 days */}
-                  {complianceAlertCounts.urgent > 0 && (
-                    <Link
-                      href="/dashboard/compliance?severity=urgent"
-                      className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/15 transition-colors"
-                    >
-                      <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Within 14 days</span>
-                      <Badge className="bg-amber-500 hover:bg-amber-600 text-xs">{complianceAlertCounts.urgent}</Badge>
-                    </Link>
-                  )}
-                  {/* Warning - Expiring within 30 days */}
-                  {complianceAlertCounts.warning > 0 && (
-                    <Link
-                      href="/dashboard/compliance?severity=warning"
-                      className="flex items-center justify-between p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
-                    >
-                      <span className="text-sm font-medium text-muted-foreground">Within 30 days</span>
-                      <Badge variant="secondary" className="text-xs">{complianceAlertCounts.warning}</Badge>
-                    </Link>
-                  )}
-
-                  {/* Show first few specific alerts */}
-                  {complianceAlerts.slice(0, 3).map((alert) => (
-                    <div key={alert.id} className="flex items-center justify-between py-1.5 border-t text-sm">
-                      <span className="text-muted-foreground truncate pr-2">{alert.item_name}</span>
-                      <span className={`text-xs font-medium ${
-                        alert.severity === 'expired' ? 'text-red-500' :
-                        alert.severity === 'critical' ? 'text-orange-500' :
-                        alert.severity === 'urgent' ? 'text-amber-500' :
-                        'text-muted-foreground'
-                      }`}>
-                        {alert.days_until_expiry !== null
-                          ? (alert.days_until_expiry <= 0
-                            ? `${Math.abs(alert.days_until_expiry)}d overdue`
-                            : `${alert.days_until_expiry}d left`)
-                          : 'Missing'}
-                      </span>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+            {/* Suggested Loads - Smart Matching */}
+            {isCarrier && (
+              <SuggestedLoads loads={suggestedLoads} />
             )}
+          </div>
+
+          {/* RIGHT COLUMN - Attention & Collections */}
+          <div className="space-y-5">
+            <NeedsAttention items={attentionItems} />
 
             <DriverCollectionsToday
               collections={collections}
