@@ -1,8 +1,17 @@
+/**
+ * ExpenseAddForm Component
+ *
+ * Collapsible expense add form with premium styling.
+ * Shows a prominent "Add Expense" button when collapsed.
+ */
+
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import { ExpenseForm } from './ExpenseForm';
-import { colors, spacing } from '../../lib/theme';
+import { Icon } from '../ui/Icon';
+import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
 import type { useToast } from '../ui';
 import type { CreateExpenseInput } from '../../hooks/useExpenseActions';
 import type { ExpenseCategory, ExpensePaidBy } from '../../types';
@@ -66,6 +75,7 @@ export function ExpenseAddForm({ tripId, createExpense, toast }: ExpenseAddFormP
 
       const result = await createExpense(input);
       if (result.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         toast.success(`$${parseFloat(amount).toFixed(2)} ${category} added`);
         resetForm();
       } else {
@@ -78,9 +88,22 @@ export function ExpenseAddForm({ tripId, createExpense, toast }: ExpenseAddFormP
 
   if (!showForm) {
     return (
-      <TouchableOpacity style={styles.addButton} onPress={() => setShowForm(true)}>
-        <Text style={styles.addButtonText}>+ Add Expense</Text>
-      </TouchableOpacity>
+      <Pressable
+        style={styles.addButton}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setShowForm(true);
+        }}
+      >
+        <View style={styles.addButtonIcon}>
+          <Icon name="plus" size="md" color={colors.white} />
+        </View>
+        <View style={styles.addButtonContent}>
+          <Text style={styles.addButtonTitle}>Add Expense</Text>
+          <Text style={styles.addButtonSubtitle}>Record fuel, tolls, lumper fees & more</Text>
+        </View>
+        <Icon name="chevron-right" size="md" color={colors.textMuted} />
+      </Pressable>
     );
   }
 
@@ -110,24 +133,39 @@ export function ExpenseAddForm({ tripId, createExpense, toast }: ExpenseAddFormP
 
 const styles = StyleSheet.create({
   addButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    padding: 16,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+    ...shadows.md,
   },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 16,
+  addButtonIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.glow,
+  },
+  addButtonContent: {
+    flex: 1,
+  },
+  addButtonTitle: {
+    ...typography.subheadline,
+    color: colors.textPrimary,
     fontWeight: '600',
+  },
+  addButtonSubtitle: {
+    ...typography.caption,
+    color: colors.textMuted,
+    marginTop: spacing.xxs,
   },
 });
 
-
-
-
-
-
-
-
-
+export default ExpenseAddForm;

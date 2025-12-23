@@ -36,6 +36,7 @@ import {
   ArrowRight,
   ArrowLeft,
   Plus,
+  PlusCircle,
   Minus,
   X,
   Check,
@@ -141,6 +142,9 @@ import {
   Rocket,
   Route,
   Building2,
+  Fuel,
+  Wrench,
+  Briefcase,
   type LucideIcon,
 } from 'lucide-react-native';
 import { colors } from '../../lib/theme';
@@ -164,6 +168,8 @@ const iconMap = {
   'credit-card': CreditCard,
   wallet: Wallet,
   receipt: Receipt,
+  fuel: Fuel,
+  briefcase: Briefcase,
 
   // Documents
   'file-text': FileText,
@@ -235,6 +241,7 @@ const iconMap = {
 
   // Actions
   plus: Plus,
+  'plus-circle': PlusCircle,
   minus: Minus,
   x: X,
   check: Check,
@@ -314,6 +321,10 @@ const iconMap = {
 
   // Buildings
   building: Building2,
+
+  // Tools & Maintenance
+  tool: Wrench,
+  wrench: Wrench,
 } as const;
 
 export type IconName = keyof typeof iconMap;

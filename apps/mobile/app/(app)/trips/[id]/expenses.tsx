@@ -2,9 +2,10 @@
  * Expenses Screen
  *
  * Manage trip expenses with add/delete functionality.
+ * Premium UI with proper navigation.
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,23 +14,35 @@ import {
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
 } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { useTripExpenses, useExpenseActions } from '../../../../hooks/useExpenseActions';
-import { useToast, SkeletonCard, SkeletonStats, ErrorState } from '../../../../components/ui';
+import { useToast, SkeletonCard, SkeletonStats, ErrorState, Icon } from '../../../../components/ui';
 import { ExpenseSummaryCard, ExpenseItem, ExpenseAddForm } from '../../../../components/expense';
 import { TripExpense } from '../../../../types';
 import ErrorBoundary from '../../../../components/ui/ErrorBoundary';
+import { colors, typography, spacing, radius, shadows } from '../../../../lib/theme';
 
 export default function ExpensesScreen() {
   const { id: tripId } = useLocalSearchParams<{ id: string }>();
   const { expenses, loading, error, refetch } = useTripExpenses(tripId);
   const actions = useExpenseActions(tripId, refetch);
   const toast = useToast();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [deletedExpense, setDeletedExpense] = useState<TripExpense | null>(null);
 
+  const handleBack = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.back();
+  }, [router]);
+
   const handleDelete = async (expense: TripExpense) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setDeletedExpense(expense);
 
     toast.showToast(
@@ -65,14 +78,25 @@ export default function ExpensesScreen() {
     .filter(e => e.paid_by === 'driver_personal' || e.paid_by === 'driver_cash')
     .reduce((sum, e) => sum + e.amount, 0);
 
+  // Group expenses by category for summary
+  const categoryTotals = visibleExpenses.reduce((acc, e) => {
+    acc[e.category] = (acc[e.category] || 0) + e.amount;
+    return acc;
+  }, {} as Record<string, number>);
+
   return (
     <ErrorBoundary fallback={<FallbackView />}>
       <>
         <Stack.Screen
           options={{
             title: 'Trip Expenses',
-            headerStyle: { backgroundColor: '#1a1a2e' },
-            headerTintColor: '#fff',
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.textPrimary,
+            headerLeft: () => (
+              <Pressable onPress={handleBack} style={styles.backButton}>
+                <Icon name="chevron-left" size="md" color={colors.textPrimary} />
+              </Pressable>
+            ),
           }}
         />
         <KeyboardAvoidingView
@@ -81,23 +105,38 @@ export default function ExpensesScreen() {
         >
           <ScrollView
             style={styles.scrollView}
-            contentContainerStyle={styles.content}
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: insets.bottom + spacing.xxxl }
+            ]}
             refreshControl={
-              <RefreshControl refreshing={loading} onRefresh={refetch} tintColor="#0066CC" />
+              <RefreshControl
+                refreshing={loading}
+                onRefresh={refetch}
+                tintColor={colors.primary}
+              />
             }
+            showsVerticalScrollIndicator={false}
           >
             {error && (
-              <View style={{ marginBottom: 12 }}>
-                <ErrorState title="Unable to load expenses" message={error} actionLabel="Retry" onAction={refetch} />
+              <View style={{ marginBottom: spacing.lg }}>
+                <ErrorState
+                  title="Unable to load expenses"
+                  message={error}
+                  actionLabel="Retry"
+                  onAction={refetch}
+                />
               </View>
             )}
 
             {loading && expenses.length === 0 ? (
-              <SkeletonStats style={{ marginBottom: 20 }} />
+              <SkeletonStats style={{ marginBottom: spacing.lg }} />
             ) : (
               <ExpenseSummaryCard
                 totalExpenses={totalExpenses}
                 reimbursable={reimbursable}
+                categoryTotals={categoryTotals}
+                expenseCount={visibleExpenses.length}
               />
             )}
 
@@ -112,10 +151,14 @@ export default function ExpensesScreen() {
                 Expenses ({visibleExpenses.length})
               </Text>
               {loading && expenses.length === 0 ? (
-                <SkeletonCard lines={3} style={{ marginBottom: 12 }} />
+                <SkeletonCard lines={3} style={{ marginBottom: spacing.md }} />
               ) : visibleExpenses.length === 0 ? (
                 <View style={styles.emptyCard}>
-                  <Text style={styles.emptyText}>No expenses recorded</Text>
+                  <Icon name="receipt" size={48} color={colors.textMuted} />
+                  <Text style={styles.emptyTitle}>No Expenses Yet</Text>
+                  <Text style={styles.emptyText}>
+                    Add your first expense above
+                  </Text>
                 </View>
               ) : (
                 <View style={styles.expensesList}>
@@ -123,12 +166,16 @@ export default function ExpensesScreen() {
                     <ExpenseItem
                       key={expense.id}
                       expense={expense}
-                      onLongPress={() => handleDelete(expense)}
+                      onDelete={() => handleDelete(expense)}
                     />
                   ))}
                 </View>
               )}
-              <Text style={styles.hint}>Hold to delete • Undo available for 5 seconds</Text>
+              {visibleExpenses.length > 0 && (
+                <Text style={styles.hint}>
+                  Swipe left to delete • Tap for details
+                </Text>
+              )}
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -139,7 +186,8 @@ export default function ExpensesScreen() {
 
 function FallbackView() {
   return (
-    <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+    <View style={[styles.container, styles.fallbackContainer]}>
+      <Icon name="alert-circle" size={48} color={colors.textMuted} />
       <Text style={styles.emptyText}>Something went wrong. Please try again.</Text>
     </View>
   );
@@ -148,43 +196,62 @@ function FallbackView() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.background,
+  },
+  fallbackContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.md,
   },
   scrollView: {
     flex: 1,
   },
   content: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: spacing.screenPadding,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -spacing.sm,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: spacing.sectionGap,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 12,
+    ...typography.headline,
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
   },
   expensesList: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
     overflow: 'hidden',
+    ...shadows.sm,
   },
   hint: {
-    fontSize: 12,
-    color: '#666',
+    ...typography.caption,
+    color: colors.textMuted,
     textAlign: 'center',
-    marginTop: 12,
+    marginTop: spacing.md,
   },
   emptyCard: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 12,
-    padding: 24,
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    padding: spacing.xxl,
     alignItems: 'center',
+    gap: spacing.sm,
+    ...shadows.sm,
+  },
+  emptyTitle: {
+    ...typography.subheadline,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#666',
+    ...typography.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
   },
 });

@@ -1,8 +1,8 @@
 /**
  * ExpenseForm Component
  *
- * Form for adding new expenses with:
- * - Category selection
+ * Premium form for adding new expenses with:
+ * - Category selection with icons
  * - Amount input
  * - Description
  * - Paid by selection
@@ -18,24 +18,28 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
+  Pressable,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
 import { ExpenseCategory, ExpensePaidBy } from '../../types';
+import { Icon, IconName } from '../ui/Icon';
+import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
 
-const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string }[] = [
-  { value: 'fuel', label: 'Fuel' },
-  { value: 'tolls', label: 'Tolls' },
-  { value: 'lumper', label: 'Lumper' },
-  { value: 'parking', label: 'Parking' },
-  { value: 'maintenance', label: 'Maintenance' },
-  { value: 'other', label: 'Other' },
+const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string; icon: IconName }[] = [
+  { value: 'fuel', label: 'Fuel', icon: 'fuel' },
+  { value: 'tolls', label: 'Tolls', icon: 'credit-card' },
+  { value: 'lumper', label: 'Lumper', icon: 'package' },
+  { value: 'parking', label: 'Parking', icon: 'map-pin' },
+  { value: 'maintenance', label: 'Maint.', icon: 'tool' },
+  { value: 'other', label: 'Other', icon: 'more-horizontal' },
 ];
 
-const PAID_BY_OPTIONS: { value: ExpensePaidBy; label: string }[] = [
-  { value: 'driver_personal', label: 'Personal Card' },
-  { value: 'driver_cash', label: 'Cash' },
-  { value: 'company_card', label: 'Company Card' },
-  { value: 'fuel_card', label: 'Fuel Card' },
+const PAID_BY_OPTIONS: { value: ExpensePaidBy; label: string; icon: IconName }[] = [
+  { value: 'driver_personal', label: 'Personal', icon: 'credit-card' },
+  { value: 'driver_cash', label: 'Cash', icon: 'dollar' },
+  { value: 'company_card', label: 'Company', icon: 'briefcase' },
+  { value: 'fuel_card', label: 'Fuel Card', icon: 'fuel' },
 ];
 
 interface ExpenseFormProps {
@@ -81,6 +85,16 @@ export function ExpenseForm({
     setTimeout(() => amountInputRef.current?.focus(), 100);
   }, []);
 
+  const handleCategoryChange = (newCategory: ExpenseCategory) => {
+    Haptics.selectionAsync();
+    onCategoryChange(newCategory);
+  };
+
+  const handlePaidByChange = (newPaidBy: ExpensePaidBy) => {
+    Haptics.selectionAsync();
+    onPaidByChange(newPaidBy);
+  };
+
   const pickImage = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
@@ -96,13 +110,17 @@ export function ExpenseForm({
     });
 
     if (!result.canceled && result.assets[0]) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       onReceiptImageChange(result.assets[0].uri);
     }
   };
 
   return (
     <View style={styles.formCard}>
-      <Text style={styles.formTitle}>New Expense</Text>
+      <View style={styles.formHeader}>
+        <Icon name="plus-circle" size="md" color={colors.primary} />
+        <Text style={styles.formTitle}>New Expense</Text>
+      </View>
 
       {/* Category Selection */}
       <Text style={styles.inputLabel}>Category</Text>
@@ -110,26 +128,35 @@ export function ExpenseForm({
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.categoryScroll}
+        contentContainerStyle={styles.categoryScrollContent}
       >
-        {EXPENSE_CATEGORIES.map((cat) => (
-          <TouchableOpacity
-            key={cat.value}
-            style={[
-              styles.categoryChip,
-              category === cat.value && styles.categoryChipSelected,
-            ]}
-            onPress={() => onCategoryChange(cat.value)}
-          >
-            <Text
+        {EXPENSE_CATEGORIES.map((cat) => {
+          const isSelected = category === cat.value;
+          return (
+            <Pressable
+              key={cat.value}
               style={[
-                styles.categoryChipText,
-                category === cat.value && styles.categoryChipTextSelected,
+                styles.categoryChip,
+                isSelected && styles.categoryChipSelected,
               ]}
+              onPress={() => handleCategoryChange(cat.value)}
             >
-              {cat.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Icon
+                name={cat.icon}
+                size="sm"
+                color={isSelected ? colors.white : colors.textMuted}
+              />
+              <Text
+                style={[
+                  styles.categoryChipText,
+                  isSelected && styles.categoryChipTextSelected,
+                ]}
+              >
+                {cat.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </ScrollView>
 
       {/* Amount */}
@@ -140,7 +167,7 @@ export function ExpenseForm({
           ref={amountInputRef}
           style={styles.amountTextInput}
           placeholder="0.00"
-          placeholderTextColor="#666"
+          placeholderTextColor={colors.textMuted}
           value={amount}
           onChangeText={onAmountChange}
           keyboardType="decimal-pad"
@@ -154,38 +181,46 @@ export function ExpenseForm({
       <TextInput
         style={styles.input}
         placeholder="e.g., Diesel at Flying J"
-        placeholderTextColor="#666"
+        placeholderTextColor={colors.textMuted}
         value={description}
         onChangeText={onDescriptionChange}
       />
 
       {/* Paid By */}
-      <Text style={styles.inputLabel}>Paid By</Text>
+      <Text style={styles.inputLabel}>Paid With</Text>
       <View style={styles.paidByGrid}>
-        {PAID_BY_OPTIONS.map((opt) => (
-          <TouchableOpacity
-            key={opt.value}
-            style={[
-              styles.paidByChip,
-              paidBy === opt.value && styles.paidByChipSelected,
-            ]}
-            onPress={() => onPaidByChange(opt.value)}
-          >
-            <Text
+        {PAID_BY_OPTIONS.map((opt) => {
+          const isSelected = paidBy === opt.value;
+          return (
+            <Pressable
+              key={opt.value}
               style={[
-                styles.paidByChipText,
-                paidBy === opt.value && styles.paidByChipTextSelected,
+                styles.paidByChip,
+                isSelected && styles.paidByChipSelected,
               ]}
+              onPress={() => handlePaidByChange(opt.value)}
             >
-              {opt.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Icon
+                name={opt.icon}
+                size="sm"
+                color={isSelected ? colors.white : colors.textMuted}
+              />
+              <Text
+                style={[
+                  styles.paidByChipText,
+                  isSelected && styles.paidByChipTextSelected,
+                ]}
+              >
+                {opt.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       {/* Receipt Photo */}
       <Text style={styles.inputLabel}>Receipt (optional)</Text>
-      <TouchableOpacity
+      <Pressable
         style={styles.photoButton}
         onPress={pickImage}
         disabled={submitting}
@@ -200,38 +235,50 @@ export function ExpenseForm({
             )}
           </View>
         ) : (
-          <Text style={styles.photoButtonText}>Take Photo</Text>
+          <View style={styles.photoPlaceholder}>
+            <Icon name="camera" size={24} color={colors.primary} />
+            <Text style={styles.photoButtonText}>Take Photo</Text>
+          </View>
         )}
-      </TouchableOpacity>
+      </Pressable>
       {receiptImage && !submitting && (
-        <TouchableOpacity
+        <Pressable
           style={styles.removePhotoButton}
           onPress={() => onReceiptImageChange(null)}
         >
+          <Icon name="x" size="sm" color={colors.error} />
           <Text style={styles.removePhotoText}>Remove Photo</Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
 
       {/* Form Actions */}
       <View style={styles.formActions}>
-        <TouchableOpacity
+        <Pressable
           style={styles.cancelButton}
           onPress={onCancel}
           disabled={submitting}
         >
           <Text style={styles.cancelButtonText}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
+        </Pressable>
+        <Pressable
           style={[styles.submitButton, submitting && styles.buttonDisabled]}
-          onPress={onSubmit}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            onSubmit();
+          }}
           disabled={submitting}
         >
-          <Text style={styles.submitButtonText}>
-            {submitting
-              ? (uploading ? `Uploading... ${uploadProgress}%` : 'Saving...')
-              : 'Add Expense'}
-          </Text>
-        </TouchableOpacity>
+          {submitting ? (
+            <Text style={styles.submitButtonText}>
+              {uploading ? `Uploading... ${uploadProgress}%` : 'Saving...'}
+            </Text>
+          ) : (
+            <>
+              <Icon name="plus" size="sm" color={colors.white} />
+              <Text style={styles.submitButtonText}>Add Expense</Text>
+            </>
+          )}
+        </Pressable>
       </View>
     </View>
   );
@@ -239,105 +286,136 @@ export function ExpenseForm({
 
 const styles = StyleSheet.create({
   formCard: {
-    backgroundColor: '#2a2a3e',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.md,
+  },
+  formHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
   },
   formTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 20,
+    ...typography.headline,
+    color: colors.textPrimary,
   },
   inputLabel: {
-    fontSize: 14,
-    color: '#888',
-    marginBottom: 8,
+    ...typography.label,
+    color: colors.textMuted,
+    marginBottom: spacing.sm,
   },
   categoryScroll: {
-    marginBottom: 20,
+    marginBottom: spacing.lg,
+    marginHorizontal: -spacing.lg,
+  },
+  categoryScrollContent: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
   },
   categoryChip: {
-    backgroundColor: '#3a3a4e',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginRight: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceElevated,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   categoryChipSelected: {
-    backgroundColor: '#0066CC',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   categoryChipText: {
-    color: '#888',
-    fontSize: 14,
+    ...typography.bodySmall,
+    color: colors.textMuted,
     fontWeight: '500',
   },
   categoryChipTextSelected: {
-    color: '#fff',
+    color: colors.white,
   },
   amountInput: {
-    backgroundColor: '#3a3a4e',
-    borderRadius: 12,
+    backgroundColor: colors.inputBackground,
+    borderRadius: radius.input,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 20,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   currencySymbol: {
-    color: '#888',
-    fontSize: 20,
-    fontWeight: '600',
+    ...typography.headline,
+    color: colors.textMuted,
   },
   amountTextInput: {
     flex: 1,
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '600',
-    padding: 14,
+    ...typography.headline,
+    color: colors.textPrimary,
+    padding: spacing.md,
   },
   input: {
-    backgroundColor: '#3a3a4e',
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 16,
-    color: '#fff',
-    marginBottom: 20,
+    backgroundColor: colors.inputBackground,
+    borderRadius: radius.input,
+    padding: spacing.md,
+    ...typography.body,
+    color: colors.textPrimary,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   paidByGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 20,
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
   },
   paidByChip: {
-    backgroundColor: '#3a3a4e',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceElevated,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   paidByChipSelected: {
-    backgroundColor: '#0066CC',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   paidByChipText: {
-    color: '#888',
-    fontSize: 14,
+    ...typography.bodySmall,
+    color: colors.textMuted,
   },
   paidByChipTextSelected: {
-    color: '#fff',
+    color: colors.white,
   },
   photoButton: {
-    backgroundColor: '#3a3a4e',
-    borderRadius: 12,
-    padding: 20,
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+  },
+  photoPlaceholder: {
+    padding: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
-    minHeight: 100,
+    gap: spacing.sm,
   },
   photoButtonText: {
-    color: '#0066CC',
-    fontSize: 16,
+    ...typography.body,
+    color: colors.primary,
     fontWeight: '500',
   },
   receiptContainer: {
@@ -347,7 +425,6 @@ const styles = StyleSheet.create({
   receiptPreview: {
     width: '100%',
     height: 150,
-    borderRadius: 8,
   },
   uploadOverlay: {
     position: 'absolute',
@@ -355,55 +432,61 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 8,
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
   uploadText: {
-    color: '#fff',
-    fontSize: 16,
+    ...typography.subheadline,
+    color: colors.white,
     fontWeight: '600',
   },
   removePhotoButton: {
-    marginTop: 8,
-    marginBottom: 12,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.lg,
+    padding: spacing.sm,
   },
   removePhotoText: {
-    color: '#ff6b6b',
-    fontSize: 14,
+    ...typography.bodySmall,
+    color: colors.error,
   },
   formActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.md,
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#3a3a4e',
-    borderRadius: 10,
-    padding: 16,
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: radius.button,
+    padding: spacing.md,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   cancelButtonText: {
-    color: '#888',
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.button,
+    color: colors.textSecondary,
   },
   submitButton: {
     flex: 2,
-    backgroundColor: '#0066CC',
-    borderRadius: 10,
-    padding: 16,
+    flexDirection: 'row',
+    backgroundColor: colors.primary,
+    borderRadius: radius.button,
+    padding: spacing.md,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    ...shadows.glow,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.button,
+    color: colors.white,
   },
 });
 
