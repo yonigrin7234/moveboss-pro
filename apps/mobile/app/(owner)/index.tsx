@@ -159,15 +159,34 @@ export default function OwnerDashboardScreen() {
         />
       </View>
 
+      {/* Find Loads - Prominent CTA */}
+      <Pressable
+        style={styles.findLoadsCard}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          router.push('/(owner)/load-board');
+        }}
+      >
+        <View style={styles.findLoadsContent}>
+          <View style={styles.findLoadsIcon}>
+            <Icon name="search" size={24} color={colors.white} />
+          </View>
+          <View style={styles.findLoadsText}>
+            <Text style={styles.findLoadsTitle}>Find Loads</Text>
+            <Text style={styles.findLoadsSubtitle}>Browse marketplace for available loads</Text>
+          </View>
+        </View>
+        <Icon name="chevron-right" size="md" color={colors.white} />
+      </Pressable>
+
       {/* Quick Actions */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.quickActionsRow}>
           <QuickAction
-            icon="search"
-            label="Find Loads"
-            highlight
-            onPress={() => router.push('/(owner)/load-board')}
+            icon="inbox"
+            label="My Requests"
+            onPress={() => router.push('/(owner)/my-requests')}
           />
           <QuickAction
             icon="plus"
@@ -522,6 +541,45 @@ const styles = StyleSheet.create({
   quickActionLabelHighlight: {
     color: colors.primary,
     fontWeight: '600',
+  },
+
+  // Find Loads Prominent CTA
+  findLoadsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.primary,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    ...shadows.lg,
+  },
+  findLoadsContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  findLoadsIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  findLoadsText: {
+    flex: 1,
+  },
+  findLoadsTitle: {
+    ...typography.headline,
+    color: colors.white,
+    fontWeight: '700',
+  },
+  findLoadsSubtitle: {
+    ...typography.caption,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: spacing.xxs,
   },
 
   // Activity Feed

@@ -266,6 +266,15 @@ export default function OwnerLayout() {
               tabBarStyle: { display: 'none' },
             }}
           />
+          <Tabs.Screen
+            name="my-requests/index"
+            options={{
+              href: null,
+              headerShown: false,
+              title: 'My Requests',
+              tabBarStyle: { display: 'none' },
+            }}
+          />
         </Tabs>
       </ErrorBoundary>
     </PersistQueryClientProvider>
