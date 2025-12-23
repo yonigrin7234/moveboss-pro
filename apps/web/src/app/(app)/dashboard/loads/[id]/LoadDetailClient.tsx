@@ -214,6 +214,7 @@ export function LoadDetailClient({
             submitLabel="Save changes"
             cancelHref={`/dashboard/loads/${load.id}`}
             onCancel={() => setIsEditOpen(false)}
+            compact
           />
         </SheetContent>
       </Sheet>

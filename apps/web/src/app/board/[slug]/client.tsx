@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Truck,
   Box,
+  CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -66,31 +67,41 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
   const hasFilters = origin || dest;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      {/* Header */}
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950">
+      {/* Header with gradient accent */}
+      <header className="relative overflow-hidden border-b border-slate-800">
+        {/* Gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-sky-500/10 via-transparent to-emerald-500/5" />
+        <div className="absolute top-0 left-1/4 w-[400px] h-[200px] bg-sky-500/15 rounded-full blur-3xl" />
+
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             {/* Company branding */}
             <div className="flex items-center gap-4">
               {company.logo_url ? (
-                <Image
-                  src={company.logo_url}
-                  alt={company.name}
-                  width={56}
-                  height={56}
-                  className="rounded-xl object-contain bg-slate-100 dark:bg-slate-800"
-                />
+                <div className="relative">
+                  <div className="absolute inset-0 bg-sky-500/20 rounded-2xl blur-xl" />
+                  <Image
+                    src={company.logo_url}
+                    alt={company.name}
+                    width={56}
+                    height={56}
+                    className="relative rounded-2xl object-contain bg-slate-800/50 backdrop-blur border border-slate-700/50"
+                  />
+                </div>
               ) : (
-                <div className="w-14 h-14 bg-gradient-to-br from-primary/20 to-primary/5 rounded-xl flex items-center justify-center">
-                  <Truck className="h-7 w-7 text-primary" />
+                <div className="relative">
+                  <div className="absolute inset-0 bg-sky-500/30 rounded-2xl blur-xl" />
+                  <div className="relative w-14 h-14 bg-gradient-to-br from-sky-500 to-sky-600 rounded-2xl flex items-center justify-center shadow-lg shadow-sky-500/25">
+                    <Truck className="h-7 w-7 text-white" />
+                  </div>
                 </div>
               )}
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                <h1 className="text-xl sm:text-2xl font-bold text-white">
                   {company.name}
                 </h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
+                <p className="text-sm text-slate-400">
                   Available Loads
                 </p>
               </div>
@@ -102,9 +113,9 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
                 {company.contact.phone && (
                   <a
                     href={`tel:${company.contact.phone}`}
-                    className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 hover:text-primary transition-colors"
+                    className="flex items-center gap-2 text-sm text-slate-300 hover:text-sky-400 transition-colors"
                   >
-                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-slate-800/50 backdrop-blur border border-slate-700/50 flex items-center justify-center">
                       <Phone className="h-4 w-4" />
                     </div>
                     <span className="hidden md:inline">{company.contact.phone}</span>
@@ -113,9 +124,9 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
                 {company.contact.email && (
                   <a
                     href={`mailto:${company.contact.email}`}
-                    className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 hover:text-primary transition-colors"
+                    className="flex items-center gap-2 text-sm text-slate-300 hover:text-sky-400 transition-colors"
                   >
-                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-slate-800/50 backdrop-blur border border-slate-700/50 flex items-center justify-center">
                       <Mail className="h-4 w-4" />
                     </div>
                     <span className="hidden md:inline">{company.contact.email}</span>

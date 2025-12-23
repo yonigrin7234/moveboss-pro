@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DatePicker } from '@/components/ui/date-picker';
 import { RFDDatePicker } from '@/components/ui/rfd-date-picker';
@@ -80,6 +80,8 @@ interface LoadFormProps {
   onCancel?: () => void;
   /** Controls wizard step visibility based on how the load was created */
   loadFlowType?: LoadFlowType | null;
+  /** Compact mode for use in sheets/panels - single column, no sidebar */
+  compact?: boolean;
 }
 
 const statusOptions: { value: LoadStatus; label: string }[] = [
@@ -136,6 +138,7 @@ export function LoadForm({
   cancelHref = '/dashboard/loads',
   onCancel,
   loadFlowType,
+  compact = false,
 }: LoadFormProps) {
   const [state, formAction, pending] = useActionState(onSubmit, null);
   const [currentStep, setCurrentStep] = useState(0);
@@ -888,6 +891,154 @@ export function LoadForm({
     }
   };
 
+  // Step completion status for stepper
+  const stepStatus = [
+    { id: 'basics' as WizardStepId, complete: Boolean(snapshot.companyId && snapshot.serviceType) },
+    { id: 'pickup' as WizardStepId, complete: Boolean(snapshot.pickupCity) },
+    { id: 'delivery' as WizardStepId, complete: Boolean(snapshot.deliveryCity) },
+    { id: 'financials' as WizardStepId, complete: Boolean(snapshot.linehaulRate || snapshot.totalRate || snapshot.status) },
+  ].filter((s) => visibleStepIds.includes(s.id));
+
+  // Compact mode: Single column, horizontal stepper, cleaner layout
+  if (compact) {
+    return (
+      <form ref={formRef} action={formAction} className="space-y-4">
+        {/* Compact Horizontal Stepper */}
+        <div className="flex items-center justify-between mb-2">
+          {STEPS.map((step, index) => (
+            <button
+              key={step.id}
+              type="button"
+              onClick={() => {
+                setCurrentStep(index);
+                scrollToTop();
+              }}
+              className="flex-1 group"
+            >
+              <div className="flex flex-col items-center">
+                <div className="flex items-center w-full">
+                  {/* Line before (except first) */}
+                  {index > 0 && (
+                    <div
+                      className={cn(
+                        "flex-1 h-0.5",
+                        stepStatus[index - 1]?.complete ? "bg-emerald-500" : "bg-muted"
+                      )}
+                    />
+                  )}
+                  {/* Step circle */}
+                  <div
+                    className={cn(
+                      "w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all",
+                      currentStep === index
+                        ? "bg-primary text-primary-foreground ring-2 ring-primary/20"
+                        : stepStatus[index]?.complete
+                        ? "bg-emerald-500 text-white"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {stepStatus[index]?.complete ? (
+                      <Check className="w-4 h-4" />
+                    ) : (
+                      index + 1
+                    )}
+                  </div>
+                  {/* Line after (except last) */}
+                  {index < STEPS.length - 1 && (
+                    <div
+                      className={cn(
+                        "flex-1 h-0.5",
+                        stepStatus[index]?.complete ? "bg-emerald-500" : "bg-muted"
+                      )}
+                    />
+                  )}
+                </div>
+                <span
+                  className={cn(
+                    "mt-1.5 text-xs font-medium",
+                    currentStep === index ? "text-primary" : "text-muted-foreground"
+                  )}
+                >
+                  {step.title}
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Quick Summary Bar */}
+        <div className="flex flex-wrap gap-x-4 gap-y-1 py-2 px-3 bg-muted/50 rounded-lg text-xs">
+          <span>
+            <span className="text-muted-foreground">Load:</span>{' '}
+            <span className="font-medium">{snapshot.loadNumber || 'Auto'}</span>
+          </span>
+          <span>
+            <span className="text-muted-foreground">Customer:</span>{' '}
+            <span className="font-medium">{getCompanyName(snapshot.companyId)}</span>
+          </span>
+          {snapshot.pickupCity && snapshot.deliveryCity && (
+            <span>
+              <span className="text-muted-foreground">Route:</span>{' '}
+              <span className="font-medium">{snapshot.pickupCity} → {snapshot.deliveryCity}</span>
+            </span>
+          )}
+        </div>
+
+        {state?.errors?._form && (
+          <div className="bg-destructive/10 border border-destructive rounded-lg p-3 text-sm text-destructive">
+            {state.errors._form}
+          </div>
+        )}
+
+        {/* Form Sections */}
+        {STEPS.map((step, index) => (
+          <section
+            key={step.id}
+            aria-hidden={currentStep !== index}
+            className={cn(currentStep !== index && 'hidden')}
+          >
+            {renderStepContent(step.id)}
+          </section>
+        ))}
+
+        {/* Sticky Navigation Footer */}
+        <div className="flex items-center justify-between gap-3 pt-4 border-t sticky bottom-0 bg-background pb-2">
+          <div className="flex gap-2">
+            {onCancel ? (
+              <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+                Cancel
+              </Button>
+            ) : (
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={cancelHref}>Cancel</Link>
+              </Button>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            {currentStep > 0 && (
+              <Button type="button" variant="outline" size="sm" onClick={prevStep}>
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Back
+              </Button>
+            )}
+            {currentStep < STEPS.length - 1 ? (
+              <Button type="button" size="sm" onClick={nextStep}>
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            ) : (
+              <Button type="submit" size="sm" disabled={pending}>
+                {pending ? 'Saving...' : submitLabel}
+              </Button>
+            )}
+          </div>
+        </div>
+      </form>
+    );
+  }
+
+  // Full mode: Two-column layout with sidebar
   return (
     <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
       <aside className="space-y-4 lg:sticky lg:top-24 self-start">
