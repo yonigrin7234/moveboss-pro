@@ -88,6 +88,57 @@ export function FeatureShowcase() {
       >
         <LoadMatchingPreview />
       </FeatureSection>
+
+      {/* Section 9: Public Load Board */}
+      <FeatureSection
+        badge="Public Board"
+        title="Your branded load board"
+        description="Custom-branded public board with QR codes. Customers can browse and request loads without creating an account."
+        align="left"
+        highlight
+      >
+        <PublicBoardPreview />
+      </FeatureSection>
+
+      {/* Section 10: Dispatch Console */}
+      <FeatureSection
+        badge="Dispatch Console"
+        title="Command your fleet in real-time"
+        description="Send messages, assign loads, and track driver locations from one unified dispatch console. Every message logged."
+        align="right"
+      >
+        <DispatchPreview />
+      </FeatureSection>
+
+      {/* Section 11: Storage Management */}
+      <FeatureSection
+        badge="Storage Facilities"
+        title="Track items across warehouses"
+        description="Multi-facility storage management with payment tracking, customer alerts, and automatic billing."
+        align="left"
+      >
+        <StoragePreview />
+      </FeatureSection>
+
+      {/* Section 12: Payment Collection */}
+      <FeatureSection
+        badge="Mobile Payments"
+        title="Collect payments on the road"
+        description="Drivers collect Zelle, cash, or check payments and log them instantly. Receipts auto-sync to your financials."
+        align="right"
+      >
+        <PaymentCollectionPreview />
+      </FeatureSection>
+
+      {/* Section 13: Trip Map */}
+      <FeatureSection
+        badge="Route Planning"
+        title="Visual trip management"
+        description="Plan multi-stop routes with drag-and-drop stops. See driver positions, ETAs, and delivery status on a live map."
+        align="left"
+      >
+        <TripMapPreview />
+      </FeatureSection>
     </div>
   );
 }
@@ -582,6 +633,466 @@ function LoadMatchingPreview() {
       </div>
     </PreviewFrame>
   );
+}
+
+function PublicBoardPreview() {
+  return (
+    <PreviewFrame>
+      <div className="space-y-4">
+        {/* Custom Branding Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center">
+              <span className="text-white font-bold text-sm">MB</span>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-white">MoveBoss Carriers</h4>
+              <p className="text-[10px] text-white/40">Public Load Board</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-12 h-12 bg-white rounded-lg p-1">
+              <QRCodeIcon />
+            </div>
+          </div>
+        </div>
+
+        {/* Branding Banner */}
+        <div className="p-3 rounded-xl bg-gradient-to-r from-sky-500/10 to-blue-500/10 border border-sky-500/20">
+          <p className="text-[11px] text-sky-300 text-center">
+            🚚 Family-owned since 1995 · USDOT #123456 · MC #789012
+          </p>
+        </div>
+
+        {/* Public Loads */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-white">Available Loads</span>
+            <span className="text-[10px] text-white/40">No login required</span>
+          </div>
+          <PublicLoadCard
+            route="Los Angeles → San Francisco"
+            date="Dec 27"
+            cuft={1800}
+            type="Full Truck"
+          />
+          <PublicLoadCard
+            route="Seattle → Portland"
+            date="Dec 28"
+            cuft={1200}
+            type="Partial"
+          />
+        </div>
+
+        {/* Request Button */}
+        <button className="w-full py-3 bg-sky-500 text-white text-xs font-medium rounded-xl">
+          Request Quote — No Account Needed
+        </button>
+      </div>
+    </PreviewFrame>
+  );
+}
+
+function DispatchPreview() {
+  return (
+    <PreviewFrame>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-semibold text-white">Dispatch Console</h4>
+          <span className="px-2 py-1 text-[9px] bg-emerald-500/20 text-emerald-400 rounded-full">Live</span>
+        </div>
+
+        {/* Driver Cards */}
+        <div className="space-y-2">
+          <DispatchDriverCard
+            name="Marcus Johnson"
+            status="delivering"
+            location="Phoenix, AZ"
+            load="LD-2847"
+            lastUpdate="2 min ago"
+          />
+          <DispatchDriverCard
+            name="David Chen"
+            status="in_transit"
+            location="I-10 near Tucson"
+            load="LD-2852"
+            lastUpdate="Just now"
+          />
+        </div>
+
+        {/* Quick Message */}
+        <div className="bg-white/[0.02] rounded-xl border border-white/[0.06] p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] text-white/40">Quick Message</span>
+            <span className="text-[10px] text-sky-400">To: Marcus J</span>
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Send update to driver..."
+              className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/30"
+            />
+            <button className="px-4 py-2 bg-sky-500 text-white text-xs font-medium rounded-lg">
+              Send
+            </button>
+          </div>
+        </div>
+
+        {/* Message Log */}
+        <div className="space-y-1.5">
+          <p className="text-[10px] text-white/40">Recent Messages</p>
+          <div className="flex items-start gap-2 p-2 rounded-lg bg-sky-500/10 border border-sky-500/20">
+            <ArrowRightIcon className="w-3 h-3 text-sky-400 mt-0.5" />
+            <div>
+              <p className="text-[10px] text-white">Customer waiting at delivery — call when 10 min out</p>
+              <p className="text-[9px] text-white/40">To Marcus · 10:32 AM</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2 p-2 rounded-lg bg-white/[0.02] border border-white/[0.06]">
+            <ArrowLeftIcon className="w-3 h-3 text-emerald-400 mt-0.5" />
+            <div>
+              <p className="text-[10px] text-white">Copy that, ETA 15 minutes</p>
+              <p className="text-[9px] text-white/40">From Marcus · 10:34 AM</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </PreviewFrame>
+  );
+}
+
+function StoragePreview() {
+  return (
+    <PreviewFrame>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-semibold text-white">Storage Units</h4>
+          <button className="text-[10px] text-sky-400 font-medium">+ Add Unit</button>
+        </div>
+
+        {/* Facility Stats */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.06] text-center">
+            <p className="text-lg font-bold text-white">24</p>
+            <p className="text-[9px] text-white/40">Active Units</p>
+          </div>
+          <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
+            <p className="text-lg font-bold text-amber-400">3</p>
+            <p className="text-[9px] text-amber-400/70">Payment Due</p>
+          </div>
+          <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+            <p className="text-lg font-bold text-emerald-400">$8.2K</p>
+            <p className="text-[9px] text-emerald-400/70">Monthly</p>
+          </div>
+        </div>
+
+        {/* Storage Items */}
+        <div className="space-y-2">
+          <StorageUnitCard
+            unit="Unit A-12"
+            customer="Johnson Family"
+            items="Living room, 3 beds, boxes"
+            status="current"
+            due="Jan 15"
+          />
+          <StorageUnitCard
+            unit="Unit B-04"
+            customer="Martinez Corp"
+            items="Office furniture, 8 pallets"
+            status="overdue"
+            due="Dec 1 — 22 days late"
+          />
+          <StorageUnitCard
+            unit="Unit A-08"
+            customer="Chen Residence"
+            items="Kitchen, garage items"
+            status="warning"
+            due="Dec 28"
+          />
+        </div>
+      </div>
+    </PreviewFrame>
+  );
+}
+
+function PaymentCollectionPreview() {
+  return (
+    <div className="flex justify-center">
+      <div className="relative">
+        {/* Phone Frame */}
+        <div className="w-[280px] bg-[#0f1117] rounded-[40px] p-3 border border-white/10 shadow-2xl">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 w-24 h-6 bg-black rounded-full" />
+          <div className="bg-[#0a0d12] rounded-[32px] overflow-hidden">
+            {/* Status Bar */}
+            <div className="h-8 bg-[#0f1117] flex items-center justify-between px-6 text-[10px] text-white/50">
+              <span>9:41</span>
+              <div className="flex items-center gap-1">
+                <SignalIcon />
+                <WifiIcon />
+                <BatteryIcon />
+              </div>
+            </div>
+
+            {/* App Content */}
+            <div className="p-4 space-y-4">
+              <div>
+                <p className="text-xs text-white/40">Collect Payment</p>
+                <p className="text-sm font-semibold text-white">TR-1847 · Johnson Family</p>
+              </div>
+
+              {/* Amount */}
+              <div className="text-center py-4">
+                <p className="text-[10px] text-white/40 mb-1">Amount Due</p>
+                <p className="text-3xl font-bold text-white">$3,200</p>
+              </div>
+
+              {/* Payment Method */}
+              <div className="space-y-2">
+                <p className="text-[10px] text-white/40">Payment Method</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <PaymentMethodButton icon="zelle" label="Zelle" active />
+                  <PaymentMethodButton icon="cash" label="Cash" />
+                  <PaymentMethodButton icon="check" label="Check" />
+                </div>
+              </div>
+
+              {/* Zelle Info */}
+              <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                <p className="text-[10px] text-purple-300 mb-1">Customer sends Zelle to:</p>
+                <p className="text-sm font-medium text-white">payments@company.com</p>
+              </div>
+
+              {/* Confirm Button */}
+              <button className="w-full py-3.5 bg-emerald-500 text-white text-sm font-medium rounded-xl">
+                Confirm Payment Received
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TripMapPreview() {
+  return (
+    <PreviewFrame>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h4 className="text-sm font-semibold text-white">Trip TR-1847</h4>
+            <p className="text-[10px] text-white/40">5 stops · 847 miles</p>
+          </div>
+          <span className="px-2 py-1 text-[9px] bg-emerald-500/20 text-emerald-400 rounded-full font-medium">In Progress</span>
+        </div>
+
+        {/* Map Visualization */}
+        <div className="relative h-32 rounded-xl bg-[#0d1117] border border-white/[0.06] overflow-hidden">
+          {/* Map Background Pattern */}
+          <div className="absolute inset-0 opacity-30">
+            <div className="absolute inset-0" style={{
+              backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.1) 1px, transparent 0)`,
+              backgroundSize: '20px 20px'
+            }} />
+          </div>
+
+          {/* Route Line */}
+          <svg className="absolute inset-0 w-full h-full">
+            <path
+              d="M 40 100 Q 80 80 120 60 Q 160 40 200 50 Q 240 60 280 40 Q 320 20 360 30"
+              stroke="url(#routeGradient)"
+              strokeWidth="3"
+              fill="none"
+              strokeDasharray="8 4"
+            />
+            <defs>
+              <linearGradient id="routeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#22c55e" />
+                <stop offset="50%" stopColor="#0ea5e9" />
+                <stop offset="100%" stopColor="#8b5cf6" />
+              </linearGradient>
+            </defs>
+          </svg>
+
+          {/* Stop Markers */}
+          <div className="absolute left-8 top-20 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center">
+            <CheckIcon className="w-2 h-2 text-white" />
+          </div>
+          <div className="absolute left-24 top-12 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center">
+            <CheckIcon className="w-2 h-2 text-white" />
+          </div>
+          <div className="absolute left-44 top-10 w-5 h-5 rounded-full bg-sky-500 border-2 border-white animate-pulse" />
+          <div className="absolute right-20 top-8 w-3 h-3 rounded-full bg-white/40 border-2 border-white/60" />
+          <div className="absolute right-8 top-6 w-3 h-3 rounded-full bg-purple-500/40 border-2 border-purple-500" />
+
+          {/* Driver Position */}
+          <div className="absolute left-36 top-6 flex items-center gap-1 px-2 py-1 bg-sky-500 rounded-full">
+            <TruckIcon className="w-2.5 h-2.5 text-white" />
+            <span className="text-[8px] font-medium text-white">Marcus</span>
+          </div>
+        </div>
+
+        {/* Stop List */}
+        <div className="space-y-1.5">
+          <TripStop status="completed" location="Los Angeles, CA" time="8:00 AM" type="pickup" />
+          <TripStop status="completed" location="Palm Springs, CA" time="10:30 AM" type="pickup" />
+          <TripStop status="current" location="Phoenix, AZ" time="2:15 PM" type="delivery" />
+          <TripStop status="pending" location="Tucson, AZ" time="5:00 PM" type="delivery" />
+          <TripStop status="pending" location="El Paso, TX" time="Tomorrow" type="delivery" />
+        </div>
+      </div>
+    </PreviewFrame>
+  );
+}
+
+// Helper Components for new previews
+function PublicLoadCard({ route, date, cuft, type }: { route: string; date: string; cuft: number; type: string }) {
+  return (
+    <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+      <div className="flex items-start justify-between mb-2">
+        <p className="text-xs font-medium text-white">{route}</p>
+        <span className="text-[9px] text-white/40">{date}</span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-white/50">{cuft.toLocaleString()} CF · {type}</span>
+        <button className="px-2 py-1 text-[9px] bg-sky-500/20 text-sky-400 rounded font-medium">
+          Request
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DispatchDriverCard({ name, status, location, load, lastUpdate }: { name: string; status: string; location: string; load: string; lastUpdate: string }) {
+  const statusConfig: Record<string, { bg: string; text: string; label: string }> = {
+    delivering: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', label: 'Delivering' },
+    in_transit: { bg: 'bg-sky-500/20', text: 'text-sky-400', label: 'In Transit' },
+  };
+  const config = statusConfig[status] || statusConfig.in_transit;
+  return (
+    <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-medium text-white">
+            {name.split(' ').map(n => n[0]).join('')}
+          </div>
+          <div>
+            <p className="text-xs font-medium text-white">{name}</p>
+            <p className="text-[10px] text-white/40">{load}</p>
+          </div>
+        </div>
+        <span className={`px-2 py-1 text-[9px] rounded-full ${config.bg} ${config.text}`}>{config.label}</span>
+      </div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1 text-[10px] text-white/50">
+          <MapPinIcon className="w-3 h-3" />
+          {location}
+        </div>
+        <span className="text-[9px] text-white/30">{lastUpdate}</span>
+      </div>
+    </div>
+  );
+}
+
+function StorageUnitCard({ unit, customer, items, status, due }: { unit: string; customer: string; items: string; status: 'current' | 'overdue' | 'warning'; due: string }) {
+  const statusConfig = {
+    current: { border: 'border-white/[0.06]', bg: 'bg-white/[0.02]', badge: null },
+    overdue: { border: 'border-red-500/30', bg: 'bg-red-500/5', badge: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'Overdue' } },
+    warning: { border: 'border-amber-500/30', bg: 'bg-amber-500/5', badge: { bg: 'bg-amber-500/20', text: 'text-amber-400', label: 'Due Soon' } },
+  };
+  const config = statusConfig[status];
+  return (
+    <div className={`p-3 rounded-xl ${config.bg} border ${config.border}`}>
+      <div className="flex items-start justify-between mb-1">
+        <div>
+          <p className="text-xs font-medium text-white">{unit}</p>
+          <p className="text-[10px] text-white/50">{customer}</p>
+        </div>
+        {config.badge && (
+          <span className={`px-2 py-0.5 text-[9px] rounded ${config.badge.bg} ${config.badge.text}`}>
+            {config.badge.label}
+          </span>
+        )}
+      </div>
+      <p className="text-[10px] text-white/40 mb-1.5">{items}</p>
+      <p className={`text-[10px] ${status === 'overdue' ? 'text-red-400' : status === 'warning' ? 'text-amber-400' : 'text-white/40'}`}>
+        {due}
+      </p>
+    </div>
+  );
+}
+
+function PaymentMethodButton({ icon, label, active }: { icon: string; label: string; active?: boolean }) {
+  const icons: Record<string, React.ReactNode> = {
+    zelle: <span className="text-sm">💜</span>,
+    cash: <span className="text-sm">💵</span>,
+    check: <span className="text-sm">📝</span>,
+  };
+  return (
+    <button className={`py-3 rounded-xl flex flex-col items-center gap-1 transition-colors ${
+      active
+        ? 'bg-purple-500/20 border border-purple-500/40'
+        : 'bg-white/[0.04] border border-white/[0.08]'
+    }`}>
+      {icons[icon]}
+      <span className={`text-[10px] ${active ? 'text-purple-300' : 'text-white/50'}`}>{label}</span>
+    </button>
+  );
+}
+
+function TripStop({ status, location, time, type }: { status: 'completed' | 'current' | 'pending'; location: string; time: string; type: 'pickup' | 'delivery' }) {
+  const statusConfig = {
+    completed: { icon: <CheckIcon className="w-2.5 h-2.5 text-white" />, bg: 'bg-emerald-500', line: 'bg-emerald-500' },
+    current: { icon: <div className="w-1.5 h-1.5 rounded-full bg-white" />, bg: 'bg-sky-500', line: 'bg-white/20' },
+    pending: { icon: null, bg: 'bg-white/20', line: 'bg-white/10' },
+  };
+  const config = statusConfig[status];
+  return (
+    <div className="flex items-center gap-3">
+      <div className={`w-5 h-5 rounded-full ${config.bg} flex items-center justify-center flex-shrink-0`}>
+        {config.icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-[11px] font-medium ${status === 'pending' ? 'text-white/40' : 'text-white'}`}>{location}</p>
+        <p className="text-[9px] text-white/40">{type === 'pickup' ? '📦 Pickup' : '📍 Delivery'} · {time}</p>
+      </div>
+    </div>
+  );
+}
+
+// Additional Icons
+function QRCodeIcon() {
+  return (
+    <svg viewBox="0 0 100 100" className="w-full h-full">
+      <rect x="10" y="10" width="30" height="30" fill="#000" />
+      <rect x="15" y="15" width="20" height="20" fill="#fff" />
+      <rect x="20" y="20" width="10" height="10" fill="#000" />
+      <rect x="60" y="10" width="30" height="30" fill="#000" />
+      <rect x="65" y="15" width="20" height="20" fill="#fff" />
+      <rect x="70" y="20" width="10" height="10" fill="#000" />
+      <rect x="10" y="60" width="30" height="30" fill="#000" />
+      <rect x="15" y="65" width="20" height="20" fill="#fff" />
+      <rect x="20" y="70" width="10" height="10" fill="#000" />
+      <rect x="50" y="50" width="5" height="5" fill="#000" />
+      <rect x="60" y="60" width="5" height="5" fill="#000" />
+      <rect x="70" y="70" width="5" height="5" fill="#000" />
+      <rect x="80" y="80" width="5" height="5" fill="#000" />
+      <rect x="60" y="80" width="5" height="5" fill="#000" />
+      <rect x="80" y="60" width="5" height="5" fill="#000" />
+    </svg>
+  );
+}
+
+function ArrowRightIcon({ className }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>;
+}
+
+function ArrowLeftIcon({ className }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>;
+}
+
+function TruckIcon({ className }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13" /><polygon points="16 8 20 8 23 11 23 16 16 16 16 8" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" /></svg>;
 }
 
 // Reusable Components
