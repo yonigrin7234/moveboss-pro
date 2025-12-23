@@ -77,12 +77,8 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
   ): Promise<{ errors?: Record<string, string>; success?: boolean } | null> {
     'use server';
 
-    // CRITICAL: Log that the action started - this appears in server logs
-    console.log('UPDATE_DRIVER_ACTION_STARTED', { driverId: id, timestamp: new Date().toISOString() });
-
     const user = await getCurrentUser();
     if (!user) {
-      console.log('UPDATE_DRIVER_ACTION_NO_USER');
       return { errors: { _form: 'Not authenticated' } };
     }
     const currentCompany = await getPrimaryCompanyForUser(user.id);
@@ -131,18 +127,6 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
       booleanFields: ['has_login', 'location_sharing_enabled', 'auto_post_capacity'],
     });
     const cleanedData = cleanFormValues(rawData);
-
-    // Debug logging for location settings
-    console.log('DRIVER_LOCATION_SETTINGS_DEBUG', {
-      form_location_sharing: formData.get('location_sharing_enabled'),
-      form_auto_post: formData.get('auto_post_capacity'),
-      form_capacity_visibility: formData.get('capacity_visibility'),
-      raw_location_sharing: rawData.location_sharing_enabled,
-      raw_auto_post: rawData.auto_post_capacity,
-      cleaned_location_sharing: cleanedData.location_sharing_enabled,
-      cleaned_auto_post: cleanedData.auto_post_capacity,
-      cleaned_capacity_visibility: cleanedData.capacity_visibility,
-    });
 
     if (cleanedData.login_method === 'sms') cleanedData.login_method = 'phone';
 
@@ -229,51 +213,19 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
     }
 
     try {
-      // DEBUG: Log cleanedData BEFORE validation
-      console.log('PRE_VALIDATION_DEBUG', {
-        cleanedData_location_sharing: cleanedData.location_sharing_enabled,
-        cleanedData_auto_post: cleanedData.auto_post_capacity,
-        cleanedData_keys: Object.keys(cleanedData),
-        cleanedData_full: JSON.stringify(cleanedData),
-      });
-
       const { updateDriverInputSchema } = await import('@/data/drivers');
       const validated = updateDriverInputSchema.parse(cleanedData);
 
-      // CRITICAL FIX: Zod's .partial() strips boolean fields from output
-      // Explicitly preserve boolean values from cleanedData (before Zod)
+      // Preserve boolean values from cleanedData (Zod's .partial() may strip them)
       const validatedWithBooleans = {
         ...validated,
         location_sharing_enabled: cleanedData.location_sharing_enabled === true,
         auto_post_capacity: cleanedData.auto_post_capacity === true,
       };
 
-      // DEBUG: Log validated data AFTER validation
-      console.log('POST_VALIDATION_DEBUG', {
-        validated_location_sharing: validated.location_sharing_enabled,
-        validated_auto_post: validated.auto_post_capacity,
-        fixed_location_sharing: validatedWithBooleans.location_sharing_enabled,
-        fixed_auto_post: validatedWithBooleans.auto_post_capacity,
-        validated_keys: Object.keys(validated),
-      });
-
-      // Derive effectiveHasLogin ONLY from validated value
       const effectiveHasLogin = validated.has_login === true;
 
-      console.log('DRIVER_ACTION_DEBUG', {
-        hasServiceRoleKey,
-        form_has_login: formData.get('has_login'),
-        validated_has_login: validated.has_login,
-        effectiveHasLogin,
-        login_method: loginMethod,
-        email,
-        phone,
-        // Location settings after fix
-        fixed_location_sharing: validatedWithBooleans.location_sharing_enabled,
-        fixed_auto_post: validatedWithBooleans.auto_post_capacity,
-      });
-
-      const savedDriver = await updateDriver(id, validatedWithBooleans, user.id, companyId, {
+      await updateDriver(id, validatedWithBooleans, user.id, companyId, {
         effectiveHasLogin,
         login_method: loginMethod as 'email' | 'phone',
         email: email?.trim() || null,
@@ -281,30 +233,13 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
         password: password || null,
         resetPassword: reset,
       });
-      // TEMPORARY DEBUG: Return what was ACTUALLY SAVED to help debug
-      return {
-        success: true,
-        _debug: {
-          form_location_sharing: formData.get('location_sharing_enabled'),
-          form_auto_post: formData.get('auto_post_capacity'),
-          validated_location_sharing: validated.location_sharing_enabled,
-          validated_auto_post: validated.auto_post_capacity,
-          // CRITICAL: What the database actually returned after the update
-          saved_location_sharing: (savedDriver as any).location_sharing_enabled,
-          saved_auto_post: (savedDriver as any).auto_post_capacity,
-        }
-      } as { errors?: Record<string, string>; success?: boolean; _debug?: Record<string, unknown> };
+
+      return { success: true };
     } catch (error) {
-      // LOG THE FULL ERROR SO WE CAN SEE IT
-      console.error('UPDATE_DRIVER_ACTION_ERROR', {
-        error_type: error?.constructor?.name,
-        error_message: error instanceof Error ? error.message : String(error),
-        error_full: JSON.stringify(error, Object.getOwnPropertyNames(error || {})),
-      });
+      console.error('Failed to update driver:', error instanceof Error ? error.message : error);
 
       if (error && typeof error === 'object' && 'issues' in error) {
         const zodError = error as { issues: Array<{ path: (string | number)[]; message: string }> };
-        console.error('ZOD_VALIDATION_ERROR', { issues: zodError.issues });
         const errors: Record<string, string> = {};
         zodError.issues.forEach((issue) => {
           const field = issue.path[0] as string;
@@ -317,16 +252,6 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
   }
 
   const driverDisplayName = `${driver.first_name} ${driver.last_name}`;
-
-  // DEBUG: Log what we're reading from the database
-  console.log('DRIVER_DETAIL_PAGE_DEBUG', {
-    driver_id: driver.id,
-    driver_first_name: driver.first_name,
-    driver_location_sharing: (driver as any).location_sharing_enabled,
-    driver_auto_post: (driver as any).auto_post_capacity,
-    driver_capacity_visibility: (driver as any).capacity_visibility,
-    driver_raw: JSON.stringify(driver),
-  });
 
   const initialData = {
     first_name: driver.first_name,

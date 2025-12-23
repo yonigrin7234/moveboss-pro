@@ -334,14 +334,9 @@ export function DriverForm({
       isSubmittingRef.current = false;
       // Mark setup progress for first driver
       markComplete('first_driver_added');
-      // TEMPORARY DEBUG: Show what was sent AND what was saved
-      const debugInfo = (state as any)?._debug;
-      console.log('SAVE_SUCCESS_DEBUG', debugInfo);
       toast({
         title: 'Driver saved',
-        description: debugInfo
-          ? `DB saved: loc=${debugInfo.saved_location_sharing}, auto=${debugInfo.saved_auto_post} | Form sent: loc=${debugInfo.form_location_sharing}, auto=${debugInfo.form_auto_post}`
-          : 'The driver was created successfully.',
+        description: 'Driver information has been updated successfully.',
       });
       router.push('/dashboard/drivers');
       router.refresh();

@@ -532,11 +532,6 @@ export async function updateDriver(
 ): Promise<Driver> {
   const supabase = await getDbClient();
 
-  console.log('CREATE_OR_UPDATE_DRIVER_DEBUG', {
-    effectiveHasLogin: options?.effectiveHasLogin,
-    payload_has_login: input.has_login,
-  });
-
   // Fetch current driver to reconcile assignments
   // Always use owner_id for reliable matching (company_id may be null for legacy drivers)
   const { data: existing, error: fetchError } = await supabase
@@ -546,7 +541,6 @@ export async function updateDriver(
     .eq('owner_id', userId)
     .single();
   if (fetchError) {
-    console.error('FETCH_DRIVER_ERROR', { id, userId, error: fetchError });
     throw new Error(`Failed to fetch driver: ${fetchError.message}`);
   }
 
@@ -599,18 +593,6 @@ export async function updateDriver(
     auto_post_capacity: input.auto_post_capacity === true,
     capacity_visibility: input.capacity_visibility || 'private',
   };
-
-  // Debug: Log location settings in update payload
-  console.log('UPDATE_DRIVER_PAYLOAD_DEBUG', {
-    input_location_sharing: input.location_sharing_enabled,
-    input_auto_post: input.auto_post_capacity,
-    input_capacity_visibility: input.capacity_visibility,
-    payload_location_sharing: updatePayload.location_sharing_enabled,
-    payload_auto_post: updatePayload.auto_post_capacity,
-    payload_capacity_visibility: updatePayload.capacity_visibility,
-    full_payload_keys: Object.keys(updatePayload),
-    full_payload: JSON.stringify(updatePayload),
-  });
 
   // Handle auth user creation/updates
   if (effectiveHasLogin && !existingAuthUserId) {
@@ -686,16 +668,6 @@ export async function updateDriver(
     updatePayload.has_login = effectiveHasLogin;
   }
 
-  // DEBUG: Log right before Supabase update
-  console.log('SUPABASE_UPDATE_CALL', {
-    table: 'drivers',
-    id,
-    userId,
-    existing_owner_id: existing?.owner_id,
-    payload_loc_sharing: updatePayload.location_sharing_enabled,
-    payload_auto_post: updatePayload.auto_post_capacity,
-  });
-
   // Use owner_id for update filter - more reliable than company_id which may be null
   const { data, error } = await supabase
     .from('drivers')
@@ -706,12 +678,6 @@ export async function updateDriver(
     .single();
 
   if (error) {
-    console.error('UPDATE_DRIVER_ERROR', {
-      error_message: error.message,
-      error_code: error.code,
-      error_details: error.details,
-      error_hint: error.hint,
-    });
     if (error.code === 'PGRST116') {
       throw new Error('Driver not found or you do not have permission to update it');
     }
@@ -719,14 +685,6 @@ export async function updateDriver(
   }
 
   const updated = data as Driver;
-
-  // Debug: Log what was returned after update
-  console.log('UPDATE_DRIVER_RESULT', {
-    updated_location_sharing: (updated as any).location_sharing_enabled,
-    updated_auto_post: (updated as any).auto_post_capacity,
-    updated_capacity_visibility: (updated as any).capacity_visibility,
-    raw_data: JSON.stringify(data),
-  });
 
   // Clear previous truck/trailer assignments if changed
   if (existing?.assigned_truck_id && existing.assigned_truck_id !== updated.assigned_truck_id) {
