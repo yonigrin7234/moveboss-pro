@@ -1,14 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { Search, UserPlus, Plus, DollarSign, FileText, Truck, Package, Clock } from 'lucide-react';
+import { Search, UserPlus, Plus, DollarSign, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
   type CompanyCapabilities,
   canPostToMarketplace,
   canHaulLoads,
-  hasDriverManagement,
 } from '@/lib/dashboardMode';
 
 interface QuickAction {
@@ -17,11 +16,6 @@ interface QuickAction {
   icon: React.ReactNode;
   primary?: boolean;
   highlight?: boolean;
-  /** Show only for brokers/moving companies (can post to marketplace) */
-  brokerOnly?: boolean;
-  /** Show only for carriers/moving companies (can haul) */
-  carrierOnly?: boolean;
-  /** Show badge with count */
   badgeCount?: number;
 }
 
@@ -41,78 +35,57 @@ export function QuickActions({
 }: QuickActionsProps) {
   const isBroker = canPostToMarketplace(company);
   const isCarrier = canHaulLoads(company);
-  const hasDrivers = hasDriverManagement(company);
 
-  const allActions: QuickAction[] = [
-    // CARRIER ACTIONS (find work, manage requests)
-    {
+  // Build actions list - keep it simple with max 4 buttons
+  const allActions: QuickAction[] = [];
+
+  // Primary action based on role
+  if (isBroker) {
+    allActions.push({
+      label: 'Post Load',
+      href: '/dashboard/post-load',
+      icon: <Plus className="h-4 w-4" />,
+      primary: true,
+    });
+  } else if (isCarrier) {
+    allActions.push({
       label: 'Find Load',
       href: '/dashboard/load-board',
       icon: <Search className="h-4 w-4" />,
       primary: true,
-      carrierOnly: true,
-    },
-    {
-      label: 'My Requests',
-      href: '/dashboard/my-requests',
-      icon: <Clock className="h-4 w-4" />,
-      carrierOnly: true,
-      badgeCount: pendingRequestsCount,
-    },
-    // BROKER ACTIONS (post work, find trucks)
-    {
-      label: 'Post Load',
-      href: '/dashboard/post-load',
-      icon: <Plus className="h-4 w-4" />,
-      primary: !isCarrier, // primary for pure brokers
-      brokerOnly: true,
-    },
-    {
-      label: 'Find Truck',
-      href: '/dashboard/marketplace-capacity',
-      icon: <Package className="h-4 w-4" />,
-      brokerOnly: true,
-    },
-    // DISPATCH ACTIONS (for carriers/moving companies with drivers)
-    {
-      label: needsDriverAssignment > 0 ? `Assign (${needsDriverAssignment})` : 'Assign Driver',
+    });
+  }
+
+  // Show Assign button only if there are items needing assignment
+  if (isCarrier && needsDriverAssignment > 0) {
+    allActions.push({
+      label: `Assign (${needsDriverAssignment})`,
       href: '/dashboard/assigned-loads?filter=unassigned',
       icon: <UserPlus className="h-4 w-4" />,
-      highlight: needsDriverAssignment > 0,
-      carrierOnly: true,
-    },
-    {
-      label: 'New Trip',
-      href: '/dashboard/trips/new',
-      icon: <Truck className="h-4 w-4" />,
-      carrierOnly: true,
-    },
-    // FINANCIAL ACTIONS (available to all)
-    {
-      label: 'Record Payment',
-      href: '/dashboard/finance/receivables',
-      icon: <DollarSign className="h-4 w-4" />,
-    },
-    {
-      label: 'Settle Driver',
-      href: '/dashboard/settlements',
-      icon: <FileText className="h-4 w-4" />,
-      carrierOnly: true,
-    },
-  ];
+      highlight: true,
+    });
+  }
 
-  // Filter actions based on company capabilities
-  const visibleActions = allActions.filter((action) => {
-    // If brokerOnly, only show if company can post
-    if (action.brokerOnly && !isBroker) return false;
-    // If carrierOnly, only show if company can haul
-    if (action.carrierOnly && !isCarrier) return false;
-    return true;
+  // Show pending requests if any
+  if (isCarrier && pendingRequestsCount > 0) {
+    allActions.push({
+      label: 'Requests',
+      href: '/dashboard/my-requests',
+      icon: <Clock className="h-4 w-4" />,
+      badgeCount: pendingRequestsCount,
+    });
+  }
+
+  // Record Payment - always useful
+  allActions.push({
+    label: 'Record Payment',
+    href: '/dashboard/finance/receivables',
+    icon: <DollarSign className="h-4 w-4" />,
   });
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2">
-      {visibleActions.map((action) => (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {allActions.map((action) => (
         <Link
           key={action.href}
           href={action.href}
