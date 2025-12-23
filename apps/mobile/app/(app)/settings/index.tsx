@@ -5,7 +5,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Linking } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -40,6 +40,13 @@ export default function DriverSettingsScreen() {
       ]
     );
   }, [signOut]);
+
+  const handleCallCompany = useCallback(() => {
+    if (company?.phone) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Linking.openURL(`tel:${company.phone}`);
+    }
+  }, [company?.phone]);
 
   // Get initials for avatar
   const getInitials = () => {
@@ -94,6 +101,62 @@ export default function DriverSettingsScreen() {
           </View>
           <Icon name="chevron-right" size="sm" color={colors.textMuted} />
         </Pressable>
+
+        {/* Company Section */}
+        {company && (
+          <>
+            <Text style={styles.sectionTitle}>Company</Text>
+            <View style={styles.companyCard}>
+              <View style={styles.companyHeader}>
+                <View style={styles.companyIcon}>
+                  <Icon name="building" size="md" color={colors.primary} />
+                </View>
+                <Text style={styles.companyName}>{company.name}</Text>
+              </View>
+
+              {/* Company Details */}
+              <View style={styles.companyDetails}>
+                {(company.dot_number || company.mc_number) && (
+                  <View style={styles.companyRow}>
+                    <View style={styles.companyBadges}>
+                      {company.dot_number && (
+                        <View style={styles.dotBadge}>
+                          <Text style={styles.badgeLabel}>DOT</Text>
+                          <Text style={styles.badgeValue}>{company.dot_number}</Text>
+                        </View>
+                      )}
+                      {company.mc_number && (
+                        <View style={styles.mcBadge}>
+                          <Text style={styles.badgeLabel}>MC</Text>
+                          <Text style={styles.badgeValue}>{company.mc_number}</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                )}
+
+                {(company.city || company.state) && (
+                  <View style={styles.companyInfoRow}>
+                    <Icon name="map-pin" size="sm" color={colors.textMuted} />
+                    <Text style={styles.companyInfoText}>
+                      {[company.city, company.state].filter(Boolean).join(', ')}
+                    </Text>
+                  </View>
+                )}
+
+                {company.phone && (
+                  <Pressable style={styles.phoneRow} onPress={handleCallCompany}>
+                    <View style={styles.phoneIconContainer}>
+                      <Icon name="phone" size="sm" color={colors.primary} />
+                    </View>
+                    <Text style={styles.phoneText}>{company.phone}</Text>
+                    <Text style={styles.tapToCall}>Tap to call</Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
+          </>
+        )}
 
         {/* About Section */}
         <Text style={styles.sectionTitle}>About</Text>
@@ -215,6 +278,110 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textMuted,
     marginTop: spacing.xxs,
+  },
+  // Company Card
+  companyCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    marginBottom: spacing.xl,
+    overflow: 'hidden',
+    ...shadows.sm,
+  },
+  companyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  companyIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  companyName: {
+    ...typography.headline,
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  companyDetails: {
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  companyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  companyBadges: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  dotBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+    gap: spacing.xs,
+  },
+  mcBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.successSoft,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+    gap: spacing.xs,
+  },
+  badgeLabel: {
+    ...typography.caption,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  badgeValue: {
+    ...typography.caption,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  companyInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  companyInfoText: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    gap: spacing.sm,
+  },
+  phoneIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  phoneText: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.primary,
+    flex: 1,
+  },
+  tapToCall: {
+    ...typography.caption,
+    color: colors.textMuted,
   },
   // About Card
   aboutCard: {
