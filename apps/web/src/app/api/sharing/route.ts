@@ -40,15 +40,33 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const action = body.action;
 
+    // Try cookie-based auth first (web), then Bearer token (mobile)
+    let user = null;
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user: cookieUser } } = await supabase.auth.getUser();
+
+    if (cookieUser) {
+      user = cookieUser;
+    } else {
+      // Check for Bearer token (mobile app)
+      const authHeader = request.headers.get('Authorization');
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        const adminClient = createServiceRoleClient();
+        const { data: { user: tokenUser } } = await adminClient.auth.getUser(token);
+        user = tokenUser;
+      }
+    }
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Use admin client for queries to work with both auth methods
+    const adminClient = createServiceRoleClient();
+
     // Get user's company with name
-    const { data: membership } = await supabase
+    const { data: membership } = await adminClient
       .from('company_memberships')
       .select('company_id, companies(name, public_board_slug, public_board_show_rates)')
       .eq('user_id', user.id)
@@ -72,7 +90,7 @@ export async function POST(request: NextRequest) {
 
       // Fetch loads - allow sharing any load owned by the company
       // Check both company_id and posted_by_company_id as either could be set
-      const { data: loads, error: loadsError } = await supabase
+      const { data: loads, error: loadsError } = await adminClient
         .from('loads')
         .select('*')
         .in('id', loadIds)
@@ -89,7 +107,6 @@ export async function POST(request: NextRequest) {
 
       if (includeLink) {
         // Always create a share token for clean URLs
-        const adminClient = createServiceRoleClient();
         const token = generateShortToken();
 
         const { error: insertError } = await adminClient
@@ -120,7 +137,6 @@ export async function POST(request: NextRequest) {
       });
 
       // Track analytics
-      const adminClient = createServiceRoleClient();
       await adminClient.from('share_analytics').insert({
         company_id: companyId,
         share_type: loads.length === 1 ? 'single_load' : 'batch_link',
@@ -140,7 +156,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Verify loads belong to company and are open
-      const { data: loads, error: loadsError } = await supabase
+      const { data: loads, error: loadsError } = await adminClient
         .from('loads')
         .select('id')
         .in('id', loadIds)
@@ -170,7 +186,6 @@ export async function POST(request: NextRequest) {
 
       const token = generateShortToken();
 
-      const adminClient = createServiceRoleClient();
       const { error: insertError } = await adminClient
         .from('load_share_links')
         .insert({

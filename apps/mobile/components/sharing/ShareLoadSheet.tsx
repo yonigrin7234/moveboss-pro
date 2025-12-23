@@ -18,7 +18,7 @@ import { haptics } from '../../lib/haptics';
 import { buildShareMessage, type ShareableLoad } from '../../lib/sharing';
 import { useAuth } from '../../providers/AuthProvider';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || '';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://moveboss-pro.vercel.app';
 
 interface ShareLoadSheetProps {
   load: ShareableLoad | null;
