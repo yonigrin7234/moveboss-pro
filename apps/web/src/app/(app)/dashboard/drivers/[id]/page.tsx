@@ -77,10 +77,14 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
   ): Promise<{ errors?: Record<string, string>; success?: boolean } | null> {
     'use server';
 
+    // CRITICAL: Log that the action started - this appears in server logs
+    console.log('UPDATE_DRIVER_ACTION_STARTED', { driverId: id, timestamp: new Date().toISOString() });
+
     const user = await getCurrentUser();
-      if (!user) {
-        return { errors: { _form: 'Not authenticated' } };
-      }
+    if (!user) {
+      console.log('UPDATE_DRIVER_ACTION_NO_USER');
+      return { errors: { _form: 'Not authenticated' } };
+    }
     const currentCompany = await getPrimaryCompanyForUser(user.id);
     const companyId = currentCompany?.id ?? primaryCompany?.id;
 
@@ -158,19 +162,21 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
     }
 
     // Clear unused compensation fields based on pay_mode
+    // IMPORTANT: Use delete, not null - Zod schema uses z.union([string, number]).optional()
+    // which accepts undefined (missing keys) but NOT null (causes invalid_union error)
     const payMode = cleanedData.pay_mode as string | undefined;
     if (payMode) {
       if (payMode !== 'per_mile' && payMode !== 'per_mile_and_cuft') {
-        cleanedData.rate_per_mile = null;
+        delete cleanedData.rate_per_mile;
       }
       if (payMode !== 'per_cuft' && payMode !== 'per_mile_and_cuft') {
-        cleanedData.rate_per_cuft = null;
+        delete cleanedData.rate_per_cuft;
       }
       if (payMode !== 'percent_of_revenue') {
-        cleanedData.percent_of_revenue = null;
+        delete cleanedData.percent_of_revenue;
       }
       if (payMode !== 'flat_daily_rate') {
-        cleanedData.flat_daily_rate = null;
+        delete cleanedData.flat_daily_rate;
       }
     }
 
