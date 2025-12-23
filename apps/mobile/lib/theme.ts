@@ -16,12 +16,12 @@ export const colors = {
   surfaceElevated: '#1A1A24',      // Elevated cards, popovers
   surfacePressed: '#22222E',       // Pressed/active state
 
-  // Premium accent - Indigo (signature color)
-  primary: '#6366F1',              // Main accent
-  primaryHover: '#818CF8',         // Lighter for hover/focus
-  primaryMuted: '#4F46E5',         // Darker variant
-  primaryGlow: 'rgba(99, 102, 241, 0.15)',  // Glow/highlight effect
-  primarySoft: 'rgba(99, 102, 241, 0.1)',   // Subtle backgrounds
+  // Premium accent - Teal Blue (signature color, matches web app)
+  primary: '#4F9CF9',              // Main accent
+  primaryHover: '#6FB2FA',         // Lighter for hover/focus
+  primaryMuted: '#3D8CE8',         // Darker variant
+  primaryGlow: 'rgba(79, 156, 249, 0.15)',  // Glow/highlight effect
+  primarySoft: 'rgba(79, 156, 249, 0.1)',   // Subtle backgrounds
 
   // Text hierarchy (all pass WCAG AA on background)
   textPrimary: '#FFFFFF',          // 21:1 contrast
@@ -49,7 +49,7 @@ export const colors = {
   // Borders (subtle, sophisticated)
   border: '#27272A',               // Default border - zinc-800
   borderLight: '#3F3F46',          // Slightly visible - zinc-700
-  borderFocused: '#6366F1',        // Focus ring
+  borderFocused: '#4F9CF9',        // Focus ring
 
   // Overlays
   overlay: 'rgba(0, 0, 0, 0.6)',
@@ -58,7 +58,7 @@ export const colors = {
   // Semantic aliases
   cardBackground: '#12121A',
   inputBackground: '#1A1A24',
-  buttonBackground: '#6366F1',
+  buttonBackground: '#4F9CF9',
 
   // Legacy compatibility (for gradual migration)
   white: '#FFFFFF',

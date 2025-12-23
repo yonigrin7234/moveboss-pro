@@ -15,6 +15,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { useBiometricAuth, getBiometricTypeName } from '../../hooks/useBiometricAuth';
 import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
 import { ScreenContainer } from '../../components/ui';
+import { Logo } from '../../components/ui/Logo';
 import { haptics } from '../../lib/haptics';
 
 export default function LoginScreen() {
@@ -208,8 +209,15 @@ export default function LoginScreen() {
   return (
     <ScreenContainer keyboardAvoiding edges={['top', 'bottom']}>
       <View style={[styles.inner, { paddingTop: insets.top + spacing.xxxl }]}>
-        <Text style={styles.title}>MoveBoss</Text>
-        <Text style={styles.subtitle}>Pro</Text>
+        <View style={styles.logoContainer}>
+          <Logo size={72} />
+          <View style={styles.brandText}>
+            <Text style={styles.title}>MoveBoss</Text>
+            <View style={styles.proBadge}>
+              <Text style={styles.proText}>PRO</Text>
+            </View>
+          </View>
+        </View>
 
         <View style={styles.form}>
           {error && (
@@ -344,17 +352,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.screenPadding,
   },
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xxxl,
+    gap: spacing.lg,
+  },
+  brandText: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
   title: {
     ...typography.numericLarge,
-    fontSize: 36,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
+    fontSize: 32,
+    color: colors.textPrimary,
   },
-  subtitle: {
-    ...typography.headline,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.xxxl,
+  proBadge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+  },
+  proText: {
+    ...typography.buttonSmall,
+    color: colors.background,
+    fontWeight: '700',
   },
   promptSubtitle: {
     ...typography.body,

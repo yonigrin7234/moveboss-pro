@@ -19,7 +19,8 @@ import { NotificationProvider } from '../providers/NotificationProvider';
 import { OwnerProvider, useOwner } from '../providers/OwnerProvider';
 import { ToastProvider } from '../components/ui/Toast';
 import { ErrorBoundary } from '../components/ui/ErrorBoundary';
-import { colors } from '../lib/theme';
+import { Logo } from '../components/ui/Logo';
+import { colors, spacing, radius, typography } from '../lib/theme';
 
 function RootLayoutNav() {
   const { session, loading: authLoading } = useAuth();
@@ -77,7 +78,13 @@ function RootLayoutNav() {
     return (
       <View style={styles.loadingContainer}>
         <View style={styles.logoContainer}>
-          <Text style={styles.logoText}>MoveBoss</Text>
+          <Logo size={80} />
+          <View style={styles.brandRow}>
+            <Text style={styles.logoText}>MoveBoss</Text>
+            <View style={styles.proBadge}>
+              <Text style={styles.proText}>PRO</Text>
+            </View>
+          </View>
           <Text style={styles.logoSubtext}>Loading...</Text>
         </View>
       </View>
@@ -100,7 +107,7 @@ export default function RootLayout() {
     return (
       <View style={styles.loadingContainer}>
         <View style={styles.logoContainer}>
-          <View style={styles.logoPlaceholder} />
+          <Logo size={80} />
         </View>
       </View>
     );
@@ -140,21 +147,33 @@ const styles = StyleSheet.create({
   logoContainer: {
     alignItems: 'center',
   },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.lg,
+    gap: spacing.md,
+  },
   logoText: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700',
-    color: colors.primary,
-    letterSpacing: -1,
+    color: colors.textPrimary,
+    letterSpacing: -0.5,
+  },
+  proBadge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+  },
+  proText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.background,
+    letterSpacing: 0.5,
   },
   logoSubtext: {
     fontSize: 14,
     color: colors.textMuted,
-    marginTop: 8,
-  },
-  logoPlaceholder: {
-    width: 120,
-    height: 40,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
+    marginTop: spacing.md,
   },
 });
