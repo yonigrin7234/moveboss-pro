@@ -227,7 +227,7 @@ export function LoadCard({ load, showRates, variant = 'default', className }: Lo
     <Link
       href={`/loads/${load.id}/public`}
       className={cn(
-        'group block bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-2xl p-5 hover:border-sky-500/50 hover:bg-slate-800/70 hover:shadow-lg hover:shadow-sky-500/10 transition-all duration-200',
+        'group block bg-slate-800 border border-slate-700 rounded-2xl p-5 hover:border-sky-500/50 hover:bg-slate-800/80 transition-all duration-200',
         className
       )}
     >

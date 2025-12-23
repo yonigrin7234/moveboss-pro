@@ -10,6 +10,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Logo } from '@/components/ui/logo';
 import { LoadCard, type LoadCardData } from '@/components/sharing/LoadCard';
 
 interface Company {
@@ -52,32 +53,22 @@ export function SharePageClient({
   const unavailableCount = totalLoads - availableLoads;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950">
-      {/* Header with gradient accent */}
-      <header className="relative overflow-hidden">
-        {/* Gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-sky-500/10 via-transparent to-emerald-500/5" />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-sky-500/20 rounded-full blur-3xl" />
-
-        <div className="relative max-w-lg mx-auto px-4 sm:px-6 py-8">
+    <div className="min-h-screen bg-slate-950">
+      {/* Header */}
+      <header className="relative">
+        <div className="max-w-lg mx-auto px-4 sm:px-6 py-8">
           <div className="flex flex-col items-center text-center gap-4">
             {company?.logo_url ? (
-              <div className="relative">
-                <div className="absolute inset-0 bg-sky-500/20 rounded-2xl blur-xl" />
-                <Image
-                  src={company.logo_url}
-                  alt={company.name}
-                  width={72}
-                  height={72}
-                  className="relative rounded-2xl object-contain bg-slate-800/50 backdrop-blur border border-slate-700/50"
-                />
-              </div>
+              <Image
+                src={company.logo_url}
+                alt={company.name}
+                width={72}
+                height={72}
+                className="rounded-2xl object-contain bg-slate-800 border border-slate-700"
+              />
             ) : (
-              <div className="relative">
-                <div className="absolute inset-0 bg-sky-500/30 rounded-2xl blur-xl" />
-                <div className="relative w-[72px] h-[72px] bg-gradient-to-br from-sky-500 to-sky-600 rounded-2xl flex items-center justify-center shadow-lg shadow-sky-500/25">
-                  <Truck className="h-8 w-8 text-white" />
-                </div>
+              <div className="w-[72px] h-[72px] bg-slate-800 border border-slate-700 rounded-2xl flex items-center justify-center">
+                <Truck className="h-8 w-8 text-sky-400" />
               </div>
             )}
             <div>
@@ -143,9 +134,8 @@ export function SharePageClient({
 
         {/* View Full Board CTA */}
         {company?.slug && (
-          <div className="relative overflow-hidden bg-gradient-to-br from-slate-800/80 to-slate-800/40 backdrop-blur border border-slate-700/50 rounded-2xl p-6 text-center">
-            <div className="absolute inset-0 bg-gradient-to-br from-sky-500/5 to-emerald-500/5" />
-            <div className="relative">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 text-center">
+            <div>
               <h3 className="font-semibold text-white mb-2">
                 Looking for more loads?
               </h3>
@@ -153,7 +143,7 @@ export function SharePageClient({
                 Browse all available loads from {company.name}
               </p>
               <Link href={`/board/${company.slug}`}>
-                <Button className="bg-sky-500 hover:bg-sky-600 text-white border-0 shadow-lg shadow-sky-500/25">
+                <Button className="bg-sky-500 hover:bg-sky-600 text-white border-0">
                   View Full Load Board
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
@@ -169,9 +159,7 @@ export function SharePageClient({
           <div className="flex flex-col items-center gap-4 text-center">
             {/* MoveBoss Logo */}
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-sky-500 to-sky-600 rounded-lg flex items-center justify-center">
-                <Truck className="h-4 w-4 text-white" />
-              </div>
+              <Logo size={32} className="text-sky-400" />
               <span className="text-lg font-semibold text-white">MoveBoss Pro</span>
             </div>
             <p className="text-xs text-slate-500">

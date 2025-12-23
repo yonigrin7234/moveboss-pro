@@ -14,6 +14,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Logo } from '@/components/ui/logo';
 import {
   formatDateRangeDisplay,
   type LoadLocationFields,
@@ -111,7 +112,7 @@ function RelatedLoadCard({ load, showRates }: { load: RelatedLoad; showRates: bo
   return (
     <Link
       href={`/loads/${load.id}/public`}
-      className="group block bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4 hover:border-sky-500/50 hover:bg-slate-800/70 transition-all duration-200"
+      className="group block bg-slate-800 border border-slate-700 rounded-xl p-4 hover:border-sky-500/50 hover:bg-slate-800/80 transition-all duration-200"
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5 text-sm text-slate-200">
@@ -164,32 +165,22 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950">
-      {/* Header with gradient accent */}
-      <header className="relative overflow-hidden border-b border-slate-800">
-        {/* Gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-sky-500/10 via-transparent to-emerald-500/5" />
-        <div className="absolute top-0 left-1/3 w-[400px] h-[200px] bg-sky-500/15 rounded-full blur-3xl" />
-
-        <div className="relative max-w-3xl mx-auto px-4 sm:px-6 py-5">
+    <div className="min-h-screen bg-slate-950">
+      {/* Header */}
+      <header className="border-b border-slate-800">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-5">
           <div className="flex items-center gap-4">
             {company.logo_url ? (
-              <div className="relative">
-                <div className="absolute inset-0 bg-sky-500/20 rounded-2xl blur-xl" />
-                <Image
-                  src={company.logo_url}
-                  alt={company.name}
-                  width={48}
-                  height={48}
-                  className="relative rounded-2xl object-contain bg-slate-800/50 backdrop-blur border border-slate-700/50"
-                />
-              </div>
+              <Image
+                src={company.logo_url}
+                alt={company.name}
+                width={48}
+                height={48}
+                className="rounded-2xl object-contain bg-slate-800 border border-slate-700"
+              />
             ) : (
-              <div className="relative">
-                <div className="absolute inset-0 bg-sky-500/30 rounded-2xl blur-xl" />
-                <div className="relative w-12 h-12 bg-gradient-to-br from-sky-500 to-sky-600 rounded-2xl flex items-center justify-center shadow-lg shadow-sky-500/25">
-                  <Truck className="h-6 w-6 text-white" />
-                </div>
+              <div className="w-12 h-12 bg-slate-800 border border-slate-700 rounded-2xl flex items-center justify-center">
+                <Truck className="h-6 w-6 text-sky-400" />
               </div>
             )}
             <div>
@@ -202,9 +193,9 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
         {/* Main Card */}
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-2xl overflow-hidden mb-6">
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden mb-6">
           {/* Route Section */}
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 border-b border-slate-700/50">
+          <div className="bg-slate-900 p-6 border-b border-slate-700">
             <div className="flex items-center gap-4">
               <div className="flex-1">
                 <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">Origin</p>
@@ -231,7 +222,7 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
             <div className="grid grid-cols-2 gap-4">
               {/* First date box - changes based on load type */}
               {(load.load_type === 'rfd' || load.load_subtype === 'rfd') ? (
-                <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+                <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
                   <div className="flex items-center gap-2 text-slate-400 text-sm mb-1">
                     <Calendar className="h-4 w-4" />
                     <span>Ready</span>
@@ -243,7 +234,7 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
                   </p>
                 </div>
               ) : (
-                <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+                <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
                   <div className="flex items-center gap-2 text-slate-400 text-sm mb-1">
                     <Calendar className="h-4 w-4" />
                     <span>Pickup</span>
@@ -253,7 +244,7 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
               )}
               {/* Delivery date - only show for non-RFD loads (RFD delivery is TBD until claimed) */}
               {!(load.load_type === 'rfd' || load.load_subtype === 'rfd') && (
-                <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+                <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
                   <div className="flex items-center gap-2 text-slate-400 text-sm mb-1">
                     <Calendar className="h-4 w-4" />
                     <span>Delivery</span>
@@ -266,7 +257,7 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
             {/* Size and Rate */}
             <div className="grid grid-cols-2 gap-4">
               {load.cubic_feet && (
-                <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+                <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
                   <div className="flex items-center gap-2 text-slate-400 text-sm mb-1">
                     <Package className="h-4 w-4" />
                     <span>Size</span>
@@ -291,7 +282,7 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
                 const hasRate = calculatedLinehaul !== null;
 
                 return (
-                  <div className={hasRate ? "bg-emerald-950/30 border border-emerald-700/30 rounded-xl p-4" : "bg-slate-900/50 border border-slate-700/50 rounded-xl p-4"}>
+                  <div className={hasRate ? "bg-emerald-950 border border-emerald-700/50 rounded-xl p-4" : "bg-slate-900 border border-slate-700 rounded-xl p-4"}>
                     <p className={`text-sm mb-1 ${hasRate ? "text-emerald-400" : "text-slate-400"}`}>Linehaul</p>
                     {hasRate ? (
                       <p className="text-2xl font-bold text-emerald-400">
@@ -323,7 +314,7 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
           </div>
 
           {/* CTA Section */}
-          <div className="border-t border-slate-700/50 p-6 bg-slate-900/50">
+          <div className="border-t border-slate-700 p-6 bg-slate-900">
             {showClaimOptions ? (
               <div className="text-center">
                 <p className="font-semibold text-white mb-4">
@@ -375,7 +366,7 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
               </div>
             ) : (
               <Button
-                className="w-full bg-sky-500 hover:bg-sky-600 text-white border-0 shadow-lg shadow-sky-500/25"
+                className="w-full bg-sky-500 hover:bg-sky-600 text-white border-0"
                 size="lg"
                 onClick={handleClaimClick}
               >
@@ -416,22 +407,19 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
 
         {/* Full Board CTA */}
         {company.slug && (
-          <div className="relative overflow-hidden bg-gradient-to-br from-slate-800/80 to-slate-800/40 backdrop-blur border border-slate-700/50 rounded-2xl p-6 text-center">
-            <div className="absolute inset-0 bg-gradient-to-br from-sky-500/5 to-emerald-500/5" />
-            <div className="relative">
-              <h3 className="font-semibold text-white mb-2">
-                Browse All Loads
-              </h3>
-              <p className="text-sm text-slate-400 mb-4">
-                See all available loads from {company.name}
-              </p>
-              <Link href={`/board/${company.slug}`}>
-                <Button className="bg-sky-500 hover:bg-sky-600 text-white border-0 shadow-lg shadow-sky-500/25">
-                  View Load Board
-                  <ExternalLink className="h-4 w-4 ml-2" />
-                </Button>
-              </Link>
-            </div>
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 text-center">
+            <h3 className="font-semibold text-white mb-2">
+              Browse All Loads
+            </h3>
+            <p className="text-sm text-slate-400 mb-4">
+              See all available loads from {company.name}
+            </p>
+            <Link href={`/board/${company.slug}`}>
+              <Button className="bg-sky-500 hover:bg-sky-600 text-white border-0">
+                View Load Board
+                <ExternalLink className="h-4 w-4 ml-2" />
+              </Button>
+            </Link>
           </div>
         )}
       </main>
@@ -442,9 +430,7 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
           <div className="flex flex-col items-center gap-4 text-center">
             {/* MoveBoss Logo */}
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-sky-500 to-sky-600 rounded-lg flex items-center justify-center">
-                <Truck className="h-4 w-4 text-white" />
-              </div>
+              <Logo size={32} className="text-sky-400" />
               <span className="text-lg font-semibold text-white">MoveBoss Pro</span>
             </div>
             <p className="text-xs text-slate-500">

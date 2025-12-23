@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Logo } from '@/components/ui/logo';
 import { LoadCard, type LoadCardData } from '@/components/sharing/LoadCard';
 
 interface Company {
@@ -67,34 +68,24 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
   const hasFilters = origin || dest;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950">
-      {/* Header with gradient accent */}
-      <header className="relative overflow-hidden border-b border-slate-800">
-        {/* Gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-sky-500/10 via-transparent to-emerald-500/5" />
-        <div className="absolute top-0 left-1/4 w-[400px] h-[200px] bg-sky-500/15 rounded-full blur-3xl" />
-
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="min-h-screen bg-slate-950">
+      {/* Header */}
+      <header className="border-b border-slate-800">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             {/* Company branding */}
             <div className="flex items-center gap-4">
               {company.logo_url ? (
-                <div className="relative">
-                  <div className="absolute inset-0 bg-sky-500/20 rounded-2xl blur-xl" />
-                  <Image
-                    src={company.logo_url}
-                    alt={company.name}
-                    width={56}
-                    height={56}
-                    className="relative rounded-2xl object-contain bg-slate-800/50 backdrop-blur border border-slate-700/50"
-                  />
-                </div>
+                <Image
+                  src={company.logo_url}
+                  alt={company.name}
+                  width={56}
+                  height={56}
+                  className="rounded-2xl object-contain bg-slate-800 border border-slate-700"
+                />
               ) : (
-                <div className="relative">
-                  <div className="absolute inset-0 bg-sky-500/30 rounded-2xl blur-xl" />
-                  <div className="relative w-14 h-14 bg-gradient-to-br from-sky-500 to-sky-600 rounded-2xl flex items-center justify-center shadow-lg shadow-sky-500/25">
-                    <Truck className="h-7 w-7 text-white" />
-                  </div>
+                <div className="w-14 h-14 bg-slate-800 border border-slate-700 rounded-2xl flex items-center justify-center">
+                  <Truck className="h-7 w-7 text-sky-400" />
                 </div>
               )}
               <div>
@@ -115,7 +106,7 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
                     href={`tel:${company.contact.phone}`}
                     className="flex items-center gap-2 text-sm text-slate-300 hover:text-sky-400 transition-colors"
                   >
-                    <div className="w-8 h-8 rounded-full bg-slate-800/50 backdrop-blur border border-slate-700/50 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center">
                       <Phone className="h-4 w-4" />
                     </div>
                     <span className="hidden md:inline">{company.contact.phone}</span>
@@ -126,7 +117,7 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
                     href={`mailto:${company.contact.email}`}
                     className="flex items-center gap-2 text-sm text-slate-300 hover:text-sky-400 transition-colors"
                   >
-                    <div className="w-8 h-8 rounded-full bg-slate-800/50 backdrop-blur border border-slate-700/50 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center">
                       <Mail className="h-4 w-4" />
                     </div>
                     <span className="hidden md:inline">{company.contact.email}</span>
@@ -147,7 +138,7 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
         )}
 
         {/* Search Bar - Clean horizontal */}
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-3 mb-6">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-3 mb-6">
           <div className="flex items-center gap-2">
             <div className="flex-1 flex items-center gap-2">
               <MapPin className="h-4 w-4 text-slate-400 ml-2" />
@@ -209,7 +200,7 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
             ))}
           </div>
         ) : (
-          <div className="text-center py-16 bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-2xl">
+          <div className="text-center py-16 bg-slate-800 border border-slate-700 rounded-2xl">
             <Box className="h-12 w-12 text-slate-600 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-white mb-2">
               No loads available
@@ -256,9 +247,7 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
           <div className="flex flex-col items-center gap-4 text-center">
             {/* MoveBoss Logo */}
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-sky-500 to-sky-600 rounded-lg flex items-center justify-center">
-                <Truck className="h-4 w-4 text-white" />
-              </div>
+              <Logo size={32} className="text-sky-400" />
               <span className="text-lg font-semibold text-white">MoveBoss Pro</span>
             </div>
             <p className="text-xs text-slate-500">
