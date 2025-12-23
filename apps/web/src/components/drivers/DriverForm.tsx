@@ -418,18 +418,22 @@ export function DriverForm({
     { id: 'tax_form_file', label: 'Signed W9 or W2', ok: Boolean(taxFormFile), url: taxFormFile?.url },
   ];
   const getTruckLabel = (id?: string | null) => {
-    if (!id) {
+    if (!id || id === 'unassigned') {
       return 'Not assigned';
     }
     const truck = trucks.find((truckItem) => truckItem.id === id);
-    return truck?.unit_number || truck?.plate_number || 'Truck';
+    if (!truck) return 'Not assigned';
+    const identifier = truck.unit_number || truck.plate_number;
+    const typeLabel = truck.vehicle_type ? ` (${truck.vehicle_type.replace(/_/g, ' ')})` : '';
+    return identifier ? `${identifier}${typeLabel}` : 'Not assigned';
   };
   const getTrailerLabel = (id?: string | null) => {
-    if (!id) {
+    if (!id || id === 'unassigned') {
       return 'Not assigned';
     }
     const trailer = trailers.find((trailerItem) => trailerItem.id === id);
-    return trailer?.unit_number || 'Trailer';
+    if (!trailer) return 'Not assigned';
+    return trailer.unit_number || 'Not assigned';
   };
   const selectedTruck = trucks.find((truckItem) => truckItem.id === snapshot.assignedTruckId);
   const selectedTruckType = (selectedTruck as any)?.vehicle_type;
@@ -1671,6 +1675,7 @@ export function DriverForm({
             </p>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
+            {/* Driver Header */}
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs text-muted-foreground">Driver</p>
@@ -1681,7 +1686,10 @@ export function DriverForm({
                 {snapshot.status}
               </span>
             </div>
-            <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/40 p-3">
+
+            {/* Details Grid */}
+            <div className="rounded-xl border border-border/60 bg-muted/40 p-3 space-y-3">
+              {/* Portal - inline badge */}
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Portal</span>
                 <span
@@ -1693,20 +1701,38 @@ export function DriverForm({
                   {snapshot.hasLogin ? 'Enabled' : 'Disabled'}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+
+              {/* Divider */}
+              <div className="border-t border-border/40" />
+
+              {/* Pay mode - stacked */}
+              <div className="space-y-0.5">
                 <span className="text-xs text-muted-foreground">Pay mode</span>
-                <span className="font-semibold text-foreground">{formatPayMode(snapshot.payMode)}</span>
+                <p className="text-sm font-medium text-foreground">{formatPayMode(snapshot.payMode)}</p>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Truck</span>
-                <span className="font-semibold text-foreground">{getTruckLabel(snapshot.assignedTruckId)}</span>
+
+              {/* Equipment - stacked */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-0.5">
+                  <span className="text-xs text-muted-foreground">Truck</span>
+                  <p className="text-sm font-medium text-foreground truncate" title={getTruckLabel(snapshot.assignedTruckId)}>
+                    {getTruckLabel(snapshot.assignedTruckId)}
+                  </p>
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-xs text-muted-foreground">Trailer</span>
+                  <p className="text-sm font-medium text-foreground truncate" title={getTrailerLabel(snapshot.assignedTrailerId)}>
+                    {getTrailerLabel(snapshot.assignedTrailerId)}
+                  </p>
+                </div>
               </div>
+
+              {/* Divider */}
+              <div className="border-t border-border/40" />
+
+              {/* Compliance - inline badges */}
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Trailer</span>
-                <span className="font-semibold text-foreground">{getTrailerLabel(snapshot.assignedTrailerId)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">License expiry</span>
+                <span className="text-xs text-muted-foreground">License</span>
                 {(() => {
                   const badge = expiryBadge(snapshot.licenseExpiry);
                   return (
@@ -1717,7 +1743,7 @@ export function DriverForm({
                 })()}
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Medical card</span>
+                <span className="text-xs text-muted-foreground">Medical</span>
                 {(() => {
                   const badge = expiryBadge(snapshot.medicalCardExpiry);
                   return (
