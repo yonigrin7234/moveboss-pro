@@ -17,12 +17,11 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { useAuth } from '../../providers/AuthProvider';
 import { useDriverProfile } from '../../hooks/useDriverProfile';
 import { useDriverDashboard } from '../../hooks/useDriverDashboard';
 import { useVehicleDocuments } from '../../hooks/useVehicleDocuments';
 import { useTotalUnreadCount } from '../../hooks/useMessaging';
-import { Settings } from 'lucide-react-native';
+import { Logo } from '../../components/ui/Logo';
 import {
   NextActionCard,
   QuickStats,
@@ -39,7 +38,6 @@ import { dataLogger } from '../../lib/logger';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { signOut } = useAuth();
   const { fullName } = useDriverProfile();
   const {
     nextAction,
@@ -53,7 +51,7 @@ export default function HomeScreen() {
   } = useDriverDashboard();
 
   const showSkeleton = loading && !isRefreshing && nextAction.type === 'no_action' && upcomingTrips.length === 0;
-  const { hasActiveTrip, truck, trailer, expiredCount } = useVehicleDocuments();
+  const { hasActiveTrip, truck, trailer, expiredCount, company } = useVehicleDocuments();
   const unreadMessageCount = useTotalUnreadCount();
   const router = useRouter();
   const [showUpcoming, setShowUpcoming] = useState(true);
@@ -62,11 +60,6 @@ export default function HomeScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await refetch();
   }, [refetch]);
-
-  const handleSignOut = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    signOut();
-  }, [signOut]);
 
   const navigateToTrip = useCallback(
     (trip: TripWithLoads) => {
@@ -89,29 +82,48 @@ export default function HomeScreen() {
       }
       showsVerticalScrollIndicator={false}
     >
-      {/* Header */}
+      {/* Header with Logo */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>
-            {getGreeting()}
-            {fullName ? ',' : ''}
+        <View style={styles.headerLeft}>
+          <Logo size={36} />
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.greeting}>
+              {getGreeting()}
+              {fullName ? `, ${fullName}` : ''}
+            </Text>
+            {company?.name && (
+              <Text style={styles.companyName}>{company.name}</Text>
+            )}
+          </View>
+        </View>
+        <Pressable
+          style={styles.settingsButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push('/(app)/settings');
+          }}
+        >
+          <Icon name="settings" size="md" color={colors.textSecondary} />
+        </Pressable>
+      </View>
+
+      {/* Earnings Hero Card */}
+      <View style={styles.earningsHeroCard}>
+        <View style={styles.earningsHeroContent}>
+          <Text style={styles.earningsHeroLabel}>This Week</Text>
+          <Text style={styles.earningsHeroValue}>
+            ${stats.todayEarnings > 0 ? stats.todayEarnings.toLocaleString() : '0'}
           </Text>
-          {fullName && <Text style={styles.driverName}>{fullName}</Text>}
+          <Text style={styles.earningsHeroSubtext}>
+            {stats.loadsCompleted} load{stats.loadsCompleted !== 1 ? 's' : ''} completed
+          </Text>
         </View>
-        <View style={styles.headerButtons}>
-          <Pressable
-            style={styles.settingsButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push('/(app)/settings');
-            }}
-          >
-            <Settings size={20} color={colors.textSecondary} />
-          </Pressable>
-          <Pressable style={styles.signOutButton} onPress={handleSignOut}>
-            <Text style={styles.signOutText}>Sign Out</Text>
-          </Pressable>
-        </View>
+        <Pressable
+          style={styles.earningsHeroButton}
+          onPress={() => router.push('/(app)/earnings')}
+        >
+          <Icon name="dollar" size={24} color={colors.primary} />
+        </Pressable>
       </View>
 
       {/* Error State */}
@@ -147,6 +159,8 @@ export default function HomeScreen() {
         <QuickActionButton
           icon="truck"
           label="Trips"
+          badge={hasActiveTrip ? 1 : undefined}
+          badgeVariant="warning"
           onPress={() => router.push('/(app)/trips')}
         />
         <QuickActionButton
@@ -258,36 +272,74 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    flex: 1,
+  },
+  headerTitleContainer: {
+    flex: 1,
   },
   greeting: {
     ...typography.body,
-    color: colors.textSecondary,
-  },
-  driverName: {
-    ...typography.title,
     color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  companyName: {
+    ...typography.caption,
+    color: colors.textMuted,
     marginTop: spacing.xxs,
   },
-  headerButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
   settingsButton: {
-    backgroundColor: colors.surfaceElevated,
-    padding: spacing.sm,
-    borderRadius: radius.sm,
+    width: 44,
+    height: 44,
+    backgroundColor: colors.surface,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  signOutButton: {
-    backgroundColor: colors.surfaceElevated,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.sm,
+  // Earnings Hero Card
+  earningsHeroCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+    ...shadows.md,
   },
-  signOutText: {
+  earningsHeroContent: {
+    flex: 1,
+  },
+  earningsHeroLabel: {
     ...typography.caption,
-    color: colors.error,
+    color: colors.textMuted,
+    marginBottom: spacing.xs,
+  },
+  earningsHeroValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: colors.success,
+    letterSpacing: -1,
+  },
+  earningsHeroSubtext: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+  earningsHeroButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   quickActions: {
     flexDirection: 'row',

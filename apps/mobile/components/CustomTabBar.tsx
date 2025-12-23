@@ -17,13 +17,13 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withTiming,
-  interpolateColor,
 } from 'react-native-reanimated';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { colors, typography, spacing, radius } from '../lib/theme';
 import { haptics } from '../lib/haptics';
 import { Icon, IconName } from './ui/Icon';
+import { useVehicleDocuments } from '../hooks/useVehicleDocuments';
+import { useTotalUnreadCount } from '../hooks/useMessaging';
 
 const TAB_BAR_HEIGHT = 70;
 
@@ -153,22 +153,30 @@ export function CustomTabBar({
 }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
 
+  // Get real badge counts from hooks
+  const { expiredCount } = useVehicleDocuments();
+  const unreadMessageCount = useTotalUnreadCount();
+
   // Check if tab bar should be hidden for current route
   const currentRoute = state.routes[state.index];
   const currentRouteOptions = descriptors[currentRoute?.key]?.options;
   const tabBarStyle = currentRouteOptions?.tabBarStyle as { display?: string } | undefined;
   const shouldHideTabBar = tabBarStyle?.display === 'none';
 
-  // Get badge counts from somewhere (could be context or props)
-  // For now, using placeholder logic
+  // Get badge counts from real data
   const getBadge = (routeName: string): number | undefined => {
-    // Example: Show badge on trips if there are pending loads
-    // This would be connected to actual data
+    if (routeName === 'documents' && expiredCount > 0) {
+      return expiredCount;
+    }
+    // Note: We don't have a dedicated messages tab, but if we did:
+    // if (routeName === 'messages' && unreadMessageCount > 0) {
+    //   return unreadMessageCount;
+    // }
     return undefined;
   };
 
   const getShowDot = (routeName: string): boolean => {
-    // Example: Show dot on earnings if there's new data
+    // Show dot on earnings if there are pending settlements (future enhancement)
     return false;
   };
 
