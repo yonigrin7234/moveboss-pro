@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Icon } from '../../../components/ui/Icon';
+import { Logo } from '../../../components/ui/Logo';
 import { colors, typography, spacing, radius, shadows } from '../../../lib/theme';
 
 export default function AboutScreen() {
@@ -49,9 +50,7 @@ export default function AboutScreen() {
       >
         {/* App Logo & Info */}
         <View style={styles.appSection}>
-          <View style={styles.appIcon}>
-            <Icon name="truck" size={48} color={colors.primary} />
-          </View>
+          <Logo size={80} />
           <Text style={styles.appName}>MoveBoss Pro</Text>
           <Text style={styles.appVersion}>Version 1.0.0</Text>
           <Text style={styles.appTagline}>
@@ -133,18 +132,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
     marginBottom: spacing.lg,
   },
-  appIcon: {
-    width: 100,
-    height: 100,
-    borderRadius: radius.xl,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
   appName: {
     ...typography.title,
     color: colors.textPrimary,
+    marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
   appVersion: {
