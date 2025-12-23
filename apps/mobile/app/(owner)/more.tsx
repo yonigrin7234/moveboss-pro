@@ -34,10 +34,10 @@ export default function MoreScreen() {
       route: '/(owner)/trips',
     },
     {
-      icon: 'bell',
-      label: 'Notifications',
-      description: 'Notification preferences',
-      route: '/(owner)/settings/notifications',
+      icon: 'users',
+      label: 'Drivers',
+      description: 'View and manage drivers',
+      route: '/(owner)/drivers',
     },
     {
       icon: 'settings',

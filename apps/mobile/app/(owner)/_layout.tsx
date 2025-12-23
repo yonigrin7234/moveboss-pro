@@ -199,7 +199,7 @@ export default function OwnerLayout() {
             name="settings/index"
             options={{
               href: null,
-              headerShown: true,
+              headerShown: false,
               title: 'Settings',
               tabBarStyle: { display: 'none' },
             }}
@@ -210,6 +210,24 @@ export default function OwnerLayout() {
               href: null,
               headerShown: false,
               title: 'Notifications',
+              tabBarStyle: { display: 'none' },
+            }}
+          />
+          <Tabs.Screen
+            name="settings/company"
+            options={{
+              href: null,
+              headerShown: false,
+              title: 'Company Info',
+              tabBarStyle: { display: 'none' },
+            }}
+          />
+          <Tabs.Screen
+            name="settings/about"
+            options={{
+              href: null,
+              headerShown: false,
+              title: 'About',
               tabBarStyle: { display: 'none' },
             }}
           />
