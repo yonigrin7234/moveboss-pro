@@ -3,7 +3,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import {
-  Truck,
   Clock,
   AlertCircle,
   Box,
@@ -12,6 +11,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/ui/logo';
 import { LoadCard, type LoadCardData } from '@/components/sharing/LoadCard';
+
+function getCompanyInitials(name: string): string {
+  const words = name.trim().split(/\s+/);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
 
 interface Company {
   name: string;
@@ -66,11 +73,11 @@ export function SharePageClient({
                 height={72}
                 className="rounded-2xl object-contain bg-slate-800 border border-slate-700"
               />
-            ) : (
-              <div className="w-[72px] h-[72px] bg-slate-800 border border-slate-700 rounded-2xl flex items-center justify-center">
-                <Truck className="h-8 w-8 text-sky-400" />
+            ) : company?.name ? (
+              <div className="w-[72px] h-[72px] bg-sky-500 rounded-2xl flex items-center justify-center">
+                <span className="text-2xl font-bold text-white">{getCompanyInitials(company.name)}</span>
               </div>
-            )}
+            ) : null}
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">
                 {company?.name || 'Shared Loads'}

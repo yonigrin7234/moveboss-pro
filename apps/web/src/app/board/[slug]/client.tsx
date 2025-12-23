@@ -12,14 +12,20 @@ import {
   Mail,
   ChevronLeft,
   ChevronRight,
-  Truck,
   Box,
-  CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/ui/logo';
 import { LoadCard, type LoadCardData } from '@/components/sharing/LoadCard';
+
+function getCompanyInitials(name: string): string {
+  const words = name.trim().split(/\s+/);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
 
 interface Company {
   name: string;
@@ -84,8 +90,8 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
                   className="rounded-2xl object-contain bg-slate-800 border border-slate-700"
                 />
               ) : (
-                <div className="w-14 h-14 bg-slate-800 border border-slate-700 rounded-2xl flex items-center justify-center">
-                  <Truck className="h-7 w-7 text-sky-400" />
+                <div className="w-14 h-14 bg-sky-500 rounded-2xl flex items-center justify-center">
+                  <span className="text-xl font-bold text-white">{getCompanyInitials(company.name)}</span>
                 </div>
               )}
               <div>

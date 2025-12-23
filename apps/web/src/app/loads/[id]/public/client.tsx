@@ -7,7 +7,6 @@ import {
   Calendar,
   Package,
   ArrowRight,
-  Truck,
   ExternalLink,
   Phone,
   Mail,
@@ -20,6 +19,14 @@ import {
   type LoadLocationFields,
   type PickupDateFields,
 } from '@/lib/sharing';
+
+function getCompanyInitials(name: string): string {
+  const words = name.trim().split(/\s+/);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
 
 interface Load extends LoadLocationFields, PickupDateFields {
   id: string;
@@ -179,8 +186,8 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
                 className="rounded-2xl object-contain bg-slate-800 border border-slate-700"
               />
             ) : (
-              <div className="w-12 h-12 bg-slate-800 border border-slate-700 rounded-2xl flex items-center justify-center">
-                <Truck className="h-6 w-6 text-sky-400" />
+              <div className="w-12 h-12 bg-sky-500 rounded-2xl flex items-center justify-center">
+                <span className="text-lg font-bold text-white">{getCompanyInitials(company.name)}</span>
               </div>
             )}
             <div>
