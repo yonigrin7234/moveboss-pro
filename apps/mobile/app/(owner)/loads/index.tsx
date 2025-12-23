@@ -252,11 +252,13 @@ export default function LoadsScreen() {
                 <View style={{ flex: 1 }} />
                 <Pressable
                   style={styles.actionIconButton}
+                  onPressIn={(e) => e.stopPropagation()}
                   onPress={(e) => {
                     e.stopPropagation();
                     handleAssignToTrip(load);
                   }}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  delayPressIn={0}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
                   <Icon name="truck" size="sm" color={colors.textSecondary} />
                 </Pressable>
@@ -265,11 +267,13 @@ export default function LoadsScreen() {
                     styles.actionIconButton,
                     load.posting_status === 'posted' && styles.actionIconButtonActive,
                   ]}
+                  onPressIn={(e) => e.stopPropagation()}
                   onPress={(e) => {
                     e.stopPropagation();
                     handleMarketplace(load);
                   }}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  delayPressIn={0}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
                   <Icon
                     name="upload"
@@ -279,11 +283,13 @@ export default function LoadsScreen() {
                 </Pressable>
                 <Pressable
                   style={styles.actionIconButton}
+                  onPressIn={(e) => e.stopPropagation()}
                   onPress={(e) => {
                     e.stopPropagation();
                     handleShare(load);
                   }}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  delayPressIn={0}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
                   <Icon name="share" size="sm" color={colors.textSecondary} />
                 </Pressable>
