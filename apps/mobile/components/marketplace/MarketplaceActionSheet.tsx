@@ -41,7 +41,9 @@ export const MarketplaceActionSheet = forwardRef<BottomSheetRef, MarketplaceActi
         onClose?.();
       } catch (error) {
         haptics.error();
-        Alert.alert('Error', error instanceof Error ? error.message : 'Failed to post load');
+        console.error('[MarketplaceSheet] Post error:', error);
+        const message = error instanceof Error ? error.message : 'Failed to post load';
+        Alert.alert('Error', message);
       }
     };
 

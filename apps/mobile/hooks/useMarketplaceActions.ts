@@ -23,19 +23,33 @@ export function useMarketplaceActions() {
     mutationFn: async ({ loadId, postingType = 'rfd' }: PostToMarketplaceParams) => {
       if (!company?.id) throw new Error('No company');
 
+      console.log('[Marketplace] Posting load:', loadId, 'type:', postingType, 'company:', company.id);
+
       // First verify the load belongs to this company
       const { data: existingLoad, error: fetchError } = await supabase
         .from('loads')
-        .select('id, company_id, posted_by_company_id')
+        .select('id, company_id, posted_by_company_id, owner_id')
         .eq('id', loadId)
         .single();
 
-      if (fetchError) throw fetchError;
+      console.log('[Marketplace] Existing load:', existingLoad, 'fetchError:', fetchError);
+
+      if (fetchError) {
+        console.error('[Marketplace] Fetch error:', fetchError.message, fetchError.code, fetchError.details);
+        throw new Error(`Failed to fetch load: ${fetchError.message}`);
+      }
       if (!existingLoad) throw new Error('Load not found');
 
       // Check ownership via either company_id or posted_by_company_id
       const isOwner = existingLoad.company_id === company.id ||
                       existingLoad.posted_by_company_id === company.id;
+      console.log('[Marketplace] Ownership check:', {
+        loadCompanyId: existingLoad.company_id,
+        loadPostedByCompanyId: existingLoad.posted_by_company_id,
+        userCompanyId: company.id,
+        isOwner
+      });
+
       if (!isOwner) throw new Error('Not authorized to post this load');
 
       const { data, error } = await supabase
@@ -51,7 +65,12 @@ export function useMarketplaceActions() {
         .select()
         .single();
 
-      if (error) throw error;
+      console.log('[Marketplace] Update result:', data, 'error:', error);
+
+      if (error) {
+        console.error('[Marketplace] Update error:', error.message, error.code, error.details);
+        throw new Error(`Failed to update load: ${error.message}`);
+      }
       return data;
     },
     onSuccess: () => {
