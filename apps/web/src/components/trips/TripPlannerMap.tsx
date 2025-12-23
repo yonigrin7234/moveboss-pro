@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import { Truck, Package, MapPin, Navigation, Loader2, GripVertical } from 'lucide-react';
+import { Truck, Package, MapPin, Navigation, Loader2, GripVertical, Maximize2, Minimize2, Home, Flag, CircleDot } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -206,6 +206,7 @@ export function TripPlannerMap({
   const [loadMarkers, setLoadMarkers] = useState<LoadMarker[]>([]);
   const [selectedLoad, setSelectedLoad] = useState<TripLoad | MarketplaceLoad | null>(null);
   const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [icons, setIcons] = useState<{
     origin?: L.DivIcon;
     destination?: L.DivIcon;
@@ -544,52 +545,91 @@ export function TripPlannerMap({
 
   return (
     <div className="space-y-4">
+      {/* Backdrop for expanded map */}
+      {isMapExpanded && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40"
+          onClick={() => setIsMapExpanded(false)}
+        />
+      )}
+
       {/* Capacity Bar */}
-      <Card>
+      <Card className="overflow-hidden">
         <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Truck className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Truck Capacity</span>
+              <div className="p-1.5 rounded-lg bg-primary/10">
+                <Truck className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-sm font-semibold">Truck Capacity</span>
             </div>
-            <span className="text-sm">
-              {usedCapacity.toLocaleString()} / {truckCapacity.toLocaleString()} cf
-            </span>
+            <div className="text-right">
+              <span className="text-lg font-bold">{usedCapacity.toLocaleString()}</span>
+              <span className="text-sm text-muted-foreground"> / {truckCapacity.toLocaleString()} cf</span>
+            </div>
           </div>
-          <div className="w-full bg-muted rounded-full h-3">
+          <div className="w-full bg-muted rounded-full h-4 overflow-hidden">
             <div
-              className={`h-3 rounded-full transition-all ${
+              className={`h-4 rounded-full transition-all duration-500 ${
                 capacityPercentage > 90
-                  ? 'bg-red-500'
+                  ? 'bg-gradient-to-r from-red-400 to-red-500'
                   : capacityPercentage > 70
-                  ? 'bg-yellow-500'
-                  : 'bg-green-500'
+                  ? 'bg-gradient-to-r from-yellow-400 to-amber-500'
+                  : 'bg-gradient-to-r from-emerald-400 to-green-500'
               }`}
               style={{ width: `${Math.min(capacityPercentage, 100)}%` }}
             />
           </div>
-          <div className="flex justify-between mt-1 text-xs text-muted-foreground">
-            <span>{availableCapacity.toLocaleString()} cf available</span>
-            <span>{Math.round(capacityPercentage)}% full</span>
+          <div className="flex justify-between mt-2 text-xs">
+            <span className="text-muted-foreground">
+              <span className="font-medium text-foreground">{availableCapacity.toLocaleString()} cf</span> available
+            </span>
+            <span className={`font-semibold ${
+              capacityPercentage > 90
+                ? 'text-red-500'
+                : capacityPercentage > 70
+                ? 'text-amber-500'
+                : 'text-green-500'
+            }`}>
+              {Math.round(capacityPercentage)}% full
+            </span>
           </div>
         </CardContent>
       </Card>
 
       {/* Map */}
-      <Card>
-        <CardHeader className="pb-2">
+      <Card className={isMapExpanded ? 'fixed inset-4 z-50 flex flex-col' : ''}>
+        <CardHeader className="pb-2 flex-shrink-0">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Navigation className="h-5 w-5" />
+              <div className="p-1.5 rounded-lg bg-blue-500/10">
+                <Navigation className="h-5 w-5 text-blue-500" />
+              </div>
               Trip Route
             </CardTitle>
-            {routeDistance > 0 && (
-              <Badge variant="outline">{Math.round(routeDistance)} miles</Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {routeDistance > 0 && (
+                <Badge variant="secondary" className="font-semibold">
+                  {Math.round(routeDistance)} miles
+                </Badge>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsMapExpanded(!isMapExpanded)}
+                className="h-8 w-8 p-0"
+              >
+                {isMapExpanded ? (
+                  <Minimize2 className="h-4 w-4" />
+                ) : (
+                  <Maximize2 className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
           </div>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="h-[400px] rounded-b-lg overflow-hidden">
+        <CardContent className={`p-0 ${isMapExpanded ? 'flex-1' : ''}`}>
+          <div className={`${isMapExpanded ? 'h-full' : 'h-[500px]'} rounded-b-lg overflow-hidden`}>
             <MapContainer
               bounds={bounds}
               className="h-full w-full"
@@ -751,25 +791,25 @@ export function TripPlannerMap({
       <Card>
         <CardContent className="p-3">
           <div className="flex flex-wrap gap-4 text-xs">
-            <div className="flex items-center gap-1.5">
-              <div className="w-4 h-4 rounded-full bg-blue-500" />
-              <span>Trip Start</span>
+            <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 transition-colors">
+              <Truck className="h-4 w-4 text-blue-500" />
+              <span className="font-medium text-blue-700 dark:text-blue-400">Trip Start</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-4 h-4 rounded-full bg-green-500" />
-              <span>Destination</span>
+            <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-green-500/10 hover:bg-green-500/20 transition-colors">
+              <Flag className="h-4 w-4 text-green-500" />
+              <span className="font-medium text-green-700 dark:text-green-400">Destination</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-4 h-4 rounded-full bg-purple-500" />
-              <span>Assigned Load</span>
+            <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-purple-500/10 hover:bg-purple-500/20 transition-colors">
+              <Package className="h-4 w-4 text-purple-500" />
+              <span className="font-medium text-purple-700 dark:text-purple-400">Assigned Load</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-4 h-4 rounded-full bg-amber-500" />
-              <span>Pickup (Customer)</span>
+            <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-amber-500/10 hover:bg-amber-500/20 transition-colors">
+              <Home className="h-4 w-4 text-amber-500" />
+              <span className="font-medium text-amber-700 dark:text-amber-400">Pickup</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-4 h-4 rounded-full bg-red-500" />
-              <span>Marketplace</span>
+            <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-red-500/10 hover:bg-red-500/20 transition-colors">
+              <CircleDot className="h-4 w-4 text-red-500" />
+              <span className="font-medium text-red-700 dark:text-red-400">Marketplace</span>
             </div>
           </div>
         </CardContent>
@@ -782,32 +822,66 @@ export function TripPlannerMap({
           {routeSegments.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Route Segments ({routeSegments.length})</CardTitle>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Navigation className="h-4 w-4 text-muted-foreground" />
+                  Route Segments ({routeSegments.length})
+                </CardTitle>
               </CardHeader>
               <CardContent className="p-3 pt-0">
-                <div className="space-y-2">
-                  {routeSegments.map((segment, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
-                    >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="text-xs text-muted-foreground w-4">{index + 1}.</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs truncate">{segment.from}</p>
-                          <p className="text-xs text-muted-foreground">↓</p>
-                          <p className="text-xs truncate">{segment.to}</p>
+                <div className="relative">
+                  {routeSegments.map((segment, index) => {
+                    const isFirst = index === 0;
+                    const isLast = index === routeSegments.length - 1;
+                    const isPickup = segment.from.startsWith('Pickup:');
+                    const isDelivery = segment.from.startsWith('Delivery:');
+
+                    return (
+                      <div key={index} className="flex gap-3 pb-3 last:pb-0">
+                        {/* Timeline */}
+                        <div className="flex flex-col items-center">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            isFirst
+                              ? 'bg-blue-500/20 text-blue-500'
+                              : isPickup
+                              ? 'bg-amber-500/20 text-amber-500'
+                              : isDelivery
+                              ? 'bg-purple-500/20 text-purple-500'
+                              : 'bg-green-500/20 text-green-500'
+                          }`}>
+                            {isFirst ? (
+                              <Truck className="h-4 w-4" />
+                            ) : isPickup ? (
+                              <Home className="h-4 w-4" />
+                            ) : isDelivery ? (
+                              <Package className="h-4 w-4" />
+                            ) : (
+                              <Flag className="h-4 w-4" />
+                            )}
+                          </div>
+                          {!isLast && (
+                            <div className="w-0.5 flex-1 bg-gradient-to-b from-muted-foreground/30 to-muted-foreground/10 my-1" />
+                          )}
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0 pt-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">{segment.from}</p>
+                              <p className="text-xs text-muted-foreground truncate mt-0.5">→ {segment.to}</p>
+                            </div>
+                            <Badge variant="outline" className="flex-shrink-0 font-mono">
+                              {segment.distance.toLocaleString()} mi
+                            </Badge>
+                          </div>
                         </div>
                       </div>
-                      <div className="text-right ml-2">
-                        <p className="text-sm font-semibold">{segment.distance.toLocaleString()} mi</p>
-                      </div>
-                    </div>
-                  ))}
-                  <div className="flex justify-between pt-2 border-t border-border">
-                    <span className="text-sm font-medium">Total Distance</span>
-                    <span className="text-sm font-semibold">{routeDistance.toLocaleString()} mi</span>
-                  </div>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between pt-3 mt-3 border-t border-border">
+                  <span className="text-sm font-medium">Total Distance</span>
+                  <span className="text-sm font-bold text-primary">{routeDistance.toLocaleString()} mi</span>
                 </div>
               </CardContent>
             </Card>
