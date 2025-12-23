@@ -30,12 +30,12 @@ export default function OGImage() {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '24px',
+            gap: '32px',
           }}
         >
           <svg
-            width="120"
-            height="120"
+            width="160"
+            height="160"
             viewBox="0 0 64 64"
             fill="none"
           >
@@ -49,18 +49,18 @@ export default function OGImage() {
               strokeWidth="3"
               fill="none"
             />
-            <path d="M16 46V18L32 34L48 18V46" fill="white" />
+            <path d="M16 46V18L32 34L48 18V46" fill="#4F9CF9" />
           </svg>
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '16px',
+              gap: '20px',
             }}
           >
             <span
               style={{
-                fontSize: '72px',
+                fontSize: '88px',
                 fontWeight: 'bold',
                 color: 'white',
               }}
@@ -69,12 +69,12 @@ export default function OGImage() {
             </span>
             <span
               style={{
-                fontSize: '32px',
+                fontSize: '36px',
                 fontWeight: 'bold',
                 color: '#0a0a0a',
                 background: 'white',
-                padding: '8px 16px',
-                borderRadius: '8px',
+                padding: '10px 20px',
+                borderRadius: '10px',
               }}
             >
               PRO
@@ -83,12 +83,12 @@ export default function OGImage() {
         </div>
         <p
           style={{
-            fontSize: '28px',
+            fontSize: '32px',
             color: 'rgba(255, 255, 255, 0.7)',
-            marginTop: '24px',
+            marginTop: '32px',
           }}
         >
-          Transportation Management Platform
+          Built for Moving Professionals
         </p>
       </div>
     ),
