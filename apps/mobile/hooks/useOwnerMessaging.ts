@@ -503,26 +503,27 @@ export function useOwnerMessages(
 
         // Trigger push notifications
         try {
-          const apiUrl = process.env.EXPO_PUBLIC_API_URL || '';
-          if (apiUrl) {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.access_token) {
-              await fetch(`${apiUrl}/api/messaging/notify-message`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${session.access_token}`,
-                },
-                body: JSON.stringify({
-                  conversation_id: conversationId,
-                  sender_user_id: user.id,
-                  message_preview: body,
-                }),
-              }).catch(() => {});
+          const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://moveboss.com';
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            const response = await fetch(`${apiUrl}/api/messaging/notify-message`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({
+                conversation_id: conversationId,
+                sender_user_id: user.id,
+                message_preview: body,
+              }),
+            });
+            if (!response.ok) {
+              console.warn('[OwnerMessaging] Push notification failed:', response.status, await response.text().catch(() => ''));
             }
           }
-        } catch {
-          // Non-critical
+        } catch (notifyError) {
+          console.warn('[OwnerMessaging] Push notification error:', notifyError);
         }
 
         return message;

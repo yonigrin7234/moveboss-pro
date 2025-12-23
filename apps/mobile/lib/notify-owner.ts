@@ -7,7 +7,7 @@
 
 import { supabase } from './supabase';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_SUPABASE_URL?.replace('.supabase.co', '.vercel.app') || '';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://moveboss.com';
 
 type DriverActionPayload =
   | {
@@ -85,10 +85,10 @@ async function sendDriverAction(payload: DriverActionPayload): Promise<void> {
     });
 
     if (!response.ok) {
-      // Notification failed - silently continue
+      console.warn('[NotifyOwner] Failed:', payload.action, response.status);
     }
-  } catch {
-    // Notifications shouldn't block driver actions
+  } catch (error) {
+    console.warn('[NotifyOwner] Error:', payload.action, error);
   }
 }
 

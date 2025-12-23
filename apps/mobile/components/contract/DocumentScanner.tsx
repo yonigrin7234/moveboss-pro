@@ -21,10 +21,7 @@ import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../ui';
 
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  process.env.EXPO_PUBLIC_SUPABASE_URL?.replace('.supabase.co', '.vercel.app') ||
-  '';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://moveboss.com';
 
 interface DocumentScannerProps {
   label: string;

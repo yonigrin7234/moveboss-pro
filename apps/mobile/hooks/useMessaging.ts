@@ -696,36 +696,33 @@ export function useConversationMessages(
         // Trigger push notifications for other participants
         // This ensures notifications are sent even when messages are inserted directly (bypassing API route)
         try {
-          const apiUrl = process.env.EXPO_PUBLIC_API_URL || 
-            (process.env.EXPO_PUBLIC_SUPABASE_URL?.replace('.supabase.co', '.vercel.app') || '');
+          const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://moveboss.com';
+          const notifyUrl = `${apiUrl}/api/messaging/notify-message`;
           
-          if (apiUrl) {
-            const notifyUrl = `${apiUrl}/api/messaging/notify-message`;
-            
-            // Get session token for auth
-            const { data: { session } } = await supabase.auth.getSession();
-            
-            if (session?.access_token) {
-              await fetch(notifyUrl, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${session.access_token}`,
-                },
-                body: JSON.stringify({
-                  conversation_id: targetConversationId,
-                  sender_driver_id: driver.id,
-                  sender_user_id: null,
-                  message_preview: body,
-                }),
-              }).catch((err) => {
-                dataLogger.warn('Failed to trigger notifications (non-critical):', err);
-              });
+          // Get session token for auth
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (session?.access_token) {
+            const response = await fetch(notifyUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({
+                conversation_id: targetConversationId,
+                sender_driver_id: driver.id,
+                sender_user_id: null,
+                message_preview: body,
+              }),
+            });
+            if (!response.ok) {
+              dataLogger.warn('[Messaging] Push notification failed:', response.status);
             }
           }
         } catch (notifyError) {
           // Non-critical: notifications will be handled by database trigger as fallback
-          dataLogger.warn('Failed to trigger notifications (non-critical):', notifyError);
+          dataLogger.warn('[Messaging] Push notification error:', notifyError);
         }
 
           // Optimistically add message to local state immediately
