@@ -30,12 +30,12 @@ export default function OGImage() {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '32px',
+            gap: '40px',
           }}
         >
           <svg
-            width="160"
-            height="160"
+            width="200"
+            height="200"
             viewBox="0 0 64 64"
             fill="none"
           >
@@ -45,9 +45,9 @@ export default function OGImage() {
               width="56"
               height="56"
               rx="12"
-              stroke="white"
+              stroke="#4F9CF9"
               strokeWidth="3"
-              fill="none"
+              fill="#1a1a2e"
             />
             <path d="M16 46V18L32 34L48 18V46" fill="#4F9CF9" />
           </svg>
@@ -55,12 +55,12 @@ export default function OGImage() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '20px',
+              gap: '24px',
             }}
           >
             <span
               style={{
-                fontSize: '88px',
+                fontSize: '100px',
                 fontWeight: 'bold',
                 color: 'white',
               }}
@@ -69,12 +69,12 @@ export default function OGImage() {
             </span>
             <span
               style={{
-                fontSize: '36px',
+                fontSize: '40px',
                 fontWeight: 'bold',
-                color: '#0a0a0a',
-                background: 'white',
-                padding: '10px 20px',
-                borderRadius: '10px',
+                color: 'white',
+                background: '#4F9CF9',
+                padding: '12px 24px',
+                borderRadius: '12px',
               }}
             >
               PRO
@@ -83,9 +83,9 @@ export default function OGImage() {
         </div>
         <p
           style={{
-            fontSize: '32px',
+            fontSize: '36px',
             color: 'rgba(255, 255, 255, 0.7)',
-            marginTop: '32px',
+            marginTop: '40px',
           }}
         >
           Built for Moving Professionals
