@@ -248,6 +248,24 @@ export default function OwnerLayout() {
               tabBarStyle: { display: 'none' },
             }}
           />
+          <Tabs.Screen
+            name="load-board/index"
+            options={{
+              href: null,
+              headerShown: false,
+              title: 'Load Board',
+              tabBarStyle: { display: 'none' },
+            }}
+          />
+          <Tabs.Screen
+            name="load-board/[id]"
+            options={{
+              href: null,
+              headerShown: false,
+              title: 'Load Details',
+              tabBarStyle: { display: 'none' },
+            }}
+          />
         </Tabs>
       </ErrorBoundary>
     </PersistQueryClientProvider>

@@ -28,6 +28,12 @@ export default function MoreScreen() {
 
   const menuItems: MenuItem[] = [
     {
+      icon: 'search',
+      label: 'Load Board',
+      description: 'Find and request available loads',
+      route: '/(owner)/load-board',
+    },
+    {
       icon: 'truck',
       label: 'Trips',
       description: 'Manage trips and assignments',

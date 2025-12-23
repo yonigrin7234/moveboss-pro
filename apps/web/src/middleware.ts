@@ -33,6 +33,12 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Allow public marketing routes to pass through
+  const publicMarketingRoutes = ['/', '/features', '/pricing'];
+  if (publicMarketingRoutes.includes(request.nextUrl.pathname) && !user) {
+    return supabaseResponse;
+  }
+
   // Protect /dashboard and /companies routes
   if (
     (request.nextUrl.pathname.startsWith('/dashboard') ||
@@ -177,12 +183,6 @@ export async function middleware(request: NextRequest) {
       url.pathname = '/onboarding';
     }
 
-    return NextResponse.redirect(url);
-  }
-
-  if (request.nextUrl.pathname === '/' && !user) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/login';
     return NextResponse.redirect(url);
   }
 
