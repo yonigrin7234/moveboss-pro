@@ -32,7 +32,7 @@ interface TabConfig {
 }
 
 const OWNER_TABS: TabConfig[] = [
-  { name: 'index', icon: 'home', label: 'Dashboard' },
+  { name: 'index', icon: 'home', label: 'Home' },
   { name: 'requests/index', icon: 'bell', label: 'Requests' },
   { name: 'loads/index', icon: 'package', label: 'Loads' },
   { name: 'messages/index', icon: 'message-circle', label: 'Messages' },
@@ -136,6 +136,7 @@ function TabItem({
             { color: isFocused ? colors.primary : colors.textMuted },
             isFocused && styles.labelActive,
           ]}
+          numberOfLines={1}
         >
           {tabConfig.label}
         </Text>

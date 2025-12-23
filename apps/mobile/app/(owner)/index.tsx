@@ -446,6 +446,8 @@ const styles = StyleSheet.create({
   },
   statValue: {
     ...typography.headline,
+    fontSize: 24,
+    fontWeight: '700',
     color: colors.textPrimary,
     marginTop: spacing.xs,
   },
@@ -481,12 +483,11 @@ const styles = StyleSheet.create({
   // Quick Actions
   quickActionsGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
+    justifyContent: 'space-around',
   },
   quickAction: {
-    width: '22%',
     alignItems: 'center',
+    paddingHorizontal: spacing.xs,
   },
   quickActionIcon: {
     width: 56,

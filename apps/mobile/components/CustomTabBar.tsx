@@ -137,6 +137,7 @@ function TabItem({
             { color: isFocused ? colors.primary : colors.textMuted },
             isFocused && styles.labelActive,
           ]}
+          numberOfLines={1}
         >
           {tabConfig.label}
         </Text>
