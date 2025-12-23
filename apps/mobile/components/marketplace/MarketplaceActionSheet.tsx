@@ -21,7 +21,7 @@ interface MarketplaceActionSheetProps {
 export const MarketplaceActionSheet = forwardRef<BottomSheetRef, MarketplaceActionSheetProps>(
   ({ loadId, isCurrentlyPosted, loadNumber, onClose, onSuccess }, ref) => {
     const { postToMarketplace, unpostFromMarketplace, isPosting, isUnposting } = useMarketplaceActions();
-    const [selectedType, setSelectedType] = useState<'rfd' | 'live_load' | 'pickup'>('rfd');
+    const [selectedType, setSelectedType] = useState<'load' | 'live_load' | 'pickup'>('load');
 
     const isLoading = isPosting || isUnposting;
 
@@ -64,8 +64,8 @@ export const MarketplaceActionSheet = forwardRef<BottomSheetRef, MarketplaceActi
       }
     };
 
-    const postingTypes: { key: 'rfd' | 'live_load' | 'pickup'; label: string; description: string }[] = [
-      { key: 'rfd', label: 'RFD Load', description: 'Load waiting for delivery' },
+    const postingTypes: { key: 'load' | 'live_load' | 'pickup'; label: string; description: string }[] = [
+      { key: 'load', label: 'RFD Load', description: 'Load waiting for delivery' },
       { key: 'live_load', label: 'Live Load', description: 'Pickup available now' },
       { key: 'pickup', label: 'Pickup Only', description: 'Pickup in need of carrier' },
     ];

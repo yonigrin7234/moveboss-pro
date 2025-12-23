@@ -8,7 +8,7 @@ import { useOwner } from '../providers/OwnerProvider';
 
 interface PostToMarketplaceParams {
   loadId: string;
-  postingType?: 'live_load' | 'rfd' | 'pickup';
+  postingType?: 'live_load' | 'load' | 'pickup';
 }
 
 interface UnpostFromMarketplaceParams {
@@ -20,7 +20,7 @@ export function useMarketplaceActions() {
   const queryClient = useQueryClient();
 
   const postMutation = useMutation({
-    mutationFn: async ({ loadId, postingType = 'rfd' }: PostToMarketplaceParams) => {
+    mutationFn: async ({ loadId, postingType = 'load' }: PostToMarketplaceParams) => {
       if (!company?.id) throw new Error('No company');
 
       console.log('[Marketplace] Posting load:', loadId, 'type:', postingType, 'company:', company.id);
