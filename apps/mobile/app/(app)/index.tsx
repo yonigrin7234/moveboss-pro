@@ -22,6 +22,7 @@ import { useDriverProfile } from '../../hooks/useDriverProfile';
 import { useDriverDashboard } from '../../hooks/useDriverDashboard';
 import { useVehicleDocuments } from '../../hooks/useVehicleDocuments';
 import { useTotalUnreadCount } from '../../hooks/useMessaging';
+import { Settings } from 'lucide-react-native';
 import {
   NextActionCard,
   QuickStats,
@@ -97,9 +98,20 @@ export default function HomeScreen() {
           </Text>
           {fullName && <Text style={styles.driverName}>{fullName}</Text>}
         </View>
-        <Pressable style={styles.signOutButton} onPress={handleSignOut}>
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </Pressable>
+        <View style={styles.headerButtons}>
+          <Pressable
+            style={styles.settingsButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/(app)/settings');
+            }}
+          >
+            <Settings size={20} color={colors.textSecondary} />
+          </Pressable>
+          <Pressable style={styles.signOutButton} onPress={handleSignOut}>
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* Error State */}
@@ -256,6 +268,16 @@ const styles = StyleSheet.create({
     ...typography.title,
     color: colors.textPrimary,
     marginTop: spacing.xxs,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  settingsButton: {
+    backgroundColor: colors.surfaceElevated,
+    padding: spacing.sm,
+    borderRadius: radius.sm,
   },
   signOutButton: {
     backgroundColor: colors.surfaceElevated,

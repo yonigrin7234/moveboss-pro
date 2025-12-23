@@ -1,6 +1,6 @@
 /**
- * Notification Settings Screen for Owner/Dispatcher
- * Allows managing push notification preferences per notification type
+ * Driver Notification Settings Screen
+ * Simplified view for drivers to manage their push notification preferences
  */
 
 import React, { useCallback } from 'react';
@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Bell, Lock, Smartphone, Mail } from 'lucide-react-native';
+import { Bell, Lock, Smartphone } from 'lucide-react-native';
 import {
   useNotificationSettings,
   groupSettingsByCategory,
@@ -24,19 +24,15 @@ import {
 } from '../../../hooks/useNotificationSettings';
 import { colors, typography, spacing, radius } from '../../../lib/theme';
 
-export default function NotificationSettingsScreen() {
+export default function DriverNotificationSettingsScreen() {
   const insets = useSafeAreaInsets();
   const { settings, isLoading, error, refresh, updateSetting } = useNotificationSettings();
 
   const groupedSettings = groupSettingsByCategory(settings);
 
   const handleToggle = useCallback(
-    async (
-      notificationType: NotificationType,
-      channel: 'push' | 'inApp' | 'email',
-      newValue: boolean
-    ) => {
-      const result = await updateSetting(notificationType, channel, newValue);
+    async (notificationType: NotificationType, newValue: boolean) => {
+      const result = await updateSetting(notificationType, 'push', newValue);
       if (!result.success) {
         Alert.alert('Error', result.error || 'Failed to update setting');
       }
@@ -97,10 +93,9 @@ export default function NotificationSettingsScreen() {
       >
         {/* Header Info */}
         <View style={styles.infoCard}>
-          <Bell size={20} color={colors.primary} />
+          <Smartphone size={20} color={colors.primary} />
           <Text style={styles.infoText}>
-            Configure which notifications you receive on your mobile device. Mandatory notifications
-            cannot be disabled.
+            Choose which push notifications you want to receive on your device.
           </Text>
         </View>
 
@@ -111,67 +106,23 @@ export default function NotificationSettingsScreen() {
 
             {categorySettings.map((setting) => (
               <View key={setting.notificationType} style={styles.settingCard}>
-                <View style={styles.settingHeader}>
-                  <Text style={styles.settingLabel}>{setting.label}</Text>
-                  {setting.isMandatory && (
-                    <View style={styles.mandatoryBadge}>
-                      <Lock size={12} color={colors.warning} />
-                      <Text style={styles.mandatoryText}>Required</Text>
-                    </View>
-                  )}
-                </View>
-
-                <View style={styles.togglesRow}>
-                  {/* Push Toggle */}
-                  <View style={styles.toggleItem}>
-                    <View style={styles.toggleLabel}>
-                      <Smartphone size={16} color={colors.textMuted} />
-                      <Text style={styles.toggleLabelText}>Push</Text>
-                    </View>
-                    <Switch
-                      value={setting.pushEnabled}
-                      onValueChange={(value) =>
-                        handleToggle(setting.notificationType, 'push', value)
-                      }
-                      disabled={setting.isMandatory}
-                      trackColor={{ false: colors.border, true: colors.primarySoft }}
-                      thumbColor={setting.pushEnabled ? colors.primary : colors.textMuted}
-                    />
+                <View style={styles.settingContent}>
+                  <View style={styles.settingInfo}>
+                    <Text style={styles.settingLabel}>{setting.label}</Text>
+                    {setting.isMandatory && (
+                      <View style={styles.mandatoryBadge}>
+                        <Lock size={10} color={colors.warning} />
+                        <Text style={styles.mandatoryText}>Required</Text>
+                      </View>
+                    )}
                   </View>
-
-                  {/* In-App Toggle */}
-                  <View style={styles.toggleItem}>
-                    <View style={styles.toggleLabel}>
-                      <Bell size={16} color={colors.textMuted} />
-                      <Text style={styles.toggleLabelText}>In-App</Text>
-                    </View>
-                    <Switch
-                      value={setting.inAppEnabled}
-                      onValueChange={(value) =>
-                        handleToggle(setting.notificationType, 'inApp', value)
-                      }
-                      disabled={setting.isMandatory}
-                      trackColor={{ false: colors.border, true: colors.primarySoft }}
-                      thumbColor={setting.inAppEnabled ? colors.primary : colors.textMuted}
-                    />
-                  </View>
-
-                  {/* Email Toggle */}
-                  <View style={styles.toggleItem}>
-                    <View style={styles.toggleLabel}>
-                      <Mail size={16} color={colors.textMuted} />
-                      <Text style={styles.toggleLabelText}>Email</Text>
-                    </View>
-                    <Switch
-                      value={setting.emailEnabled}
-                      onValueChange={(value) =>
-                        handleToggle(setting.notificationType, 'email', value)
-                      }
-                      disabled={setting.isMandatory}
-                      trackColor={{ false: colors.border, true: colors.primarySoft }}
-                      thumbColor={setting.emailEnabled ? colors.primary : colors.textMuted}
-                    />
-                  </View>
+                  <Switch
+                    value={setting.pushEnabled}
+                    onValueChange={(value) => handleToggle(setting.notificationType, value)}
+                    disabled={setting.isMandatory}
+                    trackColor={{ false: colors.border, true: colors.primarySoft }}
+                    thumbColor={setting.pushEnabled ? colors.primary : colors.textMuted}
+                  />
                 </View>
               </View>
             ))}
@@ -244,50 +195,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  settingHeader: {
+  settingContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+  },
+  settingInfo: {
+    flex: 1,
+    marginRight: spacing.md,
   },
   settingLabel: {
     ...typography.body,
     color: colors.textPrimary,
     fontWeight: '500',
-    flex: 1,
   },
   mandatoryBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.warningSoft,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
-    borderRadius: radius.sm,
+    marginTop: spacing.xxs,
     gap: 4,
   },
   mandatoryText: {
     ...typography.caption,
     color: colors.warning,
-    fontWeight: '600',
-  },
-  togglesRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  toggleItem: {
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  toggleLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  toggleLabelText: {
-    ...typography.caption,
-    color: colors.textMuted,
+    fontSize: 11,
   },
 });

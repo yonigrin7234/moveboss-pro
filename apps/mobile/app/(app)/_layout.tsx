@@ -151,6 +151,24 @@ export default function AppLayout() {
                 tabBarStyle: { display: 'none' },
               }}
             />
+            <Tabs.Screen
+              name="settings/index"
+              options={{
+                href: null,
+                headerShown: true,
+                title: 'Settings',
+                tabBarStyle: { display: 'none' },
+              }}
+            />
+            <Tabs.Screen
+              name="settings/notifications"
+              options={{
+                href: null,
+                headerShown: true,
+                title: 'Notifications',
+                tabBarStyle: { display: 'none' },
+              }}
+            />
           </Tabs>
         </ErrorBoundary>
       </DriverProvider>
