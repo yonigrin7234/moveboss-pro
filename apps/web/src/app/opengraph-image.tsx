@@ -30,12 +30,12 @@ export default function OGImage() {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '40px',
+            gap: '48px',
           }}
         >
           <svg
-            width="200"
-            height="200"
+            width="240"
+            height="240"
             viewBox="0 0 64 64"
             fill="none"
           >
@@ -55,12 +55,12 @@ export default function OGImage() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '24px',
+              gap: '28px',
             }}
           >
             <span
               style={{
-                fontSize: '100px',
+                fontSize: '120px',
                 fontWeight: 'bold',
                 color: 'white',
               }}
@@ -69,12 +69,12 @@ export default function OGImage() {
             </span>
             <span
               style={{
-                fontSize: '40px',
+                fontSize: '48px',
                 fontWeight: 'bold',
-                color: 'white',
+                color: '#0a0a0a',
                 background: '#4F9CF9',
-                padding: '12px 24px',
-                borderRadius: '12px',
+                padding: '14px 28px',
+                borderRadius: '14px',
               }}
             >
               PRO
