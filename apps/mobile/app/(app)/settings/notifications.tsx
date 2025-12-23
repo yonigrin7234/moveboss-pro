@@ -13,10 +13,12 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Pressable,
 } from 'react-native';
-import { Stack } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Bell, Lock, Smartphone } from 'lucide-react-native';
+import { Lock, Smartphone, ChevronLeft, Info } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import {
   useNotificationSettings,
   groupSettingsByCategory,
@@ -26,12 +28,19 @@ import { colors, typography, spacing, radius } from '../../../lib/theme';
 
 export default function DriverNotificationSettingsScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { settings, isLoading, error, refresh, updateSetting } = useNotificationSettings();
 
   const groupedSettings = groupSettingsByCategory(settings);
 
+  const handleBack = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.back();
+  }, [router]);
+
   const handleToggle = useCallback(
     async (notificationType: NotificationType, newValue: boolean) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       const result = await updateSetting(notificationType, 'push', newValue);
       if (!result.success) {
         Alert.alert('Error', result.error || 'Failed to update setting');
@@ -42,60 +51,47 @@ export default function DriverNotificationSettingsScreen() {
 
   if (isLoading) {
     return (
-      <>
-        <Stack.Screen
-          options={{
-            title: 'Notifications',
-            headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.textPrimary,
-          }}
-        />
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <Header onBack={handleBack} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading settings...</Text>
         </View>
-      </>
+      </View>
     );
   }
 
   if (error) {
     return (
-      <>
-        <Stack.Screen
-          options={{
-            title: 'Notifications',
-            headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.textPrimary,
-          }}
-        />
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <Header onBack={handleBack} />
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
+          <Pressable style={styles.retryButton} onPress={refresh}>
+            <Text style={styles.retryText}>Retry</Text>
+          </Pressable>
         </View>
-      </>
+      </View>
     );
   }
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          title: 'Notifications',
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.textPrimary,
-        }}
-      />
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <Header onBack={handleBack} />
       <ScrollView
-        style={styles.container}
+        style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xl }]}
         refreshControl={
           <RefreshControl refreshing={isLoading} onRefresh={refresh} tintColor={colors.primary} />
         }
+        showsVerticalScrollIndicator={false}
       >
-        {/* Header Info */}
-        <View style={styles.infoCard}>
-          <Smartphone size={20} color={colors.primary} />
+        {/* Info Banner */}
+        <View style={styles.infoBanner}>
+          <Info size={18} color={colors.info} />
           <Text style={styles.infoText}>
-            Choose which push notifications you want to receive on your device.
+            Choose which push notifications you want to receive. Required notifications cannot be
+            turned off.
           </Text>
         </View>
 
@@ -103,16 +99,21 @@ export default function DriverNotificationSettingsScreen() {
         {groupedSettings.map(({ category, label, settings: categorySettings }) => (
           <View key={category} style={styles.categorySection}>
             <Text style={styles.categoryTitle}>{label}</Text>
-
-            {categorySettings.map((setting) => (
-              <View key={setting.notificationType} style={styles.settingCard}>
-                <View style={styles.settingContent}>
+            <View style={styles.categoryCard}>
+              {categorySettings.map((setting, index) => (
+                <View
+                  key={setting.notificationType}
+                  style={[
+                    styles.settingRow,
+                    index < categorySettings.length - 1 && styles.settingRowBorder,
+                  ]}
+                >
                   <View style={styles.settingInfo}>
                     <Text style={styles.settingLabel}>{setting.label}</Text>
                     {setting.isMandatory && (
-                      <View style={styles.mandatoryBadge}>
+                      <View style={styles.requiredBadge}>
                         <Lock size={10} color={colors.warning} />
-                        <Text style={styles.mandatoryText}>Required</Text>
+                        <Text style={styles.requiredText}>Required</Text>
                       </View>
                     )}
                   </View>
@@ -120,16 +121,37 @@ export default function DriverNotificationSettingsScreen() {
                     value={setting.pushEnabled}
                     onValueChange={(value) => handleToggle(setting.notificationType, value)}
                     disabled={setting.isMandatory}
-                    trackColor={{ false: colors.border, true: colors.primarySoft }}
-                    thumbColor={setting.pushEnabled ? colors.primary : colors.textMuted}
+                    trackColor={{ false: colors.border, true: colors.primary }}
+                    thumbColor={colors.white}
+                    ios_backgroundColor={colors.border}
+                    style={styles.switch}
                   />
                 </View>
-              </View>
-            ))}
+              ))}
+            </View>
           </View>
         ))}
+
+        {/* Legend */}
+        <View style={styles.legend}>
+          <Smartphone size={14} color={colors.textMuted} />
+          <Text style={styles.legendText}>Push notifications to your device</Text>
+        </View>
       </ScrollView>
-    </>
+    </View>
+  );
+}
+
+// Custom Header with Back Button
+function Header({ onBack }: { onBack: () => void }) {
+  return (
+    <View style={styles.header}>
+      <Pressable style={styles.backButton} onPress={onBack} hitSlop={8}>
+        <ChevronLeft size={24} color={colors.textPrimary} />
+      </Pressable>
+      <Text style={styles.headerTitle}>Notifications</Text>
+      <View style={styles.headerSpacer} />
+    </View>
   );
 }
 
@@ -138,12 +160,33 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  backButton: {
+    padding: spacing.xs,
+  },
+  headerTitle: {
+    ...typography.headline,
+    color: colors.textPrimary,
+  },
+  headerSpacer: {
+    width: 32,
+  },
+  scrollView: {
+    flex: 1,
+  },
   content: {
-    padding: spacing.screenPadding,
+    padding: spacing.md,
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.md,
@@ -154,19 +197,29 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1,
-    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.xl,
+    gap: spacing.md,
   },
   errorText: {
     ...typography.body,
     color: colors.error,
     textAlign: 'center',
   },
-  infoCard: {
+  retryButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+  },
+  retryText: {
+    ...typography.button,
+    color: colors.white,
+  },
+  infoBanner: {
     flexDirection: 'row',
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.infoSoft,
     borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.lg,
@@ -174,50 +227,73 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   infoText: {
-    ...typography.caption,
-    color: colors.primary,
+    ...typography.bodySmall,
+    color: colors.info,
     flex: 1,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   categorySection: {
     marginBottom: spacing.lg,
   },
   categoryTitle: {
-    ...typography.headline,
-    color: colors.textPrimary,
+    ...typography.subheadline,
+    color: colors.textSecondary,
     marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  settingCard: {
+  categoryCard: {
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.border,
   },
-  settingContent: {
+  settingRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  settingRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   settingInfo: {
     flex: 1,
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
   },
   settingLabel: {
     ...typography.body,
     color: colors.textPrimary,
     fontWeight: '500',
   },
-  mandatoryBadge: {
+  requiredBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: spacing.xxs,
     gap: 4,
   },
-  mandatoryText: {
+  requiredText: {
     ...typography.caption,
     color: colors.warning,
     fontSize: 11,
+  },
+  switch: {
+    transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }],
+  },
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+  },
+  legendText: {
+    ...typography.caption,
+    color: colors.textMuted,
   },
 });

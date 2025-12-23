@@ -164,7 +164,7 @@ export default function AppLayout() {
               name="settings/notifications"
               options={{
                 href: null,
-                headerShown: true,
+                headerShown: false,
                 title: 'Notifications',
                 tabBarStyle: { display: 'none' },
               }}
