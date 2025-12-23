@@ -173,7 +173,7 @@ export default function ExpensesScreen() {
               )}
               {visibleExpenses.length > 0 && (
                 <Text style={styles.hint}>
-                  Swipe left to delete • Tap for details
+                  Swipe left or hold to delete
                 </Text>
               )}
             </View>

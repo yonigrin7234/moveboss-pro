@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { TripExpense, ExpenseCategory, ExpensePaidBy } from '../types';
 import { useAuth } from '../providers/AuthProvider';
@@ -21,6 +21,7 @@ export function useExpenseActions(tripId: string, onSuccess?: () => void) {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const { driverId, ownerId, isReady, error: driverError } = useDriver();
+  const queryClient = useQueryClient();
 
   const getDriverInfo = async () => {
     if (!user) throw new Error('Not authenticated');
@@ -53,6 +54,9 @@ export function useExpenseActions(tripId: string, onSuccess?: () => void) {
       // Notify owner (fire-and-forget)
       notifyOwnerExpenseAdded(tripId, input.category, input.amount);
 
+      // Invalidate trip detail cache so expenses show on trip detail screen
+      queryClient.invalidateQueries({ queryKey: ['tripDetail', tripId] });
+
       onSuccess?.();
       return { success: true };
     } catch (err) {
@@ -74,6 +78,10 @@ export function useExpenseActions(tripId: string, onSuccess?: () => void) {
         .eq('owner_id', driver.owner_id);
 
       if (error) throw error;
+
+      // Invalidate trip detail cache so expenses update on trip detail screen
+      queryClient.invalidateQueries({ queryKey: ['tripDetail', tripId] });
+
       onSuccess?.();
       return { success: true };
     } catch (err) {
