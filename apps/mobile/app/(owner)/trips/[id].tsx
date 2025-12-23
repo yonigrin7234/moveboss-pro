@@ -35,7 +35,7 @@ interface TripLoad {
     pickup_state: string | null;
     delivery_city: string | null;
     delivery_state: string | null;
-    cuft: number | null;
+    cubic_feet: number | null;
     rate_per_cuft: number | null;
     status: string;
     rfd_date: string | null;
@@ -165,7 +165,7 @@ export default function TripDetailScreen() {
             pickup_state,
             delivery_city,
             delivery_state,
-            cuft,
+            cubic_feet,
             rate_per_cuft,
             status,
             rfd_date
@@ -461,8 +461,8 @@ export default function TripDetailScreen() {
                 const load = tripLoad.load;
                 if (!load) return null;
 
-                const totalRate = load.cuft && load.rate_per_cuft
-                  ? load.cuft * load.rate_per_cuft
+                const totalRate = load.cubic_feet && load.rate_per_cuft
+                  ? load.cubic_feet * load.rate_per_cuft
                   : null;
 
                 return (
@@ -491,8 +491,8 @@ export default function TripDetailScreen() {
                         {load.delivery_city && `${load.delivery_city}, ${load.delivery_state}`}
                       </Text>
                       <View style={styles.loadDetails}>
-                        {load.cuft && (
-                          <Text style={styles.loadDetailText}>{load.cuft} CF</Text>
+                        {load.cubic_feet && (
+                          <Text style={styles.loadDetailText}>{load.cubic_feet} CF</Text>
                         )}
                         {totalRate && (
                           <Text style={styles.loadDetailText}>
