@@ -2,11 +2,13 @@
  * Trips Screen - View and manage trips
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
+import { ChevronLeft } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
 import { useOwner } from '../../../providers/OwnerProvider';
 import { Icon } from '../../../components/ui/Icon';
@@ -16,6 +18,11 @@ export default function TripsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { company } = useOwner();
+
+  const handleBack = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.back();
+  }, [router]);
 
   const { data: trips, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['owner-trips', company?.id],
@@ -63,7 +70,12 @@ export default function TripsScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <Text style={styles.title}>Trips</Text>
+          <View style={styles.headerLeft}>
+            <Pressable style={styles.backButton} onPress={handleBack} hitSlop={8}>
+              <ChevronLeft size={24} color={colors.textPrimary} />
+            </Pressable>
+            <Text style={styles.title}>Trips</Text>
+          </View>
           <Pressable
             style={styles.addButton}
             onPress={() => router.push('/(owner)/trips/new')}
@@ -176,6 +188,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  backButton: {
+    padding: spacing.xs,
   },
   title: {
     ...typography.title,
