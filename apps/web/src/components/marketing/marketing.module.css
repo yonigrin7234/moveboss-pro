@@ -1,0 +1,65 @@
+/* Route Line Animations */
+.routePath {
+  fill: none;
+  stroke: rgba(14, 165, 233, 0.25);
+  stroke-width: 1;
+  stroke-dasharray: 4 6;
+  animation: dash 20s linear infinite;
+}
+
+.routePathBright {
+  fill: none;
+  stroke: rgba(34, 211, 238, 0.3);
+  stroke-width: 1;
+  stroke-dasharray: 4 6;
+  animation: dash 15s linear infinite reverse;
+}
+
+.routeNode {
+  fill: #0EA5E9;
+}
+
+.routeNodeRing {
+  fill: none;
+  stroke: rgba(14, 165, 233, 0.4);
+  stroke-width: 1;
+  animation: ringPulse 2.5s ease-out infinite;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+@keyframes ringPulse {
+  0% {
+    r: 5;
+    opacity: 0.7;
+  }
+  100% {
+    r: 16;
+    opacity: 0;
+  }
+}
+
+/* Subtle grid background */
+.gridBackground {
+  background-image:
+    linear-gradient(rgba(14, 165, 233, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(14, 165, 233, 0.02) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* Hero section with expanded grid */
+.heroBackground {
+  background-image:
+    linear-gradient(rgba(14, 165, 233, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(14, 165, 233, 0.015) 1px, transparent 1px);
+  background-size: 80px 80px;
+}
+
+/* Gradient fade at bottom of hero */
+.heroFade {
+  background: linear-gradient(to bottom, transparent 0%, #080B12 100%);
+}
