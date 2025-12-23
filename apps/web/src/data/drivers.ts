@@ -643,9 +643,17 @@ export async function updateDriver(
   } else if (existingHasLogin && existingAuthUserId) {
     // Updating existing auth user
     updatePayload.has_login = effectiveHasLogin;
-    // Sync contact info to auth user if provided
+    // Sync contact info to auth user if provided (non-fatal - don't block driver update)
     if (input.email !== undefined || input.phone !== undefined) {
-      await updateAuthUserContact(existingAuthUserId, { email: input.email, phone: input.phone });
+      try {
+        await updateAuthUserContact(existingAuthUserId, { email: input.email, phone: input.phone });
+      } catch (contactErr) {
+        // Log but don't fail the driver update - contact sync is secondary
+        console.warn('AUTH_USER_CONTACT_SYNC_FAILED', {
+          authUserId: existingAuthUserId,
+          error: contactErr instanceof Error ? contactErr.message : String(contactErr),
+        });
+      }
     }
     if (options?.resetPassword) {
       if (!options.password) {
