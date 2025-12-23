@@ -1,14 +1,7 @@
 import Link from 'next/link';
 import { FeaturePill } from '@/components/marketing/feature-pill';
-import {
-  FeatureCard,
-  WhatsAppIcon,
-  BrainIcon,
-  ShieldIcon,
-  TruckIcon,
-} from '@/components/marketing/feature-card';
 import { HeroRouteLines } from '@/components/marketing/hero-route-lines';
-import { ProductPreview } from '@/components/marketing/product-preview';
+import { FeatureShowcase } from '@/components/marketing/feature-showcase';
 import styles from '@/components/marketing/marketing.module.css';
 
 export const metadata = {
@@ -86,50 +79,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Product Preview */}
-      <section className="relative py-20 px-6">
-        <div className="max-w-5xl mx-auto">
-          <ProductPreview />
-        </div>
-      </section>
-
-      {/* Key Features */}
-      <section className="py-20 px-6">
+      {/* Feature Showcase */}
+      <section className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-semibold text-white mb-4">
-              Everything you need to run your operation
-            </h2>
-            <p className="text-white/50 max-w-xl mx-auto">
-              From posting loads to calculating driver pay, MoveBoss handles the complexity so you
-              can focus on moving.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            <FeatureCard
-              icon={<WhatsAppIcon />}
-              title="WhatsApp Integration"
-              description="Auto-post loads to WhatsApp groups, send driver updates, and manage communications where your team already is."
-              highlight
-              badge="Unique"
-            />
-            <FeatureCard
-              icon={<BrainIcon />}
-              title="Financial Brain"
-              description="Automatic driver pay calculations, profitability tracking, and invoice generation. Know your numbers instantly."
-            />
-            <FeatureCard
-              icon={<ShieldIcon />}
-              title="FMCSA Compliance"
-              description="Live DOT monitoring, authority verification, and license tracking. Stay compliant without the headache."
-            />
-            <FeatureCard
-              icon={<TruckIcon />}
-              title="Driver Portal"
-              description="Mobile app for drivers with GPS tracking, digital documents, and real-time trip updates."
-            />
-          </div>
+          <FeatureShowcase />
         </div>
       </section>
 
