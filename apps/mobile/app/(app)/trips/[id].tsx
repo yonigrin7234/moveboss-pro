@@ -1,6 +1,7 @@
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Pressable } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useDriverTripDetail } from '../../../hooks/useDriverTrips';
 import { useTripActions } from '../../../hooks/useTripActions';
 import { StatusBadge } from '../../../components/StatusBadge';
@@ -45,10 +46,26 @@ export default function TripDetailScreen() {
   // Find the next actionable load
   const nextStep = sortedLoads.length > 0 ? findNextActionableLoad(sortedLoads) : null;
 
+  // Back button component for header
+  const BackButton = () => (
+    <Pressable
+      onPress={() => router.back()}
+      style={styles.backButton}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+    >
+      <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+    </Pressable>
+  );
+
   if (error) {
     return (
       <>
-        <Stack.Screen options={{ title: 'Trip Details' }} />
+        <Stack.Screen
+          options={{
+            title: 'Trip Details',
+            headerLeft: () => <BackButton />,
+          }}
+        />
         <View style={styles.container}>
           <ErrorState title="Unable to load trip" message={error} actionLabel="Retry" onAction={refetch} />
         </View>
@@ -59,7 +76,12 @@ export default function TripDetailScreen() {
   if (!trip && !loading) {
     return (
       <>
-        <Stack.Screen options={{ title: 'Trip Details' }} />
+        <Stack.Screen
+          options={{
+            title: 'Trip Details',
+            headerLeft: () => <BackButton />,
+          }}
+        />
         <View style={styles.container}>
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateTitle}>Trip not found</Text>
@@ -78,6 +100,7 @@ export default function TripDetailScreen() {
             title: 'Trip Details',
             headerStyle: { backgroundColor: colors.background },
             headerTintColor: colors.textPrimary,
+            headerLeft: () => <BackButton />,
           }}
         />
         <ScrollView style={styles.container}>
@@ -94,6 +117,7 @@ export default function TripDetailScreen() {
           title: `Trip #${trip?.trip_number || '...'}`,
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.textPrimary,
+          headerLeft: () => <BackButton />,
         }}
       />
       <ScrollView
@@ -274,6 +298,10 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.screenPadding,
+  },
+  backButton: {
+    padding: spacing.xs,
+    marginLeft: -spacing.xs,
   },
   header: {
     flexDirection: 'row',

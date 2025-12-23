@@ -25,9 +25,9 @@ export function EarningsSummary({
   return (
     <View style={styles.summaryGrid}>
       <View style={[styles.summaryCard, styles.primaryCard]}>
-        <Text style={styles.summaryLabel}>Total Earned</Text>
+        <Text style={styles.primaryCardLabel}>Total Earned</Text>
         <Text style={styles.summaryValue}>{formatCurrency(totalEarned)}</Text>
-        <Text style={styles.summarySubtext}>{tripsCompleted} trips completed</Text>
+        <Text style={styles.primaryCardSubtext}>{tripsCompleted} trips completed</Text>
       </View>
 
       <View style={styles.summaryRow}>
@@ -73,6 +73,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
+  // White text for labels on blue primary card
+  primaryCardLabel: {
+    ...typography.caption,
+    color: 'rgba(255, 255, 255, 0.85)',
+    marginBottom: spacing.xs,
+  },
   summaryValue: {
     fontSize: 28,
     fontWeight: 'bold',
@@ -81,6 +87,12 @@ const styles = StyleSheet.create({
   summarySubtext: {
     ...typography.caption,
     color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+  // White text for subtext on blue primary card
+  primaryCardSubtext: {
+    ...typography.caption,
+    color: 'rgba(255, 255, 255, 0.7)',
     marginTop: spacing.xs,
   },
   pendingValue: {
