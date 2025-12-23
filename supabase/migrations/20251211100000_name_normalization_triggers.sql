@@ -142,9 +142,6 @@ BEGIN
     IF NEW.legal_name IS NOT NULL THEN
         NEW.legal_name := normalize_company_name(NEW.legal_name);
     END IF;
-    IF NEW.dba_name IS NOT NULL THEN
-        NEW.dba_name := normalize_company_name(NEW.dba_name);
-    END IF;
     IF NEW.primary_contact_name IS NOT NULL THEN
         NEW.primary_contact_name := normalize_name(NEW.primary_contact_name);
     END IF;
@@ -212,13 +209,11 @@ UPDATE companies
 SET
     name = normalize_company_name(name),
     legal_name = normalize_company_name(legal_name),
-    dba_name = normalize_company_name(dba_name),
     primary_contact_name = normalize_name(primary_contact_name),
     dispatch_contact_name = normalize_name(dispatch_contact_name)
 WHERE
     name IS NOT NULL
     OR legal_name IS NOT NULL
-    OR dba_name IS NOT NULL
     OR primary_contact_name IS NOT NULL
     OR dispatch_contact_name IS NOT NULL;
 

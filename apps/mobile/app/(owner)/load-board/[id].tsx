@@ -42,11 +42,16 @@ interface LoadDetails {
   company_rate: number | null;
   company_rate_type: string | null;
   rate_per_cuft: number | null;
+  linehaul_amount: number | null;
   is_open_to_counter: boolean;
   rfd_date: string | null;
   pickup_date_start: string | null;
   pickup_date_end: string | null;
+  available_date: string | null;
   equipment_type: string | null;
+  truck_requirement: 'any' | 'semi_only' | 'box_truck_only' | null;
+  is_ready_now: boolean;
+  delivery_urgency: string | null;
   notes: string | null;
   posted_to_marketplace_at: string | null;
   posted_by_company_id: string | null;
@@ -57,6 +62,9 @@ interface LoadDetails {
     state: string | null;
     mc_number: string | null;
     dot_number: string | null;
+    platform_rating: number | null;
+    platform_loads_completed: number;
+    fmcsa_verified: boolean | null;
   } | null;
 }
 
@@ -69,6 +77,8 @@ export default function LoadBoardDetailScreen() {
   const { withdrawRequest, isWithdrawing } = useWithdrawRequest();
   const [message, setMessage] = useState('');
   const [showRequestForm, setShowRequestForm] = useState(false);
+  const [requestType, setRequestType] = useState<'accept' | 'counter'>('accept');
+  const [counterOfferRate, setCounterOfferRate] = useState('');
 
   // Fetch load details
   const { data: load, isLoading, refetch } = useQuery({
@@ -95,11 +105,16 @@ export default function LoadBoardDetailScreen() {
           company_rate,
           company_rate_type,
           rate_per_cuft,
+          linehaul_amount,
           is_open_to_counter,
           rfd_date,
           pickup_date_start,
           pickup_date_end,
+          available_date,
           equipment_type,
+          truck_requirement,
+          is_ready_now,
+          delivery_urgency,
           notes,
           posted_to_marketplace_at,
           posted_by_company_id
@@ -109,12 +124,12 @@ export default function LoadBoardDetailScreen() {
 
       if (error) throw error;
 
-      // Fetch company separately
+      // Fetch company separately with extended fields
       let companyData = null;
       if (data?.posted_by_company_id) {
         const { data: compData } = await supabase
           .from('companies')
-          .select('id, name, city, state, mc_number, dot_number')
+          .select('id, name, city, state, mc_number, dot_number, platform_rating, platform_loads_completed, fmcsa_verified')
           .eq('id', data.posted_by_company_id)
           .single();
         companyData = compData;
@@ -146,16 +161,27 @@ export default function LoadBoardDetailScreen() {
   const handleRequestLoad = async () => {
     if (!id) return;
 
+    const isCounterOffer = requestType === 'counter';
+    const parsedRate = isCounterOffer ? parseFloat(counterOfferRate) : undefined;
+
+    if (isCounterOffer && (!parsedRate || isNaN(parsedRate) || parsedRate <= 0)) {
+      Alert.alert('Invalid Rate', 'Please enter a valid counter offer rate');
+      return;
+    }
+
     try {
       await requestLoad({
         loadId: id,
         message: message.trim() || undefined,
-        acceptListedRate: true,
+        acceptListedRate: !isCounterOffer,
+        counterOfferRate: parsedRate,
       });
       haptics.success();
       Alert.alert(
         'Request Sent',
-        'Your request has been sent to the shipper. They will review and respond.',
+        isCounterOffer
+          ? `Your counter offer of $${parsedRate?.toFixed(2)}/CF has been sent.`
+          : 'Your request has been sent to the shipper. They will review and respond.',
         [{ text: 'OK', onPress: () => router.back() }]
       );
     } catch (error: any) {
@@ -295,22 +321,86 @@ export default function LoadBoardDetailScreen() {
           </View>
         </View>
 
+        {/* Badges Row */}
+        <View style={styles.badgesRow}>
+          {load.is_ready_now && (
+            <View style={[styles.badge, { backgroundColor: colors.success + '20' }]}>
+              <Text style={[styles.badgeText, { color: colors.success }]}>Ready Now</Text>
+            </View>
+          )}
+          {load.delivery_urgency === 'expedited' && (
+            <View style={[styles.badge, { backgroundColor: colors.error + '20' }]}>
+              <Text style={[styles.badgeText, { color: colors.error }]}>Expedited</Text>
+            </View>
+          )}
+          {load.delivery_urgency === 'flexible' && (
+            <View style={[styles.badge, { backgroundColor: colors.info + '20' }]}>
+              <Text style={[styles.badgeText, { color: colors.info }]}>Flexible</Text>
+            </View>
+          )}
+        </View>
+
         {/* Rate Card */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Rate</Text>
-          <Text style={styles.rateAmount}>{formatRate(load.company_rate)}</Text>
-          {load.rate_per_cuft && (
-            <Text style={styles.ratePerCuft}>
-              ${load.rate_per_cuft.toFixed(2)}/CF
-            </Text>
+          <Text style={styles.cardTitle}>Pricing</Text>
+          {load.rate_per_cuft ? (
+            <>
+              <Text style={styles.ratePerCuftLarge}>${load.rate_per_cuft.toFixed(2)}/CF</Text>
+              {load.linehaul_amount && load.linehaul_amount > 0 && (
+                <View style={styles.lineHaulRow}>
+                  <Text style={styles.lineHaulLabel}>Linehaul</Text>
+                  <Text style={styles.lineHaulAmount}>
+                    ${load.linehaul_amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </Text>
+                </View>
+              )}
+              {load.cubic_feet_estimate && load.rate_per_cuft && (
+                <Text style={styles.rateCalcText}>
+                  {load.cubic_feet_estimate.toLocaleString()} CF × ${load.rate_per_cuft.toFixed(2)}
+                </Text>
+              )}
+            </>
+          ) : (
+            <Text style={styles.ratePerCuftLarge}>Make an offer</Text>
           )}
-          {load.is_open_to_counter && (
+          {load.is_open_to_counter ? (
             <View style={styles.counterBadge}>
               <Icon name="message-circle" size="xs" color={colors.primary} />
               <Text style={styles.counterBadgeText}>Open to counter offers</Text>
             </View>
+          ) : (
+            <Text style={styles.fixedRateText}>Fixed rate - no counter offers</Text>
           )}
         </View>
+
+        {/* Truck Requirement Card */}
+        {load.truck_requirement && load.truck_requirement !== 'any' && (
+          <View style={[styles.card, styles.truckRequirementCard]}>
+            <Text style={styles.cardTitle}>Equipment Requirement</Text>
+            {load.truck_requirement === 'semi_only' && (
+              <View style={styles.truckRequirementRow}>
+                <Text style={styles.truckEmoji}>🚛</Text>
+                <View style={styles.truckRequirementInfo}>
+                  <Text style={styles.truckRequirementTitle}>Semi Truck Required</Text>
+                  <Text style={styles.truckRequirementDesc}>
+                    This load requires a 53' trailer. Box trucks cannot be used.
+                  </Text>
+                </View>
+              </View>
+            )}
+            {load.truck_requirement === 'box_truck_only' && (
+              <View style={styles.truckRequirementRow}>
+                <Text style={styles.truckEmoji}>📦</Text>
+                <View style={styles.truckRequirementInfo}>
+                  <Text style={styles.truckRequirementTitle}>Box Truck Only</Text>
+                  <Text style={styles.truckRequirementDesc}>
+                    Semi trucks cannot be used due to access restrictions.
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Details Card */}
         <View style={styles.card}>
@@ -376,7 +466,15 @@ export default function LoadBoardDetailScreen() {
                 <Icon name="building" size="md" color={colors.primary} />
               </View>
               <View style={styles.companyDetails}>
-                <Text style={styles.companyName}>{load.company.name}</Text>
+                <View style={styles.companyNameRow}>
+                  <Text style={styles.companyName}>{load.company.name}</Text>
+                  {load.company.fmcsa_verified && (
+                    <View style={styles.verifiedBadge}>
+                      <Icon name="check-circle" size="xs" color={colors.success} />
+                      <Text style={styles.verifiedText}>Verified</Text>
+                    </View>
+                  )}
+                </View>
                 {(load.company.city || load.company.state) && (
                   <Text style={styles.companyLocation}>
                     {[load.company.city, load.company.state].filter(Boolean).join(', ')}
@@ -390,6 +488,19 @@ export default function LoadBoardDetailScreen() {
                   </Text>
                 )}
               </View>
+              {load.company.platform_rating && (
+                <View style={styles.companyRating}>
+                  <View style={styles.ratingRow}>
+                    <Icon name="star" size="sm" color={colors.warning} />
+                    <Text style={styles.ratingValue}>{load.company.platform_rating.toFixed(1)}</Text>
+                  </View>
+                  {load.company.platform_loads_completed > 0 && (
+                    <Text style={styles.loadsCompletedText}>
+                      {load.company.platform_loads_completed} loads
+                    </Text>
+                  )}
+                </View>
+              )}
             </View>
           </View>
         )}
@@ -429,9 +540,79 @@ export default function LoadBoardDetailScreen() {
         {showRequestForm && !hasRequested && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Send Request</Text>
+
+            {/* Rate Selection (if open to counter) */}
+            {load.is_open_to_counter ? (
+              <View style={styles.rateSelectionContainer}>
+                {/* Accept Listed Rate Option */}
+                <Pressable
+                  style={[
+                    styles.rateOption,
+                    requestType === 'accept' && styles.rateOptionSelected,
+                  ]}
+                  onPress={() => setRequestType('accept')}
+                >
+                  <View style={[
+                    styles.radioOuter,
+                    requestType === 'accept' && styles.radioOuterSelected,
+                  ]}>
+                    {requestType === 'accept' && <View style={styles.radioInner} />}
+                  </View>
+                  <View style={styles.rateOptionContent}>
+                    <Text style={styles.rateOptionTitle}>
+                      Accept ${load.rate_per_cuft?.toFixed(2) || '0.00'}/CF
+                    </Text>
+                    <Text style={styles.rateOptionDesc}>Accept the listed rate</Text>
+                  </View>
+                </Pressable>
+
+                {/* Counter Offer Option */}
+                <Pressable
+                  style={[
+                    styles.rateOption,
+                    requestType === 'counter' && styles.rateOptionSelected,
+                  ]}
+                  onPress={() => setRequestType('counter')}
+                >
+                  <View style={[
+                    styles.radioOuter,
+                    requestType === 'counter' && styles.radioOuterSelected,
+                  ]}>
+                    {requestType === 'counter' && <View style={styles.radioInner} />}
+                  </View>
+                  <View style={styles.rateOptionContent}>
+                    <Text style={styles.rateOptionTitle}>Make a counter-offer</Text>
+                    {requestType === 'counter' && (
+                      <View style={styles.counterInputRow}>
+                        <Text style={styles.counterInputPrefix}>$</Text>
+                        <TextInput
+                          style={styles.counterInput}
+                          placeholder={load.rate_per_cuft ? (load.rate_per_cuft * 0.9).toFixed(2) : '0.00'}
+                          placeholderTextColor={colors.textMuted}
+                          value={counterOfferRate}
+                          onChangeText={setCounterOfferRate}
+                          keyboardType="decimal-pad"
+                        />
+                        <Text style={styles.counterInputSuffix}>/CF</Text>
+                      </View>
+                    )}
+                  </View>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.fixedRateBox}>
+                <Text style={styles.fixedRateBoxTitle}>
+                  Rate: ${load.rate_per_cuft?.toFixed(2) || '0.00'}/CF
+                </Text>
+                <Text style={styles.fixedRateBoxDesc}>This is a fixed rate</Text>
+              </View>
+            )}
+
+            {/* Message Input */}
+            <Text style={styles.inputLabel}>Message (Optional)</Text>
             <TextInput
               style={styles.messageInput}
-              placeholder="Add a message (optional)"
+              placeholder="Add a message to the shipper..."
               placeholderTextColor={colors.textMuted}
               value={message}
               onChangeText={setMessage}
@@ -806,5 +987,207 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '600',
     color: colors.textMuted,
+  },
+  // New styles for enhanced UI
+  badgesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  badge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
+    borderRadius: radius.sm,
+  },
+  badgeText: {
+    ...typography.caption,
+    fontWeight: '600',
+  },
+  ratePerCuftLarge: {
+    ...typography.hero,
+    color: colors.success,
+  },
+  lineHaulRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  lineHaulLabel: {
+    ...typography.body,
+    color: colors.textMuted,
+  },
+  lineHaulAmount: {
+    ...typography.headline,
+    color: colors.textPrimary,
+  },
+  rateCalcText: {
+    ...typography.caption,
+    color: colors.textMuted,
+    marginTop: spacing.xxs,
+  },
+  fixedRateText: {
+    ...typography.caption,
+    color: colors.textMuted,
+    marginTop: spacing.sm,
+  },
+  truckRequirementCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#6366F1',
+  },
+  truckRequirementRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  truckEmoji: {
+    fontSize: 32,
+  },
+  truckRequirementInfo: {
+    flex: 1,
+  },
+  truckRequirementTitle: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: spacing.xxs,
+  },
+  truckRequirementDesc: {
+    ...typography.bodySmall,
+    color: colors.textMuted,
+  },
+  companyNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: colors.success + '20',
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: radius.xs,
+  },
+  verifiedText: {
+    ...typography.caption,
+    color: colors.success,
+    fontWeight: '600',
+    fontSize: 10,
+  },
+  companyRating: {
+    alignItems: 'flex-end',
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  ratingValue: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  loadsCompletedText: {
+    ...typography.caption,
+    color: colors.textMuted,
+    fontSize: 10,
+  },
+  rateSelectionContainer: {
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  rateOption: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: spacing.sm,
+  },
+  rateOptionSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+  },
+  radioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  radioOuterSelected: {
+    borderColor: colors.primary,
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
+  },
+  rateOptionContent: {
+    flex: 1,
+  },
+  rateOptionTitle: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  rateOptionDesc: {
+    ...typography.caption,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  counterInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+  },
+  counterInputPrefix: {
+    ...typography.body,
+    color: colors.textMuted,
+  },
+  counterInput: {
+    flex: 1,
+    ...typography.body,
+    color: colors.textPrimary,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+  },
+  counterInputSuffix: {
+    ...typography.body,
+    color: colors.textMuted,
+  },
+  fixedRateBox: {
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  fixedRateBoxTitle: {
+    ...typography.headline,
+    color: colors.textPrimary,
+  },
+  fixedRateBoxDesc: {
+    ...typography.caption,
+    color: colors.textMuted,
+    marginTop: spacing.xxs,
+  },
+  inputLabel: {
+    ...typography.caption,
+    color: colors.textMuted,
+    marginBottom: spacing.xs,
   },
 });

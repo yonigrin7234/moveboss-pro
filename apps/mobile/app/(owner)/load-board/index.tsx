@@ -30,12 +30,22 @@ const US_STATES = [
   'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
 ];
 
-function LoadCard({ load, onPress }: { load: LoadBoardLoad; onPress: () => void }) {
-  const formatRate = (rate: number | null) => {
-    if (!rate) return 'Rate TBD';
-    return `$${rate.toLocaleString()}`;
-  };
+function timeAgo(dateString: string | null): string {
+  if (!dateString) return '';
+  const now = new Date();
+  const then = new Date(dateString);
+  const seconds = Math.floor((now.getTime() - then.getTime()) / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
 
+  if (days > 0) return `${days}d ago`;
+  if (hours > 0) return `${hours}h ago`;
+  if (minutes > 0) return `${minutes}m ago`;
+  return 'Just now';
+}
+
+function LoadCard({ load, onPress }: { load: LoadBoardLoad; onPress: () => void }) {
   const formatDate = (date: string | null) => {
     if (!date) return null;
     const d = new Date(date);
@@ -64,6 +74,17 @@ function LoadCard({ load, onPress }: { load: LoadBoardLoad; onPress: () => void 
         ? colors.error
         : colors.textMuted;
 
+  // Format rate display
+  const getRateDisplay = () => {
+    if (load.rate_per_cuft) {
+      return `$${load.rate_per_cuft.toFixed(2)}/CF`;
+    }
+    if (load.company_rate) {
+      return `$${load.company_rate.toLocaleString()}`;
+    }
+    return 'Make offer';
+  };
+
   return (
     <Pressable
       style={styles.loadCard}
@@ -72,13 +93,18 @@ function LoadCard({ load, onPress }: { load: LoadBoardLoad; onPress: () => void 
         onPress();
       }}
     >
-      {/* Header */}
+      {/* Header - Type Badge + Request Status */}
       <View style={styles.loadHeader}>
         <View style={[styles.typeBadge, { backgroundColor: getPostingTypeColor() + '20' }]}>
           <Text style={[styles.typeBadgeText, { color: getPostingTypeColor() }]}>
             {getPostingTypeLabel()}
           </Text>
         </View>
+        {load.is_ready_now && (
+          <View style={[styles.typeBadge, { backgroundColor: colors.success + '20' }]}>
+            <Text style={[styles.typeBadgeText, { color: colors.success }]}>READY NOW</Text>
+          </View>
+        )}
         {hasRequested && (
           <View style={[styles.requestBadge, { backgroundColor: requestStatusColor + '20' }]}>
             <Text style={[styles.requestBadgeText, { color: requestStatusColor }]}>
@@ -88,31 +114,34 @@ function LoadCard({ load, onPress }: { load: LoadBoardLoad; onPress: () => void 
         )}
       </View>
 
-      {/* Route */}
+      {/* Route with ZIP codes */}
       <View style={styles.routeContainer}>
         <View style={styles.locationColumn}>
           <Text style={styles.cityText} numberOfLines={1}>
-            {load.origin_city || 'Unknown'}
+            {load.origin_city}, {load.origin_state}
           </Text>
-          <Text style={styles.stateText}>{load.origin_state}</Text>
+          <Text style={styles.zipText}>{load.origin_zip}</Text>
         </View>
         <View style={styles.arrowContainer}>
           <Icon name="arrow-right" size="sm" color={colors.textMuted} />
         </View>
         <View style={[styles.locationColumn, styles.destinationColumn]}>
           <Text style={styles.cityText} numberOfLines={1}>
-            {load.destination_city || 'Unknown'}
+            {load.destination_city}, {load.destination_state}
           </Text>
-          <Text style={styles.stateText}>{load.destination_state}</Text>
+          <Text style={styles.zipText}>{load.destination_zip}</Text>
         </View>
       </View>
 
-      {/* Details */}
+      {/* Size with rate per CF */}
       <View style={styles.detailsRow}>
         {load.estimated_cuft && (
           <View style={styles.detailItem}>
             <Icon name="box" size="xs" color={colors.textMuted} />
-            <Text style={styles.detailText}>{load.estimated_cuft.toLocaleString()} CF</Text>
+            <Text style={styles.detailText}>
+              {load.estimated_cuft.toLocaleString()} CF
+              {load.rate_per_cuft ? ` @ $${load.rate_per_cuft.toFixed(2)}/CF` : ''}
+            </Text>
           </View>
         )}
         {load.rfd_date && (
@@ -127,22 +156,60 @@ function LoadCard({ load, onPress }: { load: LoadBoardLoad; onPress: () => void 
             <Text style={styles.detailText}>
               Pickup {formatDate(load.pickup_date_start)}
               {load.pickup_date_end && load.pickup_date_end !== load.pickup_date_start
-                ? ` - ${formatDate(load.pickup_date_end)}`
+                ? `-${formatDate(load.pickup_date_end)}`
                 : ''}
             </Text>
           </View>
         )}
       </View>
 
-      {/* Footer - Rate & Company */}
+      {/* Badges Row - Truck Requirements, Urgency, Open to Offers */}
+      <View style={styles.badgesRow}>
+        {load.truck_requirement === 'semi_only' && (
+          <View style={[styles.badge, { backgroundColor: '#6366F1' + '20' }]}>
+            <Text style={[styles.badgeText, { color: '#6366F1' }]}>🚛 Semi Only</Text>
+          </View>
+        )}
+        {load.truck_requirement === 'box_truck_only' && (
+          <View style={[styles.badge, { backgroundColor: colors.warning + '20' }]}>
+            <Text style={[styles.badgeText, { color: colors.warning }]}>📦 Box Truck Only</Text>
+          </View>
+        )}
+        {load.delivery_urgency === 'expedited' && (
+          <View style={[styles.badge, { backgroundColor: colors.error + '20' }]}>
+            <Text style={[styles.badgeText, { color: colors.error }]}>Expedited</Text>
+          </View>
+        )}
+        {load.delivery_urgency === 'flexible' && (
+          <View style={[styles.badge, { backgroundColor: colors.info + '20' }]}>
+            <Text style={[styles.badgeText, { color: colors.info }]}>Flexible</Text>
+          </View>
+        )}
+        {load.is_open_to_counter && (
+          <View style={[styles.badge, { backgroundColor: colors.primary + '20' }]}>
+            <Text style={[styles.badgeText, { color: colors.primary }]}>Open to offers</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Footer - Company Info & Rate */}
       <View style={styles.loadFooter}>
         <View style={styles.companyInfo}>
           <Icon name="building" size="xs" color={colors.textMuted} />
           <Text style={styles.companyText} numberOfLines={1}>
             {load.company?.name || 'Company'}
           </Text>
+          {load.company?.platform_rating && (
+            <View style={styles.ratingBadge}>
+              <Icon name="star" size="xs" color={colors.warning} />
+              <Text style={styles.ratingText}>{load.company.platform_rating.toFixed(1)}</Text>
+            </View>
+          )}
         </View>
-        <Text style={styles.rateText}>{formatRate(load.company_rate)}</Text>
+        <View style={styles.rateColumn}>
+          <Text style={styles.rateText}>{getRateDisplay()}</Text>
+          <Text style={styles.postedText}>{timeAgo(load.posted_to_marketplace_at)}</Text>
+        </View>
       </View>
     </Pressable>
   );
@@ -512,9 +579,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textPrimary,
   },
-  stateText: {
+  zipText: {
     ...typography.caption,
     color: colors.textMuted,
+    fontFamily: 'monospace',
   },
   arrowContainer: {
     paddingHorizontal: spacing.md,
@@ -534,6 +602,22 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
   },
+  badgesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  badge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
+    borderRadius: radius.sm,
+  },
+  badgeText: {
+    ...typography.caption,
+    fontWeight: '600',
+    fontSize: 11,
+  },
   loadFooter: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -551,10 +635,29 @@ const styles = StyleSheet.create({
   companyText: {
     ...typography.caption,
     color: colors.textMuted,
+    flex: 1,
+  },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  ratingText: {
+    ...typography.caption,
+    color: colors.warning,
+    fontWeight: '600',
+  },
+  rateColumn: {
+    alignItems: 'flex-end',
   },
   rateText: {
     ...typography.headline,
     color: colors.success,
+  },
+  postedText: {
+    ...typography.caption,
+    color: colors.textMuted,
+    fontSize: 10,
   },
   loadingContainer: {
     flex: 1,

@@ -34,16 +34,26 @@ export interface LoadBoardLoad {
   company_rate: number | null;
   company_rate_type: string | null;
   rate_per_cuft: number | null;
+  linehaul_amount: number | null;
   is_open_to_counter: boolean;
 
   // Dates
   rfd_date: string | null;
   pickup_date_start: string | null;
   pickup_date_end: string | null;
+  available_date: string | null;
   posted_to_marketplace_at: string | null;
 
-  // Equipment
+  // Equipment & Requirements
   equipment_type: string | null;
+  truck_requirement: 'any' | 'semi_only' | 'box_truck_only' | null;
+
+  // Status flags
+  is_ready_now: boolean;
+  delivery_urgency: string | null;
+
+  // Notes
+  notes: string | null;
 
   // Company info
   company: {
@@ -51,6 +61,11 @@ export interface LoadBoardLoad {
     name: string;
     city: string | null;
     state: string | null;
+    mc_number: string | null;
+    dot_number: string | null;
+    platform_rating: number | null;
+    platform_loads_completed: number;
+    fmcsa_verified: boolean | null;
   } | null;
 
   // Request status (if user has already requested this load)
@@ -96,12 +111,18 @@ export function useLoadBoard(filters?: LoadBoardFilters) {
           company_rate,
           company_rate_type,
           rate_per_cuft,
+          linehaul_amount,
           is_open_to_counter,
           rfd_date,
           pickup_date_start,
           pickup_date_end,
+          available_date,
           posted_to_marketplace_at,
-          equipment_type
+          equipment_type,
+          truck_requirement,
+          is_ready_now,
+          delivery_urgency,
+          notes
         `)
         .eq('is_marketplace_visible', true)
         .eq('posting_status', 'posted')
@@ -134,14 +155,24 @@ export function useLoadBoard(filters?: LoadBoardFilters) {
         return [];
       }
 
-      // Fetch company data for the loads
+      // Fetch company data for the loads (with rating/MC/DOT)
       const companyIds = [...new Set(loads.map(l => l.posted_by_company_id).filter(Boolean))] as string[];
-      const companyMap = new Map<string, { id: string; name: string; city: string | null; state: string | null }>();
+      const companyMap = new Map<string, {
+        id: string;
+        name: string;
+        city: string | null;
+        state: string | null;
+        mc_number: string | null;
+        dot_number: string | null;
+        platform_rating: number | null;
+        platform_loads_completed: number;
+        fmcsa_verified: boolean | null;
+      }>();
 
       if (companyIds.length > 0) {
         const { data: companies } = await supabase
           .from('companies')
-          .select('id, name, city, state')
+          .select('id, name, city, state, mc_number, dot_number, platform_rating, platform_loads_completed, fmcsa_verified')
           .in('id', companyIds);
 
         if (companies) {
@@ -188,12 +219,18 @@ export function useLoadBoard(filters?: LoadBoardFilters) {
           company_rate: load.company_rate,
           company_rate_type: load.company_rate_type,
           rate_per_cuft: load.rate_per_cuft,
+          linehaul_amount: load.linehaul_amount,
           is_open_to_counter: load.is_open_to_counter || false,
           rfd_date: load.rfd_date,
           pickup_date_start: load.pickup_date_start,
           pickup_date_end: load.pickup_date_end,
+          available_date: load.available_date,
           posted_to_marketplace_at: load.posted_to_marketplace_at,
           equipment_type: load.equipment_type,
+          truck_requirement: load.truck_requirement,
+          is_ready_now: load.is_ready_now || false,
+          delivery_urgency: load.delivery_urgency,
+          notes: load.notes,
           company: load.posted_by_company_id ? companyMap.get(load.posted_by_company_id) || null : null,
           my_request_status: request?.status || null,
           my_request_id: request?.id || null,
@@ -213,6 +250,17 @@ export function useLoadBoard(filters?: LoadBoardFilters) {
   };
 }
 
+export interface LoadRequestParams {
+  loadId: string;
+  message?: string;
+  counterOfferRate?: number;
+  acceptListedRate?: boolean;
+  proposedLoadDateStart?: string;
+  proposedLoadDateEnd?: string;
+  proposedDeliveryDateStart?: string;
+  proposedDeliveryDateEnd?: string;
+}
+
 /**
  * Hook for requesting a load from the marketplace
  */
@@ -224,14 +272,13 @@ export function useRequestLoad() {
     mutationFn: async ({
       loadId,
       message,
-      offeredRate,
+      counterOfferRate,
       acceptListedRate = true,
-    }: {
-      loadId: string;
-      message?: string;
-      offeredRate?: number;
-      acceptListedRate?: boolean;
-    }) => {
+      proposedLoadDateStart,
+      proposedLoadDateEnd,
+      proposedDeliveryDateStart,
+      proposedDeliveryDateEnd,
+    }: LoadRequestParams) => {
       if (!company?.id) throw new Error('No company');
 
       // Create load request
@@ -243,10 +290,13 @@ export function useRequestLoad() {
           carrier_owner_id: company.owner_id,
           status: 'pending',
           message: message || null,
-          offered_rate: offeredRate || null,
           accepted_company_rate: acceptListedRate,
           request_type: acceptListedRate ? 'accept_listed' : 'counter_offer',
-          counter_offer_rate: acceptListedRate ? null : offeredRate,
+          counter_offer_rate: acceptListedRate ? null : counterOfferRate,
+          proposed_load_date_start: proposedLoadDateStart || null,
+          proposed_load_date_end: proposedLoadDateEnd || null,
+          proposed_delivery_date_start: proposedDeliveryDateStart || null,
+          proposed_delivery_date_end: proposedDeliveryDateEnd || null,
         })
         .select()
         .single();

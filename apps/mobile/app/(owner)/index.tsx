@@ -164,18 +164,24 @@ export default function OwnerDashboardScreen() {
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.quickActionsRow}>
           <QuickAction
+            icon="search"
+            label="Find Loads"
+            highlight
+            onPress={() => router.push('/(owner)/load-board')}
+          />
+          <QuickAction
             icon="plus"
             label="Add Load"
             onPress={() => router.push('/(owner)/loads/new')}
           />
           <QuickAction
             icon="package"
-            label="View Loads"
+            label="My Loads"
             onPress={() => router.push('/(owner)/loads')}
           />
           <QuickAction
             icon="map"
-            label="Driver Map"
+            label="Drivers"
             onPress={() => router.push('/(owner)/drivers/map')}
           />
         </View>
@@ -272,18 +278,22 @@ function MetricPill({
 function QuickAction({
   icon,
   label,
+  highlight,
   onPress,
 }: {
   icon: IconName;
   label: string;
+  highlight?: boolean;
   onPress: () => void;
 }) {
   return (
     <Pressable style={styles.quickAction} onPress={onPress}>
-      <View style={styles.quickActionIcon}>
-        <Icon name={icon} size="md" color={colors.primary} />
+      <View style={[styles.quickActionIcon, highlight && styles.quickActionIconHighlight]}>
+        <Icon name={icon} size="md" color={highlight ? colors.white : colors.primary} />
       </View>
-      <Text style={styles.quickActionLabel}>{label}</Text>
+      <Text style={[styles.quickActionLabel, highlight && styles.quickActionLabelHighlight]}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -505,6 +515,13 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  quickActionIconHighlight: {
+    backgroundColor: colors.primary,
+  },
+  quickActionLabelHighlight: {
+    color: colors.primary,
+    fontWeight: '600',
   },
 
   // Activity Feed
