@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Search, UserPlus, Plus, DollarSign, Clock } from 'lucide-react';
+import { Search, UserPlus, Plus, DollarSign, Clock, Package, Route } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -17,6 +17,8 @@ interface QuickAction {
   primary?: boolean;
   highlight?: boolean;
   badgeCount?: number;
+  /** Navigation link - always visible, styled subtly */
+  nav?: boolean;
 }
 
 interface QuickActionsProps {
@@ -36,29 +38,48 @@ export function QuickActions({
   const isBroker = canPostToMarketplace(company);
   const isCarrier = canHaulLoads(company);
 
-  // Build actions list - keep it simple with max 4 buttons
-  const allActions: QuickAction[] = [];
+  // Navigation links - always visible for quick access
+  const navLinks: QuickAction[] = [
+    {
+      label: 'Loads',
+      href: '/dashboard/loads',
+      icon: <Package className="h-4 w-4" />,
+      nav: true,
+    },
+    {
+      label: 'Trips',
+      href: '/dashboard/trips',
+      icon: <Route className="h-4 w-4" />,
+      nav: true,
+    },
+  ];
+
+  // Add Load Board for carriers
+  if (isCarrier) {
+    navLinks.push({
+      label: 'Load Board',
+      href: '/dashboard/load-board',
+      icon: <Search className="h-4 w-4" />,
+      nav: true,
+    });
+  }
+
+  // Build action buttons
+  const actionButtons: QuickAction[] = [];
 
   // Primary action based on role
   if (isBroker) {
-    allActions.push({
+    actionButtons.push({
       label: 'Post Load',
       href: '/dashboard/post-load',
       icon: <Plus className="h-4 w-4" />,
       primary: true,
     });
-  } else if (isCarrier) {
-    allActions.push({
-      label: 'Find Load',
-      href: '/dashboard/load-board',
-      icon: <Search className="h-4 w-4" />,
-      primary: true,
-    });
   }
 
   // Show Assign button only if there are items needing assignment
-  if (isCarrier && needsDriverAssignment > 0) {
-    allActions.push({
+  if (needsDriverAssignment > 0) {
+    actionButtons.push({
       label: `Assign (${needsDriverAssignment})`,
       href: '/dashboard/assigned-loads?filter=unassigned',
       icon: <UserPlus className="h-4 w-4" />,
@@ -68,7 +89,7 @@ export function QuickActions({
 
   // Show pending requests if any
   if (isCarrier && pendingRequestsCount > 0) {
-    allActions.push({
+    actionButtons.push({
       label: 'Requests',
       href: '/dashboard/my-requests',
       icon: <Clock className="h-4 w-4" />,
@@ -76,16 +97,27 @@ export function QuickActions({
     });
   }
 
-  // Record Payment - always useful
-  allActions.push({
-    label: 'Record Payment',
-    href: '/dashboard/finance/receivables',
-    icon: <DollarSign className="h-4 w-4" />,
-  });
-
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
-      {allActions.map((action) => (
+      {/* Navigation links - subtle style */}
+      {navLinks.map((link) => (
+        <Link
+          key={link.href}
+          href={link.href}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        >
+          {link.icon}
+          <span>{link.label}</span>
+        </Link>
+      ))}
+
+      {/* Divider if we have both nav links and action buttons */}
+      {navLinks.length > 0 && actionButtons.length > 0 && (
+        <div className="h-6 w-px bg-border mx-1" />
+      )}
+
+      {/* Action buttons */}
+      {actionButtons.map((action) => (
         <Link
           key={action.href}
           href={action.href}

@@ -111,30 +111,39 @@ export default async function DashboardPage() {
     (isCarrier && carrierData && carrierData.metrics.pendingRequestsCount > 0);
 
   // Build critical alert message
+  // Only expired compliance is truly "critical" (red) - everything else is "warning" (amber)
   let criticalMessage = '';
   let criticalHref = '';
   let criticalAction = '';
+  let criticalSeverity: 'critical' | 'warning' = 'warning';
 
   if (complianceAlertCounts.expired > 0) {
-    criticalMessage = `${complianceAlertCounts.expired} expired compliance item${complianceAlertCounts.expired > 1 ? 's' : ''} - action required immediately`;
+    // Expired compliance = CRITICAL (red) - this can shut down operations
+    criticalMessage = `${complianceAlertCounts.expired} expired compliance item${complianceAlertCounts.expired > 1 ? 's' : ''} - action required`;
     criticalHref = '/dashboard/compliance';
-    criticalAction = 'View Now';
+    criticalAction = 'Fix Now';
+    criticalSeverity = 'critical';
   } else if (complianceAlertCounts.critical > 0) {
-    criticalMessage = `${complianceAlertCounts.critical} compliance item${complianceAlertCounts.critical > 1 ? 's' : ''} expiring within 7 days`;
+    // Expiring soon = warning (amber)
+    criticalMessage = `${complianceAlertCounts.critical} compliance item${complianceAlertCounts.critical > 1 ? 's' : ''} expiring soon`;
     criticalHref = '/dashboard/compliance';
-    criticalAction = 'View Now';
+    criticalAction = 'Review';
+    criticalSeverity = 'warning';
   } else if (isBroker && urgentJobsCount > 0) {
     criticalMessage = `${urgentJobsCount} load${urgentJobsCount > 1 ? 's' : ''} need drivers today/tomorrow`;
     criticalHref = '/dashboard/assigned-loads?filter=unassigned';
-    criticalAction = 'Assign Now';
+    criticalAction = 'Assign';
+    criticalSeverity = 'warning';
   } else if (isBroker && metrics.overdueInvoices > 3) {
     criticalMessage = `${metrics.overdueInvoices} overdue invoices need attention`;
     criticalHref = '/dashboard/finance/receivables?filter=overdue';
-    criticalAction = 'View Overdue';
+    criticalAction = 'View';
+    criticalSeverity = 'warning';
   } else if (isCarrier && carrierData && carrierData.metrics.pendingRequestsCount > 0) {
     criticalMessage = `${carrierData.metrics.pendingRequestsCount} pending load request${carrierData.metrics.pendingRequestsCount > 1 ? 's' : ''}`;
     criticalHref = '/dashboard/my-requests';
-    criticalAction = 'View Requests';
+    criticalAction = 'Review';
+    criticalSeverity = 'warning';
   }
 
   // Build attention items from various sources
@@ -203,12 +212,13 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      {/* CRITICAL ALERT BANNER - Only when truly critical */}
+      {/* ALERT BANNER - Red for critical (expired compliance), amber for warnings */}
       {hasCriticalAlert && criticalMessage && (
         <CriticalBlock
           message={criticalMessage}
           href={criticalHref}
           actionText={criticalAction}
+          severity={criticalSeverity}
         />
       )}
 
