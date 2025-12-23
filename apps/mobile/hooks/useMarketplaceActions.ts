@@ -33,7 +33,7 @@ export function useMarketplaceActions() {
           posted_by_company_id: company.id,
         })
         .eq('id', loadId)
-        .eq('company_id', company.id)
+        .eq('posted_by_company_id', company.id)
         .select()
         .single();
 
@@ -57,7 +57,7 @@ export function useMarketplaceActions() {
           is_marketplace_visible: false,
         })
         .eq('id', loadId)
-        .eq('company_id', company.id)
+        .eq('posted_by_company_id', company.id)
         .select()
         .single();
 
