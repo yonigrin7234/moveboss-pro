@@ -8,6 +8,7 @@ import {
   TruckIcon,
 } from '@/components/marketing/feature-card';
 import { HeroRouteLines } from '@/components/marketing/hero-route-lines';
+import { ProductPreview } from '@/components/marketing/product-preview';
 import styles from '@/components/marketing/marketing.module.css';
 
 export const metadata = {
@@ -85,17 +86,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Screenshot Showcase Placeholder */}
+      {/* Product Preview */}
       <section className="relative py-20 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="aspect-[16/9] rounded-2xl bg-gradient-to-b from-white/[0.04] to-white/[0.01] border border-white/[0.08] flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-2xl bg-sky-500/10 flex items-center justify-center mx-auto mb-4">
-                <TruckIcon className="w-8 h-8 text-sky-500" />
-              </div>
-              <p className="text-white/30 text-sm">Product screenshot</p>
-            </div>
-          </div>
+        <div className="max-w-5xl mx-auto">
+          <ProductPreview />
         </div>
       </section>
 
