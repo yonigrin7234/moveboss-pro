@@ -204,61 +204,60 @@ export default function LoadsScreen() {
             : null;
 
           return (
-            <Pressable
-              key={load.id}
-              style={styles.loadCard}
-              onPress={() => router.push(`/(owner)/loads/${load.id}`)}
-            >
-              <View style={styles.loadHeader}>
-                <Text style={styles.loadNumber}>{load.load_number}</Text>
-                <View style={[
-                  styles.statusBadge,
-                  { backgroundColor: getStatusColor(load.status) + '20' },
-                ]}>
-                  <Text style={[
-                    styles.statusText,
-                    { color: getStatusColor(load.status) },
-                  ]}>
-                    {formatStatus(load.status)}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.routeRow}>
-                <Icon name="map-pin" size="sm" color={colors.textMuted} />
-                <Text style={styles.routeText}>
-                  {load.pickup_city}, {load.pickup_state} → {load.delivery_city}, {load.delivery_state}
-                </Text>
-              </View>
-
-              <View style={styles.detailsRow}>
-                <Text style={styles.detailText}>{load.cubic_feet} CF</Text>
-                {load.rate_per_cuft && (
-                  <Text style={styles.detailText}>${load.rate_per_cuft}/cf</Text>
-                )}
-                {daysUntilRfd !== null && (
+            <View key={load.id} style={styles.loadCard}>
+              {/* Tappable area for navigation */}
+              <Pressable
+                style={styles.loadCardContent}
+                onPress={() => router.push(`/(owner)/loads/${load.id}`)}
+              >
+                <View style={styles.loadHeader}>
+                  <Text style={styles.loadNumber}>{load.load_number}</Text>
                   <View style={[
-                    styles.rfdBadge,
-                    daysUntilRfd <= 0 && styles.rfdBadgeOverdue,
+                    styles.statusBadge,
+                    { backgroundColor: getStatusColor(load.status) + '20' },
                   ]}>
                     <Text style={[
-                      styles.rfdText,
-                      daysUntilRfd <= 0 && styles.rfdTextOverdue,
+                      styles.statusText,
+                      { color: getStatusColor(load.status) },
                     ]}>
-                      RFD: {daysUntilRfd <= 0 ? 'Overdue' : `${daysUntilRfd}d`}
+                      {formatStatus(load.status)}
                     </Text>
                   </View>
-                )}
-                <View style={{ flex: 1 }} />
+                </View>
+
+                <View style={styles.routeRow}>
+                  <Icon name="map-pin" size="sm" color={colors.textMuted} />
+                  <Text style={styles.routeText}>
+                    {load.pickup_city}, {load.pickup_state} → {load.delivery_city}, {load.delivery_state}
+                  </Text>
+                </View>
+
+                <View style={styles.detailsRow}>
+                  <Text style={styles.detailText}>{load.cubic_feet} CF</Text>
+                  {load.rate_per_cuft && (
+                    <Text style={styles.detailText}>${load.rate_per_cuft}/cf</Text>
+                  )}
+                  {daysUntilRfd !== null && (
+                    <View style={[
+                      styles.rfdBadge,
+                      daysUntilRfd <= 0 && styles.rfdBadgeOverdue,
+                    ]}>
+                      <Text style={[
+                        styles.rfdText,
+                        daysUntilRfd <= 0 && styles.rfdTextOverdue,
+                      ]}>
+                        RFD: {daysUntilRfd <= 0 ? 'Overdue' : `${daysUntilRfd}d`}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </Pressable>
+
+              {/* Action buttons - separate from card pressable */}
+              <View style={styles.actionButtonsRow}>
                 <Pressable
                   style={styles.actionIconButton}
-                  onPressIn={(e) => e.stopPropagation()}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleAssignToTrip(load);
-                  }}
-                  delayPressIn={0}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  onPress={() => handleAssignToTrip(load)}
                 >
                   <Icon name="truck" size="sm" color={colors.textSecondary} />
                 </Pressable>
@@ -267,13 +266,7 @@ export default function LoadsScreen() {
                     styles.actionIconButton,
                     load.posting_status === 'posted' && styles.actionIconButtonActive,
                   ]}
-                  onPressIn={(e) => e.stopPropagation()}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleMarketplace(load);
-                  }}
-                  delayPressIn={0}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  onPress={() => handleMarketplace(load)}
                 >
                   <Icon
                     name="upload"
@@ -283,18 +276,12 @@ export default function LoadsScreen() {
                 </Pressable>
                 <Pressable
                   style={styles.actionIconButton}
-                  onPressIn={(e) => e.stopPropagation()}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleShare(load);
-                  }}
-                  delayPressIn={0}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  onPress={() => handleShare(load)}
                 >
                   <Icon name="share" size="sm" color={colors.textSecondary} />
                 </Pressable>
               </View>
-            </Pressable>
+            </View>
           );
         })}
 
@@ -413,9 +400,19 @@ const styles = StyleSheet.create({
   loadCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    padding: spacing.lg,
     marginBottom: spacing.md,
     ...shadows.md,
+  },
+  loadCardContent: {
+    padding: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
   },
   loadHeader: {
     flexDirection: 'row',
