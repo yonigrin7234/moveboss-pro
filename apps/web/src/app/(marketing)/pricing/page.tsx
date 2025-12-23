@@ -50,7 +50,7 @@ const tiers = [
       'SLA guarantee',
     ],
     ctaText: 'Contact us',
-    ctaHref: 'mailto:hello@moveboss.com',
+    ctaHref: 'mailto:support@moveboss.com',
   },
 ];
 
@@ -135,7 +135,7 @@ export default function PricingPage() {
           We&apos;re here to help. Reach out and we&apos;ll get back to you quickly.
         </p>
         <Link
-          href="mailto:hello@moveboss.com"
+          href="mailto:support@moveboss.com"
           className="px-6 py-3 text-sm font-medium bg-white/[0.06] hover:bg-white/[0.1] text-white rounded-lg border border-white/[0.08] transition-colors inline-block"
         >
           Contact us
