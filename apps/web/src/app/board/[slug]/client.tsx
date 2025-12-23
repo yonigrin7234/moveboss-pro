@@ -141,13 +141,13 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Custom Message */}
         {company.custom_message && (
-          <div className="bg-primary/5 border border-primary/10 rounded-xl p-4 mb-6">
-            <p className="text-sm text-slate-700 dark:text-slate-300">{company.custom_message}</p>
+          <div className="bg-sky-500/10 border border-sky-500/20 rounded-xl p-4 mb-6">
+            <p className="text-sm text-slate-300">{company.custom_message}</p>
           </div>
         )}
 
         {/* Search Bar - Clean horizontal */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 mb-6">
+        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-3 mb-6">
           <div className="flex items-center gap-2">
             <div className="flex-1 flex items-center gap-2">
               <MapPin className="h-4 w-4 text-slate-400 ml-2" />
@@ -156,10 +156,10 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
                 value={origin}
                 onChange={(e) => setOrigin(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                className="border-0 shadow-none focus-visible:ring-0 px-2 bg-transparent"
+                className="border-0 shadow-none focus-visible:ring-0 px-2 bg-transparent text-white placeholder:text-slate-500"
               />
             </div>
-            <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
+            <div className="h-6 w-px bg-slate-700" />
             <div className="flex-1 flex items-center gap-2">
               <ArrowRight className="h-4 w-4 text-slate-400 ml-2" />
               <Input
@@ -167,10 +167,10 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
                 value={dest}
                 onChange={(e) => setDest(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                className="border-0 shadow-none focus-visible:ring-0 px-2 bg-transparent"
+                className="border-0 shadow-none focus-visible:ring-0 px-2 bg-transparent text-white placeholder:text-slate-500"
               />
             </div>
-            <Button onClick={handleSearch} size="sm" className="px-4">
+            <Button onClick={handleSearch} size="sm" className="bg-sky-500 hover:bg-sky-600 text-white border-0 px-4">
               <Search className="h-4 w-4" />
               <span className="ml-2 hidden sm:inline">Search</span>
             </Button>
@@ -179,8 +179,8 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
 
         {/* Results header */}
         <div className="flex items-center justify-between mb-4">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            <span className="font-semibold text-slate-900 dark:text-white">{pagination.total}</span>
+          <p className="text-sm text-slate-400">
+            <span className="font-semibold text-white">{pagination.total}</span>
             {' '}{pagination.total === 1 ? 'load' : 'loads'} available
             {hasFilters && (
               <button
@@ -189,7 +189,7 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
                   setDest('');
                   router.push(`/board/${company.slug}`);
                 }}
-                className="ml-2 text-primary hover:underline"
+                className="ml-2 text-sky-400 hover:underline"
               >
                 Clear filters
               </button>
@@ -209,12 +209,12 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
             ))}
           </div>
         ) : (
-          <div className="text-center py-16 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl">
-            <Box className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+          <div className="text-center py-16 bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-2xl">
+            <Box className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-white mb-2">
               No loads available
             </h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+            <p className="text-sm text-slate-400 max-w-sm mx-auto">
               {hasFilters
                 ? 'Try adjusting your search filters to find more loads'
                 : 'Check back soon for new load opportunities'}
@@ -230,11 +230,11 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
               size="sm"
               disabled={pagination.page <= 1}
               onClick={() => goToPage(pagination.page - 1)}
-              className="border-slate-200 dark:border-slate-700"
+              className="border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-50"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm text-slate-500 dark:text-slate-400 px-4">
+            <span className="text-sm text-slate-400 px-4">
               Page {pagination.page} of {pagination.total_pages}
             </span>
             <Button
@@ -242,7 +242,7 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
               size="sm"
               disabled={pagination.page >= pagination.total_pages}
               onClick={() => goToPage(pagination.page + 1)}
-              className="border-slate-200 dark:border-slate-700"
+              className="border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-50"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -250,17 +250,24 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
         )}
       </main>
 
-      {/* Footer - Clean & minimal */}
-      <footer className="border-t border-slate-200 dark:border-slate-800 mt-auto">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-slate-400">
-              Powered by <span className="font-medium text-slate-600 dark:text-slate-300">MoveBoss Pro</span>
+      {/* Footer */}
+      <footer className="border-t border-slate-800 mt-auto">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex flex-col items-center gap-4 text-center">
+            {/* MoveBoss Logo */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-sky-500 to-sky-600 rounded-lg flex items-center justify-center">
+                <Truck className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-lg font-semibold text-white">MoveBoss Pro</span>
+            </div>
+            <p className="text-xs text-slate-500">
+              The modern platform for moving companies
             </p>
             <div className="flex items-center gap-6 text-sm">
               <Link
                 href="/login"
-                className="text-slate-500 hover:text-primary transition-colors"
+                className="text-slate-400 hover:text-sky-400 transition-colors"
               >
                 Carrier Login
               </Link>
@@ -268,7 +275,7 @@ export function PublicBoardClient({ company, initialLoads, pagination }: PublicB
                 href="https://moveboss.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-slate-500 hover:text-primary transition-colors"
+                className="text-slate-400 hover:text-sky-400 transition-colors"
               >
                 Get MoveBoss
               </a>

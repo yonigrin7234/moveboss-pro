@@ -111,20 +111,20 @@ function RelatedLoadCard({ load, showRates }: { load: RelatedLoad; showRates: bo
   return (
     <Link
       href={`/loads/${load.id}/public`}
-      className="group block bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:border-primary/50 transition-colors"
+      className="group block bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4 hover:border-sky-500/50 hover:bg-slate-800/70 transition-all duration-200"
     >
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5 text-sm text-slate-700 dark:text-slate-200">
+        <div className="flex items-center gap-1.5 text-sm text-slate-200">
           <span className="truncate max-w-[90px]">{origin}</span>
-          <ArrowRight className="h-3 w-3 text-primary flex-shrink-0" />
-          <span className="truncate max-w-[90px] font-medium">{destination}</span>
+          <ArrowRight className="h-3 w-3 text-sky-400 flex-shrink-0" />
+          <span className="truncate max-w-[90px] font-medium text-white">{destination}</span>
         </div>
-        <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-primary transition-colors" />
+        <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-sky-400 transition-colors" />
       </div>
-      <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+      <div className="flex items-center gap-3 text-xs text-slate-400">
         {load.cubic_feet && <span>{load.cubic_feet} CF</span>}
         {showRates && load.total_rate && (
-          <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+          <span className="text-emerald-400 font-medium">
             {formatCurrency(load.total_rate)}
           </span>
         )}
@@ -164,27 +164,37 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      {/* Header */}
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-5">
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950">
+      {/* Header with gradient accent */}
+      <header className="relative overflow-hidden border-b border-slate-800">
+        {/* Gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-sky-500/10 via-transparent to-emerald-500/5" />
+        <div className="absolute top-0 left-1/3 w-[400px] h-[200px] bg-sky-500/15 rounded-full blur-3xl" />
+
+        <div className="relative max-w-3xl mx-auto px-4 sm:px-6 py-5">
           <div className="flex items-center gap-4">
             {company.logo_url ? (
-              <Image
-                src={company.logo_url}
-                alt={company.name}
-                width={48}
-                height={48}
-                className="rounded-xl object-contain bg-slate-100 dark:bg-slate-800"
-              />
+              <div className="relative">
+                <div className="absolute inset-0 bg-sky-500/20 rounded-2xl blur-xl" />
+                <Image
+                  src={company.logo_url}
+                  alt={company.name}
+                  width={48}
+                  height={48}
+                  className="relative rounded-2xl object-contain bg-slate-800/50 backdrop-blur border border-slate-700/50"
+                />
+              </div>
             ) : (
-              <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-primary/5 rounded-xl flex items-center justify-center">
-                <Truck className="h-6 w-6 text-primary" />
+              <div className="relative">
+                <div className="absolute inset-0 bg-sky-500/30 rounded-2xl blur-xl" />
+                <div className="relative w-12 h-12 bg-gradient-to-br from-sky-500 to-sky-600 rounded-2xl flex items-center justify-center shadow-lg shadow-sky-500/25">
+                  <Truck className="h-6 w-6 text-white" />
+                </div>
               </div>
             )}
             <div>
-              <h1 className="text-lg font-bold text-slate-900 dark:text-white">{company.name}</h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Load #{load.load_number}</p>
+              <h1 className="text-lg font-bold text-white">{company.name}</h1>
+              <p className="text-sm text-slate-400">Load #{load.load_number}</p>
             </div>
           </div>
         </div>
@@ -192,20 +202,20 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
         {/* Main Card */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden mb-6">
+        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-2xl overflow-hidden mb-6">
           {/* Route Section */}
-          <div className="bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-900 p-6">
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 border-b border-slate-700/50">
             <div className="flex items-center gap-4">
               <div className="flex-1">
-                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Origin</p>
-                <p className="text-xl font-bold text-slate-900 dark:text-white">{origin}</p>
+                <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">Origin</p>
+                <p className="text-xl font-bold text-white">{origin}</p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <ArrowRight className="h-5 w-5 text-primary" />
+              <div className="w-10 h-10 rounded-full bg-sky-500/20 flex items-center justify-center flex-shrink-0">
+                <ArrowRight className="h-5 w-5 text-sky-400" />
               </div>
               <div className="flex-1 text-right">
-                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Destination</p>
-                <p className="text-xl font-bold text-slate-900 dark:text-white">{destination}</p>
+                <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">Destination</p>
+                <p className="text-xl font-bold text-white">{destination}</p>
               </div>
             </div>
           </div>
@@ -213,7 +223,7 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
           {/* Details */}
           <div className="p-6 space-y-5">
             {/* Service Type */}
-            <div className="inline-block bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-sm font-medium px-3 py-1 rounded-full">
+            <div className="inline-block bg-slate-700/50 text-slate-300 text-sm font-medium px-3 py-1 rounded-full">
               {formatServiceType(load.service_type)}
             </div>
 
@@ -221,34 +231,34 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
             <div className="grid grid-cols-2 gap-4">
               {/* First date box - changes based on load type */}
               {(load.load_type === 'rfd' || load.load_subtype === 'rfd') ? (
-                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4">
-                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm mb-1">
+                <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+                  <div className="flex items-center gap-2 text-slate-400 text-sm mb-1">
                     <Calendar className="h-4 w-4" />
                     <span>Ready</span>
                   </div>
-                  <p className="font-semibold text-slate-900 dark:text-white">
+                  <p className="font-semibold text-white">
                     {load.rfd_date
                       ? formatDateRangeDisplay(load.rfd_date, null)
                       : 'Now'}
                   </p>
                 </div>
               ) : (
-                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4">
-                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm mb-1">
+                <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+                  <div className="flex items-center gap-2 text-slate-400 text-sm mb-1">
                     <Calendar className="h-4 w-4" />
                     <span>Pickup</span>
                   </div>
-                  <p className="font-semibold text-slate-900 dark:text-white">{pickupDate}</p>
+                  <p className="font-semibold text-white">{pickupDate}</p>
                 </div>
               )}
               {/* Delivery date - only show for non-RFD loads (RFD delivery is TBD until claimed) */}
               {!(load.load_type === 'rfd' || load.load_subtype === 'rfd') && (
-                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4">
-                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm mb-1">
+                <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+                  <div className="flex items-center gap-2 text-slate-400 text-sm mb-1">
                     <Calendar className="h-4 w-4" />
                     <span>Delivery</span>
                   </div>
-                  <p className="font-semibold text-slate-900 dark:text-white">{deliveryDate}</p>
+                  <p className="font-semibold text-white">{deliveryDate}</p>
                 </div>
               )}
             </div>
@@ -256,15 +266,15 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
             {/* Size and Rate */}
             <div className="grid grid-cols-2 gap-4">
               {load.cubic_feet && (
-                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4">
-                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm mb-1">
+                <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+                  <div className="flex items-center gap-2 text-slate-400 text-sm mb-1">
                     <Package className="h-4 w-4" />
                     <span>Size</span>
                   </div>
-                  <p className="font-semibold text-slate-900 dark:text-white">
+                  <p className="font-semibold text-white">
                     {load.cubic_feet.toLocaleString()} CF
                     {company.show_rates && load.rate_per_cuft && (
-                      <span className="text-sm font-normal text-slate-500 dark:text-slate-400 ml-2">
+                      <span className="text-sm font-normal text-slate-400 ml-2">
                         @ ${load.rate_per_cuft.toFixed(2)}/cf
                       </span>
                     )}
@@ -281,18 +291,18 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
                 const hasRate = calculatedLinehaul !== null;
 
                 return (
-                  <div className={hasRate ? "bg-emerald-50 dark:bg-emerald-950/30 rounded-xl p-4" : "bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4"}>
-                    <p className={`text-sm mb-1 ${hasRate ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 dark:text-slate-400"}`}>Linehaul</p>
+                  <div className={hasRate ? "bg-emerald-950/30 border border-emerald-700/30 rounded-xl p-4" : "bg-slate-900/50 border border-slate-700/50 rounded-xl p-4"}>
+                    <p className={`text-sm mb-1 ${hasRate ? "text-emerald-400" : "text-slate-400"}`}>Linehaul</p>
                     {hasRate ? (
-                      <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                      <p className="text-2xl font-bold text-emerald-400">
                         {formatCurrency(calculatedLinehaul)}
                       </p>
                     ) : load.is_open_to_counter ? (
-                      <p className="text-lg font-semibold text-slate-700 dark:text-slate-300">
+                      <p className="text-lg font-semibold text-slate-300">
                         Open to offers
                       </p>
                     ) : (
-                      <p className="text-lg font-semibold text-slate-700 dark:text-slate-300">
+                      <p className="text-lg font-semibold text-slate-300">
                         Make an offer
                       </p>
                     )}
@@ -304,8 +314,8 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
             {/* Description */}
             {load.description && (
               <div>
-                <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Details</h3>
-                <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap leading-relaxed">
+                <h3 className="text-sm font-medium text-slate-300 mb-2">Details</h3>
+                <p className="text-sm text-slate-400 whitespace-pre-wrap leading-relaxed">
                   {load.description}
                 </p>
               </div>
@@ -313,35 +323,35 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
           </div>
 
           {/* CTA Section */}
-          <div className="border-t border-slate-200 dark:border-slate-800 p-6 bg-slate-50 dark:bg-slate-800/30">
+          <div className="border-t border-slate-700/50 p-6 bg-slate-900/50">
             {showClaimOptions ? (
               <div className="text-center">
-                <p className="font-semibold text-slate-900 dark:text-white mb-4">
+                <p className="font-semibold text-white mb-4">
                   Ready to claim this load?
                 </p>
                 {company.require_auth_to_claim ? (
                   <div className="space-y-3">
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                    <p className="text-sm text-slate-400">
                       Sign in to your carrier account to claim
                     </p>
                     <div className="flex flex-col sm:flex-row gap-2 justify-center">
                       <Link href="/login">
-                        <Button size="lg">Sign In</Button>
+                        <Button size="lg" className="bg-sky-500 hover:bg-sky-600 text-white border-0">Sign In</Button>
                       </Link>
                       <Link href="/signup">
-                        <Button variant="outline" size="lg">Create Account</Button>
+                        <Button variant="outline" size="lg" className="border-slate-600 text-slate-300 hover:bg-slate-800">Create Account</Button>
                       </Link>
                     </div>
                   </div>
                 ) : company.contact ? (
                   <div className="space-y-3">
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                    <p className="text-sm text-slate-400">
                       Contact {company.name} directly
                     </p>
                     <div className="flex flex-col sm:flex-row gap-2 justify-center">
                       {company.contact.phone && (
                         <a href={`tel:${company.contact.phone}`}>
-                          <Button size="lg" className="w-full sm:w-auto">
+                          <Button size="lg" className="w-full sm:w-auto bg-sky-500 hover:bg-sky-600 text-white border-0">
                             <Phone className="h-4 w-4 mr-2" />
                             {company.contact.phone}
                           </Button>
@@ -349,7 +359,7 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
                       )}
                       {company.contact.email && (
                         <a href={`mailto:${company.contact.email}?subject=Load Inquiry: ${load.load_number}&body=Hi, I'm interested in load ${load.load_number} (${origin} to ${destination}).`}>
-                          <Button variant="outline" size="lg" className="w-full sm:w-auto">
+                          <Button variant="outline" size="lg" className="w-full sm:w-auto border-slate-600 text-slate-300 hover:bg-slate-800">
                             <Mail className="h-4 w-4 mr-2" />
                             Email
                           </Button>
@@ -358,14 +368,14 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                  <p className="text-sm text-slate-400">
                     Contact the carrier to claim this load
                   </p>
                 )}
               </div>
             ) : (
               <Button
-                className="w-full"
+                className="w-full bg-sky-500 hover:bg-sky-600 text-white border-0 shadow-lg shadow-sky-500/25"
                 size="lg"
                 onClick={handleClaimClick}
               >
@@ -380,13 +390,13 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
         {relatedLoads.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold text-slate-900 dark:text-white">
+              <h2 className="font-semibold text-white">
                 More from {company.name}
               </h2>
               {company.slug && (
                 <Link
                   href={`/board/${company.slug}`}
-                  className="text-sm text-primary hover:underline flex items-center gap-1"
+                  className="text-sm text-sky-400 hover:underline flex items-center gap-1"
                 >
                   View all <ChevronRight className="h-3 w-3" />
                 </Link>
@@ -406,34 +416,44 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
 
         {/* Full Board CTA */}
         {company.slug && (
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 text-center">
-            <h3 className="font-semibold text-slate-900 dark:text-white mb-2">
-              Browse All Loads
-            </h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-              See all available loads from {company.name}
-            </p>
-            <Link href={`/board/${company.slug}`}>
-              <Button variant="outline" className="border-slate-200 dark:border-slate-700">
-                View Load Board
-                <ExternalLink className="h-4 w-4 ml-2" />
-              </Button>
-            </Link>
+          <div className="relative overflow-hidden bg-gradient-to-br from-slate-800/80 to-slate-800/40 backdrop-blur border border-slate-700/50 rounded-2xl p-6 text-center">
+            <div className="absolute inset-0 bg-gradient-to-br from-sky-500/5 to-emerald-500/5" />
+            <div className="relative">
+              <h3 className="font-semibold text-white mb-2">
+                Browse All Loads
+              </h3>
+              <p className="text-sm text-slate-400 mb-4">
+                See all available loads from {company.name}
+              </p>
+              <Link href={`/board/${company.slug}`}>
+                <Button className="bg-sky-500 hover:bg-sky-600 text-white border-0 shadow-lg shadow-sky-500/25">
+                  View Load Board
+                  <ExternalLink className="h-4 w-4 ml-2" />
+                </Button>
+              </Link>
+            </div>
           </div>
         )}
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800 mt-auto">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-slate-400">
-              Powered by <span className="font-medium text-slate-600 dark:text-slate-300">MoveBoss Pro</span>
+      <footer className="border-t border-slate-800 mt-auto">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+          <div className="flex flex-col items-center gap-4 text-center">
+            {/* MoveBoss Logo */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-sky-500 to-sky-600 rounded-lg flex items-center justify-center">
+                <Truck className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-lg font-semibold text-white">MoveBoss Pro</span>
+            </div>
+            <p className="text-xs text-slate-500">
+              The modern platform for moving companies
             </p>
             <div className="flex items-center gap-6 text-sm">
               <Link
                 href="/login"
-                className="text-slate-500 hover:text-primary transition-colors"
+                className="text-slate-400 hover:text-sky-400 transition-colors"
               >
                 Carrier Login
               </Link>
@@ -441,7 +461,7 @@ export function PublicLoadClient({ load, company, relatedLoads }: PublicLoadClie
                 href="https://moveboss.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-slate-500 hover:text-primary transition-colors"
+                className="text-slate-400 hover:text-sky-400 transition-colors"
               >
                 Get MoveBoss
               </a>
