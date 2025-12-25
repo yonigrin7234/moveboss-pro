@@ -544,7 +544,7 @@ export function TripPlannerMap({
   }
 
   return (
-    <div className="space-y-4">
+    <div>
       {/* Backdrop for expanded map */}
       {isMapExpanded && (
         <div
@@ -553,8 +553,232 @@ export function TripPlannerMap({
         />
       )}
 
-      {/* Capacity Bar */}
-      <Card className="overflow-hidden">
+      {/* Main Layout: Side-by-side on xl screens, stacked on smaller */}
+      <div className="flex flex-col xl:flex-row xl:gap-4">
+        {/* Left: Map (sticky on xl screens) */}
+        <div className="xl:w-[60%] xl:sticky xl:top-4 xl:self-start">
+          {/* Map */}
+          <Card className={isMapExpanded ? 'fixed inset-4 z-50 flex flex-col' : ''}>
+            <CardHeader className="pb-2 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-blue-500/10">
+                    <Navigation className="h-5 w-5 text-blue-500" />
+                  </div>
+                  Trip Route
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  {routeDistance > 0 && (
+                    <Badge variant="secondary" className="font-semibold">
+                      {Math.round(routeDistance)} miles
+                    </Badge>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsMapExpanded(!isMapExpanded)}
+                    className="h-8 w-8 p-0"
+                  >
+                    {isMapExpanded ? (
+                      <Minimize2 className="h-4 w-4" />
+                    ) : (
+                      <Maximize2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className={`p-0 ${isMapExpanded ? 'flex-1' : ''}`}>
+              <div className={`${isMapExpanded ? 'h-full' : 'h-[500px] xl:h-[calc(100vh-200px)] xl:min-h-[500px]'} rounded-b-lg overflow-hidden`}>
+                <MapContainer
+                  bounds={bounds}
+                  className="h-full w-full"
+                  scrollWheelZoom={true}
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+
+                  {/* Route line */}
+                  {routeLine && (
+                    <Polyline
+                      positions={routeLine}
+                      color="#3b82f6"
+                      weight={3}
+                      dashArray="10, 10"
+                    />
+                  )}
+
+                  {/* Trip origin marker */}
+                  {tripOrigin && icons.origin && (
+                    <Marker position={[tripOrigin.lat, tripOrigin.lng]} icon={icons.origin}>
+                      <Popup>
+                        <div className="text-sm">
+                          <p className="font-semibold">Trip Start</p>
+                          <p className="text-muted-foreground">
+                            {originCity}, {originState} {originZip}
+                          </p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  )}
+
+                  {/* Trip destination marker */}
+                  {tripDestination && icons.destination && (
+                    <Marker position={[tripDestination.lat, tripDestination.lng]} icon={icons.destination}>
+                      <Popup>
+                        <div className="text-sm">
+                          <p className="font-semibold">Trip Destination</p>
+                          <p className="text-muted-foreground">
+                            {destinationCity}, {destinationState} {destinationZip}
+                          </p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  )}
+
+                  {/* Load markers */}
+                  {loadMarkers.map((marker, index) => {
+                    const icon = marker.isMarketplace
+                      ? icons.marketplace
+                      : marker.load.isPickup
+                      ? icons.pickup
+                      : icons.load;
+
+                    if (!icon) return null;
+
+                    return (
+                      <div key={marker.load.id}>
+                        {/* Origin marker */}
+                        {marker.originCoords && (
+                          <Marker
+                            position={[marker.originCoords.lat, marker.originCoords.lng]}
+                            icon={icon}
+                            eventHandlers={{
+                              click: () => {
+                                setSelectedLoad(marker.load);
+                              },
+                            }}
+                          >
+                            <Popup>
+                              <div className="text-sm min-w-[200px]">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="font-semibold">{marker.load.loadNumber}</p>
+                                  {marker.isMarketplace && (
+                                    <Badge variant="destructive" className="text-xs">Marketplace</Badge>
+                                  )}
+                                </div>
+                                <p className="text-muted-foreground">{marker.load.companyName}</p>
+                                <div className="mt-2 space-y-1">
+                                  <p className="flex items-center gap-1">
+                                    <MapPin className="h-3 w-3" />
+                                    {marker.load.originCity}, {marker.load.originState} {marker.load.originZip}
+                                  </p>
+                                  {marker.load.destinationCity && (
+                                    <p className="flex items-center gap-1 text-muted-foreground">
+                                      → {marker.load.destinationCity}, {marker.load.destinationState} {marker.load.destinationZip}
+                                    </p>
+                                  )}
+                                  {marker.load.cubicFeet && (
+                                    <p className="flex items-center gap-1">
+                                      <Package className="h-3 w-3" />
+                                      {marker.load.cubicFeet.toLocaleString()} cf
+                                    </p>
+                                  )}
+                                </div>
+                                {marker.isMarketplace && 'addedMiles' in marker.load && (
+                                  <p className="text-xs text-muted-foreground mt-2">
+                                    +{Math.round(marker.load.addedMiles || 0)} miles detour
+                                  </p>
+                                )}
+                                {marker.isMarketplace && onRequestLoad && (
+                                  <Button
+                                    size="sm"
+                                    className="w-full mt-2"
+                                    onClick={() => onRequestLoad(marker.load as MarketplaceLoad)}
+                                  >
+                                    Request Load
+                                  </Button>
+                                )}
+                                {!marker.isMarketplace && onLoadClick && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="w-full mt-2"
+                                    onClick={() => onLoadClick(marker.load)}
+                                  >
+                                    View Details
+                                  </Button>
+                                )}
+                              </div>
+                            </Popup>
+                          </Marker>
+                        )}
+
+                        {/* Destination marker (smaller/different style for assigned loads) */}
+                        {marker.destinationCoords && !marker.isMarketplace && icons.destination && (
+                          <Marker
+                            position={[marker.destinationCoords.lat, marker.destinationCoords.lng]}
+                            icon={icons.destination}
+                          >
+                            <Popup>
+                              <div className="text-sm">
+                                <p className="font-semibold">Delivery: {marker.load.loadNumber}</p>
+                                <p className="text-muted-foreground">
+                                  {marker.load.destinationCity}, {marker.load.destinationState}
+                                </p>
+                                {marker.load.cubicFeet && (
+                                  <p className="flex items-center gap-1 mt-1">
+                                    <Package className="h-3 w-3" />
+                                    {marker.load.cubicFeet.toLocaleString()} cf
+                                  </p>
+                                )}
+                              </div>
+                            </Popup>
+                          </Marker>
+                        )}
+                      </div>
+                    );
+                  })}
+                </MapContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Legend - below map on xl, inline otherwise */}
+          <Card className="mt-4 hidden xl:block">
+            <CardContent className="p-3">
+              <div className="flex flex-wrap gap-2 text-xs">
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-500/10">
+                  <Truck className="h-3 w-3 text-blue-500" />
+                  <span className="font-medium text-blue-700 dark:text-blue-400">Start</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-500/10">
+                  <Flag className="h-3 w-3 text-green-500" />
+                  <span className="font-medium text-green-700 dark:text-green-400">End</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-purple-500/10">
+                  <Package className="h-3 w-3 text-purple-500" />
+                  <span className="font-medium text-purple-700 dark:text-purple-400">Load</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-500/10">
+                  <Home className="h-3 w-3 text-amber-500" />
+                  <span className="font-medium text-amber-700 dark:text-amber-400">Pickup</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-red-500/10">
+                  <CircleDot className="h-3 w-3 text-red-500" />
+                  <span className="font-medium text-red-700 dark:text-red-400">Market</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right: Sidebar with controls (scrollable on xl screens) */}
+        <div className="xl:w-[40%] mt-4 xl:mt-0 space-y-4">
+          {/* Capacity Bar */}
+          <Card className="overflow-hidden">
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -597,227 +821,46 @@ export function TripPlannerMap({
         </CardContent>
       </Card>
 
-      {/* Map */}
-      <Card className={isMapExpanded ? 'fixed inset-4 z-50 flex flex-col' : ''}>
-        <CardHeader className="pb-2 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-blue-500/10">
-                <Navigation className="h-5 w-5 text-blue-500" />
-              </div>
-              Trip Route
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              {routeDistance > 0 && (
-                <Badge variant="secondary" className="font-semibold">
-                  {Math.round(routeDistance)} miles
-                </Badge>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsMapExpanded(!isMapExpanded)}
-                className="h-8 w-8 p-0"
-              >
-                {isMapExpanded ? (
-                  <Minimize2 className="h-4 w-4" />
-                ) : (
-                  <Maximize2 className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className={`p-0 ${isMapExpanded ? 'flex-1' : ''}`}>
-          <div className={`${isMapExpanded ? 'h-full' : 'h-[500px]'} rounded-b-lg overflow-hidden`}>
-            <MapContainer
-              bounds={bounds}
-              className="h-full w-full"
-              scrollWheelZoom={true}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-
-              {/* Route line */}
-              {routeLine && (
-                <Polyline
-                  positions={routeLine}
-                  color="#3b82f6"
-                  weight={3}
-                  dashArray="10, 10"
-                />
-              )}
-
-              {/* Trip origin marker */}
-              {tripOrigin && icons.origin && (
-                <Marker position={[tripOrigin.lat, tripOrigin.lng]} icon={icons.origin}>
-                  <Popup>
-                    <div className="text-sm">
-                      <p className="font-semibold">Trip Start</p>
-                      <p className="text-muted-foreground">
-                        {originCity}, {originState} {originZip}
-                      </p>
+          {/* Assigned Loads Summary */}
+          {orderedAssignedLoads.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm">Assigned Loads ({orderedAssignedLoads.length})</CardTitle>
+                  {onReorderLoads && (
+                    <span className="text-xs text-muted-foreground">Drag to reorder</span>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="p-3 pt-0">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={orderedAssignedLoads.map((load) => load.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-2">
+                      {orderedAssignedLoads.map((load, index) => (
+                        <SortableLoadItem
+                          key={load.id}
+                          load={load}
+                          index={index}
+                          onSelect={() => {
+                            setSelectedLoad(load);
+                            onLoadClick?.(load);
+                          }}
+                        />
+                      ))}
                     </div>
-                  </Popup>
-                </Marker>
-              )}
+                  </SortableContext>
+                </DndContext>
+              </CardContent>
+            </Card>
+          )}
 
-              {/* Trip destination marker */}
-              {tripDestination && icons.destination && (
-                <Marker position={[tripDestination.lat, tripDestination.lng]} icon={icons.destination}>
-                  <Popup>
-                    <div className="text-sm">
-                      <p className="font-semibold">Trip Destination</p>
-                      <p className="text-muted-foreground">
-                        {destinationCity}, {destinationState} {destinationZip}
-                      </p>
-                    </div>
-                  </Popup>
-                </Marker>
-              )}
-
-              {/* Load markers */}
-              {loadMarkers.map((marker, index) => {
-                const icon = marker.isMarketplace
-                  ? icons.marketplace
-                  : marker.load.isPickup
-                  ? icons.pickup
-                  : icons.load;
-
-                if (!icon) return null;
-
-                return (
-                  <div key={marker.load.id}>
-                    {/* Origin marker */}
-                    {marker.originCoords && (
-                      <Marker
-                        position={[marker.originCoords.lat, marker.originCoords.lng]}
-                        icon={icon}
-                        eventHandlers={{
-                          click: () => {
-                            setSelectedLoad(marker.load);
-                            // Don't navigate on marker click - let user click "View Details" button in popup
-                          },
-                        }}
-                      >
-                        <Popup>
-                          <div className="text-sm min-w-[200px]">
-                            <div className="flex items-center justify-between mb-2">
-                              <p className="font-semibold">{marker.load.loadNumber}</p>
-                              {marker.isMarketplace && (
-                                <Badge variant="destructive" className="text-xs">Marketplace</Badge>
-                              )}
-                            </div>
-                            <p className="text-muted-foreground">{marker.load.companyName}</p>
-                            <div className="mt-2 space-y-1">
-                              <p className="flex items-center gap-1">
-                                <MapPin className="h-3 w-3" />
-                                {marker.load.originCity}, {marker.load.originState} {marker.load.originZip}
-                              </p>
-                              {marker.load.destinationCity && (
-                                <p className="flex items-center gap-1 text-muted-foreground">
-                                  → {marker.load.destinationCity}, {marker.load.destinationState} {marker.load.destinationZip}
-                                </p>
-                              )}
-                              {marker.load.cubicFeet && (
-                                <p className="flex items-center gap-1">
-                                  <Package className="h-3 w-3" />
-                                  {marker.load.cubicFeet.toLocaleString()} cf
-                                </p>
-                              )}
-                            </div>
-                            {marker.isMarketplace && 'addedMiles' in marker.load && (
-                              <p className="text-xs text-muted-foreground mt-2">
-                                +{Math.round(marker.load.addedMiles || 0)} miles detour
-                              </p>
-                            )}
-                            {marker.isMarketplace && onRequestLoad && (
-                              <Button
-                                size="sm"
-                                className="w-full mt-2"
-                                onClick={() => onRequestLoad(marker.load as MarketplaceLoad)}
-                              >
-                                Request Load
-                              </Button>
-                            )}
-                            {!marker.isMarketplace && onLoadClick && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="w-full mt-2"
-                                onClick={() => onLoadClick(marker.load)}
-                              >
-                                View Details
-                              </Button>
-                            )}
-                          </div>
-                        </Popup>
-                      </Marker>
-                    )}
-
-                    {/* Destination marker (smaller/different style for assigned loads) */}
-                    {marker.destinationCoords && !marker.isMarketplace && icons.destination && (
-                      <Marker
-                        position={[marker.destinationCoords.lat, marker.destinationCoords.lng]}
-                        icon={icons.destination}
-                      >
-                        <Popup>
-                          <div className="text-sm">
-                            <p className="font-semibold">Delivery: {marker.load.loadNumber}</p>
-                            <p className="text-muted-foreground">
-                              {marker.load.destinationCity}, {marker.load.destinationState}
-                            </p>
-                            {marker.load.cubicFeet && (
-                              <p className="flex items-center gap-1 mt-1">
-                                <Package className="h-3 w-3" />
-                                {marker.load.cubicFeet.toLocaleString()} cf
-                              </p>
-                            )}
-                          </div>
-                        </Popup>
-                      </Marker>
-                    )}
-                  </div>
-                );
-              })}
-            </MapContainer>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Legend */}
-      <Card>
-        <CardContent className="p-3">
-          <div className="flex flex-wrap gap-4 text-xs">
-            <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 transition-colors">
-              <Truck className="h-4 w-4 text-blue-500" />
-              <span className="font-medium text-blue-700 dark:text-blue-400">Trip Start</span>
-            </div>
-            <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-green-500/10 hover:bg-green-500/20 transition-colors">
-              <Flag className="h-4 w-4 text-green-500" />
-              <span className="font-medium text-green-700 dark:text-green-400">Destination</span>
-            </div>
-            <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-purple-500/10 hover:bg-purple-500/20 transition-colors">
-              <Package className="h-4 w-4 text-purple-500" />
-              <span className="font-medium text-purple-700 dark:text-purple-400">Assigned Load</span>
-            </div>
-            <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-amber-500/10 hover:bg-amber-500/20 transition-colors">
-              <Home className="h-4 w-4 text-amber-500" />
-              <span className="font-medium text-amber-700 dark:text-amber-400">Pickup</span>
-            </div>
-            <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-red-500/10 hover:bg-red-500/20 transition-colors">
-              <CircleDot className="h-4 w-4 text-red-500" />
-              <span className="font-medium text-red-700 dark:text-red-400">Marketplace</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Route Segments and Assigned Loads - side by side on larger screens */}
-      {(routeSegments.length > 0 || orderedAssignedLoads.length > 0) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Route Segments */}
           {routeSegments.length > 0 && (
             <Card>
@@ -887,47 +930,35 @@ export function TripPlannerMap({
             </Card>
           )}
 
-          {/* Assigned Loads Summary */}
-          {orderedAssignedLoads.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm">Assigned Loads ({orderedAssignedLoads.length})</CardTitle>
-                  {onReorderLoads && (
-                    <span className="text-xs text-muted-foreground">Drag to reorder</span>
-                  )}
+          {/* Legend - shown on smaller screens only (xl has it under map) */}
+          <Card className="xl:hidden">
+            <CardContent className="p-3">
+              <div className="flex flex-wrap gap-4 text-xs">
+                <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 transition-colors">
+                  <Truck className="h-4 w-4 text-blue-500" />
+                  <span className="font-medium text-blue-700 dark:text-blue-400">Trip Start</span>
                 </div>
-              </CardHeader>
-              <CardContent className="p-3 pt-0">
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={orderedAssignedLoads.map((load) => load.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className="space-y-2">
-                      {orderedAssignedLoads.map((load, index) => (
-                        <SortableLoadItem
-                          key={load.id}
-                          load={load}
-                          index={index}
-                          onSelect={() => {
-                            setSelectedLoad(load);
-                            onLoadClick?.(load);
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
-              </CardContent>
-            </Card>
-          )}
+                <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-green-500/10 hover:bg-green-500/20 transition-colors">
+                  <Flag className="h-4 w-4 text-green-500" />
+                  <span className="font-medium text-green-700 dark:text-green-400">Destination</span>
+                </div>
+                <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-purple-500/10 hover:bg-purple-500/20 transition-colors">
+                  <Package className="h-4 w-4 text-purple-500" />
+                  <span className="font-medium text-purple-700 dark:text-purple-400">Assigned Load</span>
+                </div>
+                <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-amber-500/10 hover:bg-amber-500/20 transition-colors">
+                  <Home className="h-4 w-4 text-amber-500" />
+                  <span className="font-medium text-amber-700 dark:text-amber-400">Pickup</span>
+                </div>
+                <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-red-500/10 hover:bg-red-500/20 transition-colors">
+                  <CircleDot className="h-4 w-4 text-red-500" />
+                  <span className="font-medium text-red-700 dark:text-red-400">Marketplace</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      )}
+      </div>
     </div>
   );
 }
