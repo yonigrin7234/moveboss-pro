@@ -1367,14 +1367,32 @@ export async function markConversationRead(
 ): Promise<void> {
   const supabase = await createClient();
 
+  // Get user's company for the participant record
+  const { data: membership } = await supabase
+    .from('company_memberships')
+    .select('company_id')
+    .eq('user_id', userId)
+    .eq('is_primary', true)
+    .single();
+
+  // Use upsert to create participant record if it doesn't exist
+  // This ensures last_read_at is always set correctly
   const { error } = await supabase
     .from('conversation_participants')
-    .update({
-      unread_count: 0,
-      last_read_at: new Date().toISOString(),
-    })
-    .eq('conversation_id', conversationId)
-    .eq('user_id', userId);
+    .upsert(
+      {
+        conversation_id: conversationId,
+        user_id: userId,
+        company_id: membership?.company_id,
+        role: 'dispatcher' as const,
+        can_read: true,
+        can_write: true,
+        is_driver: false,
+        unread_count: 0,
+        last_read_at: new Date().toISOString(),
+      },
+      { onConflict: 'conversation_id,user_id' }
+    );
 
   if (error) {
     throw new Error(`Failed to mark conversation read: ${error.message}`);

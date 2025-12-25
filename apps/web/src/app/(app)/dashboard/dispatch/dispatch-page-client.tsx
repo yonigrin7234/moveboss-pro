@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { MessageSquare, User, Search, Radio } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -35,12 +35,13 @@ function formatRelativeTime(dateString: string | null): string {
 
 export function DispatchPageClient({
   drivers,
-  conversations,
+  conversations: initialConversations,
   companyId,
   userId,
 }: DispatchPageClientProps) {
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [conversations, setConversations] = useState<ConversationListItem[]>(initialConversations);
 
   // Find the selected driver
   const selectedDriver = drivers.find((d) => d.id === selectedDriverId);
@@ -80,6 +81,29 @@ export function DispatchPageClient({
   const totalUnread = useMemo(() => {
     return conversations.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
   }, [conversations]);
+
+  // Handle selecting a driver - marks conversation as read
+  const handleSelectDriver = useCallback((driverId: string) => {
+    setSelectedDriverId(driverId);
+
+    // Find the conversation for this driver and mark as read
+    const conversation = driverConversationMap.get(driverId);
+    if (conversation && conversation.unread_count > 0) {
+      // Mark as read on the server
+      fetch(`/api/messaging/conversations/${conversation.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'mark_read' }),
+      }).catch((err) => {
+        console.error('Failed to mark conversation as read:', err);
+      });
+
+      // Update local state immediately for responsive UI
+      setConversations(prev => prev.map(conv =>
+        conv.id === conversation.id ? { ...conv, unread_count: 0 } : conv
+      ));
+    }
+  }, [driverConversationMap]);
 
   if (drivers.length === 0) {
     return (
@@ -157,7 +181,7 @@ export function DispatchPageClient({
                 return (
                   <button
                     key={driver.id}
-                    onClick={() => setSelectedDriverId(driver.id)}
+                    onClick={() => handleSelectDriver(driver.id)}
                     className={`w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors ${
                       isSelected ? 'bg-primary/5 border-l-2 border-l-primary' : ''
                     }`}
