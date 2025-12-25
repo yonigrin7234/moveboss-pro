@@ -69,7 +69,7 @@ export function ContractDetailsSection({
       <Text style={styles.sectionSubtitle}>Final contract numbers</Text>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Rate per CUFT</Text>
+        <Text style={styles.label}>Rate per CUFT <Text style={styles.required}>*</Text></Text>
         <View style={styles.currencyInput}>
           <Text style={styles.currencyPrefix}>$</Text>
           <TextInput
@@ -220,7 +220,7 @@ export function ContractDetailsSection({
       )}
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Balance Due on Contract</Text>
+        <Text style={styles.label}>Balance Due on Contract <Text style={styles.required}>*</Text></Text>
         <View style={styles.currencyInput}>
           <Text style={styles.currencyPrefix}>$</Text>
           <TextInput
@@ -259,6 +259,9 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textPrimary,
     marginBottom: spacing.sm,
+  },
+  required: {
+    color: colors.error,
   },
   currencyInput: {
     flexDirection: 'row',

@@ -41,10 +41,18 @@ export default function ContractDetailsScreen() {
 
   // Form state
   const [balanceDue, setBalanceDue] = useState('');
+  const [ratePerCuft, setRatePerCuft] = useState('');
   const [jobNumber, setJobNumber] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
+
+  // Initialize rate from load data if already set
+  const [rateInitialized, setRateInitialized] = useState(false);
+  if (!rateInitialized && load?.rate_per_cuft && !ratePerCuft) {
+    setRatePerCuft(load.rate_per_cuft.toString());
+    setRateInitialized(true);
+  }
 
   // Accessorials state
   const [accessorials, setAccessorials] = useState<AccessorialsState>({
@@ -68,8 +76,8 @@ export default function ContractDetailsScreen() {
 
   // Computed values
   const actualCuft = load?.actual_cuft_loaded || 0;
-  const ratePerCuft = load?.rate_per_cuft || 0;
-  const linehaulTotal = actualCuft * ratePerCuft;
+  const ratePerCuftNum = parseFloat(ratePerCuft) || 0;
+  const linehaulTotal = actualCuft * ratePerCuftNum;
 
   const accessorialsTotal = useMemo(() => {
     return (
@@ -86,7 +94,7 @@ export default function ContractDetailsScreen() {
   const balanceDueNum = parseFloat(balanceDue) || 0;
   const amountCompanyOwes = totalRevenue - balanceDueNum;
 
-  const canSubmit = balanceDue.trim() !== '' && !submitting && !uploading;
+  const canSubmit = balanceDue.trim() !== '' && ratePerCuft.trim() !== '' && !submitting && !uploading;
 
   // Accessorial change handler
   const handleAccessorialChange = (field: keyof AccessorialsState, value: string) => {
@@ -100,6 +108,9 @@ export default function ContractDetailsScreen() {
     }
     if (data.job_number) {
       setJobNumber(String(data.job_number));
+    }
+    if (data.rate_per_cuft) {
+      setRatePerCuft(String(data.rate_per_cuft));
     }
   };
 
@@ -145,6 +156,7 @@ export default function ContractDetailsScreen() {
       // Save contract details
       const result = await actions.saveContractDetails({
         contractBalanceDue: parseFloat(balanceDue),
+        contractRatePerCuft: ratePerCuftNum,
         contractJobNumber: jobNumber || null,
         customerName: customerName || null,
         customerPhone: customerPhone || null,
@@ -251,7 +263,20 @@ export default function ContractDetailsScreen() {
             />
           </View>
 
-          {/* Read-only load info */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Rate per CUFT *</Text>
+            <TextInput
+              style={styles.input}
+              value={ratePerCuft}
+              onChangeText={setRatePerCuft}
+              placeholder="0.00"
+              placeholderTextColor="#666"
+              keyboardType="decimal-pad"
+            />
+            <Text style={styles.helperText}>From your loading report</Text>
+          </View>
+
+          {/* Auto-calculated summary */}
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Actual CUFT</Text>
@@ -259,7 +284,7 @@ export default function ContractDetailsScreen() {
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Rate per CUFT</Text>
-              <Text style={styles.infoValue}>{formatCurrency(ratePerCuft)}</Text>
+              <Text style={styles.infoValue}>{formatCurrency(ratePerCuftNum)}</Text>
             </View>
             <View style={[styles.infoRow, styles.infoRowHighlight]}>
               <Text style={styles.infoLabel}>Linehaul Total</Text>

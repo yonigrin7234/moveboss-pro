@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -79,13 +79,22 @@ export default function PickupCompletionScreen() {
   // Submission state
   const [submitting, setSubmitting] = useState(false);
 
-  // Initialize form values from load
-  useState(() => {
-    if (load) {
-      setRatePerCuft(load.rate_per_cuft?.toString() || '');
-      setBalanceDue(load.balance_due_on_delivery?.toString() || load.contract_balance_due?.toString() || '');
+  // Track if we've initialized from load data (to avoid overwriting user edits)
+  const [initialized, setInitialized] = useState(false);
+
+  // Auto-populate form values from load data when available
+  // This ensures pre-existing rate (from owner, marketplace, counter-offers) is pre-filled
+  useEffect(() => {
+    if (load && !initialized) {
+      if (load.rate_per_cuft) {
+        setRatePerCuft(load.rate_per_cuft.toString());
+      }
+      if (load.balance_due_on_delivery || load.contract_balance_due) {
+        setBalanceDue((load.balance_due_on_delivery || load.contract_balance_due)?.toString() || '');
+      }
+      setInitialized(true);
     }
-  });
+  }, [load, initialized]);
 
   // Calculated values
   const actualCuft = load?.actual_cuft_loaded || 0;
@@ -117,14 +126,24 @@ export default function PickupCompletionScreen() {
   // Check if payment method requires Zelle recipient
   const requiresZelleRecipient = paymentMethod === 'zelle';
 
-  // Validation
+  // Validation - require rate per cuft and balance due for financial accuracy
+  const hasRequiredFinancials = ratePerCuft.trim() !== '' && balanceDue.trim() !== '';
   const isValid =
     rfdDate !== null &&
+    hasRequiredFinancials &&
     (collectedNum === 0 || paymentMethod !== null) &&
     (!requiresPhotos || paymentPhotoFront !== null) &&
     (!requiresZelleRecipient || zelleRecipient !== null);
 
   const canSubmit = isValid && !submitting && !uploading;
+
+  // Generate validation hint based on what's missing
+  const getValidationHint = (): string | null => {
+    if (ratePerCuft.trim() === '') return 'Please enter the rate per cubic foot';
+    if (balanceDue.trim() === '') return 'Please enter the balance due on delivery';
+    if (rfdDate === null) return 'Please select a Ready-for-Delivery date';
+    return null;
+  };
 
   // Accessorial change handler
   const handleAccessorialChange = (field: keyof AccessorialsState, value: string) => {
@@ -373,7 +392,7 @@ export default function PickupCompletionScreen() {
             uploading={uploading}
             progress={progress}
             onSubmit={handleSubmit}
-            showValidationHint={!rfdDate}
+            validationHint={getValidationHint()}
           />
         </ScrollView>
       </>

@@ -89,6 +89,7 @@ export function useLoadPaymentActions(context: LoadActionBaseContext) {
 
   const saveContractDetails = async (data: {
     contractBalanceDue: number;
+    contractRatePerCuft: number;
     contractJobNumber?: string | null;
     customerName?: string | null;
     customerPhone?: string | null;
@@ -124,6 +125,7 @@ export function useLoadPaymentActions(context: LoadActionBaseContext) {
         .update({
           contract_details_entered_at: new Date().toISOString(),
           contract_balance_due: data.contractBalanceDue,
+          rate_per_cuft: data.contractRatePerCuft,
           contract_job_number: data.contractJobNumber || null,
           customer_name: data.customerName || null,
           customer_phone: data.customerPhone || null,
@@ -269,6 +271,7 @@ export function useLoadPaymentActions(context: LoadActionBaseContext) {
     completePickup,
   };
 }
+
 
 
 

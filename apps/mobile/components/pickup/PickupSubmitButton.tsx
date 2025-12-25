@@ -7,7 +7,7 @@ type PickupSubmitButtonProps = {
   uploading: boolean;
   progress: number;
   onSubmit: () => void;
-  showValidationHint: boolean;
+  validationHint?: string | null;
 };
 
 export function PickupSubmitButton({
@@ -16,7 +16,7 @@ export function PickupSubmitButton({
   uploading,
   progress,
   onSubmit,
-  showValidationHint,
+  validationHint,
 }: PickupSubmitButtonProps) {
   return (
     <View style={styles.container}>
@@ -30,8 +30,8 @@ export function PickupSubmitButton({
         </Text>
       </TouchableOpacity>
 
-      {showValidationHint && (
-        <Text style={styles.validationHint}>Please select a Ready-for-Delivery date</Text>
+      {validationHint && (
+        <Text style={styles.validationHint}>{validationHint}</Text>
       )}
     </View>
   );
