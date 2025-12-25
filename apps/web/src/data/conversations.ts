@@ -206,6 +206,30 @@ export async function getUserConversations(
     (participantData ?? []).map((p) => [p.conversation_id, p])
   );
 
+  // Ensure user is a participant of all conversations they have access to (by company)
+  // This fixes conversations that were created before participant auto-add was implemented
+  const missingConversations = conversationIds.filter((id) => !participantMap.has(id));
+  if (missingConversations.length > 0) {
+    const participantsToInsert = missingConversations.map((convId) => ({
+      conversation_id: convId,
+      user_id: userId,
+      company_id: companyId,
+      role: 'dispatcher' as const,
+      can_read: true,
+      can_write: true,
+      is_driver: false,
+    }));
+
+    await supabase
+      .from('conversation_participants')
+      .upsert(participantsToInsert, { onConflict: 'conversation_id,user_id' });
+
+    // Initialize entries in the map for newly added participants
+    missingConversations.forEach((convId) => {
+      participantMap.set(convId, { conversation_id: convId, unread_count: 0, is_muted: false });
+    });
+  }
+
   // Transform to ConversationListItem format
   return data.map((conv) => {
     const participant = participantMap.get(conv.id);
