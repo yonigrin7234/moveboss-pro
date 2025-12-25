@@ -803,6 +803,20 @@ export async function getOrCreateDriverDispatchConversation(
     added_by_user_id: createdByUserId,
   });
 
+  // Add the creating user as a participant (dispatcher)
+  if (createdByUserId) {
+    await supabase.from('conversation_participants').insert({
+      conversation_id: newConv.id,
+      user_id: createdByUserId,
+      company_id: companyId,
+      role: 'dispatcher',
+      can_read: true,
+      can_write: true,
+      is_driver: false,
+      added_by_user_id: createdByUserId,
+    });
+  }
+
   return newConv as Conversation;
 }
 
@@ -858,6 +872,29 @@ export async function getCompanyDriverDispatchConversations(
 
     if (participantData) {
       unreadMap = new Map(participantData.map((p) => [p.conversation_id, p.unread_count]));
+    }
+
+    // Ensure user is a participant of all conversations they have access to (by company)
+    // This fixes existing conversations that were created before participant auto-add
+    const missingConversations = conversationIds.filter((id) => !unreadMap.has(id));
+    if (missingConversations.length > 0) {
+      // Add user as participant for conversations they're not in yet
+      const participantsToInsert = missingConversations.map((convId) => ({
+        conversation_id: convId,
+        user_id: userId,
+        company_id: companyId,
+        role: 'dispatcher' as const,
+        can_read: true,
+        can_write: true,
+        is_driver: false,
+      }));
+
+      await supabase
+        .from('conversation_participants')
+        .upsert(participantsToInsert, { onConflict: 'conversation_id,user_id' });
+
+      // Initialize unread count to 0 for newly added participants
+      missingConversations.forEach((convId) => unreadMap.set(convId, 0));
     }
   }
 
