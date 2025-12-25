@@ -307,6 +307,27 @@ export default function MessagesPage() {
               console.log('✅ MessagesPage: State updated, new message count:', newMessages.length);
               return newMessages;
             });
+
+            // Update conversation list with new message info (timestamp, preview, unread count)
+            const messagePreview = formatted.body?.length > 50
+              ? formatted.body.substring(0, 50) + '...'
+              : formatted.body;
+            const isFromOther = formatted.sender_user_id !== userId;
+
+            setConversations((prev) =>
+              prev.map((conv) => {
+                if (conv.id !== conversationId) return conv;
+                return {
+                  ...conv,
+                  lastMessage: messagePreview,
+                  lastMessageAt: formatted.created_at,
+                  // Don't increment unread if we're viewing this conversation
+                  unreadCount: isFromOther && conversationId !== selectedConversationId
+                    ? (conv.unreadCount || 0) + 1
+                    : conv.unreadCount,
+                };
+              })
+            );
           }
         }
       )
@@ -333,6 +354,77 @@ export default function MessagesPage() {
       channel.unsubscribe();
     };
   }, [selectedConversationId]);
+
+  // Global subscription to update conversation list when ANY message arrives (for any conversation)
+  const globalSubscriptionRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
+
+  useEffect(() => {
+    if (!userId || conversations.length === 0) return;
+
+    // Get conversation IDs we care about
+    const conversationIds = new Set(conversations.map(c => c.id));
+
+    // Clean up existing subscription
+    if (globalSubscriptionRef.current) {
+      globalSubscriptionRef.current.unsubscribe();
+      globalSubscriptionRef.current = null;
+    }
+
+    const channel = supabase
+      .channel('global-messages-list-update')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        async (payload) => {
+          const newMessage = payload.new as {
+            id: string;
+            conversation_id: string;
+            sender_user_id: string | null;
+            sender_driver_id: string | null;
+            body: string;
+            created_at: string;
+          };
+
+          // Only process if this is for a conversation in our list
+          if (!conversationIds.has(newMessage.conversation_id)) return;
+
+          // Skip if this is the selected conversation (already handled by other subscription)
+          if (newMessage.conversation_id === selectedConversationId) return;
+
+          const messagePreview = newMessage.body?.length > 50
+            ? newMessage.body.substring(0, 50) + '...'
+            : newMessage.body;
+          const isFromOther = newMessage.sender_user_id !== userId;
+
+          // Update conversation list
+          setConversations((prev) =>
+            prev.map((conv) => {
+              if (conv.id !== newMessage.conversation_id) return conv;
+              return {
+                ...conv,
+                lastMessage: messagePreview,
+                lastMessageAt: newMessage.created_at,
+                unreadCount: isFromOther ? (conv.unreadCount || 0) + 1 : conv.unreadCount,
+              };
+            })
+          );
+        }
+      )
+      .subscribe();
+
+    globalSubscriptionRef.current = channel;
+
+    return () => {
+      if (globalSubscriptionRef.current) {
+        globalSubscriptionRef.current.unsubscribe();
+        globalSubscriptionRef.current = null;
+      }
+    };
+  }, [userId, conversations.length, selectedConversationId]);
 
   // Send message
   const handleSendMessage = useCallback(async (body: string) => {
