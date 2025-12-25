@@ -545,12 +545,147 @@ export function TripPlannerMap({
 
   return (
     <div>
-      {/* Backdrop for expanded map */}
+      {/* Expanded Map Overlay - rendered at top level for proper z-index */}
       {isMapExpanded && (
-        <div
-          className="fixed top-0 left-0 right-0 bottom-0 bg-black/60 z-40"
-          onClick={() => setIsMapExpanded(false)}
-        />
+        <>
+          {/* Backdrop */}
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100vh',
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              zIndex: 9998,
+            }}
+            onClick={() => setIsMapExpanded(false)}
+          />
+          {/* Expanded Map Card */}
+          <Card
+            style={{
+              position: 'fixed',
+              top: 16,
+              left: 16,
+              right: 16,
+              bottom: 16,
+              width: 'calc(100vw - 32px)',
+              height: 'calc(100vh - 32px)',
+              zIndex: 9999,
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <CardHeader className="pb-2 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-blue-500/10">
+                    <Navigation className="h-5 w-5 text-blue-500" />
+                  </div>
+                  Trip Route (Expanded)
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  {routeDistance > 0 && (
+                    <Badge variant="secondary" className="font-semibold">
+                      {Math.round(routeDistance)} miles
+                    </Badge>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsMapExpanded(false)}
+                    className="h-8 w-8 p-0"
+                  >
+                    <Minimize2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0 flex-1 overflow-hidden">
+              <div className="h-full w-full">
+                <MapContainer
+                  bounds={bounds}
+                  className="h-full w-full"
+                  scrollWheelZoom={true}
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  {routeLine && (
+                    <Polyline
+                      positions={routeLine}
+                      color="#3b82f6"
+                      weight={3}
+                      dashArray="10, 10"
+                    />
+                  )}
+                  {tripOrigin && icons.origin && (
+                    <Marker position={[tripOrigin.lat, tripOrigin.lng]} icon={icons.origin}>
+                      <Popup>
+                        <div className="text-sm">
+                          <p className="font-semibold">Trip Start</p>
+                          <p className="text-muted-foreground">
+                            {originCity}, {originState} {originZip}
+                          </p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  )}
+                  {tripDestination && icons.destination && (
+                    <Marker position={[tripDestination.lat, tripDestination.lng]} icon={icons.destination}>
+                      <Popup>
+                        <div className="text-sm">
+                          <p className="font-semibold">Trip Destination</p>
+                          <p className="text-muted-foreground">
+                            {destinationCity}, {destinationState} {destinationZip}
+                          </p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  )}
+                  {loadMarkers.map((marker) => {
+                    const icon = marker.isMarketplace
+                      ? icons.marketplace
+                      : marker.load.isPickup
+                      ? icons.pickup
+                      : icons.load;
+                    if (!icon) return null;
+                    return (
+                      <div key={`expanded-${marker.load.id}`}>
+                        {marker.originCoords && (
+                          <Marker
+                            position={[marker.originCoords.lat, marker.originCoords.lng]}
+                            icon={icon}
+                          >
+                            <Popup>
+                              <div className="text-sm min-w-[200px]">
+                                <p className="font-semibold">{marker.load.loadNumber}</p>
+                                <p className="text-muted-foreground">{marker.load.companyName}</p>
+                              </div>
+                            </Popup>
+                          </Marker>
+                        )}
+                        {marker.destinationCoords && !marker.isMarketplace && icons.destination && (
+                          <Marker
+                            position={[marker.destinationCoords.lat, marker.destinationCoords.lng]}
+                            icon={icons.destination}
+                          >
+                            <Popup>
+                              <div className="text-sm">
+                                <p className="font-semibold">Delivery: {marker.load.loadNumber}</p>
+                              </div>
+                            </Popup>
+                          </Marker>
+                        )}
+                      </div>
+                    );
+                  })}
+                </MapContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
 
       {/* Main Layout: Side-by-side on xl screens, stacked on smaller */}
@@ -558,8 +693,8 @@ export function TripPlannerMap({
         {/* Left: Map (sticky on xl screens) */}
         <div className="xl:w-[60%] xl:sticky xl:top-4 xl:self-start">
           {/* Map */}
-          <Card className={isMapExpanded ? 'fixed top-4 left-4 right-4 bottom-4 z-50 flex flex-col w-auto max-w-none' : ''}>
-            <CardHeader className="pb-2 flex-shrink-0">
+          <Card>
+            <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <div className="p-1.5 rounded-lg bg-blue-500/10">
@@ -576,20 +711,17 @@ export function TripPlannerMap({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setIsMapExpanded(!isMapExpanded)}
+                    onClick={() => setIsMapExpanded(true)}
                     className="h-8 w-8 p-0"
+                    title="Expand map"
                   >
-                    {isMapExpanded ? (
-                      <Minimize2 className="h-4 w-4" />
-                    ) : (
-                      <Maximize2 className="h-4 w-4" />
-                    )}
+                    <Maximize2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className={`p-0 ${isMapExpanded ? 'flex-1' : ''}`}>
-              <div className={`${isMapExpanded ? 'h-full' : 'h-[500px] xl:h-[calc(100vh-200px)] xl:min-h-[500px]'} rounded-b-lg overflow-hidden`}>
+            <CardContent className="p-0">
+              <div className="h-[500px] xl:h-[calc(100vh-200px)] xl:min-h-[500px] rounded-b-lg overflow-hidden">
                 <MapContainer
                   bounds={bounds}
                   className="h-full w-full"
@@ -746,8 +878,8 @@ export function TripPlannerMap({
             </CardContent>
           </Card>
 
-          {/* Legend - below map on xl, inline otherwise (hidden when map expanded) */}
-          <Card className={`mt-4 hidden xl:block ${isMapExpanded ? 'xl:hidden' : ''}`}>
+          {/* Legend - below map on xl screens */}
+          <Card className="mt-4 hidden xl:block">
             <CardContent className="p-3">
               <div className="flex flex-wrap gap-2 text-xs">
                 <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-500/10">
@@ -775,8 +907,8 @@ export function TripPlannerMap({
           </Card>
         </div>
 
-        {/* Right: Sidebar with controls (scrollable on xl screens) - hidden when map is expanded */}
-        <div className={`xl:w-[40%] mt-4 xl:mt-0 space-y-4 ${isMapExpanded ? 'hidden' : ''}`}>
+        {/* Right: Sidebar with controls (scrollable on xl screens) */}
+        <div className="xl:w-[40%] mt-4 xl:mt-0 space-y-4">
           {/* Capacity Bar */}
           <Card className="overflow-hidden">
         <CardContent className="p-4">
