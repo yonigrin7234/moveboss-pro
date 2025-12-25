@@ -88,17 +88,20 @@ export default function MessagesPage() {
       const { conversations: data } = await res.json();
 
       // Transform to list item format
-      const items: ConversationListItemProps[] = (data || []).map((conv: ConversationWithDetails) => ({
-        id: conv.id,
-        type: conv.type,
-        title: getConversationTitle(conv),
-        subtitle: getConversationSubtitle(conv),
-        lastMessage: conv.last_message_preview,
-        lastMessageAt: conv.last_message_at,
-        unreadCount: conv.unread_count ?? 0,
-        isSelected: false,
-        onClick: () => {},
-      }));
+      // Exclude driver_dispatch conversations - those belong in the Dispatch console
+      const items: ConversationListItemProps[] = (data || [])
+        .filter((conv: ConversationWithDetails) => conv.type !== 'driver_dispatch')
+        .map((conv: ConversationWithDetails) => ({
+          id: conv.id,
+          type: conv.type,
+          title: getConversationTitle(conv),
+          subtitle: getConversationSubtitle(conv),
+          lastMessage: conv.last_message_preview,
+          lastMessageAt: conv.last_message_at,
+          unreadCount: conv.unread_count ?? 0,
+          isSelected: false,
+          onClick: () => {},
+        }));
 
       setConversations(items);
     } catch (err) {
