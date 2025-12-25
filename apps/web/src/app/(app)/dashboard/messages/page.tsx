@@ -8,6 +8,8 @@ import {
   Filter,
   Loader2,
   ChevronLeft,
+  LayoutList,
+  Layers,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -50,6 +52,7 @@ export default function MessagesPage() {
   const [filter, setFilter] = useState<ConversationFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileThreadOpen, setIsMobileThreadOpen] = useState(false);
+  const [isGrouped, setIsGrouped] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const subscriptionRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
   const supabaseRef = useRef(createClient());
@@ -531,18 +534,28 @@ export default function MessagesPage() {
                 className="pl-9"
               />
             </div>
-            <Select value={filter} onValueChange={(v) => setFilter(v as ConversationFilter)}>
-              <SelectTrigger className="w-full">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Conversations</SelectItem>
-                <SelectItem value="load">Load Messages</SelectItem>
-                <SelectItem value="trip">Trip Messages</SelectItem>
-                <SelectItem value="company">Company Threads</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Select value={filter} onValueChange={(v) => setFilter(v as ConversationFilter)}>
+                <SelectTrigger className="flex-1">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Filter" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Conversations</SelectItem>
+                  <SelectItem value="load">Load Messages</SelectItem>
+                  <SelectItem value="trip">Trip Messages</SelectItem>
+                  <SelectItem value="company">Company Threads</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant={isGrouped ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setIsGrouped(!isGrouped)}
+                title={isGrouped ? 'Show flat list' : 'Group by type'}
+              >
+                {isGrouped ? <Layers className="h-4 w-4" /> : <LayoutList className="h-4 w-4" />}
+              </Button>
+            </div>
           </div>
 
           {/* Conversation list */}
@@ -556,6 +569,7 @@ export default function MessagesPage() {
             selectedId={selectedConversationId ?? undefined}
             onSelect={handleSelectConversation}
             emptyMessage="No conversations found"
+            grouped={isGrouped}
           />
         </div>
 

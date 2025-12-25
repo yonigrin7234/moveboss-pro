@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
-import { MessageSquare, User, Search, Radio } from 'lucide-react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { MessageSquare, Search, Radio } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChatPanel } from '@/components/messaging/unified';
+import { createClient } from '@/lib/supabase-client';
 import type { ConversationListItem } from '@/lib/communication-types';
 import type { Driver } from '@/data/drivers';
 import { formatFullName } from '@/lib/utils';
@@ -31,6 +32,34 @@ function formatRelativeTime(dateString: string | null): string {
   if (diffHours < 24) return `${diffHours}h`;
   if (diffDays < 7) return `${diffDays}d`;
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// Avatar colors - professional palette
+const AVATAR_COLORS = [
+  { bg: 'bg-blue-100', text: 'text-blue-700' },
+  { bg: 'bg-emerald-100', text: 'text-emerald-700' },
+  { bg: 'bg-amber-100', text: 'text-amber-700' },
+  { bg: 'bg-purple-100', text: 'text-purple-700' },
+  { bg: 'bg-rose-100', text: 'text-rose-700' },
+  { bg: 'bg-cyan-100', text: 'text-cyan-700' },
+  { bg: 'bg-orange-100', text: 'text-orange-700' },
+  { bg: 'bg-indigo-100', text: 'text-indigo-700' },
+];
+
+function getInitials(firstName: string, lastName: string): string {
+  const first = firstName?.charAt(0)?.toUpperCase() || '';
+  const last = lastName?.charAt(0)?.toUpperCase() || '';
+  return first + last || '??';
+}
+
+function getAvatarColor(name: string): { bg: string; text: string } {
+  // Simple hash to get consistent color for same name
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % AVATAR_COLORS.length;
+  return AVATAR_COLORS[index];
 }
 
 export function DispatchPageClient({
@@ -67,15 +96,42 @@ export function DispatchPageClient({
     return map;
   }, [conversations]);
 
-  // Filter drivers by search query
+  // Filter and sort drivers - unread first, then by recent activity
   const filteredDrivers = useMemo(() => {
-    if (!searchQuery) return drivers;
-    const query = searchQuery.toLowerCase();
-    return drivers.filter((driver) => {
-      const fullName = `${driver.first_name} ${driver.last_name}`.toLowerCase();
-      return fullName.includes(query);
+    let result = drivers;
+
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter((driver) => {
+        const fullName = `${driver.first_name} ${driver.last_name}`.toLowerCase();
+        return fullName.includes(query);
+      });
+    }
+
+    // Sort: unread first, then by last message time
+    return [...result].sort((a, b) => {
+      const fullNameA = formatFullName(a.first_name, a.last_name);
+      const fullNameB = formatFullName(b.first_name, b.last_name);
+      const convA = driverConversationMap.get(a.id) ?? driverConversationMap.get(fullNameA);
+      const convB = driverConversationMap.get(b.id) ?? driverConversationMap.get(fullNameB);
+
+      const unreadA = convA?.unread_count || 0;
+      const unreadB = convB?.unread_count || 0;
+
+      // Unread messages first
+      if (unreadA > 0 && unreadB === 0) return -1;
+      if (unreadB > 0 && unreadA === 0) return 1;
+
+      // Then by last message time (most recent first)
+      const timeA = convA?.last_message_at ? new Date(convA.last_message_at).getTime() : 0;
+      const timeB = convB?.last_message_at ? new Date(convB.last_message_at).getTime() : 0;
+      if (timeA !== timeB) return timeB - timeA;
+
+      // Finally alphabetically
+      return fullNameA.localeCompare(fullNameB);
     });
-  }, [drivers, searchQuery]);
+  }, [drivers, searchQuery, driverConversationMap]);
 
   // Calculate total unread count
   const totalUnread = useMemo(() => {
@@ -104,6 +160,85 @@ export function DispatchPageClient({
       ));
     }
   }, [driverConversationMap]);
+
+  // Real-time subscription for new messages
+  const supabase = createClient();
+  const subscriptionRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
+
+  useEffect(() => {
+    if (conversations.length === 0) return;
+
+    // Get all conversation IDs we're tracking
+    const conversationIds = new Set(conversations.map(c => c.id));
+
+    // Clean up existing subscription
+    if (subscriptionRef.current) {
+      subscriptionRef.current.unsubscribe();
+      subscriptionRef.current = null;
+    }
+
+    const channel = supabase
+      .channel('dispatch-messages')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        (payload) => {
+          const newMessage = payload.new as {
+            id: string;
+            conversation_id: string;
+            sender_user_id: string | null;
+            sender_driver_id: string | null;
+            body: string;
+            created_at: string;
+          };
+
+          // Only process if this is for a conversation we're tracking
+          if (!conversationIds.has(newMessage.conversation_id)) return;
+
+          const messagePreview = newMessage.body?.length > 50
+            ? newMessage.body.substring(0, 50) + '...'
+            : newMessage.body;
+          const isFromDriver = newMessage.sender_driver_id !== null;
+
+          // Find which driver this conversation belongs to
+          const conversation = conversations.find(c => c.id === newMessage.conversation_id);
+          const driverId = conversation?.context?.driver_id;
+
+          // Update conversation list
+          setConversations((prev) =>
+            prev.map((conv) => {
+              if (conv.id !== newMessage.conversation_id) return conv;
+
+              // Don't increment unread if we're viewing this driver's conversation
+              const isViewingThisDriver = selectedDriverId === driverId;
+
+              return {
+                ...conv,
+                last_message_preview: messagePreview,
+                last_message_at: newMessage.created_at,
+                unread_count: isFromDriver && !isViewingThisDriver
+                  ? (conv.unread_count || 0) + 1
+                  : conv.unread_count,
+              };
+            })
+          );
+        }
+      )
+      .subscribe();
+
+    subscriptionRef.current = channel;
+
+    return () => {
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+        subscriptionRef.current = null;
+      }
+    };
+  }, [conversations.length, selectedDriverId, supabase]);
 
   if (drivers.length === 0) {
     return (
@@ -177,6 +312,8 @@ export function DispatchPageClient({
                 const conversation = driverConversationMap.get(driver.id) ?? driverConversationMap.get(fullName);
                 const isSelected = selectedDriverId === driver.id;
                 const unreadCount = conversation?.unread_count || 0;
+                const initials = getInitials(driver.first_name, driver.last_name);
+                const avatarColor = getAvatarColor(fullName);
 
                 return (
                   <button
@@ -187,8 +324,8 @@ export function DispatchPageClient({
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                        <User className="h-5 w-5 text-muted-foreground" />
+                      <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 font-medium text-sm ${avatarColor.bg} ${avatarColor.text}`}>
+                        {initials}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
@@ -232,9 +369,15 @@ export function DispatchPageClient({
             <>
               {/* Chat header */}
               <div className="px-4 py-3 border-b flex items-center gap-3 bg-background/50 shrink-0">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="h-5 w-5 text-primary" />
-                </div>
+                {(() => {
+                  const name = formatFullName(selectedDriver.first_name, selectedDriver.last_name);
+                  const color = getAvatarColor(name);
+                  return (
+                    <div className={`h-10 w-10 rounded-full flex items-center justify-center font-medium text-sm ${color.bg} ${color.text}`}>
+                      {getInitials(selectedDriver.first_name, selectedDriver.last_name)}
+                    </div>
+                  );
+                })()}
                 <div className="flex-1 min-w-0">
                   <h2 className="font-semibold text-sm truncate">
                     {formatFullName(selectedDriver.first_name, selectedDriver.last_name)}
