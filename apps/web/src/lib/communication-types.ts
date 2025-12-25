@@ -175,6 +175,22 @@ export interface MessageReadReceipt {
   read_at: string;
 }
 
+export interface MessageReaction {
+  id: string;
+  message_id: string;
+  user_id: string | null;
+  driver_id: string | null;
+  emoji: string;
+  created_at: string;
+}
+
+export interface ReactionSummary {
+  emoji: string;
+  count: number;
+  reacted_by_me: boolean;
+  users: Array<{ id: string; name: string }>;
+}
+
 export interface ConversationActivityLog {
   id: string;
   conversation_id: string;
@@ -252,6 +268,17 @@ export interface MessageWithSender extends Message {
     name: string;
   };
   reply_to?: Message;
+  /** Read receipts for this message (who has read it) */
+  read_by?: Array<{
+    user_id?: string;
+    driver_id?: string;
+    name: string;
+    read_at: string;
+  }>;
+  /** Whether any recipient has read this message (for sender view) */
+  is_read?: boolean;
+  /** Reactions on this message (grouped by emoji) */
+  reactions?: ReactionSummary[];
 }
 
 // ----------------------------------------------------------------------------

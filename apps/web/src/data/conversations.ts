@@ -16,6 +16,7 @@ import type {
   MessageAttachment,
   MessageMetadata,
   LoadCommunicationPermissions,
+  ReactionSummary,
 } from '@/lib/communication-types';
 
 // ============================================================================
@@ -1071,11 +1072,76 @@ export async function getConversationMessages(
     }
   }
 
-  // Transform messages with sender info
+  // Fetch read receipts for all messages
+  const messageIds = messagesRaw.map(m => m.id);
+  let readReceiptsMap = new Map<string, Array<{ user_id?: string; driver_id?: string; name: string; read_at: string }>>();
+  if (messageIds.length > 0) {
+    const { data: receipts } = await supabase
+      .from('message_read_receipts')
+      .select('message_id, user_id, driver_id, read_at')
+      .in('message_id', messageIds);
+
+    if (receipts) {
+      // Get names for readers
+      const readerUserIds = [...new Set(receipts.map(r => r.user_id).filter(Boolean))] as string[];
+      const readerDriverIds = [...new Set(receipts.map(r => r.driver_id).filter(Boolean))] as string[];
+
+      let readerProfilesMap = new Map<string, string>();
+      let readerDriversMap = new Map<string, string>();
+
+      if (readerUserIds.length > 0) {
+        const { data: readerProfiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', readerUserIds);
+        if (readerProfiles) {
+          readerProfilesMap = new Map(readerProfiles.map(p => [p.id, p.full_name || 'Unknown']));
+        }
+      }
+
+      if (readerDriverIds.length > 0) {
+        const { data: readerDrivers } = await supabase
+          .from('drivers')
+          .select('id, first_name, last_name')
+          .in('id', readerDriverIds);
+        if (readerDrivers) {
+          readerDriversMap = new Map(readerDrivers.map(d => [d.id, `${d.first_name} ${d.last_name}`]));
+        }
+      }
+
+      // Group receipts by message
+      for (const receipt of receipts) {
+        const existing = readReceiptsMap.get(receipt.message_id) || [];
+        const name = receipt.user_id
+          ? readerProfilesMap.get(receipt.user_id) || 'Unknown'
+          : readerDriversMap.get(receipt.driver_id!) || 'Unknown';
+        existing.push({
+          user_id: receipt.user_id ?? undefined,
+          driver_id: receipt.driver_id ?? undefined,
+          name,
+          read_at: receipt.read_at,
+        });
+        readReceiptsMap.set(receipt.message_id, existing);
+      }
+    }
+  }
+
+  // Fetch reactions for all messages
+  const reactionsMap = await getMessageReactions(messageIds, userId);
+
+  // Transform messages with sender info, read receipts, and reactions
   const messages = messagesRaw.map((msg) => {
     const senderProfile = msg.sender_user_id ? profilesMap.get(msg.sender_user_id) : undefined;
     const senderDriver = msg.sender_driver_id ? driversMap.get(msg.sender_driver_id) : undefined;
     const senderCompany = msg.sender_company_id ? companiesMap.get(msg.sender_company_id) : undefined;
+    const readBy = readReceiptsMap.get(msg.id) || [];
+    const reactions = reactionsMap.get(msg.id);
+
+    // Check if message is read by someone other than the sender
+    const isRead = readBy.some(r =>
+      (r.user_id && r.user_id !== msg.sender_user_id) ||
+      (r.driver_id && r.driver_id !== msg.sender_driver_id)
+    );
 
     return {
       ...msg,
@@ -1083,6 +1149,9 @@ export async function getConversationMessages(
       sender_driver: senderDriver ?? undefined,
       sender_company: senderCompany ?? undefined,
       reply_to: undefined, // Skip reply_to for now to simplify
+      read_by: readBy.length > 0 ? readBy : undefined,
+      is_read: isRead,
+      reactions: reactions?.length ? reactions : undefined,
     };
   });
 
@@ -1395,6 +1464,41 @@ export async function markConversationRead(
 
   if (error) {
     throw new Error(`Failed to mark conversation read: ${error.message}`);
+  }
+}
+
+/**
+ * Record read receipts for messages
+ * Call this when a user views messages in a conversation
+ */
+export async function recordReadReceipts(
+  messageIds: string[],
+  userId?: string,
+  driverId?: string
+): Promise<void> {
+  if (messageIds.length === 0 || (!userId && !driverId)) return;
+
+  const supabase = await createClient();
+
+  // Create read receipts for each message
+  const receipts = messageIds.map(messageId => ({
+    message_id: messageId,
+    user_id: userId ?? null,
+    driver_id: driverId ?? null,
+    read_at: new Date().toISOString(),
+  }));
+
+  // Upsert to avoid duplicates
+  const { error } = await supabase
+    .from('message_read_receipts')
+    .upsert(receipts, {
+      onConflict: userId ? 'message_id,user_id' : 'message_id,driver_id',
+      ignoreDuplicates: true,
+    });
+
+  if (error) {
+    // Don't throw - read receipts are not critical
+    console.error('Failed to record read receipts:', error.message);
   }
 }
 
@@ -2005,4 +2109,172 @@ export async function getUnreadForEntity(
   }
 
   return totalUnread;
+}
+
+// ============================================================================
+// MESSAGE REACTIONS
+// ============================================================================
+
+/**
+ * Add a reaction to a message
+ */
+export async function addReaction(
+  messageId: string,
+  emoji: string,
+  userId?: string,
+  driverId?: string
+): Promise<void> {
+  if (!userId && !driverId) return;
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('message_reactions')
+    .upsert(
+      {
+        message_id: messageId,
+        emoji,
+        user_id: userId ?? null,
+        driver_id: driverId ?? null,
+      },
+      {
+        onConflict: userId ? 'message_id,user_id,emoji' : 'message_id,driver_id,emoji',
+        ignoreDuplicates: true,
+      }
+    );
+
+  if (error) {
+    throw new Error(`Failed to add reaction: ${error.message}`);
+  }
+}
+
+/**
+ * Remove a reaction from a message
+ */
+export async function removeReaction(
+  messageId: string,
+  emoji: string,
+  userId?: string,
+  driverId?: string
+): Promise<void> {
+  if (!userId && !driverId) return;
+
+  const supabase = await createClient();
+
+  let query = supabase
+    .from('message_reactions')
+    .delete()
+    .eq('message_id', messageId)
+    .eq('emoji', emoji);
+
+  if (userId) {
+    query = query.eq('user_id', userId);
+  } else if (driverId) {
+    query = query.eq('driver_id', driverId);
+  }
+
+  const { error } = await query;
+
+  if (error) {
+    throw new Error(`Failed to remove reaction: ${error.message}`);
+  }
+}
+
+/**
+ * Get reactions for a list of messages
+ * Returns a map of message_id -> ReactionSummary[]
+ */
+export async function getMessageReactions(
+  messageIds: string[],
+  currentUserId?: string,
+  currentDriverId?: string
+): Promise<Map<string, ReactionSummary[]>> {
+  const result = new Map<string, ReactionSummary[]>();
+  if (messageIds.length === 0) return result;
+
+  const supabase = await createClient();
+
+  // Fetch all reactions for the messages
+  const { data: reactions, error } = await supabase
+    .from('message_reactions')
+    .select('message_id, emoji, user_id, driver_id')
+    .in('message_id', messageIds);
+
+  if (error || !reactions) {
+    console.error('Failed to fetch reactions:', error?.message);
+    return result;
+  }
+
+  // Get names for reactors
+  const userIds = [...new Set(reactions.map(r => r.user_id).filter(Boolean))] as string[];
+  const driverIds = [...new Set(reactions.map(r => r.driver_id).filter(Boolean))] as string[];
+
+  let userNamesMap = new Map<string, string>();
+  let driverNamesMap = new Map<string, string>();
+
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', userIds);
+    if (profiles) {
+      userNamesMap = new Map(profiles.map(p => [p.id, p.full_name || 'Unknown']));
+    }
+  }
+
+  if (driverIds.length > 0) {
+    const { data: drivers } = await supabase
+      .from('drivers')
+      .select('id, first_name, last_name')
+      .in('id', driverIds);
+    if (drivers) {
+      driverNamesMap = new Map(drivers.map(d => [d.id, `${d.first_name} ${d.last_name}`]));
+    }
+  }
+
+  // Group reactions by message and emoji
+  const reactionsByMessage = new Map<string, Map<string, Array<{ id: string; name: string }>>>();
+
+  for (const reaction of reactions) {
+    if (!reactionsByMessage.has(reaction.message_id)) {
+      reactionsByMessage.set(reaction.message_id, new Map());
+    }
+    const emojiMap = reactionsByMessage.get(reaction.message_id)!;
+    if (!emojiMap.has(reaction.emoji)) {
+      emojiMap.set(reaction.emoji, []);
+    }
+
+    const userId = reaction.user_id;
+    const driverId = reaction.driver_id;
+    const name = userId
+      ? userNamesMap.get(userId) || 'Unknown'
+      : driverNamesMap.get(driverId!) || 'Unknown';
+
+    emojiMap.get(reaction.emoji)!.push({
+      id: userId || driverId!,
+      name,
+    });
+  }
+
+  // Convert to ReactionSummary format
+  for (const [messageId, emojiMap] of reactionsByMessage) {
+    const summaries: ReactionSummary[] = [];
+    for (const [emoji, users] of emojiMap) {
+      const reactedByMe = users.some(u =>
+        (currentUserId && u.id === currentUserId) ||
+        (currentDriverId && u.id === currentDriverId)
+      );
+      summaries.push({
+        emoji,
+        count: users.length,
+        reacted_by_me: reactedByMe,
+        users,
+      });
+    }
+    // Sort by count descending
+    summaries.sort((a, b) => b.count - a.count);
+    result.set(messageId, summaries);
+  }
+
+  return result;
 }

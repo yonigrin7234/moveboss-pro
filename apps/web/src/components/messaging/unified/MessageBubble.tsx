@@ -3,7 +3,8 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { cn, formatName, formatFullName, formatCompanyName, formatSenderDisplay } from '@/lib/utils';
-import { Bot } from 'lucide-react';
+import { Bot, Check, CheckCheck } from 'lucide-react';
+import { MessageReactions } from './MessageReactions';
 import type { MessageBubbleProps } from './types';
 
 /**
@@ -12,7 +13,7 @@ import type { MessageBubbleProps } from './types';
  * - Own messages right-aligned, others left-aligned
  * - Sender name and company shown unobtrusively
  */
-export function MessageBubble({ message, isOwn, showSender = true }: MessageBubbleProps) {
+export function MessageBubble({ message, isOwn, showSender = true, onReact }: MessageBubbleProps) {
   const personName = message.sender_profile?.full_name
     ? formatName(message.sender_profile.full_name)
     : message.sender_driver
@@ -85,7 +86,20 @@ export function MessageBubble({ message, isOwn, showSender = true }: MessageBubb
           <p className="whitespace-pre-wrap break-words">{message.body}</p>
         </div>
 
-        {/* Timestamp - subtle, appears on hover or always visible */}
+        {/* Reactions display */}
+        {onReact && (
+          <MessageReactions
+            messageId={message.id}
+            reactions={message.reactions}
+            onReact={onReact}
+            className={cn(
+              'mt-1 px-1',
+              isOwn ? 'justify-end' : 'justify-start'
+            )}
+          />
+        )}
+
+        {/* Timestamp and read status - subtle, appears on hover or always visible */}
         <div
           className={cn(
             'flex items-center gap-1 mt-0.5 px-1',
@@ -98,6 +112,16 @@ export function MessageBubble({ message, isOwn, showSender = true }: MessageBubb
               <span className="ml-1 opacity-70">(edited)</span>
             )}
           </span>
+          {/* Read receipt indicator for own messages */}
+          {isOwn && (
+            <span className="ml-0.5">
+              {message.is_read ? (
+                <CheckCheck className="h-3 w-3 text-primary" />
+              ) : (
+                <Check className="h-3 w-3 text-muted-foreground/60" />
+              )}
+            </span>
+          )}
         </div>
       </div>
     </div>

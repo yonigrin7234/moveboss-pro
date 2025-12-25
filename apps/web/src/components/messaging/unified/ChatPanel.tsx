@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { MessageList } from './MessageList';
 import { MessageComposer, ReadOnlyComposer } from './MessageComposer';
+import { TypingIndicator, useTypingBroadcast } from './TypingIndicator';
 import type { ChatPanelProps, ChatState } from './types';
 import type { ConversationType, ConversationWithDetails, MessageWithSender } from '@/lib/communication-types';
 import { createClient } from '@/lib/supabase-client';
@@ -32,6 +33,7 @@ export function ChatPanel({
   driverId,
   companyId,
   userId,
+  userName = 'Someone',
   partnerCompanyId,
   partnerCompanyName,
   isInternal = true,
@@ -85,6 +87,13 @@ export function ChatPanel({
     if (context === 'company' && partnerCompanyId) return `company:${partnerCompanyId}`;
     return null;
   }, [providedConversationId, context, driverId, loadId, tripId, partnerCompanyId]);
+
+  // Set up typing broadcast for this conversation
+  const { startTyping, stopTyping } = useTypingBroadcast(
+    state.conversation?.id,
+    userId,
+    userName
+  );
 
   // For company context, check if partner is a MoveBoss member
   if (context === 'company' && !isPartnerMoveBossMember) {
@@ -330,6 +339,77 @@ export function ChatPanel({
       }
     }
   }, [state.conversation?.id, fetchMessages]);
+
+  // Handle adding/removing reactions
+  const handleReaction = useCallback(async (
+    messageId: string,
+    emoji: string,
+    action: 'add' | 'remove'
+  ) => {
+    try {
+      // Optimistic update
+      setState(s => ({
+        ...s,
+        messages: s.messages.map(msg => {
+          if (msg.id !== messageId) return msg;
+
+          const currentReactions = msg.reactions || [];
+          const existingIndex = currentReactions.findIndex(r => r.emoji === emoji);
+
+          if (action === 'add') {
+            if (existingIndex >= 0) {
+              // Update existing reaction
+              const updated = [...currentReactions];
+              updated[existingIndex] = {
+                ...updated[existingIndex],
+                count: updated[existingIndex].count + 1,
+                reacted_by_me: true,
+              };
+              return { ...msg, reactions: updated };
+            } else {
+              // Add new reaction
+              return {
+                ...msg,
+                reactions: [...currentReactions, {
+                  emoji,
+                  count: 1,
+                  reacted_by_me: true,
+                  users: [{ id: userId, name: 'You' }],
+                }],
+              };
+            }
+          } else {
+            // Remove reaction
+            if (existingIndex >= 0) {
+              const updated = [...currentReactions];
+              if (updated[existingIndex].count === 1) {
+                updated.splice(existingIndex, 1);
+              } else {
+                updated[existingIndex] = {
+                  ...updated[existingIndex],
+                  count: updated[existingIndex].count - 1,
+                  reacted_by_me: false,
+                };
+              }
+              return { ...msg, reactions: updated.length > 0 ? updated : undefined };
+            }
+            return msg;
+          }
+        }),
+      }));
+
+      // Send to API
+      await fetch('/api/messaging/reactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message_id: messageId, emoji, action }),
+      });
+    } catch (err) {
+      console.error('Failed to update reaction:', err);
+      // Revert by refetching (optional - could also do more precise revert)
+      await fetchMessages();
+    }
+  }, [userId, fetchMessages]);
 
   // Fetch conversation when context changes (driverId, conversationId, etc.)
   useEffect(() => {
@@ -588,17 +668,29 @@ export function ChatPanel({
           currentUserId={userId}
           isLoading={state.isLoading || state.isLoadingMessages}
           emptyMessage={`No messages in this ${context} chat yet`}
+          onReact={handleReaction}
         />
       </div>
 
-      {/* Composer - fixed at bottom */}
+      {/* Typing indicator and Composer - fixed at bottom */}
       <div className="shrink-0">
+        {/* Typing indicator */}
+        {state.conversation?.id && (
+          <TypingIndicator
+            conversationId={state.conversation.id}
+            currentUserId={userId}
+            currentUserName={userName}
+          />
+        )}
+
         {state.canWrite && !state.isReadOnly ? (
           <MessageComposer
             onSend={sendMessage}
             disabled={state.isLoading || !state.conversation}
             isSending={state.isSending}
             placeholder="Type a message..."
+            onTypingStart={startTyping}
+            onTypingStop={stopTyping}
           />
         ) : (
           <ReadOnlyComposer />

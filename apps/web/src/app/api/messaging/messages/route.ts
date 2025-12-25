@@ -5,6 +5,7 @@ import {
   getConversation,
   sendMessage,
   sendMessageSchema,
+  recordReadReceipts,
 } from '@/data/conversations';
 import {
   sendPushToDriver,
@@ -69,6 +70,18 @@ export async function GET(request: Request) {
         title: 'Conversation',
         message_count: messagesResult.messages.length,
       };
+    }
+
+    // Record read receipts for messages not sent by the current user
+    // This marks messages as "read" when the user views them
+    const messagesToMark = messagesResult.messages
+      .filter(m => m.sender_user_id !== user.id)
+      .map(m => m.id);
+    if (messagesToMark.length > 0) {
+      // Fire and forget - don't block the response
+      recordReadReceipts(messagesToMark, user.id).catch(err => {
+        console.error('Failed to record read receipts:', err);
+      });
     }
 
     return NextResponse.json({

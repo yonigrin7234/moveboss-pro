@@ -17,6 +17,8 @@ export interface ChatPanelProps {
   companyId: string;
   /** Current user ID */
   userId: string;
+  /** Current user's display name (for typing indicators) */
+  userName?: string;
   /** Partner company ID (for shared/company conversations) */
   partnerCompanyId?: string;
   /** Partner company name for display */
@@ -41,12 +43,14 @@ export interface MessageListProps {
   isLoading: boolean;
   emptyMessage?: string;
   onScrollToBottom?: () => void;
+  onReact?: (messageId: string, emoji: string, action: 'add' | 'remove') => void;
 }
 
 export interface MessageBubbleProps {
   message: MessageWithSender;
   isOwn: boolean;
   showSender?: boolean;
+  onReact?: (messageId: string, emoji: string, action: 'add' | 'remove') => void;
 }
 
 export interface MessageComposerProps {
@@ -54,6 +58,8 @@ export interface MessageComposerProps {
   disabled?: boolean;
   placeholder?: string;
   isSending?: boolean;
+  onTypingStart?: () => void;
+  onTypingStop?: () => void;
 }
 
 export interface ConversationListItemProps {

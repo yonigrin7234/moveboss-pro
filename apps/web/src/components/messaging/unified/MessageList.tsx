@@ -18,6 +18,7 @@ export function MessageList({
   isLoading,
   emptyMessage = 'No messages yet',
   onScrollToBottom,
+  onReact,
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -60,6 +61,7 @@ export function MessageList({
                 message={message}
                 isOwn={isOwn}
                 showSender={showSender}
+                onReact={onReact}
               />
             </React.Fragment>
           );

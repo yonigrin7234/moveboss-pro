@@ -15,9 +15,12 @@ export function MessageComposer({
   disabled = false,
   placeholder = 'Type a message...',
   isSending = false,
+  onTypingStart,
+  onTypingStop,
 }: MessageComposerProps) {
   const [message, setMessage] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const wasTypingRef = useRef(false);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -27,10 +30,37 @@ export function MessageComposer({
     }
   }, [message]);
 
+  // Handle typing state changes
+  useEffect(() => {
+    const isTyping = message.trim().length > 0;
+    if (isTyping && !wasTypingRef.current) {
+      wasTypingRef.current = true;
+      onTypingStart?.();
+    } else if (!isTyping && wasTypingRef.current) {
+      wasTypingRef.current = false;
+      onTypingStop?.();
+    }
+  }, [message, onTypingStart, onTypingStop]);
+
+  // Stop typing indicator when component unmounts or message is sent
+  useEffect(() => {
+    return () => {
+      if (wasTypingRef.current) {
+        onTypingStop?.();
+      }
+    };
+  }, [onTypingStop]);
+
   const handleSubmit = useCallback(async (e?: React.FormEvent) => {
     e?.preventDefault();
     const trimmed = message.trim();
     if (!trimmed || disabled || isSending) return;
+
+    // Stop typing indicator before sending
+    if (wasTypingRef.current) {
+      wasTypingRef.current = false;
+      onTypingStop?.();
+    }
 
     setMessage('');
     // Reset textarea height
@@ -39,7 +69,7 @@ export function MessageComposer({
     }
 
     await onSend(trimmed);
-  }, [message, disabled, isSending, onSend]);
+  }, [message, disabled, isSending, onSend, onTypingStop]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Send on Enter (without Shift)

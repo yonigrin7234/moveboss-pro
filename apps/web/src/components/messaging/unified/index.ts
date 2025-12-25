@@ -6,6 +6,8 @@ export { MessageList } from './MessageList';
 export { MessageBubble } from './MessageBubble';
 export { MessageComposer, ReadOnlyComposer } from './MessageComposer';
 export { ConversationList, ConversationListItem, ConversationTypeIcon } from './ConversationList';
+export { TypingIndicator, useTypingBroadcast } from './TypingIndicator';
+export { MessageReactions } from './MessageReactions';
 
 // Types
 export type {
