@@ -181,6 +181,24 @@ function getTemplateType(load: ShareableLoad): 'LIVE_PICKUP' | 'RFD' | 'GENERIC'
 }
 
 /**
+ * Determine unified template type for a batch of loads
+ * Returns the most specific type if all loads share it, otherwise GENERIC
+ */
+function getBatchTemplateType(loads: ShareableLoad[]): 'LIVE_PICKUP' | 'RFD' | 'GENERIC' {
+  if (loads.length === 0) return 'GENERIC';
+  if (loads.length === 1) return getTemplateType(loads[0]);
+
+  const types = loads.map(getTemplateType);
+  const uniqueTypes = [...new Set(types)];
+
+  if (uniqueTypes.length === 1) {
+    return uniqueTypes[0];
+  }
+
+  return 'GENERIC';
+}
+
+/**
  * Checks if a date is today or in the future
  */
 function isDateTodayOrFuture(dateString: string | null | undefined): boolean {
@@ -317,15 +335,29 @@ export function buildMultiLoadMessage(
   const showRates = opts.showRates ?? true;
   const companyName = opts.companyName ?? '';
 
+  // Use batch template type for type-aware headers (matching web)
+  const batchType = getBatchTemplateType(loads);
+  const batchHeaderText =
+    batchType === 'LIVE_PICKUP'
+      ? `${loads.length} LIVE LOAD PICKUPS AVAILABLE`
+      : batchType === 'RFD'
+        ? `${loads.length} RFD LOADS AVAILABLE`
+        : `${loads.length} LOADS AVAILABLE`;
+
   const header = companyName
-    ? `*${loads.length} LOADS AVAILABLE* — ${companyName}`
-    : `*${loads.length} LOADS AVAILABLE*`;
+    ? `*${batchHeaderText}* — ${companyName}`
+    : `*${batchHeaderText}*`;
 
   const items = loads.map((load, i) => {
     const route = formatRoute(load);
     const cf = getCubicFeet(load);
     const rate = load.rate_per_cuft;
+    const balance = getBalanceCF(load);
+    const pickup = formatPickupWindow(load);
     const payout = getTotalPayout(load);
+    const loadTemplateType = getTemplateType(load);
+    const dateLabel = getDateLabel(loadTemplateType);
+    const showDate = shouldShowDate(load, loadTemplateType);
 
     const parts: string[] = [];
 
@@ -335,6 +367,14 @@ export function buildMultiLoadMessage(
       } else {
         parts.push(`${cf.toLocaleString()} CF`);
       }
+    }
+
+    if (balance && balance > 0) {
+      parts.push(`Balance: ${balance.toLocaleString()} CF`);
+    }
+
+    if (showDate && pickup) {
+      parts.push(`${dateLabel}: ${pickup}`);
     }
 
     if (showRates && payout) {
