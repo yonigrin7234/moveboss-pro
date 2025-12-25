@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { NotificationBell } from "@/components/notification-bell"
+import { Search } from "lucide-react"
 import { createClient } from "@/lib/supabase-client"
 import { cn } from "@/lib/utils"
 import { FMCSAVerificationBadge } from "@/components/FMCSAVerificationBadge"
@@ -157,6 +158,23 @@ export function TopNav({ user, company, unreadNotifications = 0 }: TopNavProps) 
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              const event = new KeyboardEvent('keydown', {
+                key: 'k',
+                metaKey: true,
+                ctrlKey: false,
+                bubbles: true,
+              });
+              document.dispatchEvent(event);
+            }}
+            title="Search (⌘K)"
+          >
+            <Search className="h-4 w-4" />
+          </Button>
           <NotificationBell unreadCount={unreadNotifications} />
           <ThemeToggle />
           <div className="h-5 w-px bg-border/50 mx-1 hidden sm:block" />

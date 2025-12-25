@@ -486,7 +486,7 @@ export default function Sidebar({ canPostLoads = false, canHaulLoads = false, pe
 
   return (
     <aside className="hidden border-r border-sidebar-border bg-sidebar md:flex md:w-60 md:flex-col fixed top-0 left-0 h-screen z-40">
-      <div className="flex h-[60px] items-center justify-between border-b border-sidebar-border px-4">
+      <div className="flex h-[60px] items-center border-b border-sidebar-border px-4">
         <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0">
           <Logo size={32} className="shrink-0 text-primary" />
           <div className="flex items-center gap-1.5">
@@ -496,24 +496,6 @@ export default function Sidebar({ canPostLoads = false, canHaulLoads = false, pe
             </Badge>
           </div>
         </Link>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
-          onClick={() => {
-            // Trigger command palette by simulating Cmd+K
-            const event = new KeyboardEvent('keydown', {
-              key: 'k',
-              metaKey: true,
-              ctrlKey: false,
-              bubbles: true,
-            });
-            document.dispatchEvent(event);
-          }}
-          title="Search (⌘K)"
-        >
-          <Search className="h-4 w-4" />
-        </Button>
       </div>
 
       <nav className="flex-1 space-y-0.5 px-2.5 py-3 overflow-y-auto scrollbar-none">
