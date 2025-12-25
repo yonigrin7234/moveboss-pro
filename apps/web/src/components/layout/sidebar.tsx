@@ -35,6 +35,7 @@ import {
   FileText,
   Package,
   MessageSquare,
+  HelpCircle,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -531,6 +532,20 @@ export default function Sidebar({ canPostLoads = false, canHaulLoads = false, pe
           </>
         )}
       </nav>
+
+      {/* Footer */}
+      <div className="border-t border-sidebar-border px-4 py-3">
+        <a
+          href="mailto:support@moveboss.pro"
+          className="flex items-center gap-2 text-xs text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+          <span>Help & Support</span>
+        </a>
+        <p className="mt-2 text-[10px] text-sidebar-foreground/40">
+          Version 0.1.0
+        </p>
+      </div>
     </aside>
   )
 }
