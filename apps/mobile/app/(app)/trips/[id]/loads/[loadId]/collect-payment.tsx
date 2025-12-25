@@ -19,6 +19,7 @@ import {
   Platform,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -56,6 +57,7 @@ export default function CollectPaymentScreen() {
   const { id: tripId, loadId } = useLocalSearchParams<{ id: string; loadId: string }>();
   const router = useRouter();
   const toast = useToast();
+  const insets = useSafeAreaInsets();
   const { load, loading, error, refetch } = useLoadDetail(loadId);
   const actions = useLoadActions(loadId, refetch);
   const { uploading, progress, uploadLoadPhoto } = useImageUpload();
@@ -303,7 +305,7 @@ export default function CollectPaymentScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Big Amount Header */}
-          <View style={[styles.header, isZeroBalance && styles.headerWarning]}>
+          <View style={[styles.header, isZeroBalance && styles.headerWarning, { paddingTop: spacing.xl + insets.top }]}>
             <Text style={styles.headerLabel}>
               {isZeroBalance ? '⚠️ BALANCE SHOWS AS' : 'AMOUNT DUE'}
             </Text>
