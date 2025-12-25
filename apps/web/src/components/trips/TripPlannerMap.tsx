@@ -746,8 +746,8 @@ export function TripPlannerMap({
             </CardContent>
           </Card>
 
-          {/* Legend - below map on xl, inline otherwise */}
-          <Card className="mt-4 hidden xl:block">
+          {/* Legend - below map on xl, inline otherwise (hidden when map expanded) */}
+          <Card className={`mt-4 hidden xl:block ${isMapExpanded ? 'xl:hidden' : ''}`}>
             <CardContent className="p-3">
               <div className="flex flex-wrap gap-2 text-xs">
                 <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-500/10">
@@ -775,8 +775,8 @@ export function TripPlannerMap({
           </Card>
         </div>
 
-        {/* Right: Sidebar with controls (scrollable on xl screens) */}
-        <div className="xl:w-[40%] mt-4 xl:mt-0 space-y-4">
+        {/* Right: Sidebar with controls (scrollable on xl screens) - hidden when map is expanded */}
+        <div className={`xl:w-[40%] mt-4 xl:mt-0 space-y-4 ${isMapExpanded ? 'hidden' : ''}`}>
           {/* Capacity Bar */}
           <Card className="overflow-hidden">
         <CardContent className="p-4">
