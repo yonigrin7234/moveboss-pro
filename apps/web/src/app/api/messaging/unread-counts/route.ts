@@ -136,11 +136,14 @@ async function ensureParticipantRecords(
 
   for (const conv of missingConversations) {
     // Count messages not sent by this user
+    // NOTE: For driver messages, sender_user_id is NULL (they use sender_driver_id)
+    // In SQL, NULL != value returns NULL (falsy), so we need to handle this case
+    // We count messages where sender_user_id is NULL OR sender_user_id != userId
     const { count } = await supabase
       .from('messages')
       .select('*', { count: 'exact', head: true })
       .eq('conversation_id', conv.id)
-      .neq('sender_user_id', userId)
+      .or(`sender_user_id.is.null,sender_user_id.neq.${userId}`)
       .eq('is_deleted', false);
 
     participantsToInsert.push({
