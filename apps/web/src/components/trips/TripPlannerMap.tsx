@@ -548,7 +548,7 @@ export function TripPlannerMap({
       {/* Backdrop for expanded map */}
       {isMapExpanded && (
         <div
-          className="fixed inset-0 bg-black/50 z-40"
+          className="fixed top-0 left-0 right-0 bottom-0 bg-black/60 z-40"
           onClick={() => setIsMapExpanded(false)}
         />
       )}
@@ -558,7 +558,7 @@ export function TripPlannerMap({
         {/* Left: Map (sticky on xl screens) */}
         <div className="xl:w-[60%] xl:sticky xl:top-4 xl:self-start">
           {/* Map */}
-          <Card className={isMapExpanded ? 'fixed inset-4 z-50 flex flex-col' : ''}>
+          <Card className={isMapExpanded ? 'fixed top-4 left-4 right-4 bottom-4 z-50 flex flex-col w-auto max-w-none' : ''}>
             <CardHeader className="pb-2 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
