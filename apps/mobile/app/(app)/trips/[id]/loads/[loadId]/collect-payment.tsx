@@ -104,7 +104,7 @@ export default function CollectPaymentScreen() {
     }
   }, [toast]);
 
-  // Take authorization proof photo
+  // Take authorization proof photo (camera)
   const takeAuthProofPhoto = useCallback(async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
@@ -113,6 +113,25 @@ export default function CollectPaymentScreen() {
     }
 
     const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setAuthorizationProofPhoto(result.assets[0].uri);
+    }
+  }, [toast]);
+
+  // Pick authorization proof from gallery (for screenshots)
+  const pickAuthProofPhoto = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      toast.error('Photo library permission needed');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: false,
       quality: 0.8,
@@ -403,17 +422,28 @@ export default function CollectPaymentScreen() {
                 {authorizationProofPhoto ? (
                   <View style={styles.authPhotoContainer}>
                     <Image source={{ uri: authorizationProofPhoto }} style={styles.authPhotoPreview} />
-                    <Pressable style={styles.retakeButton} onPress={takeAuthProofPhoto}>
-                      <Text style={styles.retakeText}>Retake</Text>
-                    </Pressable>
+                    <View style={styles.authPhotoActions}>
+                      <Pressable style={styles.authPhotoActionButton} onPress={takeAuthProofPhoto}>
+                        <Icon name="camera" size={18} color={colors.textSecondary} />
+                        <Text style={styles.authPhotoActionText}>Retake</Text>
+                      </Pressable>
+                      <Pressable style={styles.authPhotoActionButton} onPress={pickAuthProofPhoto}>
+                        <Icon name="image" size={18} color={colors.textSecondary} />
+                        <Text style={styles.authPhotoActionText}>Choose Different</Text>
+                      </Pressable>
+                    </View>
                   </View>
                 ) : (
-                  <Pressable style={styles.authPhotoButton} onPress={takeAuthProofPhoto}>
-                    <Icon name="camera" size={24} color={colors.textSecondary} />
-                    <Text style={styles.authPhotoButtonText}>
-                      Take photo of message/email confirmation
-                    </Text>
-                  </Pressable>
+                  <View style={styles.authPhotoOptions}>
+                    <Pressable style={styles.authPhotoOptionButton} onPress={takeAuthProofPhoto}>
+                      <Icon name="camera" size={24} color={colors.primary} />
+                      <Text style={styles.authPhotoOptionText}>Take Photo</Text>
+                    </Pressable>
+                    <Pressable style={styles.authPhotoOptionButton} onPress={pickAuthProofPhoto}>
+                      <Icon name="image" size={24} color={colors.primary} />
+                      <Text style={styles.authPhotoOptionText}>Upload Screenshot</Text>
+                    </Pressable>
+                  </View>
                 )}
 
                 <Pressable
@@ -897,5 +927,46 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 150,
     borderRadius: radius.md,
+  },
+  authPhotoActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  authPhotoActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: spacing.xs,
+  },
+  authPhotoActionText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+  authPhotoOptions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  authPhotoOptionButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.xl,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: colors.border,
+    gap: spacing.sm,
+  },
+  authPhotoOptionText: {
+    ...typography.bodySmall,
+    color: colors.textPrimary,
+    fontWeight: '500',
   },
 });
