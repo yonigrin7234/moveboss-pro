@@ -30,6 +30,10 @@ export async function GET() {
       return NextResponse.json({ messages: 0, dispatch: 0 });
     }
 
+    // CRITICAL: First, ensure participant records exist for all conversations the user has access to
+    // This fixes the issue where dispatchers don't see unread badges because they don't have participant records
+    await ensureParticipantRecords(supabase, user.id, membership.company_id);
+
     // Get all participant records for this user with unread counts
     const { data: participants } = await supabase
       .from('conversation_participants')
@@ -84,5 +88,77 @@ export async function GET() {
       { error: error instanceof Error ? error.message : 'Failed to fetch unread counts' },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Ensures participant records exist for all conversations the user has access to.
+ * For new participant records, calculates the initial unread count based on messages
+ * not sent by this user.
+ */
+async function ensureParticipantRecords(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  companyId: string
+): Promise<void> {
+  // Find all conversations the user's company has access to
+  const { data: accessibleConversations } = await supabase
+    .from('conversations')
+    .select('id, type')
+    .or(`owner_company_id.eq.${companyId},partner_company_id.eq.${companyId},carrier_company_id.eq.${companyId}`)
+    .eq('is_archived', false);
+
+  if (!accessibleConversations || accessibleConversations.length === 0) {
+    return;
+  }
+
+  const conversationIds = accessibleConversations.map((c) => c.id);
+
+  // Find which conversations the user already has participant records for
+  const { data: existingParticipants } = await supabase
+    .from('conversation_participants')
+    .select('conversation_id')
+    .eq('user_id', userId)
+    .in('conversation_id', conversationIds);
+
+  const existingConvIds = new Set((existingParticipants ?? []).map((p) => p.conversation_id));
+
+  // Find conversations without participant records
+  const missingConversations = accessibleConversations.filter((c) => !existingConvIds.has(c.id));
+
+  if (missingConversations.length === 0) {
+    return;
+  }
+
+  // For each missing conversation, calculate the unread count (messages not from this user)
+  // and create a participant record
+  const participantsToInsert = [];
+
+  for (const conv of missingConversations) {
+    // Count messages not sent by this user
+    const { count } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('conversation_id', conv.id)
+      .neq('sender_user_id', userId)
+      .eq('is_deleted', false);
+
+    participantsToInsert.push({
+      conversation_id: conv.id,
+      user_id: userId,
+      company_id: companyId,
+      role: 'dispatcher' as const,
+      can_read: true,
+      can_write: true,
+      is_driver: false,
+      unread_count: count ?? 0,
+    });
+  }
+
+  if (participantsToInsert.length > 0) {
+    // Use upsert to handle race conditions
+    await supabase
+      .from('conversation_participants')
+      .upsert(participantsToInsert, { onConflict: 'conversation_id,user_id' });
   }
 }
