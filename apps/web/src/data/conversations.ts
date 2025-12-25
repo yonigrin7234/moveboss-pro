@@ -193,11 +193,11 @@ export async function getUserConversations(
     return [];
   }
 
-  // Fetch participant data separately for unread counts
+  // Fetch participant data for last_read_at timestamps
   const conversationIds = data.map((c) => c.id);
   const { data: participantData } = await supabase
     .from('conversation_participants')
-    .select('conversation_id, unread_count, is_muted')
+    .select('conversation_id, last_read_at, is_muted')
     .eq('user_id', userId)
     .in('conversation_id', conversationIds);
 
@@ -206,28 +206,27 @@ export async function getUserConversations(
     (participantData ?? []).map((p) => [p.conversation_id, p])
   );
 
-  // Ensure user is a participant of all conversations they have access to (by company)
-  // This fixes conversations that were created before participant auto-add was implemented
-  const missingConversations = conversationIds.filter((id) => !participantMap.has(id));
-  if (missingConversations.length > 0) {
-    const participantsToInsert = missingConversations.map((convId) => ({
-      conversation_id: convId,
-      user_id: userId,
-      company_id: companyId,
-      role: 'dispatcher' as const,
-      can_read: true,
-      can_write: true,
-      is_driver: false,
-    }));
+  // Calculate unread counts from messages directly
+  // This is more reliable than relying on the trigger which may be blocked by RLS
+  const unreadCountMap = new Map<string, number>();
+  for (const conv of data) {
+    const participant = participantMap.get(conv.id);
+    const lastReadAt = participant?.last_read_at;
 
-    await supabase
-      .from('conversation_participants')
-      .upsert(participantsToInsert, { onConflict: 'conversation_id,user_id' });
+    // Count messages not sent by this user, after last_read_at
+    let query = supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('conversation_id', conv.id)
+      .eq('is_deleted', false)
+      .or(`sender_user_id.is.null,sender_user_id.neq.${userId}`);
 
-    // Initialize entries in the map for newly added participants
-    missingConversations.forEach((convId) => {
-      participantMap.set(convId, { conversation_id: convId, unread_count: 0, is_muted: false });
-    });
+    if (lastReadAt) {
+      query = query.gt('created_at', lastReadAt);
+    }
+
+    const { count } = await query;
+    unreadCountMap.set(conv.id, count ?? 0);
   }
 
   // Transform to ConversationListItem format
@@ -282,7 +281,7 @@ export async function getUserConversations(
       subtitle,
       last_message_preview: messagePreview,
       last_message_at: conv.last_message_at,
-      unread_count: participant?.unread_count ?? 0,
+      unread_count: unreadCountMap.get(conv.id) ?? 0,
       is_muted: conv.is_muted || participant?.is_muted || false,
       participants_preview: [],
       context: {
@@ -884,41 +883,41 @@ export async function getCompanyDriverDispatchConversations(
     return [];
   }
 
-  // Fetch unread counts for the user if userId provided
-  let unreadMap = new Map<string, number>();
+  // Calculate unread counts from messages directly for reliability
+  // (The database trigger may be blocked by RLS when drivers send messages)
+  const unreadMap = new Map<string, number>();
   if (userId && data && data.length > 0) {
     const conversationIds = data.map((c) => c.id);
+
+    // Get participant data for last_read_at timestamps
     const { data: participantData } = await supabase
       .from('conversation_participants')
-      .select('conversation_id, unread_count')
+      .select('conversation_id, last_read_at')
       .eq('user_id', userId)
       .in('conversation_id', conversationIds);
 
-    if (participantData) {
-      unreadMap = new Map(participantData.map((p) => [p.conversation_id, p.unread_count]));
-    }
+    const lastReadMap = new Map(
+      (participantData ?? []).map((p) => [p.conversation_id, p.last_read_at])
+    );
 
-    // Ensure user is a participant of all conversations they have access to (by company)
-    // This fixes existing conversations that were created before participant auto-add
-    const missingConversations = conversationIds.filter((id) => !unreadMap.has(id));
-    if (missingConversations.length > 0) {
-      // Add user as participant for conversations they're not in yet
-      const participantsToInsert = missingConversations.map((convId) => ({
-        conversation_id: convId,
-        user_id: userId,
-        company_id: companyId,
-        role: 'dispatcher' as const,
-        can_read: true,
-        can_write: true,
-        is_driver: false,
-      }));
+    // Calculate unread count for each conversation
+    for (const conv of data) {
+      const lastReadAt = lastReadMap.get(conv.id);
 
-      await supabase
-        .from('conversation_participants')
-        .upsert(participantsToInsert, { onConflict: 'conversation_id,user_id' });
+      // Count messages not sent by this user, after last_read_at
+      let query = supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('conversation_id', conv.id)
+        .eq('is_deleted', false)
+        .or(`sender_user_id.is.null,sender_user_id.neq.${userId}`);
 
-      // Initialize unread count to 0 for newly added participants
-      missingConversations.forEach((convId) => unreadMap.set(convId, 0));
+      if (lastReadAt) {
+        query = query.gt('created_at', lastReadAt);
+      }
+
+      const { count } = await query;
+      unreadMap.set(conv.id, count ?? 0);
     }
   }
 
