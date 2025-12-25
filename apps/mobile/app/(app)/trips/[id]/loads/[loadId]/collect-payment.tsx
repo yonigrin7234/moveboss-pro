@@ -193,10 +193,10 @@ export default function CollectPaymentScreen() {
     }
   };
 
-  // Handle success completion
+  // Handle success completion - navigate to load detail (now in_transit, ready for Complete Delivery)
   const handleSuccessComplete = useCallback(() => {
-    router.back();
-  }, [router]);
+    router.replace(`/(app)/trips/${tripId}/loads/${loadId}`);
+  }, [router, tripId, loadId]);
 
   // Handle $0 balance authorization confirmation
   const handleZeroBalanceAuth = useCallback(async () => {

@@ -133,7 +133,8 @@ export default function FinishLoadingScreen() {
       } else if (requiresContractDetails) {
         router.replace(`/(app)/trips/${tripId}/loads/${loadId}/contract-details`);
       } else {
-        router.back();
+        // For own customer loads, go directly to load detail (ready for delivery)
+        router.replace(`/(app)/trips/${tripId}/loads/${loadId}`);
       }
     } catch (error) {
       toast.error('Something went wrong. Please try again.');

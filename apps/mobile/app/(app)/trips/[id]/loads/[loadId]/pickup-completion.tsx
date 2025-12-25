@@ -268,9 +268,9 @@ export default function PickupCompletionScreen() {
         return;
       }
 
-      // Auto-navigate back with success toast
+      // Navigate explicitly to load detail (ready for delivery)
       toast.success('Pickup complete - Ready for delivery!');
-      router.back();
+      router.replace(`/(app)/trips/${tripId}/loads/${loadId}`);
     } catch (err) {
       toast.error('Failed to complete pickup');
     } finally {

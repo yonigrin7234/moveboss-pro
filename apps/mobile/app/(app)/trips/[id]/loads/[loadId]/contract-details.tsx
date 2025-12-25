@@ -182,7 +182,8 @@ export default function ContractDetailsScreen() {
       }
 
       toast.success('Contract saved - Ready for delivery!');
-      router.back();
+      // Navigate explicitly to load detail (ready for delivery)
+      router.replace(`/(app)/trips/${tripId}/loads/${loadId}`);
     } catch (err) {
       toast.error('Failed to save');
     } finally {
