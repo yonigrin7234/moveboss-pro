@@ -111,11 +111,7 @@ export default function TripStartRoute() {
       return;
     }
 
-    // Check if already fetching
-    if (tripStartFetching.has(id)) {
-      return;
-    }
-
+    // Mark as fetching (for debugging, not used as a guard anymore)
     tripStartFetching.add(id);
     setLoading(true);
 
