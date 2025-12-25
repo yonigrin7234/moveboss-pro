@@ -1,11 +1,10 @@
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Pressable } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { useDriverTripDetail } from '../../../hooks/useDriverTrips';
 import { useTripActions } from '../../../hooks/useTripActions';
 import { StatusBadge } from '../../../components/StatusBadge';
-import { TripDetailSkeleton, ErrorState } from '../../../components/ui';
+import { TripDetailSkeleton, ErrorState, Icon } from '../../../components/ui';
 import { LoadCard, TripActionCard } from '../../../components/trip';
 import { findNextActionableLoad, formatTripDate, formatCurrency } from '../../../lib/tripUtils';
 import { colors, typography, spacing, radius } from '../../../lib/theme';
@@ -53,7 +52,7 @@ export default function TripDetailScreen() {
       style={styles.backButton}
       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
     >
-      <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+      <Icon name="chevron-left" size="md" color={colors.textPrimary} />
     </Pressable>
   );
 
@@ -152,7 +151,9 @@ export default function TripDetailScreen() {
               <View style={styles.equipmentCard}>
                 {trip.trucks && (
                   <View style={styles.equipmentItem}>
-                    <Text style={styles.equipmentIcon}>🚛</Text>
+                    <View style={styles.equipmentIconContainer}>
+                      <Icon name="truck" size="md" color={colors.primary} />
+                    </View>
                     <View style={styles.equipmentInfo}>
                       <Text style={styles.equipmentLabel}>Truck</Text>
                       <Text style={styles.equipmentValue}>{trip.trucks.unit_number}</Text>
@@ -166,7 +167,9 @@ export default function TripDetailScreen() {
                 )}
                 {trip.trailers && (
                   <View style={styles.equipmentItem}>
-                    <Text style={styles.equipmentIcon}>📦</Text>
+                    <View style={styles.equipmentIconContainer}>
+                      <Icon name="package" size="md" color={colors.primary} />
+                    </View>
                     <View style={styles.equipmentInfo}>
                       <Text style={styles.equipmentLabel}>Trailer</Text>
                       <Text style={styles.equipmentValue}>{trip.trailers.unit_number}</Text>
@@ -226,25 +229,25 @@ export default function TripDetailScreen() {
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Messages</Text>
-                <TouchableOpacity
+                <Pressable
                   onPress={() => router.push(`/(app)/trips/${trip.id}/messages`)}
                   style={styles.touchTarget}
                 >
                   <Text style={styles.addLink}>View All</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
-              <TouchableOpacity
+              <Pressable
                 style={styles.messageCard}
                 onPress={() => router.push(`/(app)/trips/${trip.id}/messages`)}
               >
                 <View style={styles.messageIconContainer}>
-                  <Text style={styles.messageIcon}>💬</Text>
+                  <Icon name="message-square" size="md" color={colors.primary} />
                 </View>
                 <View style={styles.messageContent}>
                   <Text style={styles.messageTitle}>Trip Messages</Text>
                   <Text style={styles.messageSubtitle}>Chat with your team about this trip</Text>
                 </View>
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
             {/* Expenses Section */}
@@ -253,12 +256,12 @@ export default function TripDetailScreen() {
                 <Text style={styles.sectionTitle}>
                   Expenses ({trip.trip_expenses?.length || 0})
                 </Text>
-                <TouchableOpacity
+                <Pressable
                   onPress={() => router.push(`/(app)/trips/${trip.id}/expenses`)}
                   style={styles.touchTarget}
                 >
                   <Text style={styles.addLink}>Add Expense</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
               {!trip.trip_expenses?.length ? (
                 <View style={styles.emptyCard}>
@@ -391,8 +394,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.itemGap,
   },
-  equipmentIcon: {
-    fontSize: 24,
+  equipmentIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   equipmentInfo: {
     flex: 1,
@@ -451,12 +459,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.borderLight,
+    backgroundColor: colors.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  messageIcon: {
-    fontSize: 20,
   },
   messageContent: {
     flex: 1,

@@ -11,7 +11,7 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
-  TouchableOpacity,
+  Pressable,
   Alert,
   Linking,
 } from 'react-native';
@@ -113,7 +113,9 @@ export default function DocumentsScreen() {
         {driver && (
           <View style={styles.infoCard}>
             <View style={styles.infoCardHeader}>
-              <Text style={styles.infoCardIcon}>👤</Text>
+              <View style={styles.infoCardIconContainer}>
+                <Icon name="user" size="md" color={colors.primary} />
+              </View>
               <Text style={styles.infoCardTitle}>Driver Info</Text>
             </View>
             <View style={styles.infoRow}>
@@ -135,7 +137,9 @@ export default function DocumentsScreen() {
         {company && (
           <View style={styles.infoCard}>
             <View style={styles.infoCardHeader}>
-              <Text style={styles.infoCardIcon}>🏢</Text>
+              <View style={styles.infoCardIconContainer}>
+                <Icon name="building" size="md" color={colors.primary} />
+              </View>
               <Text style={styles.infoCardTitle}>Company Authority</Text>
             </View>
             <View style={styles.infoRow}>
@@ -151,37 +155,37 @@ export default function DocumentsScreen() {
             {company.dot_number && (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>DOT #</Text>
-                <TouchableOpacity
+                <Pressable
                   style={styles.copyableValue}
                   onPress={() => handleCopyToClipboard(company.dot_number!, 'DOT #')}
                 >
                   <Text style={styles.infoValue}>{company.dot_number}</Text>
                   <Icon name="copy" size="sm" color={colors.primary} />
-                </TouchableOpacity>
+                </Pressable>
               </View>
             )}
             {company.mc_number && (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>MC #</Text>
-                <TouchableOpacity
+                <Pressable
                   style={styles.copyableValue}
                   onPress={() => handleCopyToClipboard(company.mc_number!, 'MC #')}
                 >
                   <Text style={styles.infoValue}>{company.mc_number}</Text>
                   <Icon name="copy" size="sm" color={colors.primary} />
-                </TouchableOpacity>
+                </Pressable>
               </View>
             )}
             {company.phone && (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Phone</Text>
-                <TouchableOpacity
+                <Pressable
                   style={styles.callableValue}
                   onPress={() => handleCall(company.phone!)}
                 >
                   <Text style={styles.phoneValue}>{company.phone}</Text>
                   <Icon name="phone" size="sm" color={colors.success} />
-                </TouchableOpacity>
+                </Pressable>
               </View>
             )}
           </View>
@@ -418,8 +422,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
-  infoCardIcon: {
-    fontSize: 24,
+  infoCardIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: spacing.itemGap,
   },
   infoCardTitle: {
