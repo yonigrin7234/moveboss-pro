@@ -185,7 +185,7 @@ export function CriticalAlertsBanner({
   }
 
   return (
-    <div className={cn('space-y-0', className)}>
+    <div className={cn('space-y-3', className)}>
       {alerts.map((alert) => (
         <AlertBannerItem
           key={alert.type}
@@ -205,65 +205,82 @@ interface AlertBannerItemProps {
 function AlertBannerItem({ alert, onDismiss }: AlertBannerItemProps) {
   const severityStyles = {
     critical: {
-      bg: 'bg-rose-500/10 border-rose-500/20',
-      icon: 'bg-rose-500/20 text-rose-600 dark:text-rose-400',
+      card: 'bg-rose-500/5 border-rose-500/20 dark:bg-rose-500/10',
+      badge: 'bg-rose-500 text-white',
+      icon: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
       text: 'text-rose-700 dark:text-rose-300',
-      action: 'text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300',
+      subtext: 'text-rose-600/70 dark:text-rose-400/70',
+      button: 'bg-rose-500 hover:bg-rose-600 text-white',
+      dismiss: 'text-rose-500/60 hover:text-rose-600 dark:text-rose-400/60 dark:hover:text-rose-300',
     },
     urgent: {
-      bg: 'bg-amber-500/10 border-amber-500/20',
-      icon: 'bg-amber-500/20 text-amber-600 dark:text-amber-400',
+      card: 'bg-amber-500/5 border-amber-500/20 dark:bg-amber-500/10',
+      badge: 'bg-amber-500 text-white',
+      icon: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
       text: 'text-amber-700 dark:text-amber-300',
-      action: 'text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300',
+      subtext: 'text-amber-600/70 dark:text-amber-400/70',
+      button: 'bg-amber-500 hover:bg-amber-600 text-white',
+      dismiss: 'text-amber-500/60 hover:text-amber-600 dark:text-amber-400/60 dark:hover:text-amber-300',
     },
     warning: {
-      bg: 'bg-yellow-500/10 border-yellow-500/20',
-      icon: 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400',
+      card: 'bg-yellow-500/5 border-yellow-500/20 dark:bg-yellow-500/10',
+      badge: 'bg-yellow-500 text-white',
+      icon: 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400',
       text: 'text-yellow-700 dark:text-yellow-300',
-      action: 'text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300',
+      subtext: 'text-yellow-600/70 dark:text-yellow-400/70',
+      button: 'bg-yellow-500 hover:bg-yellow-600 text-white',
+      dismiss: 'text-yellow-500/60 hover:text-yellow-600 dark:text-yellow-400/60 dark:hover:text-yellow-300',
     },
   };
 
   const styles = severityStyles[alert.severity];
 
   return (
-    <div className={cn('border-b', styles.bg)}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between py-2.5">
-          <Link href={alert.href} className="flex-1 flex items-center gap-2.5 group">
-            <div className={cn('flex items-center justify-center h-6 w-6 rounded-full', styles.icon)}>
-              {alert.icon}
-            </div>
-            <span className={cn('text-sm font-medium', styles.text)}>
-              {alert.message}
-            </span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <Link
-              href={alert.href}
-              className={cn(
-                'flex items-center gap-1 text-xs font-semibold transition-colors',
-                styles.action
-              )}
-            >
-              View
-              <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                onDismiss();
-              }}
-              className={cn(
-                'p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors',
-                styles.action
-              )}
-              aria-label="Dismiss alert"
-            >
-              <X className="h-4 w-4" />
-            </button>
+    <div className={cn('rounded-lg border p-4', styles.card)}>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className={cn('flex items-center justify-center h-10 w-10 rounded-lg flex-shrink-0', styles.icon)}>
+            {alert.icon}
           </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className={cn('inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded text-xs font-bold', styles.badge)}>
+                {alert.count}
+              </span>
+              <span className={cn('text-sm font-semibold', styles.text)}>
+                {alert.severity === 'critical' ? 'Action Required' : 'Needs Attention'}
+              </span>
+            </div>
+            <p className={cn('text-sm mt-0.5 truncate', styles.subtext)}>
+              {alert.message}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Link
+            href={alert.href}
+            className={cn(
+              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors',
+              styles.button
+            )}
+          >
+            Fix Now
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              onDismiss();
+            }}
+            className={cn(
+              'p-1.5 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors',
+              styles.dismiss
+            )}
+            aria-label="Dismiss alert"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       </div>
     </div>
