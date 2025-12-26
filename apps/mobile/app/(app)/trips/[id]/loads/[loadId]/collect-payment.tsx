@@ -41,13 +41,18 @@ import { ErrorState } from '../../../../../../components/ui';
 import { colors, typography, spacing, radius, shadows } from '../../../../../../lib/theme';
 import { PaymentMethod, ZelleRecipient } from '../../../../../../types';
 
-type Step = 'select' | 'zelle' | 'photo' | 'confirm' | 'success' | 'zero_balance_warning' | 'zero_balance_auth' | 'balance_dispute' | 'dispute_sent';
+type Step = 'select' | 'zelle' | 'photo_front' | 'photo_back' | 'confirm' | 'success' | 'zero_balance_warning' | 'zero_balance_auth' | 'balance_dispute' | 'dispute_sent';
+
+// Payment options that require front/back photos
+const PHOTO_REQUIRED_METHODS: PaymentMethod[] = ['cashier_check', 'personal_check', 'money_order'];
 
 const PAYMENT_OPTIONS: { value: PaymentMethod; label: string; icon: IconName; color: string }[] = [
   { value: 'cash', label: 'Cash', icon: 'banknote', color: '#22C55E' },
   { value: 'zelle', label: 'Zelle', icon: 'phone', color: '#6366F1' },
-  { value: 'cashier_check', label: 'Check', icon: 'file-text', color: '#3B82F6' },
-  { value: 'already_paid', label: 'Already Paid', icon: 'check-circle', color: '#71717A' },
+  { value: 'cashier_check', label: "Cashier's\nCheck", icon: 'file-text', color: '#3B82F6' },
+  { value: 'personal_check', label: 'Personal\nCheck', icon: 'file-text', color: '#0EA5E9' },
+  { value: 'money_order', label: 'Money\nOrder', icon: 'file-text', color: '#8B5CF6' },
+  { value: 'already_paid', label: 'Already\nPaid', icon: 'check-circle', color: '#71717A' },
 ];
 
 const ZELLE_OPTIONS = [
@@ -97,7 +102,8 @@ export default function CollectPaymentScreen() {
   const [step, setStep] = useState<Step>('select');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [zelleRecipient, setZelleRecipient] = useState<ZelleRecipient | null>(null);
-  const [photo, setPhoto] = useState<string | null>(null);
+  const [photoFront, setPhotoFront] = useState<string | null>(null);
+  const [photoBack, setPhotoBack] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // $0 balance authorization state
@@ -119,12 +125,12 @@ export default function CollectPaymentScreen() {
 
   const customerName = load?.customer_name || load?.companies?.name || 'Customer';
 
-  // Take photo
-  const takePhoto = useCallback(async () => {
+  // Take front photo
+  const takePhotoFront = useCallback(async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       toast.error('Camera permission needed');
-      return;
+      return null;
     }
 
     const result = await ImagePicker.launchCameraAsync({
@@ -134,8 +140,31 @@ export default function CollectPaymentScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setPhoto(result.assets[0].uri);
+      setPhotoFront(result.assets[0].uri);
+      return result.assets[0].uri;
     }
+    return null;
+  }, [toast]);
+
+  // Take back photo
+  const takePhotoBack = useCallback(async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      toast.error('Camera permission needed');
+      return null;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setPhotoBack(result.assets[0].uri);
+      return result.assets[0].uri;
+    }
+    return null;
   }, [toast]);
 
   // Take authorization proof photo (camera)
@@ -184,15 +213,14 @@ export default function CollectPaymentScreen() {
 
       if (method === 'zelle') {
         setStep('zelle');
-      } else if (method === 'cashier_check' || method === 'money_order' || method === 'personal_check') {
-        // Open camera immediately for check
-        await takePhoto();
-        setStep('photo');
+      } else if (PHOTO_REQUIRED_METHODS.includes(method)) {
+        // Go to front photo step for checks/money orders
+        setStep('photo_front');
       } else {
         setStep('confirm');
       }
     },
-    [takePhoto]
+    []
   );
 
   // Handle Zelle recipient selection
@@ -210,14 +238,27 @@ export default function CollectPaymentScreen() {
     setSubmitting(true);
 
     try {
-      // Upload photo if taken
-      let photoUrl: string | null = null;
-      if (photo) {
-        const result = await uploadLoadPhoto(photo, loadId, 'document');
+      // Upload front photo if taken
+      let photoFrontUrl: string | null = null;
+      if (photoFront) {
+        const result = await uploadLoadPhoto(photoFront, loadId, 'document');
         if (result.success && result.url) {
-          photoUrl = result.url;
+          photoFrontUrl = result.url;
         } else {
-          toast.error('Failed to upload photo');
+          toast.error('Failed to upload front photo');
+          setSubmitting(false);
+          return;
+        }
+      }
+
+      // Upload back photo if taken
+      let photoBackUrl: string | null = null;
+      if (photoBack) {
+        const result = await uploadLoadPhoto(photoBack, loadId, 'document');
+        if (result.success && result.url) {
+          photoBackUrl = result.url;
+        } else {
+          toast.error('Failed to upload back photo');
           setSubmitting(false);
           return;
         }
@@ -228,8 +269,8 @@ export default function CollectPaymentScreen() {
         paymentMethod,
         amountCollected: balanceDue,
         zelleRecipient,
-        paymentPhotoFrontUrl: photoUrl,
-        paymentPhotoBackUrl: null,
+        paymentPhotoFrontUrl: photoFrontUrl,
+        paymentPhotoBackUrl: photoBackUrl,
       });
 
       if (!result.success) {
@@ -360,16 +401,18 @@ export default function CollectPaymentScreen() {
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (step === 'zelle') setStep('select');
-    else if (step === 'photo') setStep('select');
+    else if (step === 'photo_front') setStep('select');
+    else if (step === 'photo_back') setStep('photo_front');
     else if (step === 'zero_balance_auth') setStep('select');
     else if (step === 'zero_balance_warning') setStep('select');
     else if (step === 'balance_dispute') setStep('select');
     else if (step === 'confirm') {
       if (paymentMethod === 'zelle') setStep('zelle');
-      else if (photo) setStep('photo');
+      else if (photoBack) setStep('photo_back');
+      else if (photoFront) setStep('photo_front');
       else setStep('select');
     }
-  }, [step, paymentMethod, photo]);
+  }, [step, paymentMethod, photoFront, photoBack]);
 
   // Loading state
   if (loading || !load) {
@@ -582,20 +625,60 @@ export default function CollectPaymentScreen() {
           </View>
         )}
 
-        {/* Step: Photo */}
-        {step === 'photo' && (
+        {/* Step: Photo Front */}
+        {step === 'photo_front' && (
           <View style={styles.content}>
             <Pressable onPress={handleBack} style={styles.backButton}>
               <Text style={styles.backText}>← Back</Text>
             </Pressable>
-            <Text style={styles.stepTitle}>Photo of Check</Text>
-            {photo ? (
+            <Text style={styles.stepTitle}>Photo of Front</Text>
+            <Text style={styles.photoSubtitle}>
+              Take a clear photo of the front of the {paymentMethod === 'money_order' ? 'money order' : 'check'}
+            </Text>
+            {photoFront ? (
               <View style={styles.photoContainer}>
-                <Image source={{ uri: photo }} style={styles.photoPreview} />
+                <Image source={{ uri: photoFront }} style={styles.photoPreview} />
                 <View style={styles.photoActions}>
                   <Pressable
                     style={styles.retakeButton}
-                    onPress={takePhoto}
+                    onPress={takePhotoFront}
+                  >
+                    <Text style={styles.retakeText}>Retake</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.continueButton}
+                    onPress={() => setStep('photo_back')}
+                  >
+                    <Text style={styles.continueText}>Next: Back →</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <Pressable style={styles.cameraButton} onPress={takePhotoFront}>
+                <Icon name="camera" size={32} color={colors.textSecondary} />
+                <Text style={styles.cameraText}>Tap to take photo of front</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+
+        {/* Step: Photo Back */}
+        {step === 'photo_back' && (
+          <View style={styles.content}>
+            <Pressable onPress={handleBack} style={styles.backButton}>
+              <Text style={styles.backText}>← Back</Text>
+            </Pressable>
+            <Text style={styles.stepTitle}>Photo of Back</Text>
+            <Text style={styles.photoSubtitle}>
+              Now take a clear photo of the back of the {paymentMethod === 'money_order' ? 'money order' : 'check'}
+            </Text>
+            {photoBack ? (
+              <View style={styles.photoContainer}>
+                <Image source={{ uri: photoBack }} style={styles.photoPreview} />
+                <View style={styles.photoActions}>
+                  <Pressable
+                    style={styles.retakeButton}
+                    onPress={takePhotoBack}
                   >
                     <Text style={styles.retakeText}>Retake</Text>
                   </Pressable>
@@ -608,9 +691,9 @@ export default function CollectPaymentScreen() {
                 </View>
               </View>
             ) : (
-              <Pressable style={styles.cameraButton} onPress={takePhoto}>
+              <Pressable style={styles.cameraButton} onPress={takePhotoBack}>
                 <Icon name="camera" size={32} color={colors.textSecondary} />
-                <Text style={styles.cameraText}>Tap to take photo</Text>
+                <Text style={styles.cameraText}>Tap to take photo of back</Text>
               </Pressable>
             )}
           </View>
@@ -634,13 +717,19 @@ export default function CollectPaymentScreen() {
               <View style={styles.confirmRow}>
                 <Text style={styles.confirmLabel}>Method</Text>
                 <Text style={styles.confirmValue}>
-                  {PAYMENT_OPTIONS.find((p) => p.value === paymentMethod)?.label}
+                  {PAYMENT_OPTIONS.find((p) => p.value === paymentMethod)?.label.replace('\n', ' ')}
                   {zelleRecipient && ` (to ${ZELLE_OPTIONS.find((z) => z.value === zelleRecipient)?.label})`}
                 </Text>
               </View>
-              {photo && (
+              {photoFront && (
                 <View style={styles.confirmRow}>
-                  <Text style={styles.confirmLabel}>Photo</Text>
+                  <Text style={styles.confirmLabel}>Front Photo</Text>
+                  <Text style={styles.confirmValue}>✓ Captured</Text>
+                </View>
+              )}
+              {photoBack && (
+                <View style={styles.confirmRow}>
+                  <Text style={styles.confirmLabel}>Back Photo</Text>
                   <Text style={styles.confirmValue}>✓ Captured</Text>
                 </View>
               )}
@@ -785,10 +874,10 @@ function PaymentButton({ label, icon, color, onPress }: PaymentButtonProps) {
       >
         <IconWithBackground
           name={icon}
-          size="xl"
+          size="lg"
           color={color}
           backgroundColor={`${color}20`}
-          backgroundSizeMultiplier={1.6}
+          backgroundSizeMultiplier={1.5}
         />
         <Text style={styles.paymentLabel}>{label}</Text>
       </Pressable>
@@ -836,7 +925,7 @@ const styles = StyleSheet.create({
     ...typography.title,
     color: colors.textPrimary,
     textAlign: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
   backButton: {
     marginBottom: spacing.lg,
@@ -849,22 +938,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: spacing.lg,
+    gap: spacing.md,
   },
   paymentButton: {
-    width: '48%',
-    aspectRatio: 1,
+    width: '31%',
+    aspectRatio: 0.9,
     backgroundColor: colors.surface,
-    borderRadius: radius.xl,
+    borderRadius: radius.lg,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.md,
+    paddingVertical: spacing.md,
+    ...shadows.sm,
   },
   paymentLabel: {
-    ...typography.headline,
+    ...typography.bodySmall,
     color: colors.textPrimary,
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  photoSubtitle: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+    marginTop: -spacing.sm,
   },
   optionsList: {
     gap: spacing.md,
