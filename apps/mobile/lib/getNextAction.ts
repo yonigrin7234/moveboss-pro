@@ -205,18 +205,36 @@ function getLoadAction(
 }
 
 /**
- * Check if a load can start delivery based on delivery order
+ * Check if a load can start delivery based on:
+ * 1. ALL loads in trip must be loaded first (loaded, in_transit, delivered, storage_completed)
+ * 2. Delivery order must be respected
  */
 function canStartDelivery(trip: TripWithLoads, load: Load): boolean {
+  // CRITICAL: First check that ALL loads are loaded before ANY delivery can start
+  const deliveryPhaseStatuses: LoadStatus[] = ['loaded', 'in_transit', 'delivered', 'storage_completed'];
+
+  for (const tl of trip.trip_loads) {
+    const otherLoad = tl.loads;
+    const status = (otherLoad.load_status || 'pending') as LoadStatus;
+
+    // If any load is still in pickup phase (pending, accepted, loading), no delivery can start
+    if (!deliveryPhaseStatuses.includes(status)) {
+      return false;
+    }
+  }
+
+  // All loads are loaded - now check delivery order
   const deliveryOrder = load.delivery_order;
-  if (!deliveryOrder) return true;
+  if (!deliveryOrder) return true; // No delivery order, allow
 
   // Check that all loads with lower delivery_order are delivered
   for (const tl of trip.trip_loads) {
     const otherLoad = tl.loads;
     const otherOrder = otherLoad.delivery_order || 0;
 
-    if (otherOrder < deliveryOrder && otherLoad.load_status !== 'delivered') {
+    if (otherOrder < deliveryOrder &&
+        otherLoad.load_status !== 'delivered' &&
+        otherLoad.load_status !== 'storage_completed') {
       return false;
     }
   }

@@ -24,16 +24,15 @@ export function useLoadActionBase(loadId: string, onSuccess?: () => void): LoadA
   }, [driverError, driverId, ownerId, isReady]);
 
   /**
-   * Check if delivery can start based on delivery order.
-   * Returns allowed=true if:
-   * - Load has no delivery_order set (null)
-   * - Load's delivery_order matches trip's current_delivery_index
-   * - No other loads with lower delivery_order are pending delivery
+   * Check if delivery can start based on:
+   * 1. ALL loads in the trip must be loaded first (status: loaded, in_transit, or delivered)
+   * 2. Delivery order must be respected (this load's delivery_order <= current_delivery_index)
    */
   const checkDeliveryOrder = useCallback(async (): Promise<DeliveryOrderCheck> => {
     try {
       const driver = await getDriverInfo();
 
+      // Get this load's info
       const { data: thisLoad, error: loadError } = await supabase
         .from('loads')
         .select('id, delivery_order, customer_name, delivery_city, delivery_state, load_status')
@@ -45,10 +44,7 @@ export function useLoadActionBase(loadId: string, onSuccess?: () => void): LoadA
         return { allowed: false, reason: 'Load not found', currentDeliveryIndex: null, thisLoadDeliveryOrder: null };
       }
 
-      if (thisLoad.delivery_order === null || thisLoad.delivery_order === undefined) {
-        return { allowed: true, currentDeliveryIndex: null, thisLoadDeliveryOrder: null };
-      }
-
+      // Get the trip this load belongs to
       const { data: tripLoad, error: tripLoadError } = await supabase
         .from('trip_loads')
         .select('trip_id')
@@ -56,9 +52,71 @@ export function useLoadActionBase(loadId: string, onSuccess?: () => void): LoadA
         .single();
 
       if (tripLoadError || !tripLoad) {
+        // No trip association, allow delivery (single load scenario)
         return { allowed: true, currentDeliveryIndex: null, thisLoadDeliveryOrder: thisLoad.delivery_order };
       }
 
+      // Get ALL loads in the trip to check if they're all loaded
+      const { data: allTripLoads, error: allLoadsError } = await supabase
+        .from('trip_loads')
+        .select(`
+          load_id,
+          loads:load_id (
+            id,
+            delivery_order,
+            customer_name,
+            delivery_city,
+            delivery_state,
+            load_status
+          )
+        `)
+        .eq('trip_id', tripLoad.trip_id);
+
+      if (allLoadsError || !allTripLoads) {
+        return {
+          allowed: false,
+          reason: 'Could not check trip loads',
+          currentDeliveryIndex: null,
+          thisLoadDeliveryOrder: thisLoad.delivery_order,
+        };
+      }
+
+      // CRITICAL CHECK: All loads must be loaded before ANY delivery can start
+      // Valid statuses for delivery phase: 'loaded', 'in_transit', 'delivered', 'storage_completed'
+      const deliveryPhaseStatuses = ['loaded', 'in_transit', 'delivered', 'storage_completed'];
+      const loadsStillLoading = allTripLoads
+        .map((tl) => tl.loads as unknown as {
+          id: string;
+          delivery_order: number | null;
+          customer_name: string | null;
+          delivery_city: string | null;
+          delivery_state: string | null;
+          load_status: string | null;
+        })
+        .filter((load) => {
+          if (!load) return false;
+          const status = load.load_status || 'pending';
+          return !deliveryPhaseStatuses.includes(status);
+        });
+
+      if (loadsStillLoading.length > 0) {
+        // Some loads are not yet loaded
+        const loadCount = loadsStillLoading.length;
+        return {
+          allowed: false,
+          reason: `${loadCount} load${loadCount > 1 ? 's' : ''} still need to be loaded before delivery can start`,
+          currentDeliveryIndex: null,
+          thisLoadDeliveryOrder: thisLoad.delivery_order,
+        };
+      }
+
+      // All loads are loaded - now check delivery order
+      if (thisLoad.delivery_order === null || thisLoad.delivery_order === undefined) {
+        // No delivery order set, allow delivery
+        return { allowed: true, currentDeliveryIndex: null, thisLoadDeliveryOrder: null };
+      }
+
+      // Get trip's current delivery index
       const { data: trip, error: tripError } = await supabase
         .from('trips')
         .select('id, current_delivery_index')
@@ -71,6 +129,7 @@ export function useLoadActionBase(loadId: string, onSuccess?: () => void): LoadA
 
       const currentIndex = trip.current_delivery_index || 1;
 
+      // Check if this load's delivery order matches the current index
       if (thisLoad.delivery_order === currentIndex) {
         return {
           allowed: true,
@@ -79,39 +138,16 @@ export function useLoadActionBase(loadId: string, onSuccess?: () => void): LoadA
         };
       }
 
+      // This load's delivery order is higher than current - check what needs to be delivered first
       if (thisLoad.delivery_order > currentIndex) {
-        const { data: tripLoads, error: loadsError } = await supabase
-          .from('trip_loads')
-          .select(`
-            load_id,
-            loads:load_id (
-              id,
-              delivery_order,
-              customer_name,
-              delivery_city,
-              delivery_state,
-              load_status
-            )
-          `)
-          .eq('trip_id', tripLoad.trip_id);
-
-        if (loadsError || !tripLoads) {
-          return {
-            allowed: false,
-            reason: 'Could not check delivery order',
-            currentDeliveryIndex: currentIndex,
-            thisLoadDeliveryOrder: thisLoad.delivery_order,
-          };
-        }
-
-        const loadsBeforeThis = tripLoads
+        const loadsBeforeThis = allTripLoads
           .map((tl) => tl.loads as unknown as {
             id: string;
             delivery_order: number | null;
             customer_name: string | null;
             delivery_city: string | null;
             delivery_state: string | null;
-            load_status: string;
+            load_status: string | null;
           })
           .filter(
             (load) =>
@@ -153,7 +189,7 @@ export function useLoadActionBase(loadId: string, onSuccess?: () => void): LoadA
         thisLoadDeliveryOrder: thisLoad.delivery_order,
       };
     } catch {
-      return { allowed: true, currentDeliveryIndex: null, thisLoadDeliveryOrder: null };
+      return { allowed: false, reason: 'Error checking delivery order', currentDeliveryIndex: null, thisLoadDeliveryOrder: null };
     }
   }, [getDriverInfo, loadId]);
 
