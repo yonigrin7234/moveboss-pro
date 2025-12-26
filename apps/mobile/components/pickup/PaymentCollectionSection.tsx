@@ -220,16 +220,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: radius.sm,
+    minHeight: 52,
+    paddingLeft: spacing.cardPadding,
   },
   currencyPrefix: {
-    ...typography.body,
+    fontSize: 16,
     color: colors.textSecondary,
-    paddingLeft: spacing.cardPadding,
   },
   inputWithPrefix: {
     flex: 1,
-    padding: spacing.cardPadding,
-    ...typography.body,
+    paddingVertical: spacing.cardPadding,
+    paddingRight: spacing.cardPadding,
+    paddingLeft: spacing.xs,
+    fontSize: 16,
     color: colors.textPrimary,
   },
   paymentGrid: {

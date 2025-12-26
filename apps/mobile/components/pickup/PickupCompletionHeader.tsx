@@ -17,6 +17,7 @@ export function PickupCompletionHeader({ title, subtitle }: PickupCompletionHead
 
 const styles = StyleSheet.create({
   header: {
+    marginTop: spacing.md,
     marginBottom: spacing.sectionGap,
   },
   headerTitle: {
