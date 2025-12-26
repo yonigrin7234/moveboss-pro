@@ -10,9 +10,10 @@
 
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { Icon } from '../ui';
 import { TripLoad, LoadStatus } from '../../types';
-import { colors, typography, spacing, radius } from '../../lib/theme';
+import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
 
 interface TripWizardProgressProps {
   tripId: string;
@@ -155,6 +156,7 @@ export function TripWizardProgress({ tripId, loads, currentDeliveryIndex }: Trip
   const totalCount = steps.length;
 
   const handleLoadPress = (loadId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(`/(app)/trips/${tripId}/loads/${loadId}`);
   };
 
@@ -196,7 +198,9 @@ export function TripWizardProgress({ tripId, loads, currentDeliveryIndex }: Trip
         {steps.map((step, index) => {
           const isLast = index === steps.length - 1;
           const load = step.tripLoad.loads;
-          const statusDisplay = getStatusDisplay(load.load_status);
+          // Use defaulted status to handle legacy null values
+          const loadStatus = (load.load_status || 'pending') as LoadStatus;
+          const statusDisplay = getStatusDisplay(loadStatus);
           const loadLabel = load.load_type === 'pickup' ? 'Pickup' : 'Load';
           const loadNumber = load.load_number || `${step.stepNumber}`;
 
@@ -303,9 +307,12 @@ export function TripWizardProgress({ tripId, loads, currentDeliveryIndex }: Trip
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
-    borderRadius: radius.card,
+    borderRadius: radius.xl,
     padding: spacing.cardPadding,
     marginBottom: spacing.sectionGap,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.sm,
   },
   header: {
     flexDirection: 'row',

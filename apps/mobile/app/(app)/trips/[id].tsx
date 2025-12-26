@@ -2,12 +2,13 @@ import { useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, Pressable } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { useDriverTripDetail } from '../../../hooks/useDriverTrips';
 import { useTripActions } from '../../../hooks/useTripActions';
 import { useReminders } from '../../../hooks/useReminders';
 import { StatusBadge } from '../../../components/StatusBadge';
 import { TripDetailSkeleton, ErrorState, Icon } from '../../../components/ui';
-import { LoadCard, TripActionCard, TripWizardProgress, UpcomingRemindersCard } from '../../../components/trip';
+import { LoadCard, TripActionCard, TripMetrics, TripWizardProgress, UpcomingRemindersCard } from '../../../components/trip';
 import { findNextActionableLoad, sortLoadsByDeliveryOrder, formatTripDate, formatCurrency } from '../../../lib/tripUtils';
 import { colors, typography, spacing, radius } from '../../../lib/theme';
 import { dataLogger } from '../../../lib/logger';
@@ -77,10 +78,40 @@ export default function TripDetailScreen() {
   const isMultiLoadTrip = sortedLoads.length > 1;
   const isActiveTrip = trip?.status === 'active' || trip?.status === 'en_route';
 
+  // Compute trip summary for metrics and completion screen
+  const tripSummary = useMemo(() => {
+    if (!trip) return null;
+
+    // Calculate total collected from loads
+    const totalCollected = sortedLoads.reduce((sum, tl) => {
+      return sum + (tl.loads.amount_collected_on_delivery || 0) + (tl.loads.amount_collected_at_pickup || 0);
+    }, 0);
+
+    // Calculate total expenses
+    const totalExpenses = trip.trip_expenses?.reduce((sum, e) => sum + e.amount, 0) || 0;
+
+    // Count delivered loads
+    const loadsDelivered = sortedLoads.filter(
+      (tl) => tl.loads.load_status === 'delivered' || tl.loads.load_status === 'storage_completed'
+    ).length;
+
+    return {
+      miles: trip.actual_miles,
+      totalCuft: trip.total_cuft,
+      totalCollected,
+      totalExpenses,
+      loadsDelivered,
+      loadsTotal: sortedLoads.length,
+    };
+  }, [trip, sortedLoads]);
+
   // Back button component for header
   const BackButton = () => (
     <Pressable
-      onPress={() => router.back()}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        router.back();
+      }}
       style={styles.backButton}
       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
     >
@@ -176,7 +207,24 @@ export default function TripDetailScreen() {
               loadsCount={sortedLoads.length}
               nextStep={nextStep}
               tripId={trip.id}
+              tripSummary={tripSummary ? {
+                miles: tripSummary.miles,
+                totalCuft: tripSummary.totalCuft,
+                totalCollected: tripSummary.totalCollected,
+                totalExpenses: tripSummary.totalExpenses,
+              } : undefined}
             />
+
+            {/* Trip Metrics - Quick stats for active trips */}
+            {isActiveTrip && tripSummary && (
+              <TripMetrics
+                miles={tripSummary.miles}
+                totalCuft={tripSummary.totalCuft}
+                loadsDelivered={tripSummary.loadsDelivered}
+                loadsTotal={tripSummary.loadsTotal}
+                totalCollected={tripSummary.totalCollected}
+              />
+            )}
 
             {/* Upcoming Reminders - shows scheduled notifications for this trip */}
             {tripReminders.length > 0 && (
@@ -285,7 +333,10 @@ export default function TripDetailScreen() {
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Messages</Text>
                 <Pressable
-                  onPress={() => router.push(`/(app)/trips/${trip.id}/messages`)}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push(`/(app)/trips/${trip.id}/messages`);
+                  }}
                   style={styles.touchTarget}
                 >
                   <Text style={styles.addLink}>View All</Text>
@@ -293,7 +344,10 @@ export default function TripDetailScreen() {
               </View>
               <Pressable
                 style={styles.messageCard}
-                onPress={() => router.push(`/(app)/trips/${trip.id}/messages`)}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push(`/(app)/trips/${trip.id}/messages`);
+                }}
               >
                 <View style={styles.messageIconContainer}>
                   <Icon name="message-square" size="md" color={colors.primary} />
@@ -312,7 +366,10 @@ export default function TripDetailScreen() {
                   Expenses ({trip.trip_expenses?.length || 0})
                 </Text>
                 <Pressable
-                  onPress={() => router.push(`/(app)/trips/${trip.id}/expenses`)}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push(`/(app)/trips/${trip.id}/expenses`);
+                  }}
                   style={styles.touchTarget}
                 >
                   <Text style={styles.addLink}>Add Expense</Text>
