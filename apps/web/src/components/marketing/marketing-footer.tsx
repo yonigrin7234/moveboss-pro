@@ -13,7 +13,7 @@ export function MarketingFooter() {
           </div>
 
           {/* Links */}
-          <nav className="flex items-center gap-6">
+          <nav className="flex items-center gap-6 flex-wrap justify-center md:justify-end">
             <Link
               href="/features"
               className="text-sm text-white/40 hover:text-white/70 transition-colors"
@@ -25,6 +25,18 @@ export function MarketingFooter() {
               className="text-sm text-white/40 hover:text-white/70 transition-colors"
             >
               Pricing
+            </Link>
+            <Link
+              href="/terms"
+              className="text-sm text-white/40 hover:text-white/70 transition-colors"
+            >
+              Terms
+            </Link>
+            <Link
+              href="/privacy"
+              className="text-sm text-white/40 hover:text-white/70 transition-colors"
+            >
+              Privacy
             </Link>
             <Link
               href="/login"

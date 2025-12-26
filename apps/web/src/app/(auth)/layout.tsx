@@ -70,7 +70,11 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
 
           {/* Footer */}
           <div className="relative z-10 mt-8">
-            <p className="text-xs text-white/30">© 2025 MoveBoss</p>
+            <p className="text-xs text-white/30">
+              © 2025 MoveBoss ·
+              <a href="/terms" className="hover:text-white/50 transition-colors ml-2">Terms</a> ·
+              <a href="/privacy" className="hover:text-white/50 transition-colors">Privacy</a>
+            </p>
           </div>
         </div>
 

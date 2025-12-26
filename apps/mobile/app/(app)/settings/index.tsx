@@ -176,6 +176,32 @@ export default function DriverSettingsScreen() {
           </View>
         </View>
 
+        {/* Legal Links */}
+        <Text style={styles.sectionTitle}>Legal</Text>
+        <View style={styles.legalCard}>
+          <Pressable
+            style={styles.legalItem}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              Linking.openURL('https://moveboss.com/terms');
+            }}
+          >
+            <Text style={styles.legalText}>Terms of Service</Text>
+            <Icon name="external-link" size="sm" color={colors.textMuted} />
+          </Pressable>
+          <View style={styles.legalDivider} />
+          <Pressable
+            style={styles.legalItem}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              Linking.openURL('https://moveboss.com/privacy');
+            }}
+          >
+            <Text style={styles.legalText}>Privacy Policy</Text>
+            <Icon name="external-link" size="sm" color={colors.textMuted} />
+          </Pressable>
+        </View>
+
         {/* Sign Out */}
         <Pressable
           style={styles.signOutButton}
@@ -423,6 +449,29 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textMuted,
     marginTop: spacing.xxs,
+  },
+  // Legal Card
+  legalCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    marginBottom: spacing.xl,
+    overflow: 'hidden',
+    ...shadows.sm,
+  },
+  legalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  legalDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.md,
+  },
+  legalText: {
+    ...typography.body,
+    color: colors.primary,
   },
   // Sign Out
   signOutButton: {
