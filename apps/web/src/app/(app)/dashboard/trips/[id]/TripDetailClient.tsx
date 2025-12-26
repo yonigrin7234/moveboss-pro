@@ -49,6 +49,7 @@ import {
 } from '@/components/ui/dialog';
 import { PhotoField } from '@/components/ui/photo-field';
 import { DatePicker } from '@/components/ui/date-picker';
+import { FormAddressFields } from '@/components/ui/address-fields';
 import type { TripStatus, TripWithDetails, TripLoad, TripExpense } from '@/data/trips';
 import type { Load } from '@/data/loads';
 import { TripMapTab } from '@/components/trips/TripMapTab';
@@ -573,75 +574,37 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
                     className="space-y-6 mt-6"
                   >
                     {/* Origin Section */}
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Origin</h3>
-                      <div className="grid gap-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-sm">City</Label>
-                          <Input
-                            name="origin_city"
-                            defaultValue={trip.origin_city || ''}
-                            placeholder="e.g., Miami"
-                            className="h-9"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-sm">State</Label>
-                            <Input
-                              name="origin_state"
-                              defaultValue={trip.origin_state || ''}
-                              placeholder="e.g., FL"
-                              className="h-9"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-sm">ZIP Code</Label>
-                            <Input
-                              name="origin_postal_code"
-                              defaultValue={trip.origin_postal_code || ''}
-                              placeholder="e.g., 33101"
-                              className="h-9"
-                            />
-                          </div>
-                        </div>
-                      </div>
+                      <FormAddressFields
+                        defaultZip={trip.origin_postal_code || ''}
+                        defaultCity={trip.origin_city || ''}
+                        defaultState={trip.origin_state || ''}
+                        zipName="origin_postal_code"
+                        cityName="origin_city"
+                        stateName="origin_state"
+                        showAddress={false}
+                        zipRequired={false}
+                        cityRequired={false}
+                        stateRequired={false}
+                      />
                     </div>
 
                     {/* Destination Section */}
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Destination</h3>
-                      <div className="grid gap-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-sm">City</Label>
-                          <Input
-                            name="destination_city"
-                            defaultValue={trip.destination_city || ''}
-                            placeholder="e.g., Atlanta"
-                            className="h-9"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-sm">State</Label>
-                            <Input
-                              name="destination_state"
-                              defaultValue={trip.destination_state || ''}
-                              placeholder="e.g., GA"
-                              className="h-9"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-sm">ZIP Code</Label>
-                            <Input
-                              name="destination_postal_code"
-                              defaultValue={trip.destination_postal_code || ''}
-                              placeholder="e.g., 30301"
-                              className="h-9"
-                            />
-                          </div>
-                        </div>
-                      </div>
+                      <FormAddressFields
+                        defaultZip={trip.destination_postal_code || ''}
+                        defaultCity={trip.destination_city || ''}
+                        defaultState={trip.destination_state || ''}
+                        zipName="destination_postal_code"
+                        cityName="destination_city"
+                        stateName="destination_state"
+                        showAddress={false}
+                        zipRequired={false}
+                        cityRequired={false}
+                        stateRequired={false}
+                      />
                     </div>
 
                     {/* Schedule Section */}
@@ -650,19 +613,19 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
                           <Label className="text-sm">Start Date</Label>
-                          <Input
-                            type="date"
+                          <DatePicker
                             name="start_date"
                             defaultValue={trip.start_date || ''}
+                            placeholder="Select start date"
                             className="h-9"
                           />
                         </div>
                         <div className="space-y-1.5">
                           <Label className="text-sm">End Date</Label>
-                          <Input
-                            type="date"
+                          <DatePicker
                             name="end_date"
                             defaultValue={trip.end_date || ''}
+                            placeholder="Select end date"
                             className="h-9"
                           />
                         </div>
