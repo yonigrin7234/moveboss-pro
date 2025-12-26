@@ -20,7 +20,7 @@ export default function CompleteDeliveryRoute() {
   const { id: tripId, loadId } = useLocalSearchParams<{ id: string; loadId: string }>();
   const router = useRouter();
   const { load, loading, error, refetch } = useLoadDetail(loadId);
-  const { trip } = useDriverTripDetail(tripId);
+  const { trip, refetch: refetchTrip } = useDriverTripDetail(tripId);
   const actions = useLoadActions(loadId, refetch);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -81,15 +81,35 @@ export default function CompleteDeliveryRoute() {
     router.back();
   }, [router]);
 
-  const handleSuccess = useCallback(() => {
-    if (nextLoadInfo) {
+  const handleSuccess = useCallback(async () => {
+    // Refetch trip data to get fresh load statuses before navigation
+    const tripResult = await refetchTrip();
+    const freshTrip = tripResult.data;
+
+    // Compute next load from fresh data
+    let freshNextLoadInfo: { id: string; number: string } | null = null;
+    if (freshTrip?.trip_loads?.length) {
+      const sorted = [...freshTrip.trip_loads].sort((a, b) => a.sequence_index - b.sequence_index);
+      const currentIndex = sorted.findIndex((tl) => tl.loads.id === loadId);
+      if (currentIndex !== -1 && currentIndex < sorted.length - 1) {
+        const nextLoad = sorted[currentIndex + 1];
+        if (nextLoad && nextLoad.loads.load_status !== 'delivered' && nextLoad.loads.load_status !== 'storage_completed') {
+          freshNextLoadInfo = {
+            id: nextLoad.loads.id,
+            number: nextLoad.loads.load_number || `${nextLoad.sequence_index + 1}`,
+          };
+        }
+      }
+    }
+
+    if (freshNextLoadInfo) {
       // Navigate to next load
-      router.replace(`/(app)/trips/${tripId}/loads/${nextLoadInfo.id}`);
+      router.replace(`/(app)/trips/${tripId}/loads/${freshNextLoadInfo.id}`);
     } else {
       // Navigate back to trip detail (all loads completed)
       router.replace(`/(app)/trips/${tripId}`);
     }
-  }, [router, tripId, nextLoadInfo]);
+  }, [router, tripId, loadId, refetchTrip]);
 
   // Loading state
   if (loading) {

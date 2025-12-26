@@ -7,7 +7,7 @@
  * - Photo of loading report (REQUIRED)
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -43,7 +43,7 @@ export default function FinishLoadingScreen() {
   const { user } = useAuth();
   const { driverId, ownerId } = useDriver();
   const actions = useLoadActions(loadId);
-  const { load } = useLoadDetail(loadId);
+  const { load, refetch: refetchLoad } = useLoadDetail(loadId);
   const { uploading, progress, uploadLoadPhoto } = useImageUpload();
 
   const [endingCuft, setEndingCuft] = useState('');
@@ -119,10 +119,14 @@ export default function FinishLoadingScreen() {
 
       toast.success('Loading complete!');
 
-      // Check if contract details or pickup completion is needed
-      const postingType = load?.posting_type;
-      const loadSource = load?.load_source;
-      const pickupCompletedAt = load?.pickup_completed_at;
+      // Refetch load data to get fresh values for navigation decision
+      const refetchResult = await refetchLoad();
+      const freshLoad = refetchResult.data;
+
+      // Check if contract details or pickup completion is needed (using fresh data)
+      const postingType = freshLoad?.posting_type;
+      const loadSource = freshLoad?.load_source;
+      const pickupCompletedAt = freshLoad?.pickup_completed_at;
 
       const requiresPickupCompletion = postingType === 'pickup' && !pickupCompletedAt;
       const requiresContractDetails =

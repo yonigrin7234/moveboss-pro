@@ -83,7 +83,7 @@ export function useLoadPaymentActions(context: LoadActionBaseContext) {
       }
 
       // Increment delivery index for trip sequencing
-      incrementDeliveryIndex(load?.delivery_order || null);
+      await incrementDeliveryIndex(load?.delivery_order || null);
 
       notifyOwnerDeliveryCompleted(loadId);
       onSuccess?.();

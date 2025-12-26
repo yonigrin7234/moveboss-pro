@@ -165,7 +165,7 @@ export function useLoadStatusActions(context: LoadActionBaseContext) {
 
       if (error) throw error;
 
-      incrementDeliveryIndex(load?.delivery_order || null);
+      await incrementDeliveryIndex(load?.delivery_order || null);
       notifyOwnerDeliveryCompleted(loadId);
 
       onSuccess?.();

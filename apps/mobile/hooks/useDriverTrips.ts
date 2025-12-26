@@ -92,7 +92,7 @@ export function useDriverTripDetail(tripId: string | null) {
   const error = driverError || (tripQuery.error ? (tripQuery.error as Error).message : null);
 
   const refetch = useCallback(async () => {
-    await tripQuery.refetch();
+    return await tripQuery.refetch();
   }, [tripQuery]);
 
   const silentRefetch = useCallback(() => {
