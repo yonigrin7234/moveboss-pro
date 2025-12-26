@@ -6,11 +6,9 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as AppleAuthentication from 'expo-apple-authentication';
 import { useAuth } from '../../providers/AuthProvider';
 import { useBiometricAuth, getBiometricTypeName } from '../../hooks/useBiometricAuth';
 import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
@@ -22,11 +20,10 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [socialLoading, setSocialLoading] = useState<'apple' | 'google' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
 
-  const { signIn, signInWithApple, signInWithGoogle, isAppleAuthAvailable } = useAuth();
+  const { signIn } = useAuth();
   const {
     isAvailable: biometricAvailable,
     isEnabled: biometricEnabled,
@@ -115,50 +112,6 @@ export default function LoginScreen() {
     }
   };
 
-  const handleAppleSignIn = async () => {
-    setError(null);
-    setSocialLoading('apple');
-
-    try {
-      const { error: signInError } = await signInWithApple();
-
-      if (signInError) {
-        setError(signInError.message);
-        haptics.error();
-      } else {
-        haptics.success();
-      }
-    } catch (err) {
-      console.error('Apple sign in exception:', err);
-      setError('Apple sign in failed. Please try again.');
-      haptics.error();
-    } finally {
-      setSocialLoading(null);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    setError(null);
-    setSocialLoading('google');
-
-    try {
-      const { error: signInError } = await signInWithGoogle();
-
-      if (signInError) {
-        setError(signInError.message);
-        haptics.error();
-      } else {
-        haptics.success();
-      }
-    } catch (err) {
-      console.error('Google sign in exception:', err);
-      setError('Google sign in failed. Please try again.');
-      haptics.error();
-    } finally {
-      setSocialLoading(null);
-    }
-  };
-
   const handleEnableBiometric = async () => {
     const success = await enableBiometric(email.trim().toLowerCase(), password);
     setShowBiometricPrompt(false);
@@ -168,7 +121,7 @@ export default function LoginScreen() {
   };
 
   const biometricName = getBiometricTypeName(biometricType);
-  const isLoading = loading || socialLoading !== null;
+  const isLoading = loading;
 
   // Show biometric enable prompt after successful login
   if (showBiometricPrompt && biometricAvailable) {
@@ -225,45 +178,6 @@ export default function LoginScreen() {
               <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
-
-          {/* Social Sign In Buttons */}
-          <View style={styles.socialButtons}>
-            {Platform.OS === 'ios' && isAppleAuthAvailable && (
-              <AppleAuthentication.AppleAuthenticationButton
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-                cornerRadius={radius.button}
-                style={styles.appleButton}
-                onPress={handleAppleSignIn}
-              />
-            )}
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.googleButton,
-                isLoading && styles.buttonDisabled,
-                pressed && styles.googleButtonPressed,
-              ]}
-              onPress={handleGoogleSignIn}
-              disabled={isLoading}
-            >
-              {socialLoading === 'google' ? (
-                <ActivityIndicator color={colors.textPrimary} />
-              ) : (
-                <>
-                  <Text style={styles.googleIcon}>G</Text>
-                  <Text style={styles.googleButtonText}>Continue with Google</Text>
-                </>
-              )}
-            </Pressable>
-          </View>
-
-          {/* Divider */}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
-          </View>
 
           {/* Email/Password Form */}
           <TextInput
@@ -401,53 +315,6 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.error,
     textAlign: 'center',
-  },
-  socialButtons: {
-    gap: spacing.md,
-  },
-  appleButton: {
-    height: 56,
-    width: '100%',
-  },
-  googleButton: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.button,
-    padding: spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    minHeight: 56,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  googleButtonPressed: {
-    backgroundColor: colors.surfaceElevated,
-  },
-  googleIcon: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#4285F4',
-    marginRight: spacing.sm,
-  },
-  googleButtonText: {
-    ...typography.button,
-    color: colors.textPrimary,
-    fontSize: 16,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: spacing.sm,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  dividerText: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    paddingHorizontal: spacing.md,
   },
   input: {
     ...typography.body,
