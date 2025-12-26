@@ -20,7 +20,6 @@ import { supabase } from '../../../../lib/supabase';
 import { TripWithLoads, TripLoad } from '../../../../types';
 import { colors, typography, spacing } from '../../../../lib/theme';
 import { useQueryClient } from '@tanstack/react-query';
-import { dataLogger } from '../../../../lib/logger';
 
 // Helper to add timeout to promises
 // Uses PromiseLike<T> to support Supabase query builders which are Promise-like but not Promise types
@@ -319,7 +318,6 @@ export default function TripStartRoute() {
           animation: 'slide_from_bottom',
         }}
       />
-      {dataLogger.debug('[TripStart] render', { tripId: id, hasPhoto: !!odometerPhotoUrl })}
       <TripStartScreen
         tripNumber={String(trip.trip_number || '')}
         truckUnit={trip.trucks?.unit_number?.toString()}
