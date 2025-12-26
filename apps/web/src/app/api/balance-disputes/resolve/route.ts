@@ -79,15 +79,17 @@ export async function POST(request: Request) {
 
     // Verify the user has access to resolve this dispute
     // (must be owner or workspace member)
-    const loads = dispute.loads as unknown as {
+    type LoadData = {
       id: string;
       load_number: string;
       owner_id: string;
       balance_due_on_delivery: number;
       remaining_balance_for_delivery: number;
-    }[] | null;
+    };
 
-    const load = Array.isArray(loads) && loads.length > 0 ? loads[0] : null;
+    // Supabase returns object for many-to-one joins, but handle array case too
+    const loadData = dispute.loads as unknown as LoadData | LoadData[] | null;
+    const load = Array.isArray(loadData) ? loadData[0] : loadData;
 
     if (!load) {
       return NextResponse.json({ error: 'Load not found' }, { status: 404 });
