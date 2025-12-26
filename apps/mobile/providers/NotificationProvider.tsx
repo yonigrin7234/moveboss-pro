@@ -67,6 +67,24 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           router.push('/(app)/earnings');
           break;
 
+        // Reminder notifications - navigate to trip or load
+        case 'trip_start_day_before':
+        case 'trip_start_morning':
+          if (data.tripId) {
+            router.push(`/(app)/trips/${data.tripId}`);
+          }
+          break;
+
+        case 'pickup_reminder':
+        case 'delivery_reminder':
+        case 'rfd_window_reminder':
+          if (data.tripId && data.loadId) {
+            router.push(`/(app)/trips/${data.tripId}/loads/${data.loadId}`);
+          } else if (data.tripId) {
+            router.push(`/(app)/trips/${data.tripId}`);
+          }
+          break;
+
         default:
           // Just go to home for general notifications
           break;

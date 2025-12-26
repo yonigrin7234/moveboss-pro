@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import {
   notifyOwnerDeliveryCompleted,
   notifyOwnerDeliveryStarted,
+  notifyOwnerDriverArrived,
   notifyOwnerLoadAccepted,
   notifyOwnerLoadingFinished,
   notifyOwnerLoadingStarted,
@@ -226,11 +227,42 @@ export function useLoadStatusActions(context: LoadActionBaseContext) {
     }
   };
 
+  /**
+   * Mark driver as arrived at delivery location
+   * Called when driver confirms they've arrived at the delivery address
+   * Sets arrived_at_delivery timestamp (status remains in_transit)
+   */
+  const markArrived = async (): Promise<ActionResult> => {
+    try {
+      setLoading(true);
+      const driver = await getDriverInfo();
+
+      const { error } = await supabase
+        .from('loads')
+        .update({
+          arrived_at_delivery: new Date().toISOString(),
+        })
+        .eq('id', loadId)
+        .eq('owner_id', driver.owner_id);
+
+      if (error) throw error;
+
+      notifyOwnerDriverArrived(loadId);
+      onSuccess?.();
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to mark arrival' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     acceptLoad,
     startLoading,
     finishLoading,
     startDelivery,
+    markArrived,
     completeDelivery,
     requiresContractDetails,
     requiresPickupCompletion,

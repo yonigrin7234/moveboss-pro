@@ -27,7 +27,13 @@ export type NotificationType =
   | 'payment_received'
   | 'settlement_approved'
   | 'message'
-  | 'general';
+  | 'general'
+  // Reminder types (local notifications)
+  | 'trip_start_day_before'
+  | 'trip_start_morning'
+  | 'pickup_reminder'
+  | 'delivery_reminder'
+  | 'rfd_window_reminder';
 
 export interface NotificationData {
   type: NotificationType;
@@ -115,6 +121,14 @@ export function usePushNotifications(): UsePushNotificationsResult {
           importance: Notifications.AndroidImportance.HIGH,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#10b981',
+        });
+
+        await Notifications.setNotificationChannelAsync('reminders', {
+          name: 'Reminders',
+          description: 'Trip and load reminders',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#f59e0b',
         });
       }
 

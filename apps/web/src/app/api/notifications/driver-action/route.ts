@@ -8,6 +8,7 @@ import {
   notifyOwnerLoadingStarted,
   notifyOwnerLoadingFinished,
   notifyOwnerDeliveryStarted,
+  notifyOwnerDriverArrived,
   notifyOwnerDeliveryCompleted,
   notifyOwnerLoadPhoto,
   notifyOwnerExpenseAdded,
@@ -44,6 +45,10 @@ type DriverActionRequest =
     }
   | {
       action: 'delivery_started';
+      loadId: string;
+    }
+  | {
+      action: 'driver_arrived';
       loadId: string;
     }
   | {
@@ -140,6 +145,11 @@ export async function POST(request: Request) {
 
       case 'delivery_started': {
         await notifyOwnerDeliveryStarted(body.loadId);
+        return NextResponse.json({ success: true });
+      }
+
+      case 'driver_arrived': {
+        await notifyOwnerDriverArrived(body.loadId);
         return NextResponse.json({ success: true });
       }
 

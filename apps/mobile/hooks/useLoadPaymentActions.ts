@@ -1,6 +1,7 @@
 import type { PaymentMethod, ZelleRecipient } from '../types';
 import { supabase } from '../lib/supabase';
 import {
+  notifyOwnerDeliveryCompleted,
   notifyOwnerDeliveryStarted,
   notifyOwnerPickupCompleted,
 } from '../lib/notify-owner';
@@ -8,9 +9,14 @@ import type { LoadActionBaseContext } from './useLoadActionBase';
 import type { ActionResult } from './useLoadActions.types';
 
 export function useLoadPaymentActions(context: LoadActionBaseContext) {
-  const { loadId, onSuccess, setLoading, getDriverInfo, checkDeliveryOrder } = context;
+  const { loadId, onSuccess, setLoading, getDriverInfo, checkDeliveryOrder, incrementDeliveryIndex } = context;
 
-  const collectPaymentAndStartDelivery = async (data: {
+  /**
+   * Collect payment and complete delivery
+   * Called when driver has arrived at delivery location and collected payment
+   * Sets status to 'delivered' (final state)
+   */
+  const collectPaymentAndComplete = async (data: {
     paymentMethod: PaymentMethod;
     amountCollected: number;
     zelleRecipient?: ZelleRecipient | null;
@@ -22,15 +28,14 @@ export function useLoadPaymentActions(context: LoadActionBaseContext) {
     try {
       setLoading(true);
 
-      const orderCheck = await checkDeliveryOrder();
-      if (!orderCheck.allowed) {
-        return {
-          success: false,
-          error: orderCheck.reason || 'Cannot start delivery - check delivery order',
-        };
-      }
-
       const driver = await getDriverInfo();
+
+      // Get load's delivery_order for incrementing trip's delivery index
+      const { data: load } = await supabase
+        .from('loads')
+        .select('delivery_order')
+        .eq('id', loadId)
+        .single();
 
       // Build notes for $0 balance authorization
       let notes = data.paymentNotes || null;
@@ -41,8 +46,8 @@ export function useLoadPaymentActions(context: LoadActionBaseContext) {
       const { error } = await supabase
         .from('loads')
         .update({
-          load_status: 'in_transit',
-          delivery_started_at: new Date().toISOString(),
+          load_status: 'delivered',
+          delivery_finished_at: new Date().toISOString(),
           payment_method: data.paymentMethod,
           amount_collected_on_delivery: data.amountCollected,
           payment_zelle_recipient: data.zelleRecipient || null,
@@ -77,16 +82,24 @@ export function useLoadPaymentActions(context: LoadActionBaseContext) {
         });
       }
 
-      notifyOwnerDeliveryStarted(loadId);
+      // Increment delivery index for trip sequencing
+      incrementDeliveryIndex(load?.delivery_order || null);
+
+      notifyOwnerDeliveryCompleted(loadId);
       onSuccess?.();
       return { success: true };
     } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : 'Failed to start delivery' };
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to complete delivery' };
     } finally {
       setLoading(false);
     }
   };
 
+  /**
+   * Save contract details and transition to in_transit
+   * Called after driver enters contract info from loading report/BOL
+   * Sets status to 'in_transit' - ready to drive to delivery
+   */
   const saveContractDetails = async (data: {
     contractBalanceDue: number;
     contractRatePerCuft: number;
@@ -123,6 +136,8 @@ export function useLoadPaymentActions(context: LoadActionBaseContext) {
       const { error } = await supabase
         .from('loads')
         .update({
+          load_status: 'in_transit', // Auto-transition to in_transit after contract details
+          delivery_started_at: new Date().toISOString(),
           contract_details_entered_at: new Date().toISOString(),
           contract_balance_due: data.contractBalanceDue,
           rate_per_cuft: data.contractRatePerCuft,
@@ -149,6 +164,7 @@ export function useLoadPaymentActions(context: LoadActionBaseContext) {
 
       if (error) throw error;
 
+      notifyOwnerDeliveryStarted(loadId);
       onSuccess?.();
       return { success: true };
     } catch (err) {
@@ -158,6 +174,11 @@ export function useLoadPaymentActions(context: LoadActionBaseContext) {
     }
   };
 
+  /**
+   * Complete pickup and transition to in_transit
+   * Called after driver finishes pickup-completion form
+   * Sets status to 'in_transit' - ready to drive to delivery
+   */
   const completePickup = async (data: {
     contractActualCuft: number;
     contractRatePerCuft: number;
@@ -200,7 +221,8 @@ export function useLoadPaymentActions(context: LoadActionBaseContext) {
       const { error } = await supabase
         .from('loads')
         .update({
-          load_status: 'loaded',
+          load_status: 'in_transit', // Auto-transition to in_transit after pickup completion
+          delivery_started_at: new Date().toISOString(),
           loading_finished_at: new Date().toISOString(),
           pickup_completed_at: new Date().toISOString(),
           actual_cuft_loaded: data.contractActualCuft,
@@ -255,6 +277,7 @@ export function useLoadPaymentActions(context: LoadActionBaseContext) {
       }
 
       notifyOwnerPickupCompleted(loadId, data.contractActualCuft);
+      notifyOwnerDeliveryStarted(loadId);
 
       onSuccess?.();
       return { success: true };
@@ -266,7 +289,7 @@ export function useLoadPaymentActions(context: LoadActionBaseContext) {
   };
 
   return {
-    collectPaymentAndStartDelivery,
+    collectPaymentAndComplete,
     saveContractDetails,
     completePickup,
   };

@@ -1,12 +1,14 @@
+import { useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, Pressable } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDriverTripDetail } from '../../../hooks/useDriverTrips';
 import { useTripActions } from '../../../hooks/useTripActions';
+import { useReminders } from '../../../hooks/useReminders';
 import { StatusBadge } from '../../../components/StatusBadge';
 import { TripDetailSkeleton, ErrorState, Icon } from '../../../components/ui';
-import { LoadCard, TripActionCard } from '../../../components/trip';
-import { findNextActionableLoad, formatTripDate, formatCurrency } from '../../../lib/tripUtils';
+import { LoadCard, TripActionCard, TripWizardProgress, UpcomingRemindersCard } from '../../../components/trip';
+import { findNextActionableLoad, sortLoadsByDeliveryOrder, formatTripDate, formatCurrency } from '../../../lib/tripUtils';
 import { colors, typography, spacing, radius } from '../../../lib/theme';
 import { dataLogger } from '../../../lib/logger';
 
@@ -14,6 +16,7 @@ export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { trip, loading, error, refetch, isRefreshing } = useDriverTripDetail(id);
   const tripActions = useTripActions(id || '', refetch);
+  const { scheduleAllTripReminders, getScheduledReminders, cancelLoadReminders } = useReminders();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -23,6 +26,28 @@ export default function TripDetailScreen() {
     isLoading: loading,
     hasTrip: !!trip,
   });
+
+  // Schedule reminders when trip data is loaded
+  useEffect(() => {
+    if (trip && !loading) {
+      scheduleAllTripReminders(trip);
+    }
+  }, [trip, loading, scheduleAllTripReminders]);
+
+  // Get reminders for this trip
+  const tripReminders = useMemo(() => {
+    if (!id) return [];
+    const allReminders = getScheduledReminders();
+    return allReminders.filter((r) => r.tripId === id);
+  }, [id, getScheduledReminders, trip]); // Re-compute when trip updates
+
+  // Cancel load reminders when a load is completed
+  const handleLoadCompleted = useCallback(
+    (loadId: string) => {
+      cancelLoadReminders(loadId);
+    },
+    [cancelLoadReminders]
+  );
 
   // Show skeleton on initial load (no cached data yet)
   const showSkeleton = loading && !isRefreshing && !trip;
@@ -37,13 +62,20 @@ export default function TripDetailScreen() {
     return origin || destination || 'No route set';
   };
 
-  // Sort loads by sequence
+  // Sort loads by delivery order (respects delivery_order field, falls back to sequence_index)
   const sortedLoads = trip?.trip_loads
-    ?.slice()
-    .sort((a, b) => a.sequence_index - b.sequence_index) || [];
+    ? sortLoadsByDeliveryOrder(trip.trip_loads)
+    : [];
 
-  // Find the next actionable load
-  const nextStep = sortedLoads.length > 0 ? findNextActionableLoad(sortedLoads) : null;
+  // Find the next actionable load with delivery order context
+  const nextStep = sortedLoads.length > 0
+    ? findNextActionableLoad(sortedLoads, trip?.current_delivery_index)
+    : null;
+
+  // For multi-load trips, determine which load is "current" for highlighting
+  const currentLoadId = nextStep?.load.loads.id || null;
+  const isMultiLoadTrip = sortedLoads.length > 1;
+  const isActiveTrip = trip?.status === 'active' || trip?.status === 'en_route';
 
   // Back button component for header
   const BackButton = () => (
@@ -146,6 +178,24 @@ export default function TripDetailScreen() {
               tripId={trip.id}
             />
 
+            {/* Upcoming Reminders - shows scheduled notifications for this trip */}
+            {tripReminders.length > 0 && (
+              <UpcomingRemindersCard
+                tripId={trip.id}
+                tripNumber={trip.trip_number}
+                reminders={tripReminders}
+              />
+            )}
+
+            {/* Trip Wizard Progress - for active multi-load trips */}
+            {isActiveTrip && isMultiLoadTrip && (
+              <TripWizardProgress
+                tripId={trip.id}
+                loads={sortedLoads}
+                currentDeliveryIndex={trip.current_delivery_index}
+              />
+            )}
+
             {/* Equipment Card - Truck & Trailer */}
             {(trip.trucks || trip.trailers) && (
               <View style={styles.equipmentCard}>
@@ -220,7 +270,12 @@ export default function TripDetailScreen() {
                 </View>
               ) : (
                 sortedLoads.map((tripLoad) => (
-                  <LoadCard key={tripLoad.id} tripLoad={tripLoad} tripId={trip.id} />
+                  <LoadCard
+                    key={tripLoad.id}
+                    tripLoad={tripLoad}
+                    tripId={trip.id}
+                    isCurrent={isActiveTrip && tripLoad.loads.id === currentLoadId}
+                  />
                 ))
               )}
             </View>

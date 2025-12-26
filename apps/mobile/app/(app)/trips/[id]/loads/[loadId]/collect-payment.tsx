@@ -31,6 +31,7 @@ import { useLoadDetail } from '../../../../../../hooks/useLoadDetail';
 import { useLoadActions } from '../../../../../../hooks/useLoadActions';
 import { useDriverTripDetail } from '../../../../../../hooks/useDriverTrips';
 import { useImageUpload } from '../../../../../../hooks/useImageUpload';
+import { useReminders } from '../../../../../../hooks/useReminders';
 import { useToast } from '../../../../../../components/ui/Toast';
 import { supabase } from '../../../../../../lib/supabase';
 import { SuccessCelebration } from '../../../../../../components/ui/SuccessCelebration';
@@ -64,6 +65,7 @@ export default function CollectPaymentScreen() {
   const { trip } = useDriverTripDetail(tripId);
   const actions = useLoadActions(loadId, refetch);
   const { uploading, progress, uploadLoadPhoto } = useImageUpload();
+  const { cancelLoadReminders } = useReminders();
 
   // Find the next load after this one (for navigation after completing delivery)
   const nextLoadInfo = useMemo(() => {
@@ -236,6 +238,11 @@ export default function CollectPaymentScreen() {
         return;
       }
 
+      // Cancel any reminders for this load (now delivered)
+      if (loadId) {
+        cancelLoadReminders(loadId);
+      }
+
       // Show success celebration
       setStep('success');
     } catch (err) {
@@ -289,6 +296,11 @@ export default function CollectPaymentScreen() {
         toast.error(result.error || 'Failed to complete delivery');
         setSubmitting(false);
         return;
+      }
+
+      // Cancel any reminders for this load (now delivered)
+      if (loadId) {
+        cancelLoadReminders(loadId);
       }
 
       setStep('success');

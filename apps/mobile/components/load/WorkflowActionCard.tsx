@@ -25,6 +25,7 @@ interface WorkflowActionCardProps {
   loadSource: 'own_customer' | 'partner' | 'marketplace' | null;
   postingType: 'pickup' | 'load' | 'live_load' | null;
   pickupCompletedAt: string | null;
+  arrivedAtDelivery: string | null;
   actions: ReturnType<typeof useLoadActions>;
   balanceDue: number | null;
   company?: { name: string; phone: string | null; trust_level?: 'trusted' | 'cod_required' } | null;
@@ -54,6 +55,7 @@ export function WorkflowActionCard({
   loadSource,
   postingType,
   pickupCompletedAt,
+  arrivedAtDelivery,
   actions,
   balanceDue,
   company,
@@ -97,6 +99,17 @@ export function WorkflowActionCard({
     const result = await action();
     if (!result.success) {
       toast.error(result.error || 'Action failed');
+    }
+  };
+
+  // Handle "I've Arrived" - marks arrival and auto-navigates to collect-payment
+  const handleMarkArrived = async () => {
+    const result = await actions.markArrived();
+    if (result.success) {
+      // Auto-navigate to collect-payment screen
+      router.push(`/trips/${tripId}/loads/${loadId}/collect-payment`);
+    } else {
+      toast.error(result.error || 'Failed to mark arrival');
     }
   };
 
@@ -167,11 +180,8 @@ export function WorkflowActionCard({
     );
   }
 
-  // Loaded → Start Delivery (ALWAYS go through payment screen first)
+  // Loaded → Start Delivery (drive to delivery location)
   if (loadStatus === 'loaded') {
-    const effectiveBalanceDue = balanceDue || 0;
-    const hasBalanceDue = effectiveBalanceDue > 0;
-
     const deliveryOrderBadge = deliveryOrder ? (
       <View style={styles.deliveryOrderBadge}>
         <Text style={styles.deliveryOrderBadgeText}>Delivery #{deliveryOrder}</Text>
@@ -203,22 +213,17 @@ export function WorkflowActionCard({
       );
     }
 
-    // ALWAYS go through payment screen - even if balance is $0, driver needs to confirm
+    // Start delivery - driver will drive to delivery location
     return (
       <View style={styles.actionCard}>
-        <Text style={styles.actionTitle}>
-          {hasBalanceDue ? 'Collect Payment & Start Delivery' : 'Confirm Payment & Start Delivery'}
-        </Text>
+        <Text style={styles.actionTitle}>Ready to Drive</Text>
         {deliveryOrderBadge}
-        <TrustLevelBadge trustLevel={trustLevel} />
         <Text style={styles.actionDescription}>
-          {hasBalanceDue
-            ? `Balance due: $${effectiveBalanceDue.toFixed(2)}`
-            : 'Confirm payment status before starting delivery'}
+          Loading complete. Start delivery when ready to drive to the customer.
         </Text>
         <TouchableOpacity
-          style={styles.primaryButton}
-          onPress={() => router.push(`/trips/${tripId}/loads/${loadId}/collect-payment`)}
+          style={[styles.primaryButton, actions.loading && styles.buttonDisabled]}
+          onPress={() => handleAction(actions.startDelivery)}
           disabled={actions.loading}
         >
           <Text style={styles.primaryButtonText}>
@@ -229,20 +234,54 @@ export function WorkflowActionCard({
     );
   }
 
-  // In Transit → Navigate to full-screen delivery completion
+  // In Transit → Two states: Not arrived yet OR Arrived (ready to collect payment)
   if (loadStatus === 'in_transit') {
+    const effectiveBalanceDue = balanceDue || 0;
+    const hasBalanceDue = effectiveBalanceDue > 0;
+    const hasArrived = !!arrivedAtDelivery;
+
+    // Not arrived yet - show "I've Arrived" button
+    if (!hasArrived) {
+      return (
+        <View style={styles.inTransitCard}>
+          <Text style={styles.inTransitEmoji}>🚛</Text>
+          <Text style={styles.inTransitTitle}>In Transit</Text>
+          <Text style={styles.inTransitDescription}>
+            Tap when you arrive at the delivery location
+          </Text>
+          <TouchableOpacity
+            style={[styles.arrivedButton, actions.loading && styles.buttonDisabled]}
+            onPress={handleMarkArrived}
+            disabled={actions.loading}
+          >
+            <Text style={styles.arrivedButtonText}>
+              {actions.loading ? 'Confirming...' : "I've Arrived"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // Arrived - show "Collect Payment" button
     return (
       <View style={styles.deliveryActionCard}>
-        <Text style={styles.deliveryEmoji}>📦</Text>
-        <Text style={styles.deliveryActionTitle}>Ready to Deliver?</Text>
+        <Text style={styles.deliveryEmoji}>📍</Text>
+        <Text style={styles.deliveryActionTitle}>
+          {hasBalanceDue ? 'Collect Payment' : 'Complete Delivery'}
+        </Text>
+        <TrustLevelBadge trustLevel={trustLevel} />
         <Text style={styles.deliveryActionDescription}>
-          Confirm when the delivery is complete
+          {hasBalanceDue
+            ? `Collect $${effectiveBalanceDue.toFixed(2)} before unloading`
+            : 'Confirm payment status to complete delivery'}
         </Text>
         <TouchableOpacity
           style={styles.completeDeliveryButton}
-          onPress={() => router.push(`/trips/${tripId}/loads/${loadId}/complete-delivery`)}
+          onPress={() => router.push(`/trips/${tripId}/loads/${loadId}/collect-payment`)}
         >
-          <Text style={styles.completeDeliveryButtonText}>Complete Delivery ✓</Text>
+          <Text style={styles.completeDeliveryButtonText}>
+            {hasBalanceDue ? `Collect $${effectiveBalanceDue.toFixed(2)}` : 'Complete Delivery'}
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -420,7 +459,45 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.8)',
     marginTop: spacing.xs,
   },
-  // Delivery Action Card
+  // In Transit Card (not yet arrived)
+  inTransitCard: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.card,
+    padding: spacing.sectionGap,
+    marginBottom: spacing.lg,
+    alignItems: 'center',
+  },
+  inTransitEmoji: {
+    fontSize: 48,
+    marginBottom: spacing.itemGap,
+  },
+  inTransitTitle: {
+    ...typography.title,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  inTransitDescription: {
+    ...typography.bodySmall,
+    color: 'rgba(255,255,255,0.85)',
+    marginBottom: spacing.sectionGap,
+    textAlign: 'center',
+  },
+  arrivedButton: {
+    backgroundColor: colors.textPrimary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.cardPadding,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+    ...shadows.md,
+  },
+  arrivedButtonText: {
+    ...typography.headline,
+    color: colors.primary,
+  },
+  // Delivery Action Card (arrived, ready for payment)
   deliveryActionCard: {
     backgroundColor: colors.success,
     borderRadius: radius.card,

@@ -3,22 +3,23 @@
  *
  * Shows the primary action for a trip based on its status:
  * - Planned: Start Trip button
- * - Active/En Route: Next step guidance or Complete Trip
+ * - Active/En Route: Next step guidance with location context or Complete Trip
  * - Completed/Settled: Completion status
  */
 
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Icon } from '../ui';
-import { TripStatus, TripLoad } from '../../types';
+import { TripStatus } from '../../types';
 import { useTripActions } from '../../hooks/useTripActions';
+import { NextLoadInfo } from '../../lib/tripUtils';
 import { colors, typography, spacing, radius } from '../../lib/theme';
 
 interface TripActionCardProps {
   status: TripStatus;
   actions: ReturnType<typeof useTripActions>;
   loadsCount: number;
-  nextStep: { load: TripLoad; action: string } | null;
+  nextStep: NextLoadInfo | null;
   tripId: string;
 }
 
@@ -64,27 +65,56 @@ export function TripActionCard({
       }
     };
 
-    // If there's a next step, show guidance to the next load
+    // If there's a next step, show guidance to the next load with location context
     if (nextStep) {
       const loadLabel = nextStep.load.loads.load_type === 'pickup' ? 'Pickup' : 'Load';
       const loadNumber = nextStep.load.loads.load_number || `${nextStep.load.sequence_index + 1}`;
+      const isDeliveryPhase = nextStep.load.loads.load_status === 'in_transit';
+      const locationToShow = isDeliveryPhase ? nextStep.deliveryLocation : nextStep.pickupLocation;
 
       return (
         <View style={styles.nextStepCard}>
           <View style={styles.nextStepHeader}>
             <Text style={styles.nextStepLabel}>NEXT STEP</Text>
+            {nextStep.isDeliveryOrderEnforced && (
+              <View style={styles.deliveryOrderTag}>
+                <Icon name="route" size="xs" color={colors.textPrimary} />
+                <Text style={styles.deliveryOrderTagText}>In Order</Text>
+              </View>
+            )}
           </View>
           <Text style={styles.nextStepTitle}>{nextStep.action}</Text>
           <Text style={styles.nextStepDescription}>
             {loadLabel} #{loadNumber}
           </Text>
+
+          {/* Location Context */}
+          <View style={styles.locationRow}>
+            <Icon name="map-pin" size="sm" color="rgba(255,255,255,0.7)" />
+            <Text style={styles.locationText}>{locationToShow}</Text>
+          </View>
+
+          {/* Route Preview for in_transit */}
+          {isDeliveryPhase && (
+            <View style={styles.routePreview}>
+              <View style={styles.routePreviewDot} />
+              <Text style={styles.routePreviewText}>{nextStep.pickupLocation}</Text>
+              <Icon name="arrow-right" size="xs" color="rgba(255,255,255,0.5)" />
+              <View style={[styles.routePreviewDot, styles.routePreviewDotEnd]} />
+              <Text style={styles.routePreviewText}>{nextStep.deliveryLocation}</Text>
+            </View>
+          )}
+
           <TouchableOpacity
             style={styles.nextStepButton}
             onPress={() =>
               router.push(`/(app)/trips/${tripId}/loads/${nextStep.load.loads.id}`)
             }
           >
-            <Text style={styles.nextStepButtonText}>Go to {loadLabel}</Text>
+            <View style={styles.nextStepButtonContent}>
+              <Text style={styles.nextStepButtonText}>Go to {loadLabel}</Text>
+              <Icon name="arrow-right" size="sm" color={colors.textPrimary} />
+            </View>
           </TouchableOpacity>
         </View>
       );
@@ -173,6 +203,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sectionGap,
   },
   nextStepHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: spacing.sm,
   },
   nextStepLabel: {
@@ -190,7 +223,56 @@ const styles = StyleSheet.create({
   nextStepDescription: {
     ...typography.subheadline,
     color: 'rgba(255,255,255,0.85)',
+    marginBottom: spacing.sm,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  locationText: {
+    ...typography.body,
+    color: 'rgba(255,255,255,0.9)',
+    fontWeight: '500',
+  },
+  routePreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
     marginBottom: spacing.lg,
+  },
+  routePreviewDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+  },
+  routePreviewDotEnd: {
+    backgroundColor: colors.success,
+  },
+  routePreviewText: {
+    ...typography.bodySmall,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  deliveryOrderTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.xs,
+  },
+  deliveryOrderTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    letterSpacing: 0.3,
   },
   nextStepButton: {
     backgroundColor: 'rgba(255,255,255,0.2)',
@@ -198,6 +280,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     minHeight: 44,
+  },
+  nextStepButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   nextStepButtonText: {
     ...typography.button,

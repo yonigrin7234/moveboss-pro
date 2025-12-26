@@ -44,6 +44,7 @@ export function LoadHeader({ load, loadId, tripId, actions, onCall, onText }: Lo
         loadSource={load.load_source}
         postingType={load.posting_type}
         pickupCompletedAt={load.pickup_completed_at}
+        arrivedAtDelivery={load.arrived_at_delivery}
         actions={actions}
         balanceDue={load.balance_due_on_delivery}
         company={load.companies}

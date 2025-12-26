@@ -2,11 +2,13 @@
  * LoadCard Component
  *
  * Displays a load within a trip with route info, status, and action indicator.
+ * Supports highlighting for the current actionable load.
  */
 
 import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBadge } from '../StatusBadge';
+import { Icon } from '../ui';
 import { TripLoad } from '../../types';
 import { getLoadAction } from '../../lib/tripUtils';
 import { colors, typography, spacing, radius } from '../../lib/theme';
@@ -14,9 +16,11 @@ import { colors, typography, spacing, radius } from '../../lib/theme';
 interface LoadCardProps {
   tripLoad: TripLoad;
   tripId: string;
+  /** Whether this load is the current actionable load in the trip */
+  isCurrent?: boolean;
 }
 
-export function LoadCard({ tripLoad, tripId }: LoadCardProps) {
+export function LoadCard({ tripLoad, tripId, isCurrent = false }: LoadCardProps) {
   const router = useRouter();
   const load = tripLoad.loads;
 
@@ -29,8 +33,10 @@ export function LoadCard({ tripLoad, tripId }: LoadCardProps) {
   };
 
   const isLiveLoad = load.load_type === 'live_load';
+  const isCompleted = load.load_status === 'delivered' || load.load_status === 'storage_completed';
   const loadLabel = getLoadLabel();
-  const loadAction = getLoadAction(load.load_status);
+  // Pass arrived_at_delivery to get the correct action for in_transit loads
+  const loadAction = getLoadAction(load.load_status, load.arrived_at_delivery);
 
   const getPickupLocation = () => {
     return [load.pickup_city, load.pickup_state].filter(Boolean).join(', ') || 'Not set';
@@ -58,12 +64,34 @@ export function LoadCard({ tripLoad, tripId }: LoadCardProps) {
 
   return (
     <TouchableOpacity
-      style={styles.loadCard}
+      style={[
+        styles.loadCard,
+        isCurrent && styles.loadCardCurrent,
+        isCompleted && styles.loadCardCompleted,
+      ]}
       onPress={() => router.push(`/(app)/trips/${tripId}/loads/${load.id}`)}
     >
+      {/* Current indicator */}
+      {isCurrent && (
+        <View style={styles.currentIndicator}>
+          <Icon name="zap" size="xs" color={colors.primary} />
+          <Text style={styles.currentIndicatorText}>NEXT</Text>
+        </View>
+      )}
+
+      {/* Completed checkmark */}
+      {isCompleted && (
+        <View style={styles.completedIndicator}>
+          <Icon name="check-circle" size="sm" color={colors.success} />
+        </View>
+      )}
+
       <View style={styles.loadHeader}>
         <View style={styles.loadTitleRow}>
-          <Text style={styles.loadNumber}>{getDisplayTitle()}</Text>
+          <Text style={[
+            styles.loadNumber,
+            isCompleted && styles.loadNumberCompleted,
+          ]}>{getDisplayTitle()}</Text>
           {isLiveLoad && (
             <View style={styles.liveBadge}>
               <Text style={styles.liveBadgeText}>LIVE</Text>
@@ -123,6 +151,42 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.cardPadding,
     marginBottom: spacing.itemGap,
+    position: 'relative',
+  },
+  loadCardCurrent: {
+    borderWidth: 2,
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+  },
+  loadCardCompleted: {
+    opacity: 0.85,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.success,
+  },
+  currentIndicator: {
+    position: 'absolute',
+    top: -8,
+    left: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxs,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.xs,
+    zIndex: 1,
+  },
+  currentIndicatorText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    letterSpacing: 0.5,
+  },
+  completedIndicator: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    zIndex: 1,
   },
   loadHeader: {
     flexDirection: 'row',
@@ -132,6 +196,9 @@ const styles = StyleSheet.create({
   },
   loadNumber: {
     ...typography.subheadline,
+  },
+  loadNumberCompleted: {
+    color: colors.textSecondary,
   },
   loadTitleRow: {
     flexDirection: 'row',

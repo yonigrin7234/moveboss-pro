@@ -172,6 +172,7 @@ export interface Load {
   loading_started_at: string | null;
   loading_finished_at: string | null;
   delivery_started_at: string | null;
+  arrived_at_delivery: string | null;
   delivery_finished_at: string | null;
   created_at: string;
   updated_at: string;

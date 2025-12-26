@@ -32,11 +32,12 @@ export interface LoadActions {
   startLoading: (startingCuft?: number, photoUrl?: string) => Promise<ActionResult>;
   finishLoading: (endingCuft?: number, photoUrl?: string) => Promise<ActionResult>;
   startDelivery: (data?: { amountCollected?: number; paymentMethod?: string }) => Promise<ActionResult>;
+  markArrived: () => Promise<ActionResult>;
   completeDelivery: () => Promise<ActionResult>;
   requiresContractDetails: () => Promise<{ required: boolean; loadSource?: string }>;
   requiresPickupCompletion: () => Promise<{ required: boolean; postingType?: string }>;
   // Payment actions
-  collectPaymentAndStartDelivery: (data: {
+  collectPaymentAndComplete: (data: {
     paymentMethod: PaymentMethod;
     amountCollected: number;
     zelleRecipient?: ZelleRecipient | null;
@@ -47,6 +48,7 @@ export interface LoadActions {
   }) => Promise<ActionResult>;
   saveContractDetails: (data: {
     contractBalanceDue: number;
+    contractRatePerCuft: number;
     contractJobNumber?: string | null;
     customerName?: string | null;
     customerPhone?: string | null;
@@ -98,6 +100,7 @@ export interface LoadActions {
   // Base actions
   checkDeliveryOrder: () => Promise<DeliveryOrderCheck>;
 }
+
 
 
 

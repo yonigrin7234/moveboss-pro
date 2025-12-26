@@ -48,6 +48,10 @@ type DriverActionPayload =
       loadId: string;
     }
   | {
+      action: 'driver_arrived';
+      loadId: string;
+    }
+  | {
       action: 'delivery_completed';
       loadId: string;
     }
@@ -161,6 +165,13 @@ export async function notifyOwnerPickupCompleted(loadId: string, actualCuft: num
 export async function notifyOwnerDeliveryStarted(loadId: string): Promise<void> {
   await sendDriverAction({
     action: 'delivery_started',
+    loadId,
+  });
+}
+
+export async function notifyOwnerDriverArrived(loadId: string): Promise<void> {
+  await sendDriverAction({
+    action: 'driver_arrived',
     loadId,
   });
 }
