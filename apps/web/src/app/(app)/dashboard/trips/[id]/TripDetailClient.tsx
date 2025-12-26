@@ -3,7 +3,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { DollarSign, AlertTriangle, Map, GripVertical, Receipt, X, MessageSquare } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import { DollarSign, AlertTriangle, Map, GripVertical, Receipt, X, MessageSquare, Pencil } from 'lucide-react';
 import { useSingleEntityUnreadCount } from '@/hooks/useEntityUnreadCounts';
 import {
   DndContext,
@@ -112,6 +113,7 @@ interface TripDetailClientProps {
     confirmDeliveryOrder: () => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
     reassignDriver: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
     reassignEquipment: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
+    updateRoute: (formData: FormData) => Promise<{ errors?: Record<string, string>; success?: boolean } | null>;
   };
 }
 
@@ -150,6 +152,15 @@ function formatPayMode(payMode: string): string {
     flat_daily_rate: 'Daily Rate',
   };
   return labels[payMode] || payMode;
+}
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return '—';
+  try {
+    return format(parseISO(dateStr), 'MMM d, yyyy');
+  } catch {
+    return dateStr;
+  }
 }
 
 // Sortable load card component
@@ -277,6 +288,10 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
     trip.trailer_id || 'unassigned'
   );
   const [isUpdatingEquipment, setIsUpdatingEquipment] = useState(false);
+
+  // Edit route state
+  const [editRouteOpen, setEditRouteOpen] = useState(false);
+  const [isUpdatingRoute, setIsUpdatingRoute] = useState(false);
 
   // Truck/trailer compatibility logic
   const selectedTruck = availableTrucks.find((t) => t.id === selectedTruckId);
@@ -482,8 +497,17 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
             <div className="lg:col-span-2 space-y-6">
               {/* Route & Schedule Card */}
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-base">Route & Schedule</CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditRouteOpen(true)}
+                    className="h-8 gap-1"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit
+                  </Button>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-2">
@@ -513,11 +537,146 @@ export function TripDetailClient({ trip, availableLoads, availableDrivers, avail
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-sm text-muted-foreground">Dates</Label>
-                      <p className="font-medium">{trip.start_date || '—'} → {trip.end_date || '—'}</p>
+                      <p className="font-medium">{formatDate(trip.start_date)} → {formatDate(trip.end_date)}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Edit Route Sheet */}
+              <Sheet open={editRouteOpen} onOpenChange={setEditRouteOpen}>
+                <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>Edit Route & Schedule</SheetTitle>
+                  </SheetHeader>
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      setIsUpdatingRoute(true);
+                      const formData = new FormData(e.currentTarget);
+                      const result = await actions.updateRoute(formData);
+                      if (result?.success) {
+                        toast({
+                          title: 'Route updated',
+                          description: 'Trip route and schedule have been updated.',
+                        });
+                        setEditRouteOpen(false);
+                      } else if (result?.errors?._form) {
+                        toast({
+                          title: 'Failed to update route',
+                          description: result.errors._form,
+                          variant: 'destructive',
+                        });
+                      }
+                      setIsUpdatingRoute(false);
+                    }}
+                    className="space-y-6 mt-6"
+                  >
+                    {/* Origin Section */}
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Origin</h3>
+                      <div className="grid gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-sm">City</Label>
+                          <Input
+                            name="origin_city"
+                            defaultValue={trip.origin_city || ''}
+                            placeholder="e.g., Miami"
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-sm">State</Label>
+                            <Input
+                              name="origin_state"
+                              defaultValue={trip.origin_state || ''}
+                              placeholder="e.g., FL"
+                              className="h-9"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-sm">ZIP Code</Label>
+                            <Input
+                              name="origin_postal_code"
+                              defaultValue={trip.origin_postal_code || ''}
+                              placeholder="e.g., 33101"
+                              className="h-9"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Destination Section */}
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Destination</h3>
+                      <div className="grid gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-sm">City</Label>
+                          <Input
+                            name="destination_city"
+                            defaultValue={trip.destination_city || ''}
+                            placeholder="e.g., Atlanta"
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-sm">State</Label>
+                            <Input
+                              name="destination_state"
+                              defaultValue={trip.destination_state || ''}
+                              placeholder="e.g., GA"
+                              className="h-9"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-sm">ZIP Code</Label>
+                            <Input
+                              name="destination_postal_code"
+                              defaultValue={trip.destination_postal_code || ''}
+                              placeholder="e.g., 30301"
+                              className="h-9"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Schedule Section */}
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Schedule</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-sm">Start Date</Label>
+                          <Input
+                            type="date"
+                            name="start_date"
+                            defaultValue={trip.start_date || ''}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-sm">End Date</Label>
+                          <Input
+                            type="date"
+                            name="end_date"
+                            defaultValue={trip.end_date || ''}
+                            className="h-9"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-border">
+                      <Button type="submit" className="w-full" disabled={isUpdatingRoute}>
+                        {isUpdatingRoute ? 'Saving...' : 'Save Route'}
+                      </Button>
+                    </div>
+                  </form>
+                </SheetContent>
+              </Sheet>
 
               {/* Assignment Card */}
               <Card>

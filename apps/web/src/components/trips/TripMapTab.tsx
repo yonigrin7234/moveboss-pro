@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Loader2, MapPin, AlertCircle, RefreshCw } from 'lucide-react';
+import { Loader2, MapPin, AlertCircle, RefreshCw, Info } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -96,12 +96,12 @@ interface SuggestionResponse {
 
 export function TripMapTab({
   tripId,
-  originCity,
-  originState,
-  originZip,
-  destinationCity,
-  destinationState,
-  destinationZip,
+  originCity: propOriginCity,
+  originState: propOriginState,
+  originZip: propOriginZip,
+  destinationCity: propDestinationCity,
+  destinationState: propDestinationState,
+  destinationZip: propDestinationZip,
   truckCapacity,
   tripLoads,
   onRequestLoad,
@@ -115,6 +115,28 @@ export function TripMapTab({
 
   // Track saved estimated miles to avoid duplicate API calls
   const savedEstimatedMilesRef = useRef<number | null>(null);
+
+  // Derive origin/destination from loads when trip fields are empty
+  // Origin: first load's pickup location
+  // Destination: last load's delivery location
+  const sortedLoads = [...tripLoads]
+    .filter((tl) => tl.load)
+    .sort((a, b) => a.sequence_index - b.sequence_index);
+
+  const firstLoad = sortedLoads[0]?.load;
+  const lastLoad = sortedLoads[sortedLoads.length - 1]?.load;
+
+  // Use trip values if available, otherwise derive from loads
+  const originCity = propOriginCity || firstLoad?.origin_city || null;
+  const originState = propOriginState || firstLoad?.origin_state || null;
+  const originZip = propOriginZip || firstLoad?.origin_zip || null;
+  const destinationCity = propDestinationCity || lastLoad?.destination_city || null;
+  const destinationState = propDestinationState || lastLoad?.destination_state || null;
+  const destinationZip = propDestinationZip || lastLoad?.destination_zip || null;
+
+  // Track if we're using derived values (for showing info message)
+  const isUsingDerivedOrigin = !propOriginCity && !!firstLoad?.origin_city;
+  const isUsingDerivedDestination = !propDestinationCity && !!lastLoad?.destination_city;
 
   // Transform trip loads to map format
   const assignedLoads: TripLoad[] = tripLoads
@@ -243,7 +265,10 @@ export function TripMapTab({
         <CardContent className="p-6 text-center">
           <MapPin className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
           <p className="text-muted-foreground">
-            Add origin and destination cities to view the trip map.
+            {tripLoads.length === 0
+              ? 'Add loads to this trip to view the route map, or set the trip origin and destination.'
+              : 'Unable to determine route. Please ensure loads have pickup and delivery locations set.'
+            }
           </p>
         </CardContent>
       </Card>
@@ -280,6 +305,17 @@ export function TripMapTab({
 
   return (
     <div className="space-y-4">
+      {/* Info banner when using derived origin/destination */}
+      {(isUsingDerivedOrigin || isUsingDerivedDestination) && (
+        <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
+          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <AlertDescription className="text-blue-700 dark:text-blue-300">
+            Route {isUsingDerivedOrigin && isUsingDerivedDestination ? 'origin and destination are' : isUsingDerivedOrigin ? 'origin is' : 'destination is'} derived from your loads.
+            {' '}You can set explicit trip endpoints in the trip settings for more control.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Controls */}
       <Card>
         <CardContent className="p-3">

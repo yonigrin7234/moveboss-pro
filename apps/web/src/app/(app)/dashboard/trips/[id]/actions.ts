@@ -58,4 +58,3 @@ export async function updateTripStatusAction(
     return { errors: { _form: error instanceof Error ? error.message : 'Failed to update status' } };
   }
 }
-

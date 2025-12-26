@@ -426,6 +426,35 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     }
   }
 
+  async function updateRouteAction(
+    formData: FormData
+  ): Promise<{ errors?: Record<string, string>; success?: boolean } | null> {
+    'use server';
+    const currentUser = await getCurrentUser();
+    if (!currentUser) return { errors: { _form: 'Not authenticated' } };
+
+    const payload = cleanFormValues(formData, [
+      'origin_city',
+      'origin_state',
+      'origin_postal_code',
+      'destination_city',
+      'destination_state',
+      'destination_postal_code',
+      'start_date',
+      'end_date',
+    ]);
+
+    try {
+      const validated = updateTripInputSchema.parse(payload);
+      await updateTrip(id, validated, currentUser.id);
+      revalidatePath(`/dashboard/trips/${id}`);
+      revalidatePath('/dashboard/trips');
+      return { success: true };
+    } catch (error) {
+      return { errors: { _form: error instanceof Error ? error.message : 'Failed to update route' } };
+    }
+  }
+
   // Filter to active trucks and trailers
   const activeTrucks = trucks.filter((t) => t.status === 'active');
   const activeTrailers = trailers.filter((t) => t.status === 'active');
@@ -457,6 +486,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
         confirmDeliveryOrder: confirmDeliveryOrderAction,
         reassignDriver: reassignDriverAction,
         reassignEquipment: reassignEquipmentAction,
+        updateRoute: updateRouteAction,
       }}
     />
   );

@@ -99,29 +99,54 @@ export async function GET(
       ownerMatch: trip.owner_id === user.id,
     });
 
-    // Geocode trip origin and destination
+    // Get current loads on the trip (with location data for derivation)
+    const { data: tripLoads } = await supabase
+      .from('trip_loads')
+      .select(`
+        sequence_index,
+        load:loads(
+          id,
+          cubic_feet,
+          pickup_city, pickup_state, pickup_postal_code,
+          delivery_city, delivery_state, delivery_postal_code
+        )
+      `)
+      .eq('trip_id', tripId)
+      .order('sequence_index', { ascending: true });
+
+    // Derive origin/destination from loads when trip fields are empty
+    const sortedLoads = (tripLoads || [])
+      .filter((tl: any) => tl.load)
+      .sort((a: any, b: any) => a.sequence_index - b.sequence_index);
+
+    const firstLoad = sortedLoads[0]?.load;
+    const lastLoad = sortedLoads[sortedLoads.length - 1]?.load;
+    const firstLoadData = Array.isArray(firstLoad) ? firstLoad[0] : firstLoad;
+    const lastLoadData = Array.isArray(lastLoad) ? lastLoad[0] : lastLoad;
+
+    // Use trip values if available, otherwise derive from loads
+    const effectiveOriginCity = trip.origin_city || firstLoadData?.pickup_city;
+    const effectiveOriginState = trip.origin_state || firstLoadData?.pickup_state;
+    const effectiveOriginZip = trip.origin_postal_code || firstLoadData?.pickup_postal_code;
+    const effectiveDestCity = trip.destination_city || lastLoadData?.delivery_city;
+    const effectiveDestState = trip.destination_state || lastLoadData?.delivery_state;
+    const effectiveDestZip = trip.destination_postal_code || lastLoadData?.delivery_postal_code;
+
+    // Geocode trip origin and destination (using derived values if needed)
     const [originResult, destResult] = await Promise.all([
-      geocodeAddress(trip.origin_city, trip.origin_state, trip.origin_postal_code),
-      geocodeAddress(trip.destination_city, trip.destination_state, trip.destination_postal_code),
+      geocodeAddress(effectiveOriginCity, effectiveOriginState, effectiveOriginZip),
+      geocodeAddress(effectiveDestCity, effectiveDestState, effectiveDestZip),
     ]);
 
     if (!originResult.success || !destResult.success) {
       return NextResponse.json({
-        error: 'Could not geocode trip locations',
+        error: 'Could not geocode trip locations. Please add loads or set trip origin/destination.',
         suggestions: [],
       });
     }
 
     const tripOrigin = originResult.coordinates!;
     const tripDest = destResult.coordinates!;
-
-    // Get current loads on the trip to calculate used capacity
-    const { data: tripLoads } = await supabase
-      .from('trip_loads')
-      .select(`
-        load:loads(id, cubic_feet)
-      `)
-      .eq('trip_id', tripId);
 
     const usedCapacity = (tripLoads || []).reduce((sum, tl) => {
       const load = Array.isArray(tl.load) ? tl.load[0] : tl.load;
@@ -254,16 +279,18 @@ export async function GET(
     return NextResponse.json({
       tripId,
       tripOrigin: {
-        city: trip.origin_city,
-        state: trip.origin_state,
-        zip: trip.origin_postal_code,
+        city: effectiveOriginCity,
+        state: effectiveOriginState,
+        zip: effectiveOriginZip,
         coords: tripOrigin,
+        isDerived: !trip.origin_city && !!firstLoadData?.pickup_city,
       },
       tripDestination: {
-        city: trip.destination_city,
-        state: trip.destination_state,
-        zip: trip.destination_postal_code,
+        city: effectiveDestCity,
+        state: effectiveDestState,
+        zip: effectiveDestZip,
         coords: tripDest,
+        isDerived: !trip.destination_city && !!lastLoadData?.delivery_city,
       },
       capacity: {
         truck: truckCapacity,
