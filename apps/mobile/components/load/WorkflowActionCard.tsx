@@ -39,10 +39,16 @@ function ActionIcon({ name, color, size = 28 }: { name: keyof typeof Ionicons.gl
 }
 
 // Trust Level Badge - subtle and refined
-function TrustBadge({ trustLevel }: { trustLevel: 'trusted' | 'cod_required' }) {
+function TrustBadge({ trustLevel, centered = false }: { trustLevel: 'trusted' | 'cod_required'; centered?: boolean }) {
   const isTrusted = trustLevel === 'trusted';
   return (
-    <View style={[styles.trustBadge, isTrusted ? styles.trustBadgeTrusted : styles.trustBadgeCod]}>
+    <View
+      style={[
+        styles.trustBadge,
+        isTrusted ? styles.trustBadgeTrusted : styles.trustBadgeCod,
+        centered && styles.trustBadgeCentered,
+      ]}
+    >
       <Ionicons
         name={isTrusted ? 'checkmark-circle' : 'alert-circle'}
         size={14}
@@ -335,13 +341,13 @@ export function WorkflowActionCard({
             <Ionicons name="location" size={32} color={colors.success} />
           </View>
           <Text style={styles.arrivedTitle}>{hasBalanceDue ? 'Collect Payment' : 'Complete Delivery'}</Text>
-          <TrustBadge trustLevel={trustLevel} />
+          <TrustBadge trustLevel={trustLevel} centered />
+          <Text style={styles.arrivedDescription}>
+            {hasBalanceDue
+              ? `Collect $${effectiveBalanceDue.toLocaleString('en-US', { minimumFractionDigits: 2 })} before unloading`
+              : 'Confirm payment status to complete delivery'}
+          </Text>
         </View>
-        <Text style={styles.arrivedDescription}>
-          {hasBalanceDue
-            ? `Collect $${effectiveBalanceDue.toLocaleString('en-US', { minimumFractionDigits: 2 })} before unloading`
-            : 'Confirm payment status to complete delivery'}
-        </Text>
         <ActionButton
           label={hasBalanceDue ? `Collect $${effectiveBalanceDue.toFixed(2)}` : 'Complete Delivery'}
           onPress={() => router.push(`/trips/${tripId}/loads/${loadId}/collect-payment`)}
@@ -406,10 +412,12 @@ const styles = StyleSheet.create({
   cardInTransit: {
     backgroundColor: colors.surface,
     borderColor: colors.primary,
+    paddingVertical: spacing.xl,
   },
   cardArrived: {
     backgroundColor: colors.surface,
     borderColor: colors.success,
+    paddingVertical: spacing.xl,
   },
   cardCompleted: {
     backgroundColor: colors.successSoft,
@@ -482,12 +490,15 @@ const styles = StyleSheet.create({
   trustBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.badge,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radius.full,
     alignSelf: 'flex-start',
     marginTop: spacing.sm,
     gap: spacing.xs,
+  },
+  trustBadgeCentered: {
+    alignSelf: 'center',
   },
   trustBadgeTrusted: {
     backgroundColor: colors.successSoft,
@@ -581,27 +592,31 @@ const styles = StyleSheet.create({
   // Arrived Card
   arrivedHeader: {
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
   arrivedIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.successSoft,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.md,
   },
   arrivedTitle: {
-    ...typography.title,
+    ...typography.headline,
+    fontSize: 20,
     color: colors.textPrimary,
     marginBottom: spacing.xs,
+    textAlign: 'center',
   },
   arrivedDescription: {
     ...typography.bodySmall,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: spacing.lg,
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.sm,
+    lineHeight: 20,
   },
 
   // Completed Card
