@@ -8,7 +8,7 @@ export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
   return (
     <NextThemesProvider
       storageKey="moveboss-theme"
-      defaultTheme="light"
+      defaultTheme="dark"
       themes={['light', 'dark']}
       enableSystem={false}
       disableTransitionOnChange={false}

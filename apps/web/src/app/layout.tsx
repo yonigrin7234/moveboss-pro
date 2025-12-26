@@ -41,17 +41,17 @@ export default function RootLayout({
                   var theme = localStorage.getItem('moveboss-theme');
                   
                   // Explicitly restrict to only 'light' or 'dark'
-                  // Convert any invalid value (including 'system', null, undefined, etc.) to 'light'
-                  if (theme === 'dark') {
-                    document.documentElement.classList.add('dark');
-                    // Ensure localStorage is set correctly
-                    localStorage.setItem('moveboss-theme', 'dark');
-                  } else {
-                    // Remove dark class and force light mode
+                  // Convert any invalid value (including 'system', null, undefined, etc.) to 'dark'
+                  if (theme === 'light') {
                     document.documentElement.classList.remove('dark');
-                    // Normalize any invalid theme value to 'light'
-                    if (theme !== 'light') {
-                      localStorage.setItem('moveboss-theme', 'light');
+                    // Ensure localStorage is set correctly
+                    localStorage.setItem('moveboss-theme', 'light');
+                  } else {
+                    // Add dark class and force dark mode
+                    document.documentElement.classList.add('dark');
+                    // Normalize any invalid theme value to 'dark'
+                    if (theme !== 'dark') {
+                      localStorage.setItem('moveboss-theme', 'dark');
                     }
                   }
                   
@@ -62,8 +62,8 @@ export default function RootLayout({
                     meta.remove();
                   }
                 } catch (e) {
-                  // Default to light mode if localStorage fails
-                  document.documentElement.classList.remove('dark');
+                  // Default to dark mode if localStorage fails
+                  document.documentElement.classList.add('dark');
                 }
               })();
             `,
@@ -71,7 +71,7 @@ export default function RootLayout({
         />
         <ThemeProvider
           attribute="class"
-          defaultTheme="light"
+          defaultTheme="dark"
           themes={['light', 'dark']}
           enableSystem={false}
           disableTransitionOnChange={false}
