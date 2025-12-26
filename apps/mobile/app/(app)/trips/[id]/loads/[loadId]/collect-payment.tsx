@@ -49,10 +49,10 @@ const PHOTO_REQUIRED_METHODS: PaymentMethod[] = ['cashier_check', 'personal_chec
 const PAYMENT_OPTIONS: { value: PaymentMethod; label: string; icon: IconName; color: string }[] = [
   { value: 'cash', label: 'Cash', icon: 'banknote', color: '#22C55E' },
   { value: 'zelle', label: 'Zelle', icon: 'phone', color: '#6366F1' },
-  { value: 'cashier_check', label: "Cashier's\nCheck", icon: 'file-text', color: '#3B82F6' },
-  { value: 'personal_check', label: 'Personal\nCheck', icon: 'file-text', color: '#0EA5E9' },
-  { value: 'money_order', label: 'Money\nOrder', icon: 'file-text', color: '#8B5CF6' },
-  { value: 'already_paid', label: 'Already\nPaid', icon: 'check-circle', color: '#71717A' },
+  { value: 'cashier_check', label: "Cashier's Check", icon: 'file-text', color: '#3B82F6' },
+  { value: 'personal_check', label: 'Personal Check', icon: 'file-text', color: '#0EA5E9' },
+  { value: 'money_order', label: 'Money Order', icon: 'file-text', color: '#8B5CF6' },
+  { value: 'already_paid', label: 'Already Paid', icon: 'check-circle', color: '#71717A' },
 ];
 
 const ZELLE_OPTIONS = [
@@ -717,7 +717,7 @@ export default function CollectPaymentScreen() {
               <View style={styles.confirmRow}>
                 <Text style={styles.confirmLabel}>Method</Text>
                 <Text style={styles.confirmValue}>
-                  {PAYMENT_OPTIONS.find((p) => p.value === paymentMethod)?.label.replace('\n', ' ')}
+                  {PAYMENT_OPTIONS.find((p) => p.value === paymentMethod)?.label}
                   {zelleRecipient && ` (to ${ZELLE_OPTIONS.find((z) => z.value === zelleRecipient)?.label})`}
                 </Text>
               </View>
@@ -937,28 +937,24 @@ const styles = StyleSheet.create({
   paymentGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: spacing.md,
+    gap: spacing.md,
   },
   paymentButton: {
-    width: '31%',
+    width: '47%',
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.sm,
-    minHeight: 100,
-    ...shadows.sm,
+    paddingHorizontal: spacing.md,
   },
   paymentLabel: {
-    ...typography.caption,
+    ...typography.bodySmall,
     color: colors.textPrimary,
     marginTop: spacing.sm,
     textAlign: 'center',
     fontWeight: '600',
-    lineHeight: 16,
   },
   photoSubtitle: {
     ...typography.body,
