@@ -848,12 +848,12 @@ const styles = StyleSheet.create({
   paymentGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.lg,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    rowGap: spacing.lg,
   },
   paymentButton: {
-    width: '45%',
-    aspectRatio: 1.2,
+    width: '48%',
+    aspectRatio: 1,
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
     borderWidth: 2,
