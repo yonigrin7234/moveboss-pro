@@ -2,8 +2,12 @@
 import 'react-native-reanimated';
 
 import { Slot, useRouter, useSegments, useRootNavigationState } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
+
+// Prevent the splash screen from auto-hiding
+SplashScreen.preventAutoHideAsync();
 import {
   useFonts,
   Inter_400Regular,
@@ -102,19 +106,21 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
-  // Show loading while fonts are loading
+  // Hide splash screen once fonts are loaded
+  const onLayoutRootView = useCallback(async () => {
+    if (fontsLoaded) {
+      // Small delay to ensure smooth transition
+      await SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  // Keep splash screen visible while fonts are loading
   if (!fontsLoaded) {
-    return (
-      <View style={styles.loadingContainer}>
-        <View style={styles.logoContainer}>
-          <Logo size={80} />
-        </View>
-      </View>
-    );
+    return null;
   }
 
   return (
-    <GestureHandlerRootView style={styles.gestureRoot}>
+    <GestureHandlerRootView style={styles.gestureRoot} onLayout={onLayoutRootView}>
       <SafeAreaProvider>
         <AuthProvider>
           <OwnerProvider>
