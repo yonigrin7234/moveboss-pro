@@ -22,7 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 
 interface BalanceDispute {
   id: string;
@@ -101,8 +101,21 @@ export function BalanceDisputeCard({
         return;
       }
 
-      // Success - refresh and notify parent
+      // Success - show toast, close dialog, refresh
       setShowUpdateDialog(false);
+      setIsResolving(false);
+
+      const successMessage = resolutionType === 'balance_updated'
+        ? `Balance updated to $${parseFloat(newBalance).toFixed(2)}. Driver notified.`
+        : resolutionType === 'confirmed_zero'
+        ? 'Balance confirmed as $0. Driver notified.'
+        : 'Dispute dismissed. Driver notified.';
+
+      toast({
+        title: 'Dispute Resolved',
+        description: successMessage,
+      });
+
       router.refresh();
       onResolved?.();
     } catch (err) {
@@ -238,6 +251,12 @@ export function BalanceDisputeCard({
                 rows={2}
               />
             </div>
+
+            {error && (
+              <div className="rounded-md bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-600 dark:text-red-400">
+                {error}
+              </div>
+            )}
           </div>
 
           <DialogFooter>
