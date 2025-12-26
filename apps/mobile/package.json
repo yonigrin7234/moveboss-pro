@@ -9,6 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@bacons/apple-targets": "^3.0.6",
     "@expo-google-fonts/inter": "^0.4.2",
     "@gorhom/bottom-sheet": "^5.2.7",
     "@react-native-async-storage/async-storage": "^2.2.0",

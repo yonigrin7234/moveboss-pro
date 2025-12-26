@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { useDriverTripDetail } from '../../../hooks/useDriverTrips';
 import { useTripActions } from '../../../hooks/useTripActions';
 import { useReminders } from '../../../hooks/useReminders';
+import { useLiveActivity } from '../../../hooks/useLiveActivity';
 import { StatusBadge } from '../../../components/StatusBadge';
 import { TripDetailSkeleton, ErrorState, Icon } from '../../../components/ui';
 import { LoadCard, TripActionCard, TripMetrics, TripWizardProgress, UpcomingRemindersCard } from '../../../components/trip';
@@ -77,6 +78,20 @@ export default function TripDetailScreen() {
   const currentLoadId = nextStep?.load.loads.id || null;
   const isMultiLoadTrip = sortedLoads.length > 1;
   const isActiveTrip = trip?.status === 'active' || trip?.status === 'en_route';
+
+  // Find the current load index for Live Activity
+  const currentLoadIndex = sortedLoads.findIndex(
+    (tl) => tl.loads.id === currentLoadId
+  );
+
+  // iOS Live Activity - shows trip progress on Lock Screen and Dynamic Island
+  const liveActivity = useLiveActivity({
+    tripId: id || '',
+    tripName: trip?.trip_number ? `Trip #${trip.trip_number}` : 'Trip',
+    tripStatus: trip?.status || 'planned',
+    loads: sortedLoads,
+    currentLoadIndex: currentLoadIndex >= 0 ? currentLoadIndex : null,
+  });
 
   // Compute trip summary for metrics and completion screen
   const tripSummary = useMemo(() => {
