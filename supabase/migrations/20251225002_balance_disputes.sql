@@ -100,7 +100,6 @@ CREATE POLICY "Workspace members can view workspace disputes"
       JOIN company_memberships cm ON cm.company_id = c.id
       WHERE l.id = load_balance_disputes.load_id
         AND cm.user_id = auth.uid()
-        AND cm.status = 'active'
     )
   );
 
@@ -117,7 +116,6 @@ CREATE POLICY "Workspace members can resolve disputes"
       JOIN company_memberships cm ON cm.company_id = c.id
       WHERE l.id = load_balance_disputes.load_id
         AND cm.user_id = auth.uid()
-        AND cm.status = 'active'
     )
   )
   WITH CHECK (
