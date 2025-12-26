@@ -1,18 +1,14 @@
 /**
  * WorkflowActionCard Component
  *
- * Displays the appropriate action card based on load status.
- * Handles the entire load lifecycle: pending → accepted → loading → loaded → in_transit → delivered
+ * Premium action card that guides drivers through the load lifecycle.
+ * Design inspired by flight apps - clear, focused, and beautiful.
  */
 
 import { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useLoadActions } from '../../hooks/useLoadActions';
 import { useToast } from '../ui';
 import { LoadStatus } from '../../types';
@@ -33,18 +29,79 @@ interface WorkflowActionCardProps {
   loadUpdatedAt: string;
 }
 
-// Trust Level Badge
-function TrustLevelBadge({ trustLevel }: { trustLevel: 'trusted' | 'cod_required' }) {
+// Icon component for action cards
+function ActionIcon({ name, color, size = 28 }: { name: keyof typeof Ionicons.glyphMap; color: string; size?: number }) {
+  return (
+    <View style={[styles.iconContainer, { backgroundColor: `${color}15` }]}>
+      <Ionicons name={name} size={size} color={color} />
+    </View>
+  );
+}
+
+// Trust Level Badge - subtle and refined
+function TrustBadge({ trustLevel }: { trustLevel: 'trusted' | 'cod_required' }) {
   const isTrusted = trustLevel === 'trusted';
   return (
-    <View style={[
-      styles.trustBadge,
-      isTrusted ? styles.trustBadgeTrusted : styles.trustBadgeCod
-    ]}>
-      <Text style={styles.trustBadgeText}>
-        {isTrusted ? '✓ Trusted Company' : '⚠ Verify Before Unload'}
+    <View style={[styles.trustBadge, isTrusted ? styles.trustBadgeTrusted : styles.trustBadgeCod]}>
+      <Ionicons
+        name={isTrusted ? 'checkmark-circle' : 'alert-circle'}
+        size={14}
+        color={isTrusted ? colors.success : colors.warning}
+      />
+      <Text style={[styles.trustBadgeText, { color: isTrusted ? colors.success : colors.warning }]}>
+        {isTrusted ? 'Trusted' : 'Verify Before Unload'}
       </Text>
     </View>
+  );
+}
+
+// Delivery Order Badge
+function DeliveryOrderBadge({ order }: { order: number }) {
+  return (
+    <View style={styles.deliveryBadge}>
+      <Text style={styles.deliveryBadgeText}>Delivery #{order}</Text>
+    </View>
+  );
+}
+
+// Primary Action Button
+function ActionButton({
+  label,
+  onPress,
+  loading,
+  variant = 'primary',
+  icon,
+}: {
+  label: string;
+  onPress: () => void;
+  loading?: boolean;
+  variant?: 'primary' | 'success' | 'warning';
+  icon?: keyof typeof Ionicons.glyphMap;
+}) {
+  const buttonStyles = {
+    primary: { bg: colors.primary, text: colors.white, shadow: shadows.glow },
+    success: { bg: colors.success, text: colors.white, shadow: shadows.glowSuccess },
+    warning: { bg: colors.warning, text: colors.textInverse, shadow: shadows.none },
+  };
+
+  const style = buttonStyles[variant];
+
+  return (
+    <TouchableOpacity
+      style={[styles.actionButton, { backgroundColor: style.bg }, style.shadow, loading && styles.buttonDisabled]}
+      onPress={onPress}
+      disabled={loading}
+      activeOpacity={0.8}
+    >
+      {loading ? (
+        <ActivityIndicator color={style.text} size="small" />
+      ) : (
+        <View style={styles.buttonContent}>
+          {icon && <Ionicons name={icon} size={20} color={style.text} style={styles.buttonIcon} />}
+          <Text style={[styles.actionButtonText, { color: style.text }]}>{label}</Text>
+        </View>
+      )}
+    </TouchableOpacity>
   );
 }
 
@@ -78,8 +135,8 @@ export function WorkflowActionCard({
   // Check delivery order when status is 'loaded' or when load/trip is updated
   useEffect(() => {
     if (loadStatus === 'loaded') {
-      setDeliveryOrderCheck(prev => ({ ...prev, checking: true }));
-      actions.checkDeliveryOrder().then(result => {
+      setDeliveryOrderCheck((prev) => ({ ...prev, checking: true }));
+      actions.checkDeliveryOrder().then((result) => {
         setDeliveryOrderCheck({
           allowed: result.allowed,
           reason: result.reason,
@@ -95,7 +152,8 @@ export function WorkflowActionCard({
   const requiresPickupCompletion = postingType === 'pickup' && !pickupCompletedAt;
 
   // Check if this load requires contract details entry after loading
-  const requiresContractDetails = (loadSource === 'partner' || loadSource === 'marketplace') && !requiresPickupCompletion;
+  const requiresContractDetails =
+    (loadSource === 'partner' || loadSource === 'marketplace') && !requiresPickupCompletion;
 
   const handleAction = async (action: () => Promise<{ success: boolean; error?: string }>) => {
     const result = await action();
@@ -108,7 +166,6 @@ export function WorkflowActionCard({
   const handleMarkArrived = async () => {
     const result = await actions.markArrived();
     if (result.success) {
-      // Auto-navigate to collect-payment screen
       router.push(`/trips/${tripId}/loads/${loadId}/collect-payment`);
     } else {
       toast.error(result.error || 'Failed to mark arrival');
@@ -118,173 +175,179 @@ export function WorkflowActionCard({
   // Pending → Accept
   if (loadStatus === 'pending') {
     return (
-      <View style={styles.actionCard}>
-        <Text style={styles.actionTitle}>Accept Load</Text>
-        <Text style={styles.actionDescription}>
-          Review the load details and accept when ready
-        </Text>
-        <TouchableOpacity
-          style={[styles.primaryButton, actions.loading && styles.buttonDisabled]}
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <ActionIcon name="document-text-outline" color={colors.warning} />
+          <View style={styles.cardHeaderText}>
+            <Text style={styles.cardTitle}>Review & Accept</Text>
+            <Text style={styles.cardSubtitle}>New load assignment</Text>
+          </View>
+        </View>
+        <Text style={styles.cardDescription}>Review the load details and confirm when ready to proceed.</Text>
+        <ActionButton
+          label={actions.loading ? 'Accepting...' : 'Accept Load'}
           onPress={() => handleAction(actions.acceptLoad)}
-          disabled={actions.loading}
-        >
-          <Text style={styles.primaryButtonText}>
-            {actions.loading ? 'Accepting...' : 'Accept Load'}
-          </Text>
-        </TouchableOpacity>
+          loading={actions.loading}
+          icon="checkmark-circle-outline"
+        />
       </View>
     );
   }
 
-  // Accepted → Start Loading (navigate to full-screen experience)
+  // Accepted → Start Loading
   if (loadStatus === 'accepted') {
     return (
-      <View style={styles.actionCard}>
-        <Text style={styles.actionTitle}>Ready to Load</Text>
-        <Text style={styles.actionDescription}>
-          Enter starting CUFT and take a photo of the truck
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <ActionIcon name="cube-outline" color={colors.info} />
+          <View style={styles.cardHeaderText}>
+            <Text style={styles.cardTitle}>Ready to Load</Text>
+            <Text style={styles.cardSubtitle}>Begin pickup process</Text>
+          </View>
+        </View>
+        <Text style={styles.cardDescription}>
+          You'll enter starting CUFT and take a photo of the truck before loading.
         </Text>
-        <TouchableOpacity
-          style={styles.primaryButton}
+        <ActionButton
+          label="Start Loading"
           onPress={() => router.push(`/trips/${tripId}/loads/${loadId}/start-loading`)}
-        >
-          <Text style={styles.primaryButtonText}>Start Loading</Text>
-        </TouchableOpacity>
+          icon="arrow-forward"
+        />
       </View>
     );
   }
 
-  // Loading → Finish Loading (navigate to full-screen experience)
+  // Loading → Finish Loading
   if (loadStatus === 'loading') {
     return (
-      <View style={styles.actionCard}>
-        <Text style={styles.actionTitle}>Loading in Progress</Text>
-        <Text style={styles.actionDescription}>
-          When done, enter ending CUFT and take a photo of the loading report
+      <View style={[styles.card, styles.cardActive]}>
+        <View style={styles.cardHeader}>
+          <View style={[styles.iconContainer, styles.iconPulse]}>
+            <Ionicons name="cube" size={28} color={colors.primary} />
+          </View>
+          <View style={styles.cardHeaderText}>
+            <Text style={styles.cardTitle}>Loading in Progress</Text>
+            <Text style={styles.cardSubtitle}>Take your time</Text>
+          </View>
+        </View>
+        <Text style={styles.cardDescription}>
+          When finished, enter ending CUFT and photograph the loading report.
         </Text>
-        <TouchableOpacity
-          style={styles.primaryButton}
+        <ActionButton
+          label="Finish Loading"
           onPress={() => router.push(`/trips/${tripId}/loads/${loadId}/finish-loading`)}
-        >
-          <Text style={styles.primaryButtonText}>Finish Loading</Text>
-        </TouchableOpacity>
-        {requiresPickupCompletion && (
-          <Text style={styles.contractDetailsHint}>
-            You'll complete pickup details next
-          </Text>
-        )}
-        {requiresContractDetails && !requiresPickupCompletion && (
-          <Text style={styles.contractDetailsHint}>
-            You'll enter contract details next
+          icon="checkmark-done"
+        />
+        {(requiresPickupCompletion || requiresContractDetails) && (
+          <Text style={styles.nextStepHint}>
+            <Ionicons name="information-circle" size={14} color={colors.textMuted} />{' '}
+            {requiresPickupCompletion ? "You'll complete pickup details next" : "You'll enter contract details next"}
           </Text>
         )}
       </View>
     );
   }
 
-  // Loaded → Start Delivery (drive to delivery location)
+  // Loaded → Start Delivery
   if (loadStatus === 'loaded') {
-    const deliveryOrderBadge = deliveryOrder ? (
-      <View style={styles.deliveryOrderBadge}>
-        <Text style={styles.deliveryOrderBadgeText}>Delivery #{deliveryOrder}</Text>
-      </View>
-    ) : null;
-
     if (deliveryOrderCheck.checking) {
       return (
-        <View style={styles.actionCard}>
-          <Text style={styles.actionTitle}>Checking delivery order...</Text>
-          {deliveryOrderBadge}
+        <View style={styles.card}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color={colors.primary} size="small" />
+            <Text style={styles.loadingText}>Checking delivery order...</Text>
+          </View>
         </View>
       );
     }
 
     if (!deliveryOrderCheck.allowed) {
       return (
-        <View style={[styles.actionCard, styles.blockedCard]}>
-          <View style={styles.blockedHeader}>
-            <Text style={styles.blockedIcon}>🔒</Text>
-            <Text style={styles.blockedTitle}>Delivery Locked</Text>
+        <View style={[styles.card, styles.cardBlocked]}>
+          <View style={styles.cardHeader}>
+            <ActionIcon name="lock-closed" color={colors.textMuted} />
+            <View style={styles.cardHeaderText}>
+              <Text style={styles.cardTitle}>Delivery Locked</Text>
+              {deliveryOrder && <DeliveryOrderBadge order={deliveryOrder} />}
+            </View>
           </View>
-          {deliveryOrderBadge}
-          <Text style={styles.blockedReason}>{deliveryOrderCheck.reason}</Text>
-          <Text style={styles.blockedHint}>
-            Loads must be delivered in order. Complete the earlier delivery first.
-          </Text>
+          <View style={styles.blockedContent}>
+            <Text style={styles.blockedReason}>{deliveryOrderCheck.reason}</Text>
+            <Text style={styles.blockedHint}>Complete earlier deliveries first to unlock this one.</Text>
+          </View>
         </View>
       );
     }
 
-    // Start delivery - driver will drive to delivery location
     return (
-      <View style={styles.actionCard}>
-        <Text style={styles.actionTitle}>Ready to Drive</Text>
-        {deliveryOrderBadge}
-        <Text style={styles.actionDescription}>
-          Loading complete. Start delivery when ready to drive to the customer.
-        </Text>
-        <TouchableOpacity
-          style={[styles.primaryButton, actions.loading && styles.buttonDisabled]}
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <ActionIcon name="navigate" color={colors.success} />
+          <View style={styles.cardHeaderText}>
+            <Text style={styles.cardTitle}>Ready for Delivery</Text>
+            {deliveryOrder && <DeliveryOrderBadge order={deliveryOrder} />}
+          </View>
+        </View>
+        <Text style={styles.cardDescription}>Loading complete. Start delivery when you're ready to drive.</Text>
+        <ActionButton
+          label={actions.loading ? 'Starting...' : 'Start Delivery'}
           onPress={() => handleAction(actions.startDelivery)}
-          disabled={actions.loading}
-        >
-          <Text style={styles.primaryButtonText}>
-            {actions.loading ? 'Starting...' : 'Start Delivery'}
-          </Text>
-        </TouchableOpacity>
+          loading={actions.loading}
+          variant="success"
+          icon="navigate"
+        />
       </View>
     );
   }
 
-  // In Transit → Two states: Not arrived yet OR Arrived (ready to collect payment)
+  // In Transit
   if (loadStatus === 'in_transit') {
     const effectiveBalanceDue = balanceDue || 0;
     const hasBalanceDue = effectiveBalanceDue > 0;
     const hasArrived = !!arrivedAtDelivery;
 
-    // Not arrived yet - show "I've Arrived" button
+    // Not arrived yet
     if (!hasArrived) {
       return (
-        <View style={styles.inTransitCard}>
-          <Text style={styles.inTransitEmoji}>🚛</Text>
-          <Text style={styles.inTransitTitle}>In Transit</Text>
-          <Text style={styles.inTransitDescription}>
-            Tap when you arrive at the delivery location
-          </Text>
-          <TouchableOpacity
-            style={[styles.arrivedButton, actions.loading && styles.buttonDisabled]}
+        <View style={[styles.card, styles.cardInTransit]}>
+          <View style={styles.transitHeader}>
+            <View style={styles.transitIconContainer}>
+              <Ionicons name="car" size={32} color={colors.primary} />
+            </View>
+            <Text style={styles.transitTitle}>In Transit</Text>
+            <Text style={styles.transitSubtitle}>Driving to delivery location</Text>
+          </View>
+          <ActionButton
+            label={actions.loading ? 'Confirming...' : "I've Arrived"}
             onPress={handleMarkArrived}
-            disabled={actions.loading}
-          >
-            <Text style={styles.arrivedButtonText}>
-              {actions.loading ? 'Confirming...' : "I've Arrived"}
-            </Text>
-          </TouchableOpacity>
+            loading={actions.loading}
+            icon="location"
+          />
         </View>
       );
     }
 
-    // Arrived - show "Collect Payment" button
+    // Arrived - ready for payment/completion
     return (
-      <View style={styles.deliveryActionCard}>
-        <Text style={styles.deliveryEmoji}>📍</Text>
-        <Text style={styles.deliveryActionTitle}>
-          {hasBalanceDue ? 'Collect Payment' : 'Complete Delivery'}
-        </Text>
-        <TrustLevelBadge trustLevel={trustLevel} />
-        <Text style={styles.deliveryActionDescription}>
+      <View style={[styles.card, styles.cardArrived]}>
+        <View style={styles.arrivedHeader}>
+          <View style={styles.arrivedIconContainer}>
+            <Ionicons name="location" size={32} color={colors.success} />
+          </View>
+          <Text style={styles.arrivedTitle}>{hasBalanceDue ? 'Collect Payment' : 'Complete Delivery'}</Text>
+          <TrustBadge trustLevel={trustLevel} />
+        </View>
+        <Text style={styles.arrivedDescription}>
           {hasBalanceDue
-            ? `Collect $${effectiveBalanceDue.toFixed(2)} before unloading`
+            ? `Collect $${effectiveBalanceDue.toLocaleString('en-US', { minimumFractionDigits: 2 })} before unloading`
             : 'Confirm payment status to complete delivery'}
         </Text>
-        <TouchableOpacity
-          style={styles.completeDeliveryButton}
+        <ActionButton
+          label={hasBalanceDue ? `Collect $${effectiveBalanceDue.toFixed(2)}` : 'Complete Delivery'}
           onPress={() => router.push(`/trips/${tripId}/loads/${loadId}/collect-payment`)}
-        >
-          <Text style={styles.completeDeliveryButtonText}>
-            {hasBalanceDue ? `Collect $${effectiveBalanceDue.toFixed(2)}` : 'Complete Delivery'}
-          </Text>
-        </TouchableOpacity>
+          variant="success"
+          icon={hasBalanceDue ? 'cash' : 'checkmark-circle'}
+        />
       </View>
     );
   }
@@ -292,11 +355,14 @@ export function WorkflowActionCard({
   // Delivered
   if (loadStatus === 'delivered') {
     return (
-      <View style={[styles.actionCard, styles.completedCard]}>
-        <Text style={styles.completedTitle}>Delivered</Text>
-        <Text style={styles.completedDescription}>
-          This load has been completed
-        </Text>
+      <View style={[styles.card, styles.cardCompleted]}>
+        <View style={styles.completedContent}>
+          <View style={styles.completedIconContainer}>
+            <Ionicons name="checkmark-circle" size={40} color={colors.success} />
+          </View>
+          <Text style={styles.completedTitle}>Delivered</Text>
+          <Text style={styles.completedSubtitle}>This load has been completed successfully</Text>
+        </View>
       </View>
     );
   }
@@ -304,11 +370,14 @@ export function WorkflowActionCard({
   // Storage completed
   if (loadStatus === 'storage_completed') {
     return (
-      <View style={[styles.actionCard, styles.completedCard]}>
-        <Text style={styles.completedTitle}>In Storage</Text>
-        <Text style={styles.completedDescription}>
-          This load is in storage
-        </Text>
+      <View style={[styles.card, styles.cardCompleted]}>
+        <View style={styles.completedContent}>
+          <View style={styles.completedIconContainer}>
+            <Ionicons name="cube" size={40} color={colors.info} />
+          </View>
+          <Text style={styles.completedTitle}>In Storage</Text>
+          <Text style={styles.completedSubtitle}>This load is safely stored</Text>
+        </View>
       </View>
     );
   }
@@ -317,225 +386,240 @@ export function WorkflowActionCard({
 }
 
 const styles = StyleSheet.create({
-  actionCard: {
-    backgroundColor: colors.primary,
+  // Base Card
+  card: {
+    backgroundColor: colors.surface,
     borderRadius: radius.card,
     padding: spacing.cardPaddingLarge,
     marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  actionTitle: {
-    ...typography.headline,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
+  cardActive: {
+    borderColor: colors.primary,
+    borderWidth: 1,
   },
-  actionDescription: {
-    ...typography.bodySmall,
-    color: 'rgba(255,255,255,0.8)',
-    marginBottom: spacing.lg,
+  cardBlocked: {
+    backgroundColor: colors.surfaceElevated,
+    borderColor: colors.border,
   },
-  input: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: radius.sm,
-    padding: spacing.md,
-    ...typography.body,
-    color: colors.textPrimary,
-    marginBottom: spacing.lg,
-    minHeight: 44,
+  cardInTransit: {
+    backgroundColor: colors.surface,
+    borderColor: colors.primary,
   },
-  photoButton: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: radius.sm,
-    padding: spacing.cardPadding,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.sm,
-    minHeight: 80,
+  cardArrived: {
+    backgroundColor: colors.surface,
+    borderColor: colors.success,
   },
-  photoButtonText: {
-    ...typography.bodySmall,
-    color: 'rgba(255,255,255,0.8)',
-    fontWeight: '500',
+  cardCompleted: {
+    backgroundColor: colors.successSoft,
+    borderColor: colors.success,
   },
-  photoPreview: {
-    width: '100%',
-    height: 120,
-    borderRadius: radius.sm,
-  },
-  removePhotoText: {
-    ...typography.bodySmall,
-    color: colors.error,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  primaryButton: {
-    backgroundColor: colors.textPrimary,
-    borderRadius: radius.md,
-    padding: spacing.cardPadding,
-    alignItems: 'center',
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  primaryButtonText: {
-    ...typography.button,
-    color: colors.primary,
-  },
-  contractDetailsHint: {
-    ...typography.caption,
-    color: 'rgba(255,255,255,0.7)',
-    textAlign: 'center',
-    marginTop: spacing.itemGap,
-    fontStyle: 'italic',
-  },
-  // Trust Badge
-  trustBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.itemGap,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.card,
-    marginBottom: spacing.itemGap,
-  },
-  trustBadgeTrusted: {
-    backgroundColor: 'rgba(16, 185, 129, 0.9)',
-  },
-  trustBadgeCod: {
-    backgroundColor: 'rgba(245, 158, 11, 0.9)',
-  },
-  trustBadgeText: {
-    ...typography.label,
-    color: colors.textPrimary,
-  },
-  // Delivery Order Badge
-  deliveryOrderBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.md,
-    marginBottom: spacing.sm,
-  },
-  deliveryOrderBadgeText: {
-    ...typography.caption,
-    color: colors.textPrimary,
-  },
-  // Blocked Card
-  blockedCard: {
-    backgroundColor: colors.borderLight,
-  },
-  blockedHeader: {
+
+  // Card Header
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
-  blockedIcon: {
-    fontSize: 20,
-    marginRight: spacing.sm,
+  cardHeaderText: {
+    flex: 1,
+    marginLeft: spacing.md,
   },
-  blockedTitle: {
+  cardTitle: {
     ...typography.headline,
     color: colors.textPrimary,
+  },
+  cardSubtitle: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  cardDescription: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.lg,
+    lineHeight: 20,
+  },
+
+  // Icon Container
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconPulse: {
+    backgroundColor: colors.primarySoft,
+  },
+
+  // Action Button
+  actionButton: {
+    borderRadius: radius.button,
+    paddingVertical: spacing.md + 2,
+    paddingHorizontal: spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 50,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  buttonIcon: {
+    marginRight: spacing.sm,
+  },
+  actionButtonText: {
+    ...typography.button,
+    fontWeight: '600',
+  },
+
+  // Trust Badge
+  trustBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.badge,
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  trustBadgeTrusted: {
+    backgroundColor: colors.successSoft,
+  },
+  trustBadgeCod: {
+    backgroundColor: colors.warningSoft,
+  },
+  trustBadgeText: {
+    ...typography.caption,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // Delivery Badge
+  deliveryBadge: {
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.badge,
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs,
+  },
+  deliveryBadgeText: {
+    ...typography.caption,
+    fontSize: 11,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+
+  // Blocked Card
+  blockedContent: {
+    marginTop: spacing.sm,
   },
   blockedReason: {
     ...typography.body,
     color: colors.warning,
-    marginBottom: spacing.sm,
     fontWeight: '500',
+    marginBottom: spacing.sm,
   },
   blockedHint: {
-    ...typography.label,
-    color: 'rgba(255,255,255,0.6)',
-    lineHeight: 18,
+    ...typography.bodySmall,
+    color: colors.textMuted,
   },
+
+  // Loading State
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.lg,
+    gap: spacing.md,
+  },
+  loadingText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+
+  // Next Step Hint
+  nextStepHint: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    fontStyle: 'italic',
+  },
+
+  // In Transit Card
+  transitHeader: {
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  transitIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.primarySoft,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  transitTitle: {
+    ...typography.title,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  transitSubtitle: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+
+  // Arrived Card
+  arrivedHeader: {
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  arrivedIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.successSoft,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  arrivedTitle: {
+    ...typography.title,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  arrivedDescription: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+
   // Completed Card
-  completedCard: {
-    backgroundColor: colors.success,
+  completedContent: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+  },
+  completedIconContainer: {
+    marginBottom: spacing.md,
   },
   completedTitle: {
     ...typography.headline,
-    color: colors.textPrimary,
-  },
-  completedDescription: {
-    ...typography.bodySmall,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: spacing.xs,
-  },
-  // In Transit Card (not yet arrived)
-  inTransitCard: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.card,
-    padding: spacing.sectionGap,
-    marginBottom: spacing.lg,
-    alignItems: 'center',
-  },
-  inTransitEmoji: {
-    fontSize: 48,
-    marginBottom: spacing.itemGap,
-  },
-  inTransitTitle: {
-    ...typography.title,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-    textAlign: 'center',
-  },
-  inTransitDescription: {
-    ...typography.bodySmall,
-    color: 'rgba(255,255,255,0.85)',
-    marginBottom: spacing.sectionGap,
-    textAlign: 'center',
-  },
-  arrivedButton: {
-    backgroundColor: colors.textPrimary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.cardPadding,
-    paddingHorizontal: 32,
-    alignItems: 'center',
-    minHeight: 44,
-    justifyContent: 'center',
-    ...shadows.md,
-  },
-  arrivedButtonText: {
-    ...typography.headline,
-    color: colors.primary,
-  },
-  // Delivery Action Card (arrived, ready for payment)
-  deliveryActionCard: {
-    backgroundColor: colors.success,
-    borderRadius: radius.card,
-    padding: spacing.sectionGap,
-    marginBottom: spacing.lg,
-    alignItems: 'center',
-  },
-  deliveryEmoji: {
-    fontSize: 48,
-    marginBottom: spacing.itemGap,
-  },
-  deliveryActionTitle: {
-    ...typography.title,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-    textAlign: 'center',
-  },
-  deliveryActionDescription: {
-    ...typography.bodySmall,
-    color: 'rgba(255,255,255,0.85)',
-    marginBottom: spacing.sectionGap,
-    textAlign: 'center',
-  },
-  completeDeliveryButton: {
-    backgroundColor: colors.textPrimary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.cardPadding,
-    paddingHorizontal: 32,
-    alignItems: 'center',
-    minHeight: 44,
-    justifyContent: 'center',
-    ...shadows.md,
-  },
-  completeDeliveryButtonText: {
-    ...typography.headline,
     color: colors.success,
+    marginBottom: spacing.xs,
+  },
+  completedSubtitle: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
   },
 });
 
