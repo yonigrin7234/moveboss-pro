@@ -91,7 +91,7 @@ export function getNextAction(trips: TripWithLoads[]): NextAction {
 
       // Check if all loads are delivered - trip can be completed
       const allDelivered = trip.trip_loads.every(
-        (tl) => tl.loads.load_status === 'delivered'
+        (tl) => tl.loads.load_status === 'delivered' || tl.loads.load_status === 'storage_completed'
       );
       if (allDelivered && trip.trip_loads.length > 0) {
         actions.push(createCompleteTripAction(trip));
@@ -160,7 +160,8 @@ function getLoadAction(
   tripLoad: TripLoad,
   load: Load
 ): NextAction | null {
-  const status = load.load_status;
+  // Default to 'pending' if load_status is null/undefined (handles legacy data)
+  const status = load.load_status || 'pending';
 
   switch (status) {
     case 'pending':
