@@ -23,6 +23,8 @@ import type { Company } from '@/data/companies';
 import type { Driver } from '@/data/drivers';
 import type { Truck, Trailer } from '@/data/fleet';
 import type { AuditLogEntry } from '@/lib/audit';
+import type { BalanceDispute } from '@/data/balance-disputes';
+import { BalanceDisputeCard } from '@/components/loads/BalanceDisputeCard';
 
 interface Trip {
   id: string;
@@ -44,6 +46,7 @@ interface LoadDetailClientProps {
   canPostToMarketplace: boolean;
   isOwnCompanyLoad: boolean;
   initialFormData: Record<string, unknown>;
+  pendingDispute: BalanceDispute | null;
   // Server actions
   onUpdate: (
     prevState: { errors?: Record<string, string> } | null,
@@ -65,6 +68,7 @@ export function LoadDetailClient({
   canPostToMarketplace,
   isOwnCompanyLoad,
   initialFormData,
+  pendingDispute,
   onUpdate,
   onPostToMarketplace,
   onAssignToTrip,
@@ -168,6 +172,15 @@ export function LoadDetailClient({
         }
         beforeMessagingSlot={
           <>
+            {/* Balance Dispute Alert */}
+            {pendingDispute && (
+              <BalanceDisputeCard
+                dispute={pendingDispute}
+                loadNumber={load.load_number || 'Unknown'}
+                onResolved={() => router.refresh()}
+              />
+            )}
+
             {/* Trip Assignment Info */}
             {load.trip_id && (
               <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">

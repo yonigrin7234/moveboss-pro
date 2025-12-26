@@ -25,6 +25,8 @@ export type PushNotificationType =
   | 'payment_received'
   | 'settlement_approved'
   | 'load_suggestion'
+  | 'balance_dispute'
+  | 'balance_dispute_resolved'
   | 'message'
   | 'general';
 
@@ -892,6 +894,27 @@ export async function notifyOwnerDeliveryStarted(loadId: string): Promise<void> 
 }
 
 /**
+ * Notify owner when driver arrives at delivery location
+ */
+export async function notifyOwnerDriverArrived(loadId: string): Promise<void> {
+  const { ownerId, loadNumber, driverName, tripId } = await getLoadOwnerInfo(loadId);
+
+  if (!ownerId) return;
+
+  await sendPushToUser(
+    ownerId,
+    '📍 Driver Arrived',
+    `${driverName} arrived at delivery location for ${loadNumber}`,
+    {
+      type: 'load_status_changed',
+      loadId,
+      tripId: tripId || undefined,
+    },
+    { channelId: 'activity' }
+  );
+}
+
+/**
  * Notify owner when driver completes delivery
  */
 export async function notifyOwnerDeliveryCompleted(loadId: string): Promise<void> {
@@ -1315,4 +1338,91 @@ export function getConversationNotificationTitle(
     default:
       return 'New Message';
   }
+}
+
+// ============================================
+// BALANCE DISPUTE NOTIFICATION HELPERS
+// ============================================
+
+/**
+ * Notify owner/dispatch when driver files a balance dispute
+ */
+export async function notifyOwnerBalanceDispute(
+  loadId: string,
+  disputeId: string,
+  driverName: string,
+  loadNumber: string,
+  originalBalance: number,
+  driverNote?: string
+): Promise<void> {
+  const loadInfo = await getLoadMarketplaceInfo(loadId);
+
+  if (!loadInfo.ownerId) return;
+
+  const route = loadInfo.origin && loadInfo.destination
+    ? ` (${loadInfo.origin} → ${loadInfo.destination})`
+    : '';
+
+  const body = driverNote
+    ? `${driverName} reported incorrect balance on ${loadNumber}${route}. Note: "${driverNote}"`
+    : `${driverName} reported incorrect balance ($${originalBalance.toFixed(2)}) on ${loadNumber}${route}`;
+
+  await sendPushToUser(
+    loadInfo.ownerId,
+    '⚠️ Balance Dispute',
+    body,
+    {
+      type: 'balance_dispute',
+      loadId,
+      disputeId,
+    },
+    { channelId: 'disputes', sound: 'default' }
+  );
+}
+
+/**
+ * Notify driver when their balance dispute is resolved
+ */
+export async function notifyDriverBalanceDisputeResolved(
+  driverId: string,
+  loadNumber: string,
+  loadId: string,
+  resolutionType: 'confirmed_zero' | 'balance_updated' | 'cancelled',
+  newBalance?: number,
+  resolutionNote?: string
+): Promise<void> {
+  let title: string;
+  let body: string;
+
+  switch (resolutionType) {
+    case 'confirmed_zero':
+      title = '✅ Balance Confirmed';
+      body = `Dispatch confirmed balance is $0 for ${loadNumber}. You may proceed.`;
+      break;
+    case 'balance_updated':
+      title = '💰 Balance Updated';
+      body = newBalance !== undefined
+        ? `Balance for ${loadNumber} updated to $${newBalance.toFixed(2)}. Please collect payment.`
+        : `Balance for ${loadNumber} has been updated. Please check and collect payment.`;
+      break;
+    case 'cancelled':
+      title = '❌ Dispute Cancelled';
+      body = `Balance dispute for ${loadNumber} was cancelled.`;
+      break;
+  }
+
+  if (resolutionNote) {
+    body += ` Note: ${resolutionNote}`;
+  }
+
+  await sendPushToDriver(
+    driverId,
+    title,
+    body,
+    {
+      type: 'balance_dispute_resolved',
+      loadId,
+    },
+    { channelId: 'disputes', sound: 'default' }
+  );
 }

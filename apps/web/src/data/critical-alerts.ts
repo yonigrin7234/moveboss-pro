@@ -18,6 +18,7 @@ export async function getCriticalAlertsForUser(userId: string): Promise<Critical
     pendingLoadRequests: { count: 0, oldestRequestAge: null, items: [] },
     criticalRFD: { criticalCount: 0, urgentCount: 0, approachingCount: 0, totalNeedingAttention: 0 },
     complianceAlerts: { expiredCount: 0, criticalCount: 0, totalCount: 0 },
+    balanceDisputes: { count: 0, items: [] },
     hasAnyAlerts: false,
   };
 
@@ -26,13 +27,15 @@ export async function getCriticalAlertsForUser(userId: string): Promise<Critical
   }
 
   // Fetch data in parallel
-  const [pendingRequestsResult, loadsResult, complianceResult] = await Promise.all([
+  const [pendingRequestsResult, loadsResult, complianceResult, balanceDisputesResult] = await Promise.all([
     // 1. Get pending load requests for company's posted loads
     getPendingLoadRequests(supabase, company.id),
     // 2. Get loads with RFD dates for urgency calculation
     getLoadsForRFDUrgency(supabase, company.id),
     // 3. Get compliance alerts
     getComplianceAlertCounts(supabase, userId),
+    // 4. Get pending balance disputes
+    getPendingBalanceDisputes(supabase, userId),
   ]);
 
   // Calculate RFD urgency counts
@@ -47,6 +50,7 @@ export async function getCriticalAlertsForUser(userId: string): Promise<Critical
       totalNeedingAttention: rfdCounts.critical + rfdCounts.urgent,
     },
     complianceAlerts: complianceResult,
+    balanceDisputes: balanceDisputesResult,
     hasAnyAlerts: false,
   };
 
@@ -54,7 +58,8 @@ export async function getCriticalAlertsForUser(userId: string): Promise<Critical
   result.hasAnyAlerts =
     result.pendingLoadRequests.count > 0 ||
     result.criticalRFD.totalNeedingAttention > 0 ||
-    result.complianceAlerts.totalCount > 0;
+    result.complianceAlerts.totalCount > 0 ||
+    result.balanceDisputes.count > 0;
 
   return result;
 }
@@ -159,6 +164,53 @@ async function getComplianceAlertCounts(
     expiredCount,
     criticalCount,
     totalCount: alerts.length,
+  };
+}
+
+async function getPendingBalanceDisputes(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<CriticalAlertsData['balanceDisputes']> {
+  // Get pending balance disputes for loads owned by this user
+  const { data: disputes, error } = await supabase
+    .from('load_balance_disputes')
+    .select(`
+      id,
+      load_id,
+      original_balance,
+      driver_note,
+      created_at,
+      loads:load_id (
+        load_number
+      ),
+      drivers:driver_id (
+        first_name,
+        last_name
+      )
+    `)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (error || !disputes || disputes.length === 0) {
+    return { count: 0, items: [] };
+  }
+
+  return {
+    count: disputes.length,
+    items: disputes.map(d => {
+      const load = d.loads as unknown as { load_number: string } | null;
+      const driver = d.drivers as unknown as { first_name: string; last_name: string } | null;
+      return {
+        id: d.id,
+        loadId: d.load_id,
+        loadNumber: load?.load_number || 'Unknown',
+        driverName: driver ? `${driver.first_name} ${driver.last_name}` : 'Unknown Driver',
+        originalBalance: d.original_balance,
+        driverNote: d.driver_note,
+        createdAt: d.created_at,
+      };
+    }),
   };
 }
 

@@ -5,7 +5,7 @@
  * Every action is 1-2 taps max.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -29,8 +29,10 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { useLoadDetail } from '../../../../../../hooks/useLoadDetail';
 import { useLoadActions } from '../../../../../../hooks/useLoadActions';
+import { useDriverTripDetail } from '../../../../../../hooks/useDriverTrips';
 import { useImageUpload } from '../../../../../../hooks/useImageUpload';
 import { useToast } from '../../../../../../components/ui/Toast';
+import { supabase } from '../../../../../../lib/supabase';
 import { SuccessCelebration } from '../../../../../../components/ui/SuccessCelebration';
 import { PaymentCardSkeleton } from '../../../../../../components/ui/Skeleton';
 import { Icon, IconName, IconWithBackground } from '../../../../../../components/ui/Icon';
@@ -38,7 +40,7 @@ import { ErrorState } from '../../../../../../components/ui';
 import { colors, typography, spacing, radius, shadows } from '../../../../../../lib/theme';
 import { PaymentMethod, ZelleRecipient } from '../../../../../../types';
 
-type Step = 'select' | 'zelle' | 'photo' | 'confirm' | 'success' | 'zero_balance_warning' | 'zero_balance_auth';
+type Step = 'select' | 'zelle' | 'photo' | 'confirm' | 'success' | 'zero_balance_warning' | 'zero_balance_auth' | 'balance_dispute' | 'dispute_sent';
 
 const PAYMENT_OPTIONS: { value: PaymentMethod; label: string; icon: IconName; color: string }[] = [
   { value: 'cash', label: 'Cash', icon: 'banknote', color: '#22C55E' },
@@ -59,8 +61,35 @@ export default function CollectPaymentScreen() {
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const { load, loading, error, refetch } = useLoadDetail(loadId);
+  const { trip } = useDriverTripDetail(tripId);
   const actions = useLoadActions(loadId, refetch);
   const { uploading, progress, uploadLoadPhoto } = useImageUpload();
+
+  // Find the next load after this one (for navigation after completing delivery)
+  const nextLoadInfo = useMemo(() => {
+    if (!trip?.trip_loads?.length) return null;
+
+    // Sort loads by sequence
+    const sorted = [...trip.trip_loads].sort((a, b) => a.sequence_index - b.sequence_index);
+
+    // Find current load index
+    const currentIndex = sorted.findIndex((tl) => tl.loads.id === loadId);
+    if (currentIndex === -1 || currentIndex >= sorted.length - 1) return null;
+
+    // Get next load
+    const nextLoad = sorted[currentIndex + 1];
+    if (!nextLoad) return null;
+
+    // Check if next load needs delivery (is not already delivered)
+    if (nextLoad.loads.load_status === 'delivered' || nextLoad.loads.load_status === 'storage_completed') {
+      return null;
+    }
+
+    return {
+      id: nextLoad.loads.id,
+      number: nextLoad.loads.load_number || `${nextLoad.sequence_index + 1}`,
+    };
+  }, [trip, loadId]);
 
   // State
   const [step, setStep] = useState<Step>('select');
@@ -72,6 +101,9 @@ export default function CollectPaymentScreen() {
   // $0 balance authorization state
   const [authorizationName, setAuthorizationName] = useState('');
   const [authorizationProofPhoto, setAuthorizationProofPhoto] = useState<string | null>(null);
+
+  // Balance dispute state
+  const [disputeNote, setDisputeNote] = useState('');
 
   // Balance calculation
   const balanceDue =
@@ -189,8 +221,8 @@ export default function CollectPaymentScreen() {
         }
       }
 
-      // Submit payment and start delivery
-      const result = await actions.collectPaymentAndStartDelivery({
+      // Submit payment and complete delivery
+      const result = await actions.collectPaymentAndComplete({
         paymentMethod,
         amountCollected: balanceDue,
         zelleRecipient,
@@ -199,7 +231,7 @@ export default function CollectPaymentScreen() {
       });
 
       if (!result.success) {
-        toast.error(result.error || 'Failed to start delivery');
+        toast.error(result.error || 'Failed to complete delivery');
         setSubmitting(false);
         return;
       }
@@ -212,10 +244,16 @@ export default function CollectPaymentScreen() {
     }
   };
 
-  // Handle success completion - navigate to load detail (now in_transit, ready for Complete Delivery)
+  // Handle success completion - navigate to next load or trip summary (load is now delivered)
   const handleSuccessComplete = useCallback(() => {
-    router.replace(`/(app)/trips/${tripId}/loads/${loadId}`);
-  }, [router, tripId, loadId]);
+    if (nextLoadInfo) {
+      // Navigate to next load
+      router.replace(`/(app)/trips/${tripId}/loads/${nextLoadInfo.id}`);
+    } else {
+      // Navigate back to trip detail (all loads completed)
+      router.replace(`/(app)/trips/${tripId}`);
+    }
+  }, [router, tripId, nextLoadInfo]);
 
   // Handle $0 balance authorization confirmation
   const handleZeroBalanceAuth = useCallback(async () => {
@@ -237,8 +275,8 @@ export default function CollectPaymentScreen() {
         }
       }
 
-      // Submit with authorization info and start delivery
-      const result = await actions.collectPaymentAndStartDelivery({
+      // Submit with authorization info and complete delivery
+      const result = await actions.collectPaymentAndComplete({
         paymentMethod: 'already_paid',
         amountCollected: 0,
         zelleRecipient: null,
@@ -248,7 +286,7 @@ export default function CollectPaymentScreen() {
       });
 
       if (!result.success) {
-        toast.error(result.error || 'Failed to start delivery');
+        toast.error(result.error || 'Failed to complete delivery');
         setSubmitting(false);
         return;
       }
@@ -260,13 +298,60 @@ export default function CollectPaymentScreen() {
     }
   }, [authorizationName, authorizationProofPhoto, actions, loadId, toast, uploadLoadPhoto]);
 
+  // Handle balance dispute submission
+  const handleSubmitDispute = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setSubmitting(true);
+
+    try {
+      // Get auth session for API call
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error('Please sign in again to submit a dispute');
+        setSubmitting(false);
+        return;
+      }
+
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://moveboss.pro';
+      const response = await fetch(`${apiUrl}/api/balance-disputes/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          loadId,
+          tripId,
+          originalBalance: balanceDue,
+          driverNote: disputeNote.trim() || undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.error || 'Failed to submit dispute');
+        setSubmitting(false);
+        return;
+      }
+
+      setSubmitting(false);
+      setStep('dispute_sent');
+    } catch (err) {
+      console.error('[BalanceDispute] Error:', err);
+      toast.error('Failed to contact dispatch. Please try again.');
+      setSubmitting(false);
+    }
+  }, [loadId, tripId, balanceDue, disputeNote, toast]);
+
   // Go back one step
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (step === 'zelle') setStep('select');
     else if (step === 'photo') setStep('select');
-    else if (step === 'zero_balance_auth') setStep('zero_balance_warning');
+    else if (step === 'zero_balance_auth') setStep('select');
     else if (step === 'zero_balance_warning') setStep('select');
+    else if (step === 'balance_dispute') setStep('select');
     else if (step === 'confirm') {
       if (paymentMethod === 'zelle') setStep('zelle');
       else if (photo) setStep('photo');
@@ -363,16 +448,13 @@ export default function CollectPaymentScreen() {
                     </Pressable>
                     <Pressable
                       style={styles.zeroBalanceButton}
-                      onPress={() => {
-                        toast.warning('Contact dispatch to update the balance');
-                        router.back();
-                      }}
+                      onPress={() => setStep('balance_dispute')}
                     >
                       <Icon name="alert-triangle" size={24} color={colors.warning} />
                       <View style={styles.zeroBalanceButtonText}>
                         <Text style={styles.zeroBalanceButtonTitle}>Balance is Wrong</Text>
                         <Text style={styles.zeroBalanceButtonSubtitle}>
-                          Contact dispatch to correct it
+                          Report incorrect balance to dispatch
                         </Text>
                       </View>
                     </Pressable>
@@ -458,7 +540,7 @@ export default function CollectPaymentScreen() {
                     <ActivityIndicator color={colors.white} />
                   ) : (
                     <Text style={styles.confirmButtonText}>
-                      Confirm & Start Delivery ✓
+                      Confirm & Complete Delivery ✓
                     </Text>
                   )}
                 </Pressable>
@@ -578,15 +660,77 @@ export default function CollectPaymentScreen() {
             )}
           </View>
         )}
+
+        {/* Step: Balance Dispute */}
+        {step === 'balance_dispute' && (
+          <View style={styles.content}>
+            <Pressable onPress={handleBack} style={styles.backButton}>
+              <Text style={styles.backText}>← Back</Text>
+            </Pressable>
+            <Text style={styles.stepTitle}>Report Incorrect Balance</Text>
+            <Text style={styles.warningText}>
+              Let dispatch know that the balance shown ($0) is incorrect. They will review and notify you once it's resolved.
+            </Text>
+
+            <View style={styles.authForm}>
+              <Text style={styles.authLabel}>Additional details (optional)</Text>
+              <TextInput
+                style={[styles.authInput, styles.disputeNoteInput]}
+                placeholder="e.g., Customer says they owe $500, BOL shows $500 balance"
+                placeholderTextColor={colors.textMuted}
+                value={disputeNote}
+                onChangeText={setDisputeNote}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+
+              <Pressable
+                style={[styles.confirmButton, styles.disputeButton, submitting && styles.confirmButtonDisabled]}
+                onPress={handleSubmitDispute}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <ActivityIndicator color={colors.white} />
+                ) : (
+                  <Text style={styles.confirmButtonText}>
+                    Notify Dispatch
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* Step: Dispute Sent Confirmation */}
+        {step === 'dispute_sent' && (
+          <View style={styles.content}>
+            <View style={styles.disputeSentContainer}>
+              <View style={styles.disputeSentIcon}>
+                <Icon name="check-circle" size={48} color={colors.success} />
+              </View>
+              <Text style={styles.disputeSentTitle}>Dispatch Notified</Text>
+              <Text style={styles.disputeSentMessage}>
+                Your balance dispute has been sent to dispatch. You'll receive a notification when they've reviewed and resolved it.
+              </Text>
+              <Pressable
+                style={styles.disputeSentButton}
+                onPress={() => router.back()}
+              >
+                <Text style={styles.disputeSentButtonText}>Done</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
         </ScrollView>
       </KeyboardAvoidingView>
 
       {/* Success Celebration */}
       {step === 'success' && (
         <SuccessCelebration
-          title="Payment Collected!"
-          subtitle="Delivery started. Proceed to unload."
-          icon="banknote"
+          title="Delivery Complete!"
+          subtitle={nextLoadInfo ? `Next: Load #${nextLoadInfo.number}` : "All loads delivered!"}
+          icon="check-circle"
           onComplete={handleSuccessComplete}
           autoDismissDelay={2500}
         />
@@ -968,5 +1112,47 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textPrimary,
     fontWeight: '500',
+  },
+  // Balance Dispute styles
+  disputeNoteInput: {
+    minHeight: 80,
+    paddingTop: spacing.md,
+  },
+  disputeButton: {
+    backgroundColor: colors.warning,
+    marginTop: spacing.xl,
+  },
+  disputeSentContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xxl,
+  },
+  disputeSentIcon: {
+    marginBottom: spacing.xl,
+  },
+  disputeSentTitle: {
+    ...typography.title,
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  disputeSentMessage: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: spacing.xl,
+    paddingHorizontal: spacing.lg,
+  },
+  disputeSentButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xxl,
+  },
+  disputeSentButtonText: {
+    ...typography.button,
+    color: colors.white,
   },
 });

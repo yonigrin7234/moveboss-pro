@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Clock, CalendarClock, FileWarning, ArrowRight, X } from 'lucide-react';
+import { Clock, CalendarClock, FileWarning, ArrowRight, X, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CriticalAlertsData } from '@/types/critical-alerts';
 import { formatRequestAge } from '@/lib/format-utils';
@@ -19,7 +19,7 @@ interface CriticalAlertsBannerProps {
   className?: string;
 }
 
-type AlertType = 'requests' | 'rfd' | 'compliance';
+type AlertType = 'requests' | 'rfd' | 'compliance' | 'disputes';
 
 interface AlertItem {
   type: AlertType;
@@ -44,7 +44,8 @@ export function CriticalAlertsBanner({
   const criticalCount = data
     ? data.pendingLoadRequests.count +
       data.criticalRFD.criticalCount +
-      data.complianceAlerts.expiredCount
+      data.complianceAlerts.expiredCount +
+      data.balanceDisputes.count
     : 0;
 
   // Update browser tab title with alert count
@@ -88,6 +89,13 @@ export function CriticalAlertsBanner({
               return next;
             });
           }
+          if (newData.balanceDisputes.count > data.balanceDisputes.count) {
+            setDismissedAlerts(prev => {
+              const next = new Set(prev);
+              next.delete('disputes');
+              return next;
+            });
+          }
         }
       }
     } catch (error) {
@@ -121,6 +129,19 @@ export function CriticalAlertsBanner({
   const alerts: AlertItem[] = [];
 
   if (data) {
+    // Balance disputes (highest priority - driver waiting)
+    if (data.balanceDisputes.count > 0 && !dismissedAlerts.has('disputes')) {
+      const firstDispute = data.balanceDisputes.items[0];
+      alerts.push({
+        type: 'disputes',
+        severity: 'critical',
+        message: `${data.balanceDisputes.count} balance dispute${data.balanceDisputes.count !== 1 ? 's' : ''} from driver${data.balanceDisputes.count !== 1 ? 's' : ''} - ${firstDispute?.driverName || 'Unknown'}`,
+        count: data.balanceDisputes.count,
+        href: firstDispute ? `/dashboard/loads/${firstDispute.loadId}` : '/dashboard/loads',
+        icon: <DollarSign className="h-4 w-4" />,
+      });
+    }
+
     // Pending load requests
     if (data.pendingLoadRequests.count > 0 && !dismissedAlerts.has('requests')) {
       const ageText = data.pendingLoadRequests.oldestRequestAge
@@ -264,7 +285,7 @@ function AlertBannerItem({ alert, onDismiss }: AlertBannerItemProps) {
               styles.button
             )}
           >
-            Fix Now
+            {alert.type === 'disputes' ? 'Resolve' : 'Fix Now'}
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
           <button

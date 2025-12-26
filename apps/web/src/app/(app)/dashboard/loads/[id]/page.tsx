@@ -6,6 +6,7 @@ import { getCompaniesForUser, getWorkspaceCompanyForUser } from '@/data/companie
 import { getDriversForUser } from '@/data/drivers';
 import { getTrucksForUser, getTrailersForUser } from '@/data/fleet';
 import { getTripsForLoadAssignment, addLoadToTrip } from '@/data/trips';
+import { getPendingDisputeForLoad } from '@/data/balance-disputes';
 import { normalizeOwnLoad } from '@/lib/load-detail-model';
 import { type MarketplacePostingData } from './load-actions';
 import { LoadDetailClient } from './LoadDetailClient';
@@ -43,7 +44,7 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
   }
 
   // Fetch related entities for dropdowns
-  const [companies, drivers, trucks, trailers, trips, workspaceCompany, auditLogs] = await Promise.all([
+  const [companies, drivers, trucks, trailers, trips, workspaceCompany, auditLogs, pendingDispute] = await Promise.all([
     getCompaniesForUser(user.id),
     getDriversForUser(user.id),
     getTrucksForUser(user.id),
@@ -51,6 +52,7 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
     getTripsForLoadAssignment(user.id),
     getWorkspaceCompanyForUser(user.id),
     getAuditLogsForEntity('load', id, { limit: 50 }),
+    getPendingDisputeForLoad(id),
   ]);
 
   // Only brokers/moving companies can post to marketplace
@@ -340,6 +342,7 @@ export default async function LoadDetailPage({ params }: LoadDetailPageProps) {
       canPostToMarketplace={canPostToMarketplace}
       isOwnCompanyLoad={isOwnCompanyLoad}
       initialFormData={initialFormData}
+      pendingDispute={pendingDispute}
       onUpdate={updateLoadAction}
       onPostToMarketplace={postToMarketplaceAction}
       onAssignToTrip={assignToTripAction}

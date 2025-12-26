@@ -25,5 +25,17 @@ export interface CriticalAlertsData {
     criticalCount: number;
     totalCount: number;
   };
+  balanceDisputes: {
+    count: number;
+    items: Array<{
+      id: string;
+      loadId: string;
+      loadNumber: string;
+      driverName: string;
+      originalBalance: number;
+      driverNote: string | null;
+      createdAt: string;
+    }>;
+  };
   hasAnyAlerts: boolean;
 }
