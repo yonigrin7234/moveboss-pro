@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { useLoadDetail } from '../../../../../../hooks/useLoadDetail';
 import { useLoadActions } from '../../../../../../hooks/useLoadActions';
 import {
@@ -20,7 +19,7 @@ import {
   LoadInfoSection,
   LoadTimelineSection,
 } from '../../../../../../components/load';
-import { ErrorState } from '../../../../../../components/ui';
+import { ErrorState, Icon } from '../../../../../../components/ui';
 import { colors, typography, spacing, radius } from '../../../../../../lib/theme';
 import type { LoadActions, LoadDetail } from '../../../../../../types';
 import ErrorBoundary from '../../../../../../components/ui/ErrorBoundary';
@@ -38,7 +37,7 @@ export default function LoadDetailScreen() {
     headerTintColor: colors.textPrimary,
     headerLeft: () => (
       <Pressable onPress={() => router.back()} style={{ paddingRight: 16 }}>
-        <Ionicons name="chevron-back" size={28} color={colors.textPrimary} />
+        <Icon name="chevron-left" size={28} color={colors.textPrimary} />
       </Pressable>
     ),
   };
@@ -178,7 +177,7 @@ export default function LoadDetailScreen() {
                   onPress={() => router.push(`/(app)/trips/${tripId}/loads/${loadId}/messages`)}
                 >
                   <View style={styles.messageIconContainer}>
-                    <Text style={styles.messageIcon}>💬</Text>
+                    <Icon name="message-circle" size="lg" color={colors.primary} />
                   </View>
                   <View style={styles.messageContent}>
                     <Text style={styles.messageTitle}>Load Messages</Text>
@@ -248,12 +247,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.borderLight,
+    backgroundColor: colors.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  messageIcon: {
-    fontSize: 20,
   },
   messageContent: {
     flex: 1,

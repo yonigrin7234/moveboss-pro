@@ -25,13 +25,12 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
-import { Ionicons } from '@expo/vector-icons';
 import { useLoadActions } from '../../../../../../hooks/useLoadActions';
 import { useLoadDetail } from '../../../../../../hooks/useLoadDetail';
 import { useImageUpload } from '../../../../../../hooks/useImageUpload';
 import { useDriver } from '../../../../../../providers/DriverProvider';
 import { useAuth } from '../../../../../../providers/AuthProvider';
-import { useToast } from '../../../../../../components/ui';
+import { useToast, Icon } from '../../../../../../components/ui';
 import { DamageDocumentation } from '../../../../../../components/DamageDocumentation';
 import { checkSameCompanyLoads } from '../../../../../../hooks/useLoadHelpers';
 import { colors, typography, spacing, radius } from '../../../../../../lib/theme';
@@ -220,7 +219,7 @@ export default function FinishLoadingScreen() {
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.iconContainer}>
-              <Ionicons name="checkmark-circle-outline" size={40} color={colors.success} />
+              <Icon name="check-circle" size={40} color={colors.success} />
             </View>
             <Text style={styles.title}>Finish Loading</Text>
             <Text style={styles.subtitle}>Document damages, enter ending CUFT, and take a photo</Text>
@@ -229,7 +228,7 @@ export default function FinishLoadingScreen() {
           {/* Multi-load info banner */}
           {!checkingCompanyLoads && otherLoadsCount > 0 && companyName && (
             <View style={styles.multiLoadBanner}>
-              <Ionicons name="information-circle" size={20} color={colors.info} />
+              <Icon name="info" size={20} color={colors.info} />
               <Text style={styles.multiLoadText}>
                 {otherLoadsCount} more load{otherLoadsCount > 1 ? 's' : ''} from {companyName} still loading.
                 {'\n'}Loading report photo will be required on the last one.
@@ -310,7 +309,7 @@ export default function FinishLoadingScreen() {
             {/* Show calculated actual CUFT */}
             {actualCuftLoaded !== null && actualCuftLoaded > 0 && (
               <View style={styles.calculatedCuft}>
-                <Ionicons name="calculator-outline" size={16} color={colors.success} />
+                <Icon name="trending-up" size={16} color={colors.success} />
                 <Text style={styles.calculatedCuftText}>Actual loaded: {actualCuftLoaded} CUFT</Text>
               </View>
             )}
@@ -337,7 +336,7 @@ export default function FinishLoadingScreen() {
               <View style={styles.photoPreviewContainer}>
                 <Image source={{ uri: loadingReportPhoto }} style={styles.photoPreview} />
                 <TouchableOpacity style={styles.retakeButton} onPress={takePhoto} disabled={isLoading}>
-                  <Ionicons name="camera" size={20} color={colors.textPrimary} />
+                  <Icon name="camera" size={20} color={colors.textPrimary} />
                   <Text style={styles.retakeButtonText}>Retake Photo</Text>
                 </TouchableOpacity>
               </View>
@@ -348,8 +347,8 @@ export default function FinishLoadingScreen() {
                 disabled={isLoading}
               >
                 <View style={styles.photoButtonContent}>
-                  <Ionicons
-                    name="document-text-outline"
+                  <Icon
+                    name="file-text"
                     size={48}
                     color={photoRequired ? colors.primary : colors.textMuted}
                   />
@@ -376,7 +375,7 @@ export default function FinishLoadingScreen() {
               </Text>
             ) : (
               <>
-                <Ionicons name="checkmark-circle" size={24} color={colors.background} />
+                <Icon name="check-circle" size={24} color={colors.background} />
                 <Text style={styles.submitButtonText}>Complete Loading</Text>
               </>
             )}

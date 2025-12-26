@@ -4,8 +4,7 @@ import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useDispatchConversation, useConversationMessages } from '../../hooks/useMessaging';
 import { ChatView } from '../../components/messaging/ChatView';
 import { colors, typography, spacing } from '../../lib/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { ErrorState } from '../../components/ui';
+import { ErrorState, Icon } from '../../components/ui';
 import { dataLogger } from '../../lib/logger';
 
 export default function DispatchScreen() {
@@ -77,7 +76,7 @@ export default function DispatchScreen() {
                 onPress={() => router.back()}
                 style={{ marginLeft: 16 }}
               >
-                <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+                <Icon name="arrow-left" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
             ),
           }}
@@ -104,7 +103,7 @@ export default function DispatchScreen() {
                 onPress={() => router.back()}
                 style={{ marginLeft: 16 }}
               >
-                <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+                <Icon name="arrow-left" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
             ),
           }}
@@ -131,7 +130,7 @@ export default function DispatchScreen() {
               onPress={() => router.back()}
               style={{ marginLeft: 16 }}
             >
-              <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+              <Icon name="arrow-left" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
           ),
         }}
@@ -139,7 +138,7 @@ export default function DispatchScreen() {
       <View style={styles.container}>
         {/* Info banner */}
         <View style={styles.infoBanner}>
-          <Ionicons name="headset-outline" size={20} color={colors.primary} />
+          <Icon name="headphones" size={20} color={colors.primary} />
           <Text style={styles.infoText}>
             Direct message with your dispatch team
           </Text>

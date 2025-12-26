@@ -6,8 +6,7 @@ import { useLoadConversations, useConversationMessages } from '../../../../../..
 import { ChatView } from '../../../../../../components/messaging/ChatView';
 import { ConversationListItem } from '../../../../../../types/messaging';
 import { colors, typography, spacing, radius } from '../../../../../../lib/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { ErrorState } from 'components/ui';
+import { ErrorState, Icon } from '../../../../../../components/ui';
 
 export default function LoadMessagesScreen() {
   const { id: tripId, loadId } = useLocalSearchParams<{ id: string; loadId: string }>();
@@ -75,7 +74,7 @@ export default function LoadMessagesScreen() {
           }}
         />
         <View style={[styles.container, styles.centered]}>
-          <Ionicons name="chatbubbles-outline" size={64} color={colors.textMuted} />
+          <Icon name="message-circle" size={64} color={colors.textMuted} />
           <Text style={styles.emptyTitle}>No Messages</Text>
           <Text style={styles.emptyText}>
             You don't have access to any conversations for this load yet.
@@ -96,7 +95,7 @@ export default function LoadMessagesScreen() {
             headerTintColor: colors.textPrimary,
             headerLeft: () => (
               <TouchableOpacity onPress={handleBack} style={styles.headerButton}>
-                <Ionicons name="chevron-back" size={24} color={colors.primary} />
+                <Icon name="chevron-left" size={24} color={colors.primary} />
               </TouchableOpacity>
             ),
           }}
@@ -147,8 +146,8 @@ export default function LoadMessagesScreen() {
                 onPress={() => handleSelectConversation(conv)}
               >
                 <View style={styles.conversationIcon}>
-                  <Ionicons
-                    name={conv.type === 'load_internal' ? 'people' : 'globe'}
+                  <Icon
+                    name={conv.type === 'load_internal' ? 'users' : 'globe'}
                     size={20}
                     color={colors.textSecondary}
                   />
@@ -169,7 +168,7 @@ export default function LoadMessagesScreen() {
                     </Text>
                   )}
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                <Icon name="chevron-right" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             ))}
           </View>

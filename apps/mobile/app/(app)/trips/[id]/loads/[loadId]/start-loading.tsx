@@ -24,12 +24,11 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
-import { Ionicons } from '@expo/vector-icons';
 import { useLoadActions } from '../../../../../../hooks/useLoadActions';
 import { useImageUpload } from '../../../../../../hooks/useImageUpload';
 import { useDriver } from '../../../../../../providers/DriverProvider';
 import { useAuth } from '../../../../../../providers/AuthProvider';
-import { useToast } from '../../../../../../components/ui';
+import { useToast, Icon } from '../../../../../../components/ui';
 import { colors, typography, spacing, radius } from '../../../../../../lib/theme';
 
 export default function StartLoadingScreen() {
@@ -151,7 +150,7 @@ export default function StartLoadingScreen() {
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.iconContainer}>
-              <Ionicons name="cube-outline" size={40} color={colors.primary} />
+              <Icon name="box" size={40} color={colors.primary} />
             </View>
             <Text style={styles.title}>Start Loading</Text>
             <Text style={styles.subtitle}>
@@ -199,7 +198,7 @@ export default function StartLoadingScreen() {
                   onPress={takePhoto}
                   disabled={isLoading}
                 >
-                  <Ionicons name="camera" size={20} color={colors.textPrimary} />
+                  <Icon name="camera" size={20} color={colors.textPrimary} />
                   <Text style={styles.retakeButtonText}>Retake Photo</Text>
                 </TouchableOpacity>
               </View>
@@ -210,7 +209,7 @@ export default function StartLoadingScreen() {
                 disabled={isLoading}
               >
                 <View style={styles.photoButtonContent}>
-                  <Ionicons name="camera" size={48} color={colors.primary} />
+                  <Icon name="camera" size={48} color={colors.primary} />
                   <Text style={styles.photoButtonText}>Tap to Take Photo</Text>
                   <Text style={styles.photoButtonHint}>Required</Text>
                 </View>
@@ -233,7 +232,7 @@ export default function StartLoadingScreen() {
             ) : (
               <>
                 <Text style={styles.submitButtonText}>Continue</Text>
-                <Ionicons name="arrow-forward" size={20} color={colors.background} />
+                <Icon name="arrow-right" size={20} color={colors.background} />
               </>
             )}
           </TouchableOpacity>

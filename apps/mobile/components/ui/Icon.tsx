@@ -145,6 +145,8 @@ import {
   Fuel,
   Wrench,
   Briefcase,
+  Globe,
+  Headphones,
   type LucideIcon,
 } from 'lucide-react-native';
 import { colors } from '../../lib/theme';
@@ -325,6 +327,10 @@ const iconMap = {
   // Tools & Maintenance
   tool: Wrench,
   wrench: Wrench,
+
+  // Communication & Support
+  globe: Globe,
+  headphones: Headphones,
 } as const;
 
 export type IconName = keyof typeof iconMap;

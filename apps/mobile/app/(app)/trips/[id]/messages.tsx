@@ -6,8 +6,7 @@ import { useDriverConversations, useConversationMessages } from '../../../../hoo
 import { ChatView } from '../../../../components/messaging/ChatView';
 import { ConversationListItem } from '../../../../types/messaging';
 import { colors, typography, spacing, radius } from '../../../../lib/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { ErrorState } from 'components/ui';
+import { ErrorState, Icon } from '../../../../components/ui';
 
 export default function TripMessagesScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -63,7 +62,7 @@ export default function TripMessagesScreen() {
           }}
         />
         <View style={[styles.container, styles.centered]}>
-          <Ionicons name="chatbubbles-outline" size={64} color={colors.textMuted} />
+          <Icon name="message-circle" size={64} color={colors.textMuted} />
           <Text style={styles.emptyTitle}>No Messages</Text>
           <Text style={styles.emptyText}>
             You don't have access to any conversations for this trip yet.
@@ -84,7 +83,7 @@ export default function TripMessagesScreen() {
             headerTintColor: colors.textPrimary,
             headerLeft: () => (
               <TouchableOpacity onPress={handleBack} style={styles.headerButton}>
-                <Ionicons name="chevron-back" size={24} color={colors.primary} />
+                <Icon name="chevron-left" size={24} color={colors.primary} />
               </TouchableOpacity>
             ),
           }}
@@ -135,8 +134,8 @@ export default function TripMessagesScreen() {
                 onPress={() => handleSelectConversation(conv)}
               >
                 <View style={styles.conversationIcon}>
-                  <Ionicons
-                    name={conv.type === 'trip_internal' ? 'people' : 'chatbubbles'}
+                  <Icon
+                    name={conv.type === 'trip_internal' ? 'users' : 'message-circle'}
                     size={20}
                     color={colors.textSecondary}
                   />
@@ -157,7 +156,7 @@ export default function TripMessagesScreen() {
                     </Text>
                   )}
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                <Icon name="chevron-right" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             ))}
           </View>
