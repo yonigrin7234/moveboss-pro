@@ -33,7 +33,8 @@ interface LoadStepInfo {
  * Determine the progress status and action for a load
  */
 function getLoadStepInfo(load: TripLoad, index: number, currentDeliveryIndex: number | null): LoadStepInfo {
-  const status = load.loads.load_status;
+  // Default to 'pending' if load_status is null/undefined (handles legacy data)
+  const status = load.loads.load_status || 'pending';
   const deliveryOrder = load.loads.delivery_order;
 
   // Determine if load is completed, current, or upcoming

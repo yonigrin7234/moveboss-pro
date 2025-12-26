@@ -114,7 +114,8 @@ export const findNextActionableLoad = (
   const pickupPhaseStatuses: LoadStatus[] = ['pending', 'accepted', 'loading', 'loaded'];
 
   for (const tripLoad of sorted) {
-    const status = tripLoad.loads.load_status;
+    // Default to 'pending' if load_status is null/undefined (handles legacy data)
+    const status = tripLoad.loads.load_status || 'pending';
     if (pickupPhaseStatuses.includes(status)) {
       const action = getLoadAction(status, tripLoad.loads.arrived_at_delivery);
       if (action) {
@@ -130,7 +131,7 @@ export const findNextActionableLoad = (
   }
 
   // Next, find in_transit loads - these must respect delivery order
-  const inTransitLoads = sorted.filter(l => l.loads.load_status === 'in_transit');
+  const inTransitLoads = sorted.filter(l => (l.loads.load_status || 'pending') === 'in_transit');
 
   if (inTransitLoads.length > 0) {
     // If we have a current delivery index, find the load with matching delivery_order
