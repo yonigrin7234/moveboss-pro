@@ -111,7 +111,7 @@ export function DriverSetup({ userEmail, currentStep }: DriverSetupProps) {
   };
 
   return (
-    <div className="max-w-xl mx-auto space-y-6">
+    <div className="max-w-xl mx-auto px-4 sm:px-0 space-y-6">
       {/* Progress */}
       <div className="flex items-center justify-center gap-2">
         {[1, 2].map((s) => (
@@ -215,7 +215,7 @@ export function DriverSetup({ userEmail, currentStep }: DriverSetupProps) {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First Name *</Label>
                 <Input
@@ -245,7 +245,7 @@ export function DriverSetup({ userEmail, currentStep }: DriverSetupProps) {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="licenseNumber">CDL Number</Label>
                 <Input

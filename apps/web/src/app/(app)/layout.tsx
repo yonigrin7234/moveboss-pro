@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/supabase-server';
 import { CommandPalette } from '@/components/CommandPalette';
+import { MobileAppBanner } from '@/components/MobileAppBanner';
 
 export default async function AppLayout({
   children,
@@ -17,6 +18,7 @@ export default async function AppLayout({
     <>
       {children}
       <CommandPalette />
+      <MobileAppBanner />
     </>
   );
 }

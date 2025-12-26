@@ -120,7 +120,7 @@ export function CarrierSetup({ currentStep }: CarrierSetupProps) {
   };
 
   return (
-    <div className="max-w-xl mx-auto space-y-6">
+    <div className="max-w-xl mx-auto px-4 sm:px-0 space-y-6">
       {/* Progress */}
       <div className="flex items-center justify-center gap-2">
         {[1, 2].map((s) => (
@@ -154,7 +154,7 @@ export function CarrierSetup({ currentStep }: CarrierSetupProps) {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="dotNumber">DOT Number *</Label>
                 <Input

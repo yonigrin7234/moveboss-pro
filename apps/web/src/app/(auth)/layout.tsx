@@ -76,7 +76,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
 
         {/* Right Panel - Auth */}
         <div className="flex justify-center items-center">
-          <div className="w-full max-w-md mx-auto bg-gradient-to-b from-[#0C1017] to-[#080B12] border border-white/5 rounded-2xl p-8 lg:p-10 relative">
+          <div className="w-full max-w-md mx-auto bg-gradient-to-b from-[#0C1017] to-[#080B12] border border-white/5 rounded-2xl p-5 sm:p-8 lg:p-10 relative">
             {/* Top accent line */}
             <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-[200px] h-0.5 rounded-full ${styles.accentLine}`} />
 
