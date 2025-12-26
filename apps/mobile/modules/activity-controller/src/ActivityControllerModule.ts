@@ -1,10 +1,19 @@
-import { requireNativeModule, Platform } from 'expo-modules-core';
+import { Platform } from 'react-native';
 import * as types from './ActivityController.types';
 
-// Get the native module - will be null on Android
-const nativeModule = Platform.OS === 'ios'
-  ? requireNativeModule('ActivityController')
-  : null;
+// Get the native module - will be null on Android or when not compiled
+let nativeModule: any = null;
+
+if (Platform.OS === 'ios') {
+  try {
+    // Dynamic import to avoid crash when module isn't compiled
+    const { requireNativeModule } = require('expo-modules-core');
+    nativeModule = requireNativeModule('ActivityController');
+  } catch (e) {
+    // Module not available - running in Expo Go or not yet compiled
+    console.log('[LiveActivity] Native module not available - rebuild iOS app to enable');
+  }
+}
 
 /**
  * Whether Live Activities are enabled on this device
