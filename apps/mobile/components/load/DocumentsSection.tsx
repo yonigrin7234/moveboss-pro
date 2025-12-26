@@ -18,6 +18,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { useLoadDocuments, DocumentType, LoadDocument } from '../../hooks/useLoadDocuments';
 import { useToast } from '../ui';
+import { Icon } from '../ui';
 import { colors, typography, spacing, radius } from '../../lib/theme';
 
 const DOCUMENT_TYPES: { value: DocumentType; label: string }[] = [
@@ -148,12 +149,17 @@ export function DocumentsSection({ loadId }: DocumentsSectionProps) {
   return (
     <View style={styles.card}>
       <View style={styles.documentsHeader}>
-        <Text style={styles.cardTitle}>Documents</Text>
+        <View style={styles.headerTitleRow}>
+          <Icon name="file-text" size={16} color={colors.textMuted} />
+          <Text style={styles.cardTitle}>Documents</Text>
+        </View>
         <View style={styles.uploadButtons}>
           <TouchableOpacity style={styles.uploadButton} onPress={takePhoto}>
+            <Icon name="camera" size={14} color={colors.primary} />
             <Text style={styles.uploadButtonText}>Camera</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.uploadButton} onPress={pickFromLibrary}>
+            <Icon name="image" size={14} color={colors.primary} />
             <Text style={styles.uploadButtonText}>Library</Text>
           </TouchableOpacity>
         </View>
@@ -282,13 +288,17 @@ const styles = StyleSheet.create({
   cardTitle: {
     ...typography.subheadline,
     color: colors.textPrimary,
-    marginBottom: spacing.itemGap,
   },
   documentsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.itemGap,
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   uploadButtons: {
     flexDirection: 'row',
@@ -300,7 +310,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: radius.xs,
     minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing.xxs,
   },
   uploadButtonText: {
     ...typography.caption,

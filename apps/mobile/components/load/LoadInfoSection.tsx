@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '../ui';
 import { DamageDocumentation } from '../DamageDocumentation';
 import { colors, typography, spacing, radius } from '../../lib/theme';
 import type { LoadDetail } from '../../types';
@@ -79,11 +79,11 @@ export function LoadInfoSection({
         >
           <View style={styles.collapsedHeader}>
             <View style={styles.collapsedTitleRow}>
-              <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+              <Icon name="check-circle" size={18} color={colors.success} />
               <Text style={styles.collapsedTitle}>{pickupLabel}</Text>
               <Text style={styles.completedBadge}>Completed</Text>
             </View>
-            <Ionicons
+            <Icon
               name={showPickupDetails ? 'chevron-up' : 'chevron-down'}
               size={20}
               color={colors.textMuted}
@@ -101,16 +101,21 @@ export function LoadInfoSection({
       ) : (
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>{pickupLabel}</Text>
+            <View style={styles.cardTitleRow}>
+              <Icon name="map-pin" size={18} color={colors.primary} />
+              <Text style={styles.cardTitle}>{pickupLabel}</Text>
+            </View>
             {load.pickup_date && <Text style={styles.cardDate}>{formatDate(load.pickup_date)}</Text>}
           </View>
           <Text style={styles.address}>{pickupAddress}</Text>
           <View style={styles.cardActions}>
             <TouchableOpacity style={styles.actionButton} onPress={onNavigatePickup}>
+              <Icon name="navigation" size={16} color={colors.primary} />
               <Text style={styles.actionButtonText}>Navigate</Text>
             </TouchableOpacity>
             {load.pickup_contact_phone && (
               <TouchableOpacity style={styles.actionButton} onPress={onCallPickupContact}>
+                <Icon name="phone" size={16} color={colors.primary} />
                 <Text style={styles.actionButtonText}>Call</Text>
               </TouchableOpacity>
             )}
@@ -123,48 +128,70 @@ export function LoadInfoSection({
 
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>Delivery</Text>
+          <View style={styles.cardTitleRow}>
+            <Icon name="flag" size={18} color={colors.primary} />
+            <Text style={styles.cardTitle}>Delivery</Text>
+          </View>
           {load.delivery_date && <Text style={styles.cardDate}>{formatDate(load.delivery_date)}</Text>}
         </View>
         <Text style={styles.address}>{deliveryAddress}</Text>
         <View style={styles.cardActions}>
           <TouchableOpacity style={styles.actionButton} onPress={onNavigateDelivery}>
+            <Icon name="navigation" size={16} color={colors.primary} />
             <Text style={styles.actionButtonText}>Navigate</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Load Information</Text>
+        <View style={styles.cardTitleRow}>
+          <Icon name="package" size={18} color={colors.primary} />
+          <Text style={styles.cardTitle}>Load Information</Text>
+        </View>
         <View style={styles.infoGrid}>
           {load.cubic_feet && (
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Estimated CUFT</Text>
+              <View style={styles.infoLabelRow}>
+                <Icon name="box" size={14} color={colors.textMuted} />
+                <Text style={styles.infoLabel}>Estimated CUFT</Text>
+              </View>
               <Text style={styles.infoValue}>{load.cubic_feet}</Text>
             </View>
           )}
           {load.actual_cuft_loaded && (
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Actual CUFT</Text>
+              <View style={styles.infoLabelRow}>
+                <Icon name="check-circle" size={14} color={colors.textMuted} />
+                <Text style={styles.infoLabel}>Actual CUFT</Text>
+              </View>
               <Text style={styles.infoValue}>{load.actual_cuft_loaded}</Text>
             </View>
           )}
           {load.weight_lbs_estimate && (
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Weight (lbs)</Text>
+              <View style={styles.infoLabelRow}>
+                <Icon name="activity" size={14} color={colors.textMuted} />
+                <Text style={styles.infoLabel}>Weight (lbs)</Text>
+              </View>
               <Text style={styles.infoValue}>{load.weight_lbs_estimate.toLocaleString()}</Text>
             </View>
           )}
           {load.pieces_count && (
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Pieces</Text>
+              <View style={styles.infoLabelRow}>
+                <Icon name="layers" size={14} color={colors.textMuted} />
+                <Text style={styles.infoLabel}>Pieces</Text>
+              </View>
               <Text style={styles.infoValue}>{load.pieces_count}</Text>
             </View>
           )}
         </View>
         {load.description && (
           <View style={styles.descriptionSection}>
-            <Text style={styles.infoLabel}>Description</Text>
+            <View style={styles.infoLabelRow}>
+              <Icon name="file-text" size={14} color={colors.textMuted} />
+              <Text style={styles.infoLabel}>Description</Text>
+            </View>
             <Text style={styles.description}>{load.description}</Text>
           </View>
         )}
@@ -192,10 +219,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.itemGap,
   },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   cardTitle: {
     ...typography.subheadline,
     color: colors.textPrimary,
-    marginBottom: spacing.itemGap,
   },
   cardDate: {
     ...typography.bodySmall,
@@ -218,33 +249,43 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     minHeight: 44,
     justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   actionButtonText: {
     ...typography.button,
     color: colors.primary,
   },
   contactName: {
-    ...typography.subheadline,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
   },
   infoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.lg,
+    marginTop: spacing.sm,
   },
   infoItem: {
     minWidth: '45%',
   },
+  infoLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
   infoLabel: {
     ...typography.caption,
     color: colors.textMuted,
-    marginBottom: spacing.xs,
   },
   infoValue: {
     ...typography.body,
     color: colors.textPrimary,
     fontWeight: '500',
+    marginLeft: spacing.lg + spacing.xs,
   },
   descriptionSection: {
     marginTop: spacing.lg,
@@ -256,6 +297,8 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textSecondary,
     lineHeight: 22,
+    marginLeft: spacing.lg + spacing.xs,
+    marginTop: spacing.xs,
   },
   // Collapsed card styles (for already-loaded state)
   collapsedCard: {
@@ -263,7 +306,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     padding: spacing.cardPadding,
     marginBottom: spacing.lg,
-    opacity: 0.8,
   },
   collapsedHeader: {
     flexDirection: 'row',

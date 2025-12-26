@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { StatusBadge } from '../StatusBadge';
 import { WorkflowActionCard } from './WorkflowActionCard';
-import { colors, typography, spacing, radius } from '../../lib/theme';
+import { Icon } from '../ui';
+import { colors, typography, spacing, radius, shadows } from '../../lib/theme';
 import { formatCompanyName } from '../../lib/nameFormatting';
 import type { LoadActions, LoadDetail } from '../../types';
 
@@ -54,18 +55,25 @@ export function LoadHeader({ load, loadId, tripId, actions, onCall, onText }: Lo
 
       {load.companies?.phone && (
         <View style={styles.contactCard}>
-          <View style={styles.contactInfo}>
+          <View style={styles.contactHeader}>
+            <Icon name="headphones" size={16} color={colors.textMuted} />
             <Text style={styles.contactLabel}>Contact Dispatcher</Text>
-            <Text style={styles.contactName}>{formatCompanyName(load.companies.name)}</Text>
-            <Text style={styles.contactPhone}>{load.companies.phone}</Text>
           </View>
-          <View style={styles.contactActions}>
-            <TouchableOpacity style={styles.contactButton} onPress={() => onCall(load.companies?.phone || null)}>
-              <Text style={styles.contactButtonText}>Call</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.contactButton} onPress={() => onText(load.companies?.phone || null)}>
-              <Text style={styles.contactButtonText}>Text</Text>
-            </TouchableOpacity>
+          <View style={styles.contactContent}>
+            <View style={styles.contactInfo}>
+              <Text style={styles.contactName}>{formatCompanyName(load.companies.name)}</Text>
+              <Text style={styles.contactPhone}>{load.companies.phone}</Text>
+            </View>
+            <View style={styles.contactActions}>
+              <TouchableOpacity style={styles.contactButton} onPress={() => onCall(load.companies?.phone || null)}>
+                <Icon name="phone" size={16} color={colors.white} />
+                <Text style={styles.contactButtonText}>Call</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.contactButton, styles.contactButtonSecondary]} onPress={() => onText(load.companies?.phone || null)}>
+                <Icon name="message-circle" size={16} color={colors.white} />
+                <Text style={styles.contactButtonText}>Text</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       )}
@@ -121,6 +129,20 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     padding: spacing.cardPadding,
     marginBottom: spacing.lg,
+  },
+  contactHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  contactLabel: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  contactContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -128,16 +150,10 @@ const styles = StyleSheet.create({
   contactInfo: {
     flex: 1,
   },
-  contactLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-    textTransform: 'uppercase',
-  },
   contactName: {
     ...typography.subheadline,
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.xxs,
   },
   contactPhone: {
     ...typography.bodySmall,
@@ -154,9 +170,15 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     minHeight: 44,
     justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  contactButtonSecondary: {
+    backgroundColor: colors.success,
   },
   contactButtonText: {
     ...typography.button,
-    color: colors.textPrimary,
+    color: colors.white,
   },
 });

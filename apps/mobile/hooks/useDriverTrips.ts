@@ -7,16 +7,35 @@ import { useDriver } from '../providers/DriverProvider';
 import { useTripRealtimeSubscription } from './useRealtimeSubscription';
 import { dataLogger } from '../lib/logger';
 
+// Extended trip type for list view with load summary
+export interface TripWithLoadSummary extends Trip {
+  trip_loads?: Array<{
+    id: string;
+    loads: {
+      id: string;
+      load_status: string;
+    };
+  }>;
+  loads_total?: number;
+  loads_delivered?: number;
+}
+
 export function useDriverTrips() {
   const { user } = useAuth();
   const { driverId, ownerId, loading: driverLoading, error: driverError, isReady: driverReady } = useDriver();
-  const tripsQuery = useQuery<Trip[]>({
+  const tripsQuery = useQuery<TripWithLoadSummary[]>({
     queryKey: ['driverTrips', user?.id, driverId, ownerId],
     enabled: driverReady && !!driverId && !!ownerId,
     queryFn: async () => {
       const { data: tripsData, error: tripsError } = await supabase
         .from('trips')
-        .select('*')
+        .select(`
+          *,
+          trip_loads (
+            id,
+            loads (id, load_status)
+          )
+        `)
         .eq('driver_id', driverId!)
         .eq('owner_id', ownerId!)
         .order('start_date', { ascending: false });
@@ -25,8 +44,23 @@ export function useDriverTrips() {
         throw tripsError;
       }
 
-      const result = tripsData || [];
-      dataLogger.info(`Fetched ${result.length} trips`);
+      // Calculate load summary for each trip
+      const result = (tripsData || []).map(trip => {
+        const loads = trip.trip_loads || [];
+        const loadsTotal = loads.length;
+        const loadsDelivered = loads.filter(
+          (tl: { loads: { load_status: string } }) =>
+            tl.loads?.load_status === 'delivered' || tl.loads?.load_status === 'storage_completed'
+        ).length;
+
+        return {
+          ...trip,
+          loads_total: loadsTotal,
+          loads_delivered: loadsDelivered,
+        };
+      });
+
+      dataLogger.info(`Fetched ${result.length} trips with load summaries`);
       return result;
     },
   });

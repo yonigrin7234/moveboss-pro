@@ -164,7 +164,10 @@ export default function LoadDetailScreen() {
               {/* Messages Section */}
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Messages</Text>
+                  <View style={styles.sectionTitleRow}>
+                    <Icon name="message-square" size={16} color={colors.textMuted} />
+                    <Text style={styles.sectionTitle}>Messages</Text>
+                  </View>
                   <TouchableOpacity
                     onPress={() => router.push(`/(app)/trips/${tripId}/loads/${loadId}/messages`)}
                     style={styles.touchTarget}
@@ -221,9 +224,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.itemGap,
   },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   sectionTitle: {
     ...typography.headline,
-    marginBottom: spacing.itemGap,
   },
   touchTarget: {
     minHeight: 44,

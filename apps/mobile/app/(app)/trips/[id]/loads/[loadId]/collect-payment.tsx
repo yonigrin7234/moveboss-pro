@@ -865,7 +865,7 @@ function PaymentButton({ label, icon, color, onPress }: PaymentButtonProps) {
   }));
 
   return (
-    <Animated.View style={animatedStyle}>
+    <Animated.View style={[styles.paymentButtonWrapper, animatedStyle]}>
       <Pressable
         style={[styles.paymentButton, { borderColor: color }]}
         onPress={onPress}
@@ -938,9 +938,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.md,
+    justifyContent: 'space-between',
+  },
+  paymentButtonWrapper: {
+    width: '47%',
   },
   paymentButton: {
-    width: '47%',
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     borderWidth: 2,
