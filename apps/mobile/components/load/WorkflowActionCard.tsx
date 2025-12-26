@@ -51,7 +51,7 @@ function TrustLevelBadge({ trustLevel }: { trustLevel: 'trusted' | 'cod_required
 export function WorkflowActionCard({
   loadId,
   tripId,
-  loadStatus,
+  loadStatus: rawLoadStatus,
   loadSource,
   postingType,
   pickupCompletedAt,
@@ -65,6 +65,8 @@ export function WorkflowActionCard({
   const router = useRouter();
   const toast = useToast();
   const trustLevel = company?.trust_level || 'cod_required';
+  // Default to 'pending' if load_status is null/undefined (handles legacy data)
+  const loadStatus = rawLoadStatus || 'pending';
 
   // Delivery order check state
   const [deliveryOrderCheck, setDeliveryOrderCheck] = useState<{
