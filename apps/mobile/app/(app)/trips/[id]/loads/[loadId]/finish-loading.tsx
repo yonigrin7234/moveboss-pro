@@ -2,12 +2,12 @@
  * Finish Loading Screen
  *
  * Full-screen experience for completing the loading process.
- * Requires:
- * - Ending cubic feet input
- * - Photo of loading report (REQUIRED)
+ * Smart multi-load flow:
+ * - If other loads from same company are still loading, photo is optional
+ * - If this is the last load from the company, photo is required
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,6 +33,7 @@ import { useDriver } from '../../../../../../providers/DriverProvider';
 import { useAuth } from '../../../../../../providers/AuthProvider';
 import { useToast } from '../../../../../../components/ui';
 import { DamageDocumentation } from '../../../../../../components/DamageDocumentation';
+import { checkSameCompanyLoads } from '../../../../../../hooks/useLoadHelpers';
 import { colors, typography, spacing, radius } from '../../../../../../lib/theme';
 
 export default function FinishLoadingScreen() {
@@ -50,11 +52,39 @@ export default function FinishLoadingScreen() {
   const [loadingReportPhoto, setLoadingReportPhoto] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Multi-load same company state
+  const [checkingCompanyLoads, setCheckingCompanyLoads] = useState(true);
+  const [companyLoadInfo, setCompanyLoadInfo] = useState<{
+    isLastLoadFromCompany: boolean;
+    otherLoadsStillLoading: number;
+    companyLoadsInTrip: number;
+    companyName: string | null;
+  } | null>(null);
+
+  // Check for other loads from same company when component mounts
+  useEffect(() => {
+    if (ownerId && tripId && loadId) {
+      setCheckingCompanyLoads(true);
+      checkSameCompanyLoads(loadId, tripId, ownerId)
+        .then((result) => {
+          setCompanyLoadInfo(result);
+        })
+        .finally(() => {
+          setCheckingCompanyLoads(false);
+        });
+    }
+  }, [loadId, tripId, ownerId]);
+
   // Pre-fill hint for ending CUFT based on starting
   const startingCuft = load?.starting_cuft;
   const cuftHint = startingCuft
     ? `Started at ${startingCuft} CUFT`
     : 'Where on the truck did you finish?';
+
+  // Is loading report photo required?
+  const photoRequired = companyLoadInfo?.isLastLoadFromCompany ?? true;
+  const otherLoadsCount = companyLoadInfo?.otherLoadsStillLoading ?? 0;
+  const companyName = companyLoadInfo?.companyName;
 
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -81,7 +111,8 @@ export default function FinishLoadingScreen() {
       return;
     }
 
-    if (!loadingReportPhoto) {
+    // Only require photo if this is the last load from the company
+    if (photoRequired && !loadingReportPhoto) {
       Alert.alert(
         'Loading Report Photo Required',
         'You must take a photo of the loading report showing the customer info, balance due, and cubic feet loaded.',
@@ -92,21 +123,25 @@ export default function FinishLoadingScreen() {
 
     setSubmitting(true);
     try {
-      // Upload photo
-      const uploadResult = await uploadLoadPhoto(loadingReportPhoto, loadId, 'loading-end');
-      if (!uploadResult.success) {
-        toast.error(uploadResult.error || 'Failed to upload photo');
-        return;
+      let photoUrl: string | undefined;
+
+      // Upload photo if taken
+      if (loadingReportPhoto) {
+        const uploadResult = await uploadLoadPhoto(loadingReportPhoto, loadId, 'loading-end');
+        if (!uploadResult.success) {
+          toast.error(uploadResult.error || 'Failed to upload photo');
+          setSubmitting(false);
+          return;
+        }
+        photoUrl = uploadResult.url;
       }
 
       // Finish loading
-      const result = await actions.finishLoading(
-        parseFloat(endingCuft),
-        uploadResult.url
-      );
+      const result = await actions.finishLoading(parseFloat(endingCuft), photoUrl);
 
       if (!result.success) {
         toast.error(result.error || 'Failed to finish loading');
+        setSubmitting(false);
         return;
       }
 
@@ -140,7 +175,7 @@ export default function FinishLoadingScreen() {
         // For own customer loads, go directly to load detail (ready for delivery)
         router.replace(`/(app)/trips/${tripId}/loads/${loadId}`);
       }
-    } catch (error) {
+    } catch {
       toast.error('Something went wrong. Please try again.');
     } finally {
       setSubmitting(false);
@@ -152,7 +187,8 @@ export default function FinishLoadingScreen() {
     startingCuft && endingCuft ? parseFloat(endingCuft) - startingCuft : null;
 
   const isLoading = submitting || uploading || actions.loading;
-  const canSubmit = endingCuft.trim() && loadingReportPhoto && !isLoading;
+  const canSubmit =
+    endingCuft.trim() && (loadingReportPhoto || !photoRequired) && !isLoading && !checkingCompanyLoads;
 
   return (
     <>
@@ -187,10 +223,19 @@ export default function FinishLoadingScreen() {
               <Ionicons name="checkmark-circle-outline" size={40} color={colors.success} />
             </View>
             <Text style={styles.title}>Finish Loading</Text>
-            <Text style={styles.subtitle}>
-              Document damages, enter ending CUFT, and take a photo
-            </Text>
+            <Text style={styles.subtitle}>Document damages, enter ending CUFT, and take a photo</Text>
           </View>
+
+          {/* Multi-load info banner */}
+          {!checkingCompanyLoads && otherLoadsCount > 0 && companyName && (
+            <View style={styles.multiLoadBanner}>
+              <Ionicons name="information-circle" size={20} color={colors.info} />
+              <Text style={styles.multiLoadText}>
+                {otherLoadsCount} more load{otherLoadsCount > 1 ? 's' : ''} from {companyName} still loading.
+                {'\n'}Loading report photo will be required on the last one.
+              </Text>
+            </View>
+          )}
 
           {/* Load Info Card */}
           <View style={styles.loadInfoCard}>
@@ -266,9 +311,7 @@ export default function FinishLoadingScreen() {
             {actualCuftLoaded !== null && actualCuftLoaded > 0 && (
               <View style={styles.calculatedCuft}>
                 <Ionicons name="calculator-outline" size={16} color={colors.success} />
-                <Text style={styles.calculatedCuftText}>
-                  Actual loaded: {actualCuftLoaded} CUFT
-                </Text>
+                <Text style={styles.calculatedCuftText}>Actual loaded: {actualCuftLoaded} CUFT</Text>
               </View>
             )}
           </View>
@@ -276,38 +319,44 @@ export default function FinishLoadingScreen() {
           {/* Loading Report Photo */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              Loading Report Photo <Text style={styles.required}>*</Text>
+              Loading Report Photo {photoRequired && <Text style={styles.required}>*</Text>}
+              {!photoRequired && <Text style={styles.optional}>(Optional)</Text>}
             </Text>
             <Text style={styles.sectionHint}>
-              Take a photo of the loading report showing:{'\n'}
-              • Customer name & job number{'\n'}
-              • Delivery address{'\n'}
-              • Balance due on delivery{'\n'}
-              • Cubic feet loaded
+              {photoRequired
+                ? `Take a photo of the loading report showing:\n• Customer name & job number\n• Delivery address\n• Balance due on delivery\n• Cubic feet loaded`
+                : `You can skip this for now. The loading report photo will be required when you finish loading the last ${companyName} job.`}
             </Text>
 
-            {loadingReportPhoto ? (
+            {checkingCompanyLoads ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color={colors.primary} />
+                <Text style={styles.loadingText}>Checking company loads...</Text>
+              </View>
+            ) : loadingReportPhoto ? (
               <View style={styles.photoPreviewContainer}>
                 <Image source={{ uri: loadingReportPhoto }} style={styles.photoPreview} />
-                <TouchableOpacity
-                  style={styles.retakeButton}
-                  onPress={takePhoto}
-                  disabled={isLoading}
-                >
+                <TouchableOpacity style={styles.retakeButton} onPress={takePhoto} disabled={isLoading}>
                   <Ionicons name="camera" size={20} color={colors.textPrimary} />
                   <Text style={styles.retakeButtonText}>Retake Photo</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity
-                style={styles.photoButton}
+                style={[styles.photoButton, !photoRequired && styles.photoButtonOptional]}
                 onPress={takePhoto}
                 disabled={isLoading}
               >
                 <View style={styles.photoButtonContent}>
-                  <Ionicons name="document-text-outline" size={48} color={colors.primary} />
-                  <Text style={styles.photoButtonText}>Take Photo of Loading Report</Text>
-                  <Text style={styles.photoButtonHint}>Required</Text>
+                  <Ionicons
+                    name="document-text-outline"
+                    size={48}
+                    color={photoRequired ? colors.primary : colors.textMuted}
+                  />
+                  <Text style={[styles.photoButtonText, !photoRequired && styles.photoButtonTextOptional]}>
+                    {photoRequired ? 'Take Photo of Loading Report' : 'Take Photo (Optional)'}
+                  </Text>
+                  <Text style={styles.photoButtonHint}>{photoRequired ? 'Required' : 'Can skip for now'}</Text>
                 </View>
               </TouchableOpacity>
             )}
@@ -408,6 +457,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: spacing.lg,
   },
+  // Multi-load banner
+  multiLoadBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.infoSoft,
+    borderRadius: radius.md,
+    padding: spacing.cardPadding,
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  multiLoadText: {
+    ...typography.bodySmall,
+    color: colors.info,
+    flex: 1,
+    lineHeight: 20,
+  },
   // Load Info Card styles
   loadInfoCard: {
     backgroundColor: colors.surface,
@@ -444,25 +509,6 @@ const styles = StyleSheet.create({
   startingCuft: {
     color: colors.primary,
   },
-  infoCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    marginBottom: spacing.xl,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  infoLabel: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  infoValue: {
-    ...typography.headline,
-    color: colors.primary,
-  },
   section: {
     marginBottom: spacing.xl,
   },
@@ -479,6 +525,11 @@ const styles = StyleSheet.create({
   },
   required: {
     color: colors.error,
+  },
+  optional: {
+    ...typography.caption,
+    color: colors.textMuted,
+    fontWeight: '400',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -511,6 +562,17 @@ const styles = StyleSheet.create({
     color: colors.success,
     fontWeight: '600',
   },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+    gap: spacing.md,
+  },
+  loadingText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
   photoButton: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -522,6 +584,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 200,
   },
+  photoButtonOptional: {
+    borderColor: colors.borderLight,
+    minHeight: 120,
+  },
   photoButtonContent: {
     alignItems: 'center',
   },
@@ -530,6 +596,10 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginTop: spacing.md,
     textAlign: 'center',
+  },
+  photoButtonTextOptional: {
+    ...typography.body,
+    color: colors.textMuted,
   },
   photoButtonHint: {
     ...typography.caption,
